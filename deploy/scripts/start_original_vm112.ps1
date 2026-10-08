@@ -1,0 +1,183 @@
+[CmdletBinding()]
+param(
+    [switch]$Start,
+    [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
+    [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
+    [string]$DatabaseHost = '',
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [ValidateRange(0, 255)] [int]$MapNumber = 10,
+    [string]$AdvertisedAgentAddress = '192.168.2.244',
+    [string]$ResourceRoot = 'C:\Moxiang\original\stage-20261009\modern\data\PlayDH',
+    [string]$ServerResourceRoot = 'C:\Moxiang\original\stage-20261009\modern\data\PlayDH\Resource\Server'
+)
+
+$ErrorActionPreference = 'Stop'
+$stageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..')).TrimEnd('\')
+$expectedStage = 'C:\Moxiang\original\stage-20261009'
+if (-not [StringComparer]::OrdinalIgnoreCase.Equals($stageRoot, $expectedStage)) {
+    throw "This wrapper is limited to VM112 stage $expectedStage; found $stageRoot"
+}
+if ($LoginPort -eq $AgentPort -or $LoginPort -eq $MapPort -or $AgentPort -eq $MapPort) {
+    throw 'Login, Agent and Map ports must be distinct.'
+}
+if ($AdvertisedAgentAddress -ne '192.168.2.244') {
+    throw 'VM112 must advertise 192.168.2.244 in LoginAck.'
+}
+$localAddresses = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop | Select-Object -ExpandProperty IPAddress)
+if ($localAddresses -notcontains '192.168.2.244') {
+    throw 'This host is not VM112 at 192.168.2.244.'
+}
+
+$manifestPath = Join-Path $stageRoot 'stage-manifest.json'
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Stage manifest is missing.' }
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ([int]$manifest.schema -ne 1 -or [string]$manifest.stage -ne $expectedStage) {
+    throw 'Stage manifest identity mismatch.'
+}
+$writerContract = $manifest.writerContract
+if ($null -eq $writerContract -or
+    [string]$writerContract.id -ne 'original-vm112-modern-mssql-v1' -or
+    [string]$writerContract.stageBuild -ne 'china-x86-debug-20261009' -or
+    [string]$writerContract.databaseHost -ne '192.168.2.238' -or
+    [string]$writerContract.database -ne 'MoxiangOriginalTest_20261009' -or
+    [int]$writerContract.schemaVersion -ne 1 -or
+    [string]$writerContract.resourceProfile -ne 'playdh-current' -or
+    [string]$manifest.sourceHead -notmatch '^[0-9a-f]{40}$' -or
+    [string]$manifest.sourcePatchSha256 -notmatch '^[0-9a-f]{64}$') {
+    throw 'Stage writer contract identity mismatch.'
+}
+foreach ($entry in @($manifest.files)) {
+    $relative = [string]$entry.path
+    if ([IO.Path]::IsPathRooted($relative) -or $relative.Split('/') -contains '..') {
+        throw "Unsafe stage path: $relative"
+    }
+    $path = Join-Path $stageRoot $relative.Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Stage file missing: $relative" }
+    $file = Get-Item -LiteralPath $path
+    if ($file.Length -ne [int64]$entry.bytes -or
+        (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine [string]$entry.sha256) {
+        throw "Stage file hash mismatch: $relative"
+    }
+}
+
+if (-not (Test-Path -LiteralPath $ResourceRoot -PathType Container) -or
+    -not (Test-Path -LiteralPath $ServerResourceRoot -PathType Container)) {
+    throw 'PlayDH or server resource root is missing.'
+}
+$resourceManifestPath = Join-Path $stageRoot 'reference\manifests\playdh-current.sha256.json'
+if ((Get-FileHash -LiteralPath $resourceManifestPath -Algorithm SHA256).Hash -ine
+    [string]$writerContract.resourceManifestSha256) {
+    throw 'Stage writer contract resource digest mismatch.'
+}
+$resourceManifest = Get-Content -LiteralPath $resourceManifestPath -Raw | ConvertFrom-Json
+if ([string]$resourceManifest.profileId -ne 'playdh-current' -or
+    @($resourceManifest.files).Count -ne [int]$resourceManifest.fileCount) {
+    throw 'PlayDH resource manifest is invalid.'
+}
+$actualResourceFiles = @(Get-ChildItem -LiteralPath $ResourceRoot -File -Recurse)
+$actualResourceBytes = [int64](($actualResourceFiles | Measure-Object -Property Length -Sum).Sum)
+if ($actualResourceFiles.Count -ne [int]$resourceManifest.fileCount -or
+    $actualResourceBytes -ne [int64]$resourceManifest.byteCount) {
+    throw 'PlayDH resource file count or byte count mismatch.'
+}
+foreach ($entry in @($resourceManifest.files)) {
+    $relative = [string]$entry.path
+    if ([IO.Path]::IsPathRooted($relative) -or $relative.Split('/') -contains '..') {
+        throw "Unsafe PlayDH path: $relative"
+    }
+    $path = Join-Path $ResourceRoot $relative.Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "PlayDH file missing: $relative" }
+    $file = Get-Item -LiteralPath $path
+    if ($file.Length -ne [int64]$entry.bytes -or
+        (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ine [string]$entry.sha256) {
+        throw "PlayDH hash mismatch: $relative"
+    }
+}
+
+$bin = Join-Path $stageRoot 'modern\build\tools'
+$runtime = Join-Path $stageRoot 'runtime'
+$mapExe = Join-Path $bin 'MoxianMapServer\mxh_map_server_CHINA.exe'
+$agentExe = Join-Path $bin 'MoxianAgentServer\mxh_agent_server_CHINA.exe'
+$loginExe = Join-Path $bin 'MoxianLoginServer\mxh_login_server.exe'
+$serverSpecs = @(
+    [pscustomobject]@{ name = 'map'; exe = $mapExe; port = $MapPort; args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', '192.168.2.244', '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot, '--resource-profile', 'playdh-current', '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv) },
+    [pscustomobject]@{ name = 'agent'; exe = $agentExe; port = $AgentPort; args = @('--port', $AgentPort, '--bind-address', '192.168.2.244', '--map-server', "192.168.2.244:$MapPort", '--default-map', $MapNumber, '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv, '--legacy') },
+    [pscustomobject]@{ name = 'login'; exe = $loginExe; port = $LoginPort; args = @('--port', $LoginPort, '--bind-address', '192.168.2.244', '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort, '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv, '--legacy') }
+)
+
+if (-not $Start) {
+    [ordered]@{
+        mode = 'plan-only'
+        stage = $stageRoot
+        sourceHead = [string]$manifest.sourceHead
+        sourcePatchSha256 = [string]$manifest.sourcePatchSha256
+        resourceProfile = 'playdh-current'
+        resourceRoot = $ResourceRoot
+        resourceFilesVerified = @($resourceManifest.files).Count
+        resourcePaksVerified = @($manifest.resourcePaks).Count
+        databaseHostRequired = $true
+        databaseConfigEnv = $DatabaseConfigEnv
+        startsProcesses = $false
+        runsMigration = $false
+        servers = @($serverSpecs | ForEach-Object { [ordered]@{ name = $_.name; port = $_.port; exe = $_.exe; args = $_.args } })
+    } | ConvertTo-Json -Depth 5
+    return
+}
+
+if ($DatabaseHost -ne '192.168.2.238') {
+    throw 'This VM112 stage may only use the isolated CT930 database host 192.168.2.238.'
+}
+$databaseConfig = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
+if ([string]::IsNullOrWhiteSpace($databaseConfig) -or
+    $databaseConfig -notmatch '(?i)(^|;)\s*backend\s*=\s*mssql_odbc\s*(;|$)' -or
+    $databaseConfig -notmatch '(?i)(^|;)\s*host\s*=\s*([^;]+)') {
+    throw "Protected process environment $DatabaseConfigEnv must contain MSSQL ODBC backend and host."
+}
+if ($Matches[2].Trim() -ine $DatabaseHost) {
+    throw 'Database host in protected configuration does not match -DatabaseHost.'
+}
+foreach ($required in @('database=MoxiangOriginalTest_20261009', 'encrypt=yes', 'trust_server_certificate=no')) {
+    if ($databaseConfig -notlike "*$required*") {
+        throw "Protected database configuration is missing required test isolation or TLS setting: $required"
+    }
+}
+foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
+    if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0) {
+        throw "Port $port is already listening; refusing to take over an existing service."
+    }
+}
+
+$statePath = Join-Path $stageRoot 'run\pids.json'
+if (Test-Path -LiteralPath $statePath -PathType Leaf) {
+    throw 'Existing stage PID manifest found; inspect it before starting another run.'
+}
+$env:PATH = "$runtime;$env:PATH"
+& (Join-Path $PSScriptRoot 'assert_original_writer_contract.ps1') `
+    -DbToolPath (Join-Path $bin 'MoxianDbTool\mxh_db_tool.exe') `
+    -DatabaseConfigEnv $DatabaseConfigEnv
+if (-not $?) {
+    throw 'Isolated MSSQL writer contract check failed.'
+}
+$logRoot = Join-Path $stageRoot 'run\logs'
+$null = New-Item -ItemType Directory -Path $logRoot -Force
+$owned = @()
+try {
+    foreach ($spec in $serverSpecs) {
+        $process = Start-Process -FilePath $spec.exe -ArgumentList $spec.args -WorkingDirectory (Split-Path -Parent $spec.exe) -RedirectStandardOutput (Join-Path $logRoot "$($spec.name).out.log") -RedirectStandardError (Join-Path $logRoot "$($spec.name).err.log") -WindowStyle Hidden -PassThru
+        $owned += [ordered]@{ name = $spec.name; pid = $process.Id; exe = $spec.exe; port = $spec.port }
+        $owned | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $statePath -Encoding UTF8
+        Start-Sleep -Milliseconds 500
+        if ($process.HasExited) { throw "$($spec.name) exited during startup; inspect stage logs." }
+    }
+} catch {
+    foreach ($entry in $owned) {
+        $process = Get-Process -Id $entry.pid -ErrorAction SilentlyContinue
+        if ($null -ne $process -and [StringComparer]::OrdinalIgnoreCase.Equals($process.Path, [string]$entry.exe)) {
+            Stop-Process -Id $entry.pid -Force -ErrorAction SilentlyContinue
+        }
+    }
+    throw
+}
+Write-Host "VM112 original three-service stack started; PID manifest: $statePath"
