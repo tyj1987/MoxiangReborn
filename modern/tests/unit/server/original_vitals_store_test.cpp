@@ -27,16 +27,24 @@ public:
     std::optional<Row> stored;
     int companion_value = 4;
     bool fail_begin = false, fail_cas = false, fail_companion = false;
+    bool zero_companion_rows = false;
     bool fail_commit = false, fail_rollback = false;
     bool commit_despite_error = false;
     int begin_calls = 0, commit_calls = 0, rollback_calls = 0, execute_calls = 0;
+    int disconnect_calls = 0;
 
-    DbResult connect(const mxh::db::ConnectionConfig&) override { return {}; }
-    void disconnect() override {}
-    bool is_connected() const noexcept override { return true; }
+    DbResult connect(const mxh::db::ConnectionConfig&) override { connected = true; return {}; }
+    void disconnect() override {
+        ++disconnect_calls;
+        connected = false;
+        in_transaction = false;
+        staged.reset();
+    }
+    bool is_connected() const noexcept override { return connected; }
     std::string backend_name() const noexcept override { return "mock-no-database"; }
 
     DbResult query(std::string_view, std::span<const mxh::db::Bind>, ResultSet& out) override {
+        if (!connected) return {DbError::NotConnected, "retired mock connection"};
         out = {};
         if (!stored) return {};
         auto field = [](std::optional<std::int64_t> v) -> mxh::db::Value {
@@ -75,6 +83,7 @@ public:
         }
         if (sql == "COMPANION_ITEM_WRITE") {
             if (fail_companion) return {DbError::IoError, "item write failed"};
+            if (zero_companion_rows) return {DbError::Ok, {}, 0};
             staged_companion = 3;
             return {DbError::Ok, {}, 1};
         }
@@ -83,6 +92,7 @@ public:
 
     DbResult begin_transaction() override {
         ++begin_calls;
+        if (!connected) return {DbError::NotConnected, "retired mock connection"};
         if (fail_begin) return {DbError::IoError, "begin failed"};
         in_transaction = true;
         staged = stored;
@@ -106,6 +116,7 @@ public:
     }
 
 private:
+    bool connected = true;
     bool in_transaction = false;
     std::optional<Row> staged;
     int staged_companion = 4;
@@ -178,11 +189,74 @@ TEST(OriginalVitalsStore, StaleRevisionAndFailedRollbackDoNotClaimSuccess) {
     auto after = ready(2);
     after.hp = 80;
     EXPECT_EQ(mxh::server::commit_original_vitals(db, ready(), after),
-              OriginalVitalsCommitState::KnownNotCommitted);
+              OriginalVitalsCommitState::Conflict);
     EXPECT_EQ(db.stored->hp, 125);
     db.fail_rollback = true;
     EXPECT_EQ(mxh::server::commit_original_vitals(db, ready(), after),
               OriginalVitalsCommitState::Unknown);
+    EXPECT_EQ(db.disconnect_calls, 1);
+}
+
+TEST(OriginalVitalsStore, CasConflictQuarantinesOldSessionWithoutFurtherDbCalls) {
+    MockVitalsDb db;
+    db.stored = MockVitalsDb::Row{125, 245, 125, 0, 1, 2};
+    auto after = ready(2);
+    after.hp = 80;
+    mxh::server::OriginalVitalsSession session{ready()};
+    EXPECT_EQ(mxh::server::commit_original_vitals_for_session(db, session, after),
+              OriginalVitalsCommitState::Conflict);
+    EXPECT_TRUE(session.quarantined);
+    EXPECT_FALSE(session.can_publish());
+    EXPECT_EQ(db.rollback_calls, 1);
+    EXPECT_EQ(db.disconnect_calls, 0);
+    const auto begins = db.begin_calls;
+    EXPECT_EQ(mxh::server::commit_original_vitals_for_session(db, session, after),
+              OriginalVitalsCommitState::Unknown);
+    EXPECT_EQ(db.begin_calls, begins);
+    EXPECT_EQ(db.stored->revision, 2);
+}
+
+TEST(OriginalVitalsStore, CompanionNoOpMustFailInsideSameTransaction) {
+    MockVitalsDb db;
+    db.stored = MockVitalsDb::Row{125, 245, 125, 0, 1, 1};
+    db.zero_companion_rows = true;
+    auto after = ready(2);
+    after.hp = 80;
+    const auto checked_item_write = [](mxh::db::IDbAdapter& adapter) {
+        auto result = adapter.execute("COMPANION_ITEM_WRITE");
+        if (result.ok() && result.rows_affected != 1) {
+            return DbResult{DbError::ConstraintViolation, "expected item row was not changed"};
+        }
+        return result;
+    };
+    EXPECT_EQ(mxh::server::commit_original_vitals(db, ready(), after, checked_item_write),
+              OriginalVitalsCommitState::KnownNotCommitted);
+    EXPECT_EQ(db.stored->hp, 125);
+    EXPECT_EQ(db.stored->revision, 1);
+    EXPECT_EQ(db.companion_value, 4);
+    EXPECT_EQ(db.rollback_calls, 1);
+}
+
+TEST(OriginalVitalsStore, FailedBeginNeverRollsBackAndRetiresAdapter) {
+    MockVitalsDb db;
+    db.stored = MockVitalsDb::Row{125, 245, 125, 0, 1, 1};
+    db.fail_begin = true;
+    EXPECT_EQ(mxh::server::commit_original_vitals(db, ready(), ready(2)),
+              OriginalVitalsCommitState::Unknown);
+    EXPECT_EQ(db.rollback_calls, 0);
+    EXPECT_EQ(db.disconnect_calls, 1);
+}
+
+TEST(OriginalVitalsStore, FailedCommitRetiresSharedAdapterEvenAfterRollback) {
+    MockVitalsDb db;
+    db.stored = MockVitalsDb::Row{125, 245, 125, 0, 1, 1};
+    db.fail_commit = true;
+    EXPECT_EQ(mxh::server::commit_original_vitals(db, ready(), ready(2)),
+              OriginalVitalsCommitState::Unknown);
+    EXPECT_EQ(db.rollback_calls, 1);
+    EXPECT_EQ(db.disconnect_calls, 1);
+    EXPECT_FALSE(db.is_connected());
+    EXPECT_EQ(db.stored->revision, 1);
 }
 
 TEST(OriginalVitalsStore, LostCommitReplyRemainsUnknownEvenIfReadbackSeesIt) {
@@ -198,6 +272,8 @@ TEST(OriginalVitalsStore, LostCommitReplyRemainsUnknownEvenIfReadbackSeesIt) {
               OriginalVitalsCommitState::Unknown);
     EXPECT_TRUE(session.quarantined);
     EXPECT_FALSE(session.can_publish());
+    EXPECT_EQ(db.disconnect_calls, 1);
+    ASSERT_TRUE(db.connect({}).ok());  // fresh adapter/login readback, not old session reuse
     const auto observed = mxh::server::load_original_vitals(db, 100004);
     ASSERT_EQ(observed.state, OriginalVitalsLoadState::Ready);
     EXPECT_EQ(observed.record->revision, 2);

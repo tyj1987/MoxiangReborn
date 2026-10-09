@@ -33,12 +33,14 @@ struct OriginalVitalsLoadResult {
     std::optional<OriginalVitalsRecord> record;
 };
 
-// A known failure requires a confirmed rollback. Commit errors, lost replies,
-// and failed rollback are unknown; the caller must quarantine its old session
-// until a fresh login reads player ID, revision, and all four vitals fields.
+// A known failure requires a confirmed rollback. Conflict means that the
+// persisted revision or values no longer match this session, so it must be
+// quarantined despite the confirmed rollback. Commit errors, lost replies,
+// and failed rollback are unknown and also quarantine the old session.
 enum class OriginalVitalsCommitState {
     Committed,
     KnownNotCommitted,
+    Conflict,
     Unknown,
 };
 
@@ -69,7 +71,10 @@ using OriginalVitalsCompanionWrite =
     std::function<mxh::db::DbResult(mxh::db::IDbAdapter&)>;
 
 // The optional companion writes items, equipment, or progression in the SAME
-// transaction. Nothing is published in memory or on the wire until Committed.
+// transaction. Its caller must check its own expected row counts and convert
+// a no-op or partial write into a non-Ok DbResult; this generic API cannot
+// assume every companion changes exactly one row. Nothing is published in
+// memory or on the wire until Committed.
 [[nodiscard]] OriginalVitalsCommitState commit_original_vitals(
     mxh::db::IDbAdapter& db,
     const OriginalVitalsRecord& expected,

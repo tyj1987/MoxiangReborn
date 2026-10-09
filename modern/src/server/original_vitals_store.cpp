@@ -23,13 +23,28 @@ bool read_u32(const mxh::db::Value& value, std::uint32_t& out) noexcept {
     return true;
 }
 
-OriginalVitalsCommitState confirmed_rollback_or_unknown(mxh::db::IDbAdapter& db) {
+void retire_connection(mxh::db::IDbAdapter& db) noexcept {
+    try { db.disconnect(); } catch (...) {}
+}
+
+OriginalVitalsCommitState confirmed_rollback_or_unknown(
+    mxh::db::IDbAdapter& db,
+    OriginalVitalsCommitState confirmed = OriginalVitalsCommitState::KnownNotCommitted) {
     try {
-        return db.rollback().ok() ? OriginalVitalsCommitState::KnownNotCommitted
-                                  : OriginalVitalsCommitState::Unknown;
+        if (db.rollback().ok()) return confirmed;
     } catch (...) {
-        return OriginalVitalsCommitState::Unknown;
     }
+    retire_connection(db);
+    return OriginalVitalsCommitState::Unknown;
+}
+
+OriginalVitalsCommitState uncertain_commit(mxh::db::IDbAdapter& db) noexcept {
+    // The server may have committed despite a lost reply. Rollback is cleanup,
+    // never proof that the write was not committed. Retire the shared adapter
+    // before another player can inherit a possibly open transaction.
+    try { (void)db.rollback(); } catch (...) {}
+    retire_connection(db);
+    return OriginalVitalsCommitState::Unknown;
 }
 
 }  // namespace
@@ -102,8 +117,12 @@ OriginalVitalsCommitState initialize_original_vitals(
         return OriginalVitalsCommitState::KnownNotCommitted;
     }
     bool begun = false;
+    bool committing = false;
     try {
-        if (!db.begin_transaction().ok()) return OriginalVitalsCommitState::Unknown;
+        if (!db.begin_transaction().ok()) {
+            retire_connection(db);  // Never roll back a transaction we did not begin.
+            return OriginalVitalsCommitState::Unknown;
+        }
         begun = true;
         const auto write = db.execute(
             "UPDATE modern_player_vitals SET hp=?,shield=?,mp=?,dead=0,initialized=1,"
@@ -115,10 +134,13 @@ OriginalVitalsCommitState initialize_original_vitals(
              mxh::db::bind(static_cast<std::int64_t>(initial.mp)),
              mxh::db::bind(static_cast<std::int64_t>(initial.player_id))});
         if (!write.ok() || write.rows_affected != 1) return confirmed_rollback_or_unknown(db);
+        committing = true;
         return db.commit().ok() ? OriginalVitalsCommitState::Committed
-                                : OriginalVitalsCommitState::Unknown;
+                                : uncertain_commit(db);
     } catch (...) {
-        if (begun) (void)confirmed_rollback_or_unknown(db);
+        if (committing) return uncertain_commit(db);
+        if (begun) return confirmed_rollback_or_unknown(db);
+        retire_connection(db);
         return OriginalVitalsCommitState::Unknown;
     }
 }
@@ -136,8 +158,12 @@ OriginalVitalsCommitState commit_original_vitals(
         return OriginalVitalsCommitState::KnownNotCommitted;
     }
     bool begun = false;
+    bool committing = false;
     try {
-        if (!db.begin_transaction().ok()) return OriginalVitalsCommitState::Unknown;
+        if (!db.begin_transaction().ok()) {
+            retire_connection(db);  // Never roll back a transaction we did not begin.
+            return OriginalVitalsCommitState::Unknown;
+        }
         begun = true;
         const auto write = db.execute(
             "UPDATE modern_player_vitals SET hp=?,shield=?,mp=?,dead=?,"
@@ -155,15 +181,21 @@ OriginalVitalsCommitState commit_original_vitals(
              mxh::db::bind(static_cast<std::int64_t>(expected.shield)),
              mxh::db::bind(static_cast<std::int64_t>(expected.mp)),
              mxh::db::bind(static_cast<std::int64_t>(expected.dead))});
-        if (!write.ok() || write.rows_affected != 1) return confirmed_rollback_or_unknown(db);
+        if (!write.ok()) return confirmed_rollback_or_unknown(db);
+        if (write.rows_affected != 1) {
+            return confirmed_rollback_or_unknown(db, OriginalVitalsCommitState::Conflict);
+        }
         if (companion) {
             const auto other = companion(db);
             if (!other.ok()) return confirmed_rollback_or_unknown(db);
         }
+        committing = true;
         return db.commit().ok() ? OriginalVitalsCommitState::Committed
-                                : OriginalVitalsCommitState::Unknown;
+                                : uncertain_commit(db);
     } catch (...) {
-        if (begun) (void)confirmed_rollback_or_unknown(db);
+        if (committing) return uncertain_commit(db);
+        if (begun) return confirmed_rollback_or_unknown(db);
+        retire_connection(db);
         return OriginalVitalsCommitState::Unknown;
     }
 }
@@ -177,7 +209,8 @@ OriginalVitalsCommitState commit_original_vitals_for_session(
     const auto result = commit_original_vitals(db, session.record, candidate, companion);
     if (result == OriginalVitalsCommitState::Committed) {
         session.record = candidate;
-    } else if (result == OriginalVitalsCommitState::Unknown) {
+    } else if (result == OriginalVitalsCommitState::Unknown ||
+               result == OriginalVitalsCommitState::Conflict) {
         session.quarantined = true;
     }
     return result;
