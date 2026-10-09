@@ -169,6 +169,9 @@ public:
     TcpServer& operator=(const TcpServer&) = delete;
 
     [[nodiscard]] NetError start(const ServerConfig& cfg);
+    // A call from a connection callback only requests shutdown. One external
+    // owner must call stop() again to join I/O threads and release sockets;
+    // it must finish before that owner destroys the server.
     void stop();
     [[nodiscard]] bool is_running() const noexcept { return running_.load(); }
 
