@@ -68,21 +68,22 @@ LONG WINAPI veh_filter(EXCEPTION_POINTERS* ep) noexcept {
     const ULONG_PTR exc_obj = er->NumberParameters >= 1
         ? er->ExceptionInformation[0]
         : 0UL;
-    const ULONG_PTR ebp = ep->ContextRecord
-        ? ep->ContextRecord->Ebp
-        : 0UL;
-    const ULONG_PTR esp = ep->ContextRecord
-        ? ep->ContextRecord->Esp
-        : 0UL;
+#if defined(_M_X64) || defined(__x86_64__)
+    const ULONG_PTR frame_ptr = ep->ContextRecord ? ep->ContextRecord->Rbp : 0UL;
+    const ULONG_PTR stack_ptr = ep->ContextRecord ? ep->ContextRecord->Rsp : 0UL;
+#else
+    const ULONG_PTR frame_ptr = ep->ContextRecord ? ep->ContextRecord->Ebp : 0UL;
+    const ULONG_PTR stack_ptr = ep->ContextRecord ? ep->ContextRecord->Esp : 0UL;
+#endif
     std::snprintf(line, sizeof(line),
                   "mxh_client: VEH throw site pid=%lu tid=%lu code=0x%08lX "
-                  "addr=0x%IX obj=0x%IX nparams=%lu ebp=0x%IX esp=0x%IX "
+                  "addr=0x%IX obj=0x%IX nparams=%lu frame=0x%IX stack=0x%IX "
                   "run_id=%s\n",
                   GetCurrentProcessId(), GetCurrentThreadId(),
                   static_cast<unsigned long>(er->ExceptionCode),
                   exc_addr, exc_obj,
                   static_cast<unsigned long>(er->NumberParameters),
-                  ebp, esp,
+                  frame_ptr, stack_ptr,
                   g_run_id);
     // Capture the stack so we can map the throw call site to a
     // CInGameState.cpp line.  EBP-based walk avoids the safe-SEH
