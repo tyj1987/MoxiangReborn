@@ -166,3 +166,13 @@ TEST(FontObjectGlyph, CharCodeTypeAsciiAndUnicodeDistinct) {
     EXPECT_EQ(static_cast<std::uint32_t>(mxh::gx::CHAR_CODE_TYPE_ASCII),   1u);
     EXPECT_EQ(static_cast<std::uint32_t>(mxh::gx::CHAR_CODE_TYPE_UNICODE), 2u);
 }
+
+TEST(FontObjectGlyph, RectTopIsLineTopRatherThanGlyphBaseline) {
+    using mxh::gx::dx11::glyph_top_from_line_top;
+    // GDI reports a baseline-relative glyph origin. The old RenderFont
+    // places the font line itself at RECT.top, including at viewport y=0.
+    EXPECT_EQ(glyph_top_from_line_top(0, 12, 10), 2);
+    EXPECT_EQ(glyph_top_from_line_top(26, 12, 10), 28);
+    EXPECT_EQ(glyph_top_from_line_top(0, 12, 12), 0);
+    EXPECT_EQ(glyph_top_from_line_top(0, 12, 4), 8);
+}

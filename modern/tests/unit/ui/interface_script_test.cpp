@@ -77,6 +77,49 @@ TEST(InterfaceScriptParser, ParsesSingleRootDialog) {
     EXPECT_EQ(out.roots[0]->type, "MAINDLG");
 }
 
+TEST(InterfaceScriptParser, ParsesLegacyStaticTextStyleWithoutChangingDefaults) {
+    constexpr std::string_view script = R"(
+$DLG
+{
+  $STATIC
+  {
+    #ID STYLED
+    #FGCOLOR 208 234 245
+    #TEXTXY 10 6
+    #TEXTALIGN 2
+    #SHADOW 1
+    #SHADOWCOLOR 10 10 10
+    #SHADOWTEXTXY 1 1
+  }
+  $STATIC
+  {
+    #ID PLAIN
+  }
+}
+)";
+    const auto parsed = parse_interface_script(script);
+    const auto* styled = mxh::ui::find_node_by_id(parsed, "STYLED");
+    const auto* plain = mxh::ui::find_node_by_id(parsed, "PLAIN");
+    ASSERT_NE(styled, nullptr);
+    ASSERT_NE(plain, nullptr);
+    ASSERT_TRUE(styled->fg_color.has_value());
+    EXPECT_EQ((*styled->fg_color)[0], 208);
+    EXPECT_EQ((*styled->fg_color)[1], 234);
+    EXPECT_EQ((*styled->fg_color)[2], 245);
+    ASSERT_TRUE(styled->text_xy.has_value());
+    EXPECT_EQ((*styled->text_xy)[0], 10);
+    EXPECT_EQ((*styled->text_xy)[1], 6);
+    EXPECT_EQ(styled->text_align, 2);
+    EXPECT_EQ(styled->shadow, true);
+    ASSERT_TRUE(styled->shadow_color.has_value());
+    EXPECT_EQ((*styled->shadow_color)[0], 10);
+    ASSERT_TRUE(styled->shadow_text_xy.has_value());
+    EXPECT_EQ((*styled->shadow_text_xy)[0], 1);
+    EXPECT_EQ((*styled->shadow_text_xy)[1], 1);
+    EXPECT_FALSE(plain->fg_color.has_value());
+    EXPECT_FALSE(plain->shadow.has_value());
+}
+
 TEST(InterfaceScriptParser, ParsesDialogProperties) {
     auto out = parse_interface_script(kMainDlgSnippet);
     auto& root = *out.roots[0];

@@ -248,6 +248,27 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
         node.font_idx_set = true;
         return true;
     }
+    if (prop == "FGCOLOR" || prop == "SHADOWCOLOR") {
+        std::array<std::int32_t, 3> rgb{};
+        for (auto& channel : rgb) if (!parse_int(payload, pos, channel)) return false;
+        if (prop == "FGCOLOR") node.fg_color = rgb;
+        else node.shadow_color = rgb;
+        return true;
+    }
+    if (prop == "TEXTXY" || prop == "SHADOWTEXTXY") {
+        std::array<std::int32_t, 2> xy{};
+        for (auto& coordinate : xy) if (!parse_int(payload, pos, coordinate)) return false;
+        if (prop == "TEXTXY") node.text_xy = xy;
+        else node.shadow_text_xy = xy;
+        return true;
+    }
+    if (prop == "TEXTALIGN" || prop == "SHADOW") {
+        std::int32_t value;
+        if (!parse_int(payload, pos, value)) return false;
+        if (prop == "TEXTALIGN") node.text_align = value;
+        else node.shadow = value != 0;
+        return true;
+    }
     if (prop == "COLS" || prop == "ROWS") {
         std::int32_t value;
         if (!parse_int(payload, pos, value)) return false;
@@ -276,26 +297,20 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
         node.func = tok;
         return true;
     }
-    // Properties below are recognized for 1:1 fidelity to the legacy
-    // format (so the parser doesn't accidentally skip the *next*
-    // property line). The values themselves are not surfaced in the
-    // modern InterfaceNode yet — only the parser skip semantics matter.
+    // Remaining properties are consumed to preserve legacy parsing even
+    // where the modern widget has no matching behavior yet.
     // Each consumes a fixed number of int arguments.
     struct IntArgs {
         std::int32_t count;
     };
     static const std::unordered_map<std::string, IntArgs> kIntProps = {
-        {"FGCOLOR",        {3}},
         {"TEXTCOLOR",      {6}},
-        {"SHADOWCOLOR",    {3}},
         {"EDITSIZE",       {2}},
         {"SPINSIZE",       {2}},
         {"TEXTRECT",       {4}},
         {"TEXTSHADOWRECT", {4}},
-        {"TEXTXY",         {2}},
         {"CAPTIONRECT",    {4}},
         {"LIMITBYTES",     {1}},
-        {"TEXTALIGN",      {1}},
         {"MAXLINE",        {1}},
         {"LISTMAXLINE",    {1}},
         {"LINEHEIGHT",     {1}},
@@ -315,7 +330,7 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
     }
     // Single-bool properties.
     static const std::unordered_set<std::string> kBoolProps = {
-        "SHADOW", "AUTOSCROLL", "PASSIVE", "READONLY", "SECRET",
+        "AUTOSCROLL", "PASSIVE", "READONLY", "SECRET",
     };
     if (kBoolProps.count(std::string(prop))) {
         std::int32_t junk;

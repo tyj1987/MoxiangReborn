@@ -36,6 +36,7 @@
 #include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpin.hpp"
+#include "mxh/ui/cStatic.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
 #include "mxh/ui/cTabDialog.hpp"
 #include "mxh/ui/cTextArea.hpp"
@@ -137,6 +138,47 @@ int main() {
         EXPECT_EQ(rep.point_w, 602, "MAINDLG #POINT.w == 602");
         EXPECT_EQ(rep.point_h, 42,  "MAINDLG #POINT.h == 42");
         EXPECT_EQ(wm.dialogCount(), std::size_t(1), "WM holds 1 dialog");
+    }
+
+    // ---- Test 2: LoadOneMissingFileReportsError ----
+    // Real PlayDH HUD text style must survive both parsing and widget creation.
+    {
+        mxh::ui::cWindowManager wm;
+        const auto gauge = mxh::ui::cDialogLoader::LoadOne(is_dir / "23.bin", wm);
+        const auto mini = mxh::ui::cDialogLoader::LoadOne(is_dir / "17.bin", wm);
+        EXPECT(gauge.ok && mini.ok, "canonical HUD dialogs load");
+        const auto* level = dynamic_cast<mxh::ui::cStatic*>(
+            wm.findWindowByLegacyId("CG_GUAGELEVEL"));
+        const auto* name = dynamic_cast<mxh::ui::cStatic*>(
+            wm.findWindowByLegacyId("CG_GUAGENAME"));
+        const auto* life = dynamic_cast<mxh::ui::cStatic*>(
+            wm.findWindowByLegacyId("CG_GUAGELIFETEXT"));
+        const auto* pos = dynamic_cast<mxh::ui::cStatic*>(
+            wm.findWindowByLegacyId("MNM_POSXY"));
+        EXPECT(level && name && life && pos, "canonical HUD labels exist");
+        if (level) {
+            EXPECT_EQ(level->GetFGColor(), 0xFFFFFFFFu, "level text white");
+            EXPECT_EQ(level->GetTextX(), 10, "level text x offset");
+            EXPECT_EQ(level->GetTextY(), 6, "level text y offset");
+            EXPECT(level->GetAlign() == mxh::ui::cStatic::Align::Center,
+                   "script TEXTALIGN 2 means center");
+            EXPECT(level->HasShadow(), "level shadow enabled");
+            EXPECT_EQ(level->GetShadowColor(), 0xFF0A0A0Au, "level shadow color");
+            EXPECT_EQ(level->GetShadowTextX(), 1, "level shadow x offset");
+            EXPECT_EQ(level->GetShadowTextY(), 1, "level shadow y offset");
+        }
+        if (name) {
+            EXPECT_EQ(name->GetFGColor(), 0xFFFFFFFFu, "name text white");
+            EXPECT(name->GetAlign() == mxh::ui::cStatic::Align::Center,
+                   "name centered by script");
+        }
+        if (life) EXPECT_EQ(life->GetFGColor(), 0xFFFFFFFFu, "life text white");
+        if (pos) {
+            EXPECT_EQ(pos->GetFGColor(), 0xFFD0EAF5u, "minimap text pale blue");
+            EXPECT(pos->HasShadow(), "minimap shadow enabled");
+            EXPECT_EQ(pos->GetShadowTextX(), 1, "minimap shadow x offset");
+            EXPECT_EQ(pos->GetShadowTextY(), 1, "minimap shadow y offset");
+        }
     }
 
     // ---- Test 2: LoadOneMissingFileReportsError ----

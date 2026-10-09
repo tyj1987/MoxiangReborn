@@ -84,6 +84,12 @@ struct InterfaceNode {
     bool alpha_set = false;               // true if #ALPHA was explicit
     std::int32_t font_idx = 0;            // #FONTIDX
     bool font_idx_set = false;            // true if #FONTIDX was explicit
+    std::optional<std::array<std::int32_t, 3>> fg_color;      // #FGCOLOR RGB
+    std::optional<std::array<std::int32_t, 2>> text_xy;       // #TEXTXY x y
+    std::optional<std::int32_t> text_align;                   // #TEXTALIGN: 0 left, 1 right, 2 center
+    std::optional<bool> shadow;                              // #SHADOW
+    std::optional<std::array<std::int32_t, 3>> shadow_color;  // #SHADOWCOLOR RGB
+    std::optional<std::array<std::int32_t, 2>> shadow_text_xy; // #SHADOWTEXTXY x y
     std::uint16_t grid_cols = 1;
     std::uint16_t grid_rows = 1;
     std::optional<WindowRect> init_grid;

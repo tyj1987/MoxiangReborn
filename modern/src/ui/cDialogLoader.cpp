@@ -200,6 +200,27 @@ void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
             button->SetFontIdx(font);
         }
     }
+    if (auto* label = dynamic_cast<cStatic*>(&window)) {
+        const auto rgb = [](const std::array<std::int32_t, 3>& value) {
+            return 0xFF000000u |
+                (static_cast<std::uint32_t>(std::clamp(value[0], 0, 255)) << 16) |
+                (static_cast<std::uint32_t>(std::clamp(value[1], 0, 255)) << 8) |
+                static_cast<std::uint32_t>(std::clamp(value[2], 0, 255));
+        };
+        if (node.fg_color) label->SetFGColor(rgb(*node.fg_color));
+        if (node.text_xy) label->SetTextXY((*node.text_xy)[0], (*node.text_xy)[1]);
+        if (node.shadow) label->SetShadow(*node.shadow);
+        if (node.shadow_color) label->SetShadowColor(rgb(*node.shadow_color));
+        if (node.shadow_text_xy) {
+            label->SetShadowTextXY((*node.shadow_text_xy)[0],
+                                   (*node.shadow_text_xy)[1]);
+        }
+        // cScriptManager maps script 0/1/2 to left/right/center; the
+        // modern enum has a different ordinal order.
+        if (node.text_align == 0) label->SetAlign(cStatic::Align::Left);
+        else if (node.text_align == 1) label->SetAlign(cStatic::Align::Right);
+        else if (node.text_align == 2) label->SetAlign(cStatic::Align::Center);
+    }
 }
 
 void applyLegacyText(cWindow& window, const InterfaceNode& node,
