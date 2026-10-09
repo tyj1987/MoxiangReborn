@@ -5,6 +5,7 @@ add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
     font_object_test.cpp
+    primitives_color_test.cpp
     height_field_test.cpp
     height_field_rendergrid_test.cpp
     hfield_object_test.cpp
@@ -263,6 +264,8 @@ gtest_add_tests(TARGET mxh_render_tests
     FileStorageCrossStructTest.HeaderIsSmallerThanAtomInfo
     FileStorageCrossStructTest.NamesAreRawCharArrays
     # R-9.x: 3D solid VS shader source validation
+    PrimitiveTexturedColor.CanonicalLightBlueProducesRgbaVertexBytes
+    PrimitiveTexturedColor.AsymmetricRgbAndAlphaKeepChannelOrder
     Primitives3DShader.Solid2DVSCompiles
     Primitives3DShader.Solid2DVSInputSignature
     Primitives3DShader.Solid3DVSCompiles
