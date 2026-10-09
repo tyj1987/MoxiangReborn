@@ -35,6 +35,7 @@
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/game/experience_curve.hpp"
 #include "ClientUiRuntime.hpp"
+#include "WorldScreenProjection.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -209,19 +210,6 @@ struct EffectEvent {
 };
 
 std::optional<NpcInfo> parse_legacy_npc_add(std::span<const std::uint8_t> payload);
-
-// Approximate world -> screen projection for static NPC markers, using the
-// same camera convention as the terrain scene (yaw around Y, forward = +Z at
-// yaw 0). Returns false when the marker is behind the camera.
-bool project_npc_to_screen(float player_x, float player_z, float yaw,
-                           float npc_x, float npc_z,
-                           float& screen_x, float& screen_y) noexcept;
-
-// Inverse of project_npc_to_screen for the fixed 4:3 logical world canvas.
-// Returns false for clicks behind the camera plane.
-bool unproject_screen_to_world(float player_x, float player_z, float yaw,
-                               float screen_x, float screen_y,
-                               float& world_x, float& world_z) noexcept;
 
 // -------------------------------------------------------------------------
 // In-game input + gameplay wire helpers (pure functions, unit-tested).
@@ -398,6 +386,13 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     void OnMouseWheel(std::int32_t delta);
     void set_world_bounds(float max_x, float max_z) noexcept;
     void set_collision_query(std::function<bool(float, float, float)> query);
+    using GroundScreenQuery =
+        std::function<std::optional<GroundPoint>(float screen_x, float screen_y)>;
+    using EntityScreenQuery =
+        std::function<std::optional<ScreenPoint>(float world_x, float world_z,
+                                                  float height_offset_raw)>;
+    void set_world_screen_queries(GroundScreenQuery ground,
+                                  EntityScreenQuery entity);
     // Resolve a MapChange-role NPC to its authoritative destination.  The
     // client must not invent a map number when the server/resource route is
     // unavailable; an empty result leaves the current scene untouched.
@@ -679,6 +674,8 @@ public:
     float          m_worldLimitX = kWorldLimit;
     float          m_worldLimitZ = kWorldLimit;
     std::function<bool(float, float, float)> m_collisionQuery;
+    GroundScreenQuery m_groundScreenQuery;
+    EntityScreenQuery m_entityScreenQuery;
     MapChangeTargetResolver m_mapChangeTargetResolver;
     bool           m_moving       = false;
     std::uint64_t  m_lastTickMs   = 0;

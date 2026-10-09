@@ -14,6 +14,7 @@ add_executable(mxh_client_tests
     state_transfer_test.cpp
     sprite_render_geometry_test.cpp
     logical_viewport_test.cpp
+    world_screen_projection_test.cpp
     client_ui_runtime_test.cpp
     effect_runtime_test.cpp
     char_make_options_test.cpp

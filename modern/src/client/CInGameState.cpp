@@ -570,37 +570,6 @@ std::optional<NpcInfo> parse_legacy_npc_add(
     return info;
 }
 
-bool project_npc_to_screen(float player_x, float player_z, float yaw,
-                           float npc_x, float npc_z,
-                           float& screen_x, float& screen_y) noexcept {
-    // Camera-relative components: forward = (sin yaw, cos yaw),
-    // right = (cos yaw, -sin yaw). World scale 0.001, ~800px visible
-    // over ~1000 world units at the follow-camera distance.
-    const float dx = npc_x - player_x;
-    const float dz = npc_z - player_z;
-    const float forward = dx * std::sin(yaw) + dz * std::cos(yaw);
-    const float right = dx * std::cos(yaw) - dz * std::sin(yaw);
-    if (forward < 0.0f) return false;  // behind the camera
-    constexpr float kPixelsPerUnit = 0.8f;
-    screen_x = 400.0f + right * kPixelsPerUnit;
-    screen_y = 300.0f - forward * kPixelsPerUnit;
-    return true;
-}
-
-bool unproject_screen_to_world(float player_x, float player_z, float yaw,
-                               float screen_x, float screen_y,
-                               float& world_x, float& world_z) noexcept {
-    constexpr float kPixelsPerUnit = 0.8f;
-    const float right = (screen_x - 400.0f) / kPixelsPerUnit;
-    const float forward = (300.0f - screen_y) / kPixelsPerUnit;
-    if (forward < 0.0f) return false;
-    const float sin_yaw = std::sin(yaw);
-    const float cos_yaw = std::cos(yaw);
-    world_x = player_x + forward * sin_yaw + right * cos_yaw;
-    world_z = player_z + forward * cos_yaw - right * sin_yaw;
-    return true;
-}
-
 std::optional<GameInInfo>
 parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     // Need at least the trailing ServerTime block (current fixed payload).
@@ -843,6 +812,8 @@ void CInGameState::Release() {
     // renderer replaces the old map scene so no input path can call into a
     // destroyed StaticScene during the transition gap.
     m_collisionQuery = {};
+    m_groundScreenQuery = {};
+    m_entityScreenQuery = {};
     m_mapChangeTargetResolver = {};
     m_inventoryDragSource.reset();
     m_inventoryTab = 0;
@@ -2304,15 +2275,12 @@ std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
             // rejecting anything outside the player's world pickup radius.
             continue;
         }
-        float px = 0;
-        float py = 0;
-        if (!project_npc_to_screen(
-                m_localX, m_localZ, m_cameraYaw,
-                drop.position_x, drop.position_z, px, py)) {
-            continue;
-        }
-        const float dx = px - sx;
-        const float dy = py - sy;
+        if (!m_entityScreenQuery) continue;
+        const auto projected = m_entityScreenQuery(
+            drop.position_x, drop.position_z, 100.0f);
+        if (!projected) continue;
+        const float dx = projected->x - sx;
+        const float dy = projected->y - sy;
         const float d2 = dx * dx + dy * dy;
         if (d2 <= best_d2) {
             best_d2 = d2;
@@ -3451,6 +3419,12 @@ void CInGameState::set_collision_query(
     m_collisionQuery = std::move(query);
 }
 
+void CInGameState::set_world_screen_queries(
+    GroundScreenQuery ground, EntityScreenQuery entity) {
+    m_groundScreenQuery = std::move(ground);
+    m_entityScreenQuery = std::move(entity);
+}
+
 void CInGameState::set_map_change_target_resolver(
     MapChangeTargetResolver resolver) {
     m_mapChangeTargetResolver = std::move(resolver);
@@ -3527,16 +3501,17 @@ bool CInGameState::move_to_screen(float screen_x, float screen_y) {
     // The world uses the legacy 800x600 logical canvas.  In widescreen
     // pillarbox mode, clicks in the side bars must remain inert instead of
     // being projected into the world.
-    if (screen_x < 0.0f || screen_x > 800.0f ||
-        screen_y < 0.0f || screen_y > 600.0f) {
+    if (!std::isfinite(screen_x) || !std::isfinite(screen_y) ||
+        screen_x < 0.0f || screen_x >= 800.0f ||
+        screen_y < 0.0f || screen_y >= 600.0f) {
         return false;
     }
-    float target_x = 0.0f;
-    float target_z = 0.0f;
-    if (!unproject_screen_to_world(m_localX, m_localZ, m_cameraYaw,
-                                   screen_x, screen_y, target_x, target_z)) {
-        return false;
-    }
+    if (!m_groundScreenQuery) return false;
+    const auto ground = m_groundScreenQuery(screen_x, screen_y);
+    if (!ground || !std::isfinite(ground->x) ||
+        !std::isfinite(ground->z)) return false;
+    float target_x = ground->x;
+    float target_z = ground->z;
     target_x = std::clamp(target_x, 0.0f, m_worldLimitX);
     target_z = std::clamp(target_z, 0.0f, m_worldLimitZ);
     if (m_collisionQuery) {
@@ -3714,16 +3689,13 @@ std::uint32_t CInGameState::pick_npc_at_screen(float sx, float sy) const {
     std::uint32_t best = 0;
     float best_d2 = 18.0f * 18.0f;
     for (const auto& npc : m_npcs) {
-        float px = 0;
-        float py = 0;
-        if (!project_npc_to_screen(
-                m_localX, m_localZ, m_cameraYaw,
-                static_cast<float>(npc.position_x),
-                static_cast<float>(npc.position_z), px, py)) {
-            continue;
-        }
-        const float dx = px - sx;
-        const float dy = py - sy;
+        if (!m_entityScreenQuery) continue;
+        const auto projected = m_entityScreenQuery(
+            static_cast<float>(npc.position_x),
+            static_cast<float>(npc.position_z), 200.0f);
+        if (!projected) continue;
+        const float dx = projected->x - sx;
+        const float dy = projected->y - sy;
         const float d2 = dx * dx + dy * dy;
         if (d2 <= best_d2) {
             best_d2 = d2;
@@ -3738,16 +3710,13 @@ std::uint32_t CInGameState::pick_monster_at_screen(float sx, float sy) const {
     float best_d2 = 24.0f * 24.0f;
     for (const auto& monster : monsters_) {
         if (monster.current_life == 0) continue;
-        float px = 0;
-        float py = 0;
-        if (!project_npc_to_screen(
-                m_localX, m_localZ, m_cameraYaw,
-                static_cast<float>(monster.position_x),
-                static_cast<float>(monster.position_z), px, py)) {
-            continue;
-        }
-        const float dx = px - sx;
-        const float dy = py - sy;
+        if (!m_entityScreenQuery) continue;
+        const auto projected = m_entityScreenQuery(
+            static_cast<float>(monster.position_x),
+            static_cast<float>(monster.position_z), 100.0f);
+        if (!projected) continue;
+        const float dx = projected->x - sx;
+        const float dy = projected->y - sy;
         const float d2 = dx * dx + dy * dy;
         if (d2 <= best_d2) {
             best_d2 = d2;

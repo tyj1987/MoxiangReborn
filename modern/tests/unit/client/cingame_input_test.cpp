@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdint>
+#include <limits>
 #include <vector>
 
 using mxh::client::key_mask_for_vk;
@@ -23,8 +24,6 @@ using mxh::client::parse_shop_list;
 using mxh::client::parse_chat_payload;
 using mxh::client::parse_move_payload;
 using mxh::client::pick_attack_target;
-using mxh::client::project_npc_to_screen;
-using mxh::client::unproject_screen_to_world;
 using mxh::client::quick_skill_for_slot;
 using mxh::client::step_movement;
 using mxh::client::kMoveSpeed;
@@ -244,45 +243,6 @@ TEST(InGameQuickSlot, ParsedMugongWinsOverStarter) {
     mxh::client::GameInInfo info;
     info.mugong[0].icon_idx = 42;
     EXPECT_EQ(quick_skill_for_slot(info, 0), 42u);
-}
-
-TEST(InGameNpcProjection, ForwardNpcIsOnScreenCenter) {
-    float sx = 0;
-    float sy = 0;
-    // NPC 500 world units in front of the player at yaw 0 -> screen center,
-    // 400px up.
-    EXPECT_TRUE(project_npc_to_screen(0.0f, 0.0f, 0.0f,
-                                      0.0f, 500.0f, sx, sy));
-    EXPECT_NEAR(sx, 400.0f, 0.01f);
-    EXPECT_NEAR(sy, 300.0f - 500.0f * 0.8f, 0.01f);
-}
-
-TEST(InGameNpcProjection, BehindNpcIsRejected) {
-    float sx = 0;
-    float sy = 0;
-    EXPECT_FALSE(project_npc_to_screen(0.0f, 0.0f, 0.0f,
-                                       0.0f, -100.0f, sx, sy));
-}
-
-TEST(InGameNpcProjection, ScreenUnprojectionRoundTripsWorldPoint) {
-    constexpr float yaw = 0.65f;
-    float sx = 0;
-    float sy = 0;
-    ASSERT_TRUE(project_npc_to_screen(1200.0f, 800.0f, yaw,
-                                      1450.0f, 1225.0f, sx, sy));
-    float wx = 0;
-    float wz = 0;
-    ASSERT_TRUE(unproject_screen_to_world(1200.0f, 800.0f, yaw,
-                                          sx, sy, wx, wz));
-    EXPECT_NEAR(wx, 1450.0f, 0.01f);
-    EXPECT_NEAR(wz, 1225.0f, 0.01f);
-}
-
-TEST(InGameNpcProjection, ScreenUnprojectionRejectsBehindCamera) {
-    float wx = 0;
-    float wz = 0;
-    EXPECT_FALSE(unproject_screen_to_world(0.0f, 0.0f, 0.0f,
-                                           400.0f, 400.0f, wx, wz));
 }
 
 TEST(InGamePlayable, PillarboxClickDoesNotMoveWorld) {
@@ -814,6 +774,10 @@ TEST(InGamePlayable, ClickMoveSlidesAlongClearAxis) {
     state.set_collision_query([](float x, float z, float) {
         return x != 25000.0f && z != 25000.0f;
     });
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{25100.0f, 25100.0f};
+        }, {});
     state.OnMouseButton(true, true, 320, 220);
     EXPECT_TRUE(state.local_x() != 25000u || state.local_z() != 25000u);
     EXPECT_TRUE(state.local_x() == 25000u || state.local_z() == 25000u);
@@ -827,8 +791,14 @@ TEST(InGamePlayable, FullyBlockedClickDoesNotAutoAttack) {
     state.on_message(mxh::net::make_connection_id(1),
                      make_monster_add_at(50001u, 25000, 25000));
     state.set_collision_query([](float, float, float) { return true; });
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{25100.0f, 25100.0f};
+        }, {});
     state.OnMouseButton(true, true, 320, 220);
     EXPECT_EQ(state.last_attack_target(), 0u);
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
 }
 
 TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
@@ -861,6 +831,10 @@ TEST(InGamePlayable, LeftClickMovesOnEmptyWorldInsteadOfAutoAttacking) {
     }
     const auto before_x = state.local_x();
     const auto before_z = state.local_z();
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{25100.0f, 25000.0f};
+        }, {});
     state.OnMouseButton(true, true, miss_x, miss_y);
     EXPECT_EQ(state.last_attack_target(), 0u);
     EXPECT_TRUE(state.local_x() != before_x || state.local_z() != before_z);
@@ -878,7 +852,12 @@ TEST(InGamePlayable, LeftClickPrefersMonsterUnderCursor) {
                      make_monster_add_at(50001u, 25000, 25100));
     state.on_message(mxh::net::make_connection_id(1),
                      make_monster_add_at(50002u, 25100, 25000));
-
+    state.set_world_screen_queries(
+        {}, [](float x, float z, float) -> std::optional<mxh::client::ScreenPoint> {
+            if (x == 25000.0f && z == 25100.0f)
+                return mxh::client::ScreenPoint{400.0f, 220.0f};
+            return std::nullopt;
+        });
     state.OnMouseButton(true, true, 400, 220);
     EXPECT_EQ(state.last_attack_target(), 50001u);
 }
@@ -891,15 +870,43 @@ TEST(InGamePlayable, ExplicitPointedTargetStillHonorsAttackRange) {
     state.on_message(mxh::net::make_connection_id(1),
                      make_monster_add_at(50003u, 26000, 25000));
 
-    float screen_x = 0.0f;
-    float screen_y = 0.0f;
-    ASSERT_TRUE(mxh::client::project_npc_to_screen(
-        25000.0f, 25000.0f, 0.0f, 26000.0f, 25000.0f,
-        screen_x, screen_y));
-    state.OnMouseButton(true, true,
-                        static_cast<std::int32_t>(screen_x),
-                        static_cast<std::int32_t>(screen_y));
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{26000.0f, 25000.0f};
+        }, [](float x, float z, float) -> std::optional<mxh::client::ScreenPoint> {
+            if (x == 26000.0f && z == 25000.0f)
+                return mxh::client::ScreenPoint{400.0f, 220.0f};
+            return std::nullopt;
+        });
+    state.OnMouseButton(true, true, 400, 220);
     EXPECT_EQ(state.last_attack_target(), 0u);
+    EXPECT_GT(state.local_x(), 25000u);
+}
+
+TEST(InGamePlayable, ClickBeforeCameraSetupFailsClosed) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.OnMouseButton(true, true, 400, 350);
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
+    EXPECT_EQ(state.last_attack_target(), 0u);
+}
+
+TEST(InGamePlayable, InvalidCameraPickNeverMovesOrNarrowsNaNToWire) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{
+                std::numeric_limits<float>::quiet_NaN(), 25100.0f};
+        }, {});
+    state.OnMouseButton(true, true, 400, 350);
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
 }
 
 TEST(InGamePlayable, MouseWheelZoomIsBounded) {

@@ -15,6 +15,7 @@ add_library(mxh_client_lib STATIC
     ClientUiRuntime.cpp
     CharMakeOptions.cpp
     LogicalViewport.cpp
+    WorldScreenProjection.cpp
     NetworkEventQueue.cpp
     SpriteRenderGeometry.cpp
     CMainGame.cpp

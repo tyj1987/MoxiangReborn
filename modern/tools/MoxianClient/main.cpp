@@ -700,6 +700,23 @@ public:
                     return static_scene->blocksPoint(x, z, radius);
                 });
         }
+        if (g_inputTarget && g_terrain) {
+            auto* terrain = g_terrain.get();
+            const auto height_at = [terrain](float x, float z) {
+                return terrain->heightAt(x, z);
+            };
+            g_inputTarget->set_world_screen_queries(
+                [terrain, height_at](float sx, float sy) {
+                    return mxh::client::pick_ground_point(
+                        terrain->viewProj(), terrain->mapCenter(), height_at,
+                        sx, sy, terrain->worldWidth(), terrain->worldHeight());
+                },
+                [terrain, height_at](float x, float z, float offset) {
+                    return mxh::client::project_world_point(
+                        terrain->viewProj(), terrain->mapCenter(), height_at,
+                        x, z, offset);
+                });
+        }
         g_renderTerrain = true;
         if (g_overviewCamera) g_captureTerrainFrame = options_.save_frame;
         if (descriptor_) {
@@ -1407,11 +1424,15 @@ struct EffectVisualOverlay {
                                     float world_x, float world_z,
                                     float head_offset_raw,
                                     float& screen_x, float& screen_y) noexcept {
-        const auto centre = terrain.mapCenter();
-        const float y_raw = terrain.heightAt(world_x, world_z) + head_offset_raw;
-        return project(matrix, world_x, y_raw, world_z,
-                       centre.first, centre.second,
-                       screen_x, screen_y);
+        const auto point = mxh::client::project_world_point(
+            matrix, terrain.mapCenter(),
+            [&terrain](float x, float z) { return terrain.heightAt(x, z); },
+            world_x, world_z, head_offset_raw);
+        if (!point) return false;
+        screen_x = point->x;
+        screen_y = point->y;
+        return screen_x >= -128.0f && screen_x <= 928.0f &&
+               screen_y >= -128.0f && screen_y <= 728.0f;
     }
 
     void render(const mxh::client::CInGameState& game,
@@ -2070,32 +2091,14 @@ void renderFrame(HWND h) {
             for (const auto& npc : g_inputTarget->npcs()) {
                 const float world_x = static_cast<float>(npc.position_x);
                 const float world_z = static_cast<float>(npc.position_z);
-                // Lift the marker above the NPC head.  Entity heightAt is in
-                // raw world units; the renderer expects scaled Y so add the
-                // head offset after the height lookup.
-                const float ground_y = g_terrain->heightAt(world_x, world_z);
-                const float head_y = (ground_y + 200.0f) *
-                                     mxh::gx::kEntitySceneScale;
-                const auto centre = g_terrain->mapCenter();
-                const float tx = world_x * mxh::gx::kEntitySceneScale -
-                                 centre.first;
-                const float tz = world_z * mxh::gx::kEntitySceneScale -
-                                 centre.second;
-                const float clip_x = tx * npc_view_proj._11 +
-                                     head_y * npc_view_proj._21 +
-                                     tz * npc_view_proj._31 +
-                                     npc_view_proj._41;
-                const float clip_y = tx * npc_view_proj._12 +
-                                     head_y * npc_view_proj._22 +
-                                     tz * npc_view_proj._32 +
-                                     npc_view_proj._42;
-                const float clip_w = tx * npc_view_proj._14 +
-                                     head_y * npc_view_proj._24 +
-                                     tz * npc_view_proj._34 +
-                                     npc_view_proj._44;
-                if (clip_w <= 0.001f) continue;
-                const float sx = (clip_x / clip_w + 1.0f) * 400.0f;
-                const float sy = (1.0f - clip_y / clip_w) * 300.0f;
+                const auto head = mxh::client::project_world_point(
+                    npc_view_proj, g_terrain->mapCenter(),
+                    [terrain = g_terrain.get()](float x, float z) {
+                        return terrain->heightAt(x, z);
+                    }, world_x, world_z, 200.0f);
+                if (!head) continue;
+                const float sx = head->x;
+                const float sy = head->y;
                 if (sx < -20.0f || sx > 820.0f || sy < -20.0f ||
                     sy > 620.0f) {
                     continue;
