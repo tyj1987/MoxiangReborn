@@ -6,7 +6,7 @@
 
 ## 开发入口
 
-[ROADMAP.md](ROADMAP.md) → [重整状态](docs/REORGANIZATION_STATUS.md) → [原版状态](docs/PLAYABLE_STATUS.md) / [验收矩阵](docs/VERIFICATION_MATRIX.md)。历史 PASS 只用于定位，不能代替当前版本验收。
+[ROADMAP.md](ROADMAP.md) → [重整状态](docs/REORGANIZATION_STATUS.md) → [原版状态](docs/PLAYABLE_STATUS.md) / [Unity 状态](docs/UNITY_REMASTER_STATUS.md) / [验收矩阵](docs/VERIFICATION_MATRIX.md)。历史 PASS 只用于定位，不能代替当前版本验收。
 
 GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。远端和分支统一尚未完成。
 
@@ -23,6 +23,6 @@ GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.c
 - [协议](docs/MoxianProtocolDoc.md)
 - [数据库](docs/DATABASE_SCHEMA.md)
 - [活动缺陷](docs/KNOWN_BUGS.md)
-- [视觉还原参考](modern/docs/restoration-plan/)
+- [资源来源与许可](docs/ASSET_LICENSE_LEDGER.md)
 
 原始源码和配套资源是只读基准。感谢原《墨香》研发团队、资源格式分析社区及所用开源项目的贡献。

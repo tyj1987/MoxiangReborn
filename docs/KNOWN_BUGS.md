@@ -1,41 +1,40 @@
-# Active known bugs and blockers
+# 当前缺陷与交付阻塞
 
-Only unresolved issues belong here. Resolved history is available through Git.
+本页只列本轮仍未闭合的问题。验收状态见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)，实施顺序见 [ROADMAP](../ROADMAP.md)。历史原文的恢复位置见 [HISTORICAL_EVIDENCE_INDEX.md](HISTORICAL_EVIDENCE_INDEX.md)；旧截图、探针和通过记录不能代替当前版本验收。
 
-## Blocking the playable release
+## 原版首个可玩闭环
 
-- Launcher and patch/update flow are not yet a single tested product path.
-- Login failure/timeout now return to the editable login dialog with the account
-  retained and password cleared; remaining release gap is genuine human
-  verification of every legacy error-code/message variant and retry timing.
-- Login success display transition is now transactional in the client; the remaining release gap is genuine human verification across DPI, multi-monitor, Alt-Tab and swap-chain failure cases.
-- Character select/create lacks complete 3D appearance, equipment and animation presentation.
-- `GameLoading` and `MapChange` now use the staged runtime load pipeline and have a Map10→Map12 E4 E2E gate; remaining release gap is GUI/human visual verification and failure-injection coverage across every map/profile.
-- Runtime map rendering does not yet apply all BMHM/TTB/HFL/STM/sky/environment semantics.
-- Entity rendering still has placeholder fallback paths and incomplete action/equipment coverage.
-- Only a subset of InterfaceScript roots is live-bound to client services.
-- Movement, targeting, collision, NPC routing, loot and map transition are simplified.
-- BEFF/BEFL/Effect.pak triggers and WAV/3D SFX are not fully wired.
-- Full-map, full-resource and genuine legacy/modern visual evidence is incomplete.
-- `playdh-current` `Resource/Server` uses the distinct `server-size-prefixed-opaque-v1` profile encoding. Map10 (22,766 bytes) now decodes through the recovered 20-byte container header and eight-byte XOR body transform, and the three-server Map10 startup is operational. Full all-map coverage is still open for small/nonstandard opaque entries; the 2008 `mhfileex-classic-rxmso` profile remains read-only and must not be silently substituted.
-- Map101 representative-map loading is currently blocked by 40 unresolved HFL terrain textures (the Tatan background/area texture family). The staged loader rejects the map before STM/entity activation; no debug texture fallback is allowed in release.
-- The `playdh-current/Resource/Server/MonsterDropItemList*.bin` copies are byte-readable but decode to `$Group` AIGroup data; MapServer deliberately routes `playdh-current` to the verified top-level `Resource/MonsterDropItemList.bin` instead. The server-directory copies remain non-canonical and must not be used as a fallback.
+- 屏保和自动熄屏已关闭，锁屏解除；三个旧网络测试防火墙请求已正常取消。当前r12客户端已通过正常GUI登录、建选角和Map10入图；移动/NPC/任务、战斗、自然掉落、点击拾取、装备、切图及重登全链尚未通过。
+- 原版r12已完成部署协议回归；其维护时3角色/0物品投影保留为历史快照。后续真实GUI创建MoxR12Gui（100003），非SA读取Map10、四属性12及外观装备行，owned item仍无行；外观记录不证明持有DBID装备。
+- 基础属性及持有装备端点计算已恢复部分原始逻辑，完整技能、伤害公式、状态、攻防命中、怪物/Boss 和异常流程仍未完成 1:1 对照。外观图标不代表玩家实际持有装备，手工数据不代表自然掉落和拾取。
+- 原 MonsterList 的掉落类别、三张表及最大次数已在本地纯解析提交 `74376789` 中补齐；独立审查无P1/P2，解析3/3、掉落25/25纯测试通过。提交尚未部署或接入死亡路径；现有运行路径按怪物种类选择表并设为100%，不能宣称原概率正确。
+- 原 Item 通知是直接入包数组，现代实现却复用为20字节地面物品；现代 Pickup 19–21还与原 Buy 编号冲突。需明确 profile、成对迁移并实际验收，不能局部重编号。详见 [ITEM_PROTOCOL_COMPATIBILITY.md](ITEM_PROTOCOL_COMPATIBILITY.md)。
+- 相机点击/宿主接线已在r13由真实GUI和跨客户端Move广播验证。r15b玩家目标路由/换图membership时序、r16死亡移动门禁独立通过但未部署。现有Agent Correction不向发送者回送，原版复活生产链仍未接通；装备MoveAck早于落库、拾取后其他客户端地面移除与位置持久化仍待修。
+- r14/e244固定原资源GUI已显示完整名字和动态数值，原颜色实际像素通过；历史黑字/顶部裁切在本次1024×768场景已关闭。完整字体索引/字号、多DPI和极端样式坐标的宿主布局加法仍待验证或修复。原版DB缺实时位置列，重登位置持久化未实现。
+- 角色选择/创建的三维外观、动作、装备呈现，实体占位回退、全部 InterfaceScript 数据绑定、移动/选中/碰撞/NPC 路径及地图切换仍需逐项验收。
+- 启动器更新与回滚、登录错误码/超时重试、DPI/多显示器/Alt-Tab、交换链失败等产品路径缺少当前真实交互证据。
 
-## Resolved (留痕 — see commit history)
+## 资源、地图与音画
 
-- T-SQL reserved word `option` quoted as `[option]` in `modern_party` — both `CREATE TABLE` (`modern/src/schema_migration.cpp:213`) and `INSERT INTO` (`modern/src/server/map_handler.cpp:549`). Fixed in commit `5b7f1c30` ("ui: bind chat message text and crop login background padding"); that commit message hides the server-side repair under the login-UI change but the actual bytes contain the `[option]` quoting. Without the fix MSSQL `modern_party` bootstrap/persistence fails; SQLite is unaffected.
+- 原资源基线和派生叠加层已经分离；当前源清单精确性检查通过，不等于所有地图可玩。复合地图检查仍有 **45 个发布阻塞：27 个 HFL、18 个 TTB**。准确版本缺失必须保留阻塞，不能用替代美术宣称 1:1。
+- 已提取45项的准确路径：这份清单中Map10的HFL/TTB缺口为0，Map44缺少准确的 `Resource/Map/44.hfl`。原创武馆场景不能替代该原始地形；全地图目标范围还需按原版配置核验，未证明任何缺项可降级。明细见本轮 `unity-candidate-review/remaining-resource-blockers-20261009.json`。
+- BMHM/TTB/HFL/STM、天空和环境语义、角色动作、BEFF/BEFL/Effect.pak 触发、WAV/空间音效及全地图视觉音频对照尚未闭合。
+- `playdh-current` 的服务器资源编码与旧 `mhfileex-classic-rxmso` 配置不同；小型或非标准条目需要按实际配置验证，不能静默改用旧版解码。历史 Map10→Map12 和 Map101 地形缺失记录只作定位，不沿用其通过或数量结论。
+- 掉落表应使用经当前格式校验的入口；历史 `Resource/Server/MonsterDropItemList*.bin` 被识别为 AIGroup 的记录仍需作为防止错误回退的依据，不可仅因字节可读就启用。
 
-## Deferred items (per 2026-08-31 plan decision)
+## Unity 重制线
 
-- 5 个 ui 头文件 out-of-sync (`ccheckbox.hpp` 等)：脚本 `-Fix` 默认 `src/ui → include/mxh/ui`，但实测 3 个文件 (ccheckbox.hpp 1.5天 / ccombobox.hpp 1分 / ctextarea.hpp 3分) include 比 src 新，盲目 -Fix 会回滚。**本 plan 留 G10**，等用户拍板方向后单独 commit。
-- 3 个 include-only 头文件 (`cAni.hpp` / `cItemShopInven.hpp` / `resolution_mode.hpp`)：原计划标"决策待定"，但实测这 3 个头文件**被 cDialogLoader.cpp / cWindowManager.cpp 主动 include**，属于"include-only 头是设计如此"（R-36/R-37 注释允许这种情况）。**G-4 不需要操作**。
+- 空 Library 导入、EditMode 和独立 Player 构建已有绑定版本的证据；当前 Player 的角色、怪物可辨性、动作、地面掉落、点击拾取和完整正常 GUI 路径尚未验收。
+- 网络线程生命周期修复904已进入PVE v6b；当前两轮严格时限228/228、正常退出和重登/数据库读回通过，建角fixture步骤跳过。Windows发送无进展超时为10秒，同步回调仍可能延长关闭；POSIX编译和运行、故障恢复及GUI仍待验证。
+- 原有武馆及刀剑枪等可编辑资产保留。Foundation 样本完整性与游戏接入、画面质量和分发权分别验收；样本许可/权利来源尚未具备完整凭证，不自动纳入 Player 或公开镜像。
 
-## Governance blockers
+## 工程与最终交付
 
-- The canonical PlayDH tree contains derived runtime files that require classification before removal.
-- The read-only legacy reference and both resource-profile manifests must remain hash-verified.
-- A clean-machine build and deployment have not yet been re-established after workspace cleanup.
+- 两线共享初始化/断开通知排序已在原版3565和Unity84修复并审查，纯网络分别50/52通过。Unity PVE handler原结果193通过/2失败/3禁用；两失败已证为测试包漏MapChange及两处__FILE__绝对路径，39836319及新fixture包待PVE复跑，不能记作生产路由逻辑回归或提前记通过。
+- QGA一次停止和精确终止尝试后仍为原PID/Stop Pending，停止后续操作；正常加密WinRM管理已恢复，original owner独占VM112管理。旧只读PID3092终态仍unknown；handler旧193/2/3结果保留，新fixture在PVE实际195/195通过，3禁用，六服/两manifest连续。
+- 两个候选分支尚未提升为最终 `main` / `codex/unity-client-remaster`。本机 WIP、历史分支独有成果及隔离副本未完全吸收，禁止提前删分支或重复 checkout。
+- GitLab 项目 12 的候选推送和 Linux 治理/资源 CI 已恢复；Windows C++ 与 Unity Editor 构建目前仍是本机证据，尚未成为对应远端 CI 作业。
+- 双客户端、断线重连、服务重启、数据库故障恢复、更新回滚、清理后独立恢复及 24 小时稳定性未全部通过。
+- 已验证的冗余文件已按清单删除；其余独有源码/资产、本机 SQL 数据及共享实例继续保留，直至对应恢复与业务验证完成。
 
-## Rules
-
-Do not close an item because a parser or isolated unit test passes. Close it only when the required runtime behavior, human path and evidence row pass.
+原先五对 UI 头文件差异已经按候选源码校准，不再保留“等待用户决定”的历史阻塞。缺陷只在对应提交、资源、环境和真实行为证据齐全后关闭。
