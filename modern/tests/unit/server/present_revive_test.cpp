@@ -1,7 +1,10 @@
 #include "mxh/server/present_revive.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 
 #include <gtest/gtest.h>
+#include <filesystem>
 #include <limits>
+#include <string_view>
 
 using mxh::server::PresentReviveContext;
 using mxh::server::prepare_present_revive;
@@ -76,4 +79,37 @@ TEST(PresentRevive, RequestAndMovePayloadUseOriginalSizesAndEndian) {
                                            0xa8, 0x61, 0xa9, 0x61}));
     EXPECT_EQ(mxh::server::encode_naeryuk_absolute(0x12345678u),
               (std::array<std::uint8_t, 4>{0x78, 0x56, 0x34, 0x12}));
+}
+
+TEST(PresentRevive, MapKindMustHaveOneCompleteOrdinaryRow) {
+    const std::string_view rows =
+        "10\tMapTen\tMAPVIEW\t#\r\n"
+        "17\tMapSeventeen\tMAPVIEW\t#\r\n"
+        "28\tArena\tTOURNAMENT\t#\r\n";
+    const auto bytes = [](std::string_view s) {
+        return std::span<const std::uint8_t>(
+            reinterpret_cast<const std::uint8_t*>(s.data()), s.size());
+    };
+    EXPECT_TRUE(mxh::server::verified_ordinary_map_kind(bytes(rows), 10));
+    EXPECT_TRUE(mxh::server::verified_ordinary_map_kind(bytes(rows), 17));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(bytes(rows), 28));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(bytes(rows), 0));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(
+        bytes("10\tMapTen\tMAPVIEW\t#\n10\tAlias\tMAPVIEW\t#\n"), 10));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(
+        bytes("10\tMapTen\tMAPVIEW\t|\tBOSS\t#\n"), 10));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(
+        bytes("10\tMapTen\tMAPVIEW\t#\textra\n"), 10));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(
+        bytes("10\t\tMAPVIEW\t#\n"), 10));
+}
+
+TEST(PresentRevive, CanonicalMapKindRowsMatchOriginalOrdinarySubset) {
+    const auto file = std::filesystem::path(MXH_SOURCE_DIR) /
+        "data/PlayDH/Resource/MapKindInfo.bin";
+    const auto decoded = mxh::compat::read_mh_bin(file);
+    ASSERT_TRUE(decoded.ok());
+    EXPECT_TRUE(mxh::server::verified_ordinary_map_kind(decoded.value.data, 10));
+    EXPECT_TRUE(mxh::server::verified_ordinary_map_kind(decoded.value.data, 17));
+    EXPECT_FALSE(mxh::server::verified_ordinary_map_kind(decoded.value.data, 28));
 }

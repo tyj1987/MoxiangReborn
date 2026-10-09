@@ -9,8 +9,9 @@ add_executable(mxh_server_handler_tests
 
 include(GoogleTest)
 add_executable(mxh_present_revive_tests present_revive_test.cpp)
-target_link_libraries(mxh_present_revive_tests PRIVATE gtest_main)
+target_link_libraries(mxh_present_revive_tests PRIVATE gtest_main mxh_compat)
 target_include_directories(mxh_present_revive_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_present_revive_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_add_tests(TARGET mxh_present_revive_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
