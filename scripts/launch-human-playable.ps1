@@ -1,5 +1,6 @@
 [CmdletBinding()]
 param(
+    [string]$BuildDirectory = '',
     [ValidatePattern('^[A-Za-z0-9.-]+$')] [string]$LoginHost = '192.168.2.244',
     [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
     [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
@@ -13,6 +14,7 @@ param(
 # hardened launcher-driven acceptance flow.
 $runner = Join-Path $PSScriptRoot 'run-human-acceptance.ps1'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner `
-    -ResourceProfileId playdh-current -LoginHost $LoginHost -LoginPort $LoginPort -AgentPort $AgentPort `
+    -ResourceProfileId playdh-current -BuildDirectory $BuildDirectory `
+    -LoginHost $LoginHost -LoginPort $LoginPort -AgentPort $AgentPort `
     -MapPort $MapPort -MinimumEvidenceFrames $MinimumEvidenceFrames
 exit $LASTEXITCODE

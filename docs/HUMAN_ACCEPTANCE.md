@@ -1,93 +1,38 @@
-# 人工验收手册（Human Acceptance Manual）
+# 原版 DX11 人工验收入口
 
-> **状态**：vertical slice 阶段。G0-G3 PASS, G4-G9 Partial, G10-G11 Not started。
-> 完整跑通下面 6 步相当于在 G4-G9 留 8 张以上 F12 帧 + 1 份 log marker 摘要，
-> 不代表项目发布就绪（E5 真实 legacy visual 对比仍缺）。
+当前可玩性与未完成项以 [PLAYABLE_STATUS.md](PLAYABLE_STATUS.md) 和 [KNOWN_BUGS.md](KNOWN_BUGS.md) 为准。历史 G0–G3 标签、自动登录、截图数量、构建通过和本手册都不能代替真人完整验收。
 
-## 0. 前提
+## 准备
 
-| 条件 | 路径 |
-|---|---|
-| 客户端构建存在 | `modern\build\tools\MoxianClient\mxh_client.exe` |
-| 启动器构建存在 | `modern\build\tools\MoxianLauncher\MoxianLauncher.exe` |
-| PVE 三服与数据库就绪 | `192.168.2.244` 的 Login `16001`、Agent `17001`、Map `18001`；由 PVE 管理 |
-| 现代 资源 PlayDH 完整 | `modern\data\PlayDH\` (1.56 GB, 4,971 文件) |
+- 在本工作树内准备**同一 source-bound 构建目录**，其中同时存在 `tools/MoxianLauncher/MoxianLauncher.exe` 和 `tools/MoxianClient/mxh_client.exe`。明确传给 `-BuildDirectory`，脚本不会搜索或回落到 `modern/build`。新的 r14 HUD 客户端单独构建时，还须在该目录构建 Launcher 后才能用于此入口。
+- 本机只运行 Launcher 与 DX11 Client。原版 Login/Agent/Map 和测试数据库在 PVE VM112/CT930；原版端点是 `192.168.2.244:16001/17001/18001`。PVE Login 通告的 `AdvertisedAgentAddress` 必须是客户端可达的 `192.168.2.244`。脚本拒绝 loopback，且不会启动本机三服、SQL 或注入账号凭据。
+- 资源是本工作树的 canonical `modern/data/PlayDH`、profile `playdh-current`；精确清单为 5,131 文件。运行前应单独核验全 SHA 与服务器 writer contract；脚本仅向 Launcher 传资源路径，不把存在目录视为资源验收。
+- Windows Debug 构建由脚本补入本机 BuildTools x86 Debug CRT 和 Windows SDK x86 UCRT 的实际目录。没有这些目录时会拒绝启动；也可从正确的 `vcvarsall.bat x86` 环境运行。不会依赖历史 `audit/numeric-r11/runtime` 或 scratch 工具链。
 
-客户端或启动器缺失时先构建本机目标；PVE 服务状态须在 PVE 核验。PVE LoginServer 的 `AdvertisedAgentAddress` 必须设为客户端可达的 `192.168.2.244`，否则 LoginAck 会通告默认 loopback 地址。
-
-## 1. 一键入口（最简单路径）
+先检查参数，不开 GUI：
 
 ```powershell
-pwsh -File scripts\run-human-acceptance.ps1 -PlanOnly
-pwsh -File scripts\run-human-acceptance.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1 `
+  -PlanOnly -BuildDirectory modern\build-gui-r13
 ```
 
-默认行为：
-- Login = `192.168.2.244:16001`；Agent `17001`；Map `18001`
-- 资源 profile = `playdh-current`
-- 输出到 `modern\out\runs\human\<runId>\evidence\`
-- 启动器弹出 → 人工操作 → 按 Enter 收尾；本机不启动三服或数据库
-- **最少需要 8 张 F12 帧**，否则脚本报"insufficient evidence"并退出 1
-
-## 2. 8 个强制 checkpoint（按这个顺序按 F12）
-
-1. **login** — 启动器把客户端拉起来后，登录界面渲染完
-2. **display-transition** — 提交账号密码后，800×600 切到 1024×768 完成
-3. **char-select-or-create** — 选角或建角完成（如果老角色直达，老账号也应该停在选角页）
-4. **loading** — 选完角后到进图前 loading 进度条
-5. **map10** — 进 Map10 后世界渲染稳定（地形 + 怪物可见）
-6. **combat-and-loot** — 攻击一只怪物，看到伤害数字 + 拾取掉落
-7. **map-change** — 用菜单或 NPC 切到 Map12（如果可达）
-8. **relog** — Alt+F4 退到登录页，再登一次，角色还在 Map10
-
-每步按一次 F12，evidence 目录会出现 `state-<n>.tga` 之类的帧文件。**少 1 个就过不了 8 帧门槛**。
-
-## 3. 8 个 checkpoint 各自的"OK 标志"
-
-肉眼检查项（不需要脚本验证）：
-
-| Checkpoint | 看到什么算 OK |
-|---|---|
-| login | 登录 UI 正常，账号/密码输入框可点，按"确认"有反应 |
-| display-transition | 800×600 切到 1024×768，画面没崩/没黑 |
-| char-select-or-create | 至少 1 个角色格子有 3D 模型，建角流程可达 |
-| loading | 进度条动，没卡在 0% 或 100% |
-| map10 | 地形 + 怪物可见，玩家模型在中央，FPS 不为 0 |
-| combat-and-loot | 点怪物有数字飘，怪物死了有掉落物 |
-| map-change | 切图过程不停顿，新地图渲染出来 |
-| relog | 登出后能重进，角色还停在 Map10 同位置 |
-
-## 4. 收尾
-
-回到启动 `run-human-acceptance.ps1` 的 PowerShell 窗口，按 Enter：
-- 脚本只关闭本次识别出的启动器和客户端进程，PVE 三服继续由 PVE 管理
-- 写 `run.json` 总结（含每个 F12 帧名、客户端 PIDs、端点与退出码）
-- exit 0 仅表示证据采集流程完成且达到最少帧数，`run.json` 写入 `acceptanceStatus=evidence_collected_awaiting_review`；8 个 GUI checkpoint、音频与持久化结果仍须人工逐项审阅。exit 1 表示采集流程未完成，`acceptanceStatus=collection_incomplete`。
-
-## 5. 工具脚本（可单独用）
-
-| 脚本 | 作用 | 何时用 |
-|---|---|---|
-| `scripts\register-test-account.ps1` | 在跑服务端数据库里建 1 个测试账号 | 想跳过注册直接登录时 |
-| `scripts\capture-state-frames.ps1` | 用 auto-login 跑完整 client 流，抓 state-*.tga | 验证客户端基础设施 OK（无人工） |
-| `scripts\collect-server-logs.ps1` | 收 `deploy\runtime\modern\logs\` + marker 摘要 | 看服务端协议流转 |
-| `scripts\run-human-acceptance.ps1` | 仅启动本机 DX11 客户端并记录人工证据 | 每次完整人工验收 |
-
-## 6. 历史本机工具链烟测（不开 launcher）
+实际人工采集须把下面的目录替换为经审查、同时含 Launcher 与 Client 的同源构建：
 
 ```powershell
-pwsh -File modern\scratch\2026-08-31-human-acceptance\toolchain-smoke.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\run-human-acceptance.ps1 `
+  -BuildDirectory modern\<source-bound-build-directory>
 ```
 
-输出 `TOOLCHAIN_SMOKE_PASS` 即：start server → register → collect logs → stop 全通。
-**不验证 client 端**，只验证旧本机服务端/数据库基础设施；不属于本轮 PVE 人工验收路径。
+`-LoginHost`、`-LoginPort`、`-AgentPort`、`-MapPort` 可显式覆盖；默认保持上述 PVE 原版端点。`-MinimumEvidenceFrames` 默认为 0，只在操作者为某次采集明确指定数量时检查采集完整性，不是 GUI 或玩法通过门槛。
 
-## 7. 已知会失败的（按 plan 接受为"留 G10/G11"）
+## 真人场景与证据
 
-- 3D 角色预览/视频不完整 → G5 仍 Partial
-- 多显示器 / DPI 切换未完整覆盖 → G4 仍 Partial
-- 真实 legacy E5 视觉对比缺（拿老客户端跑同 Map10 对比） → 全部 G4-G9 仍 Partial
-- Map101 等已知 blocked map 没修 → G10 仍 Not started
-- 24h soak + fault injection 没跑 → G11 仍 Not started
+操作者通过 Launcher 做资源检查/设置，手动输入测试账号，正常登录、选/建角、入 Map10。依次实际查看移动与其他玩家、NPC/UI、权威伤害与死亡、自然掉落/获得、换图和重登。按 F12 可在 `modern/out/runs/human/<runId>/evidence` 留下场景截图；截图是辅助材料，不能证明服务端接受了移动、物品落库或重登位置持久化。
 
-任何上面没列的失败 → 写 `docs\KNOWN_BUGS.md` 一条新 bug，不要带病跑 release。
+完整结论必须把同一次运行的 GUI 可见行为、原版三服的业务事件、隔离测试数据库的角色/库存/状态前后值合在一起核对，并列明失败或未覆盖步骤。自动 smoke、客户端预测坐标、单张截图、物品 fixture 和 `run.json` 的 exit 0 均不得写为真人验收 PASS。尤其要把远端玩家外观、HUD 文字、自然掉落/拾取及位置持久化各自作为独立检查项。
+
+## 收尾和归属
+
+正常完成后回到脚本窗口按 Enter。Launcher 通过 `CreateProcessW` 直接启动 Client；脚本只会把**仍存活且身份匹配**的该 Launcher 子进程纳入清理。身份同时绑定 PID、父 PID、同 API UTC 启动 ticks、可执行文件绝对路径和 SHA-256。关闭前重新核验；仅调用 `CloseMainWindow()` 并有界等待 5 秒，失败或身份变化时保留进程，不使用 `Stop-Process -Force`，也不扫描同名或“本轮之后启动”的并发客户端。
+
+`run.json` 记录构建目录、端点、身份、关闭回执与截图名。`collectionStatus=finished`/exit 0 只说明采集脚本正常结束；`acceptanceStatus=not_evaluated` 一直表示结果仍待人工对照 GUI、服务事件和数据库证据。若 Launcher 已退出，子进程归属无法再可靠验证，脚本会保留客户端并在回执中体现；操作者按确切窗口自行关闭。

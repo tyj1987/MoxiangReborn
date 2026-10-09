@@ -22,11 +22,12 @@ class HumanAcceptanceEndpointTests(unittest.TestCase):
         result = plan()
         self.assertEqual(result.returncode, 0, result.stderr)
         planned = json.loads(result.stdout)
-        self.assertEqual(planned["mode"], "client-only")
+        self.assertEqual(planned["mode"], "original-client-to-pve")
         self.assertFalse(planned["startsLocalServers"])
         self.assertFalse(planned["needsLocalDatabaseConfig"])
         self.assertEqual(planned["profile"], "playdh-current")
         self.assertEqual(planned["acceptanceStatus"], "not_evaluated")
+        self.assertEqual(planned["buildDirectory"], "")
         self.assertEqual(
             planned["launcherArguments"][:8],
             ["--login-host", "192.168.2.244", "--login-port", 16001,
@@ -49,6 +50,19 @@ class HumanAcceptanceEndpointTests(unittest.TestCase):
         result = plan("-Backend", "mssql_odbc")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Backend", result.stderr)
+
+    def test_loopback_is_rejected_before_any_gui_process(self):
+        for host in ("localhost", "127.0.0.1", "0.0.0.0"):
+            with self.subTest(host=host):
+                result = plan("-LoginHost", host)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Loopback", result.stderr)
+
+    def test_explicit_build_directory_is_reported_without_launching(self):
+        result = plan("-BuildDirectory", "modern/build-gui-r13")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["buildDirectory"],
+                         "modern/build-gui-r13")
 
 
 if __name__ == "__main__":
