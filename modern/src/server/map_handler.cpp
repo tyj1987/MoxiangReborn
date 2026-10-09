@@ -916,6 +916,14 @@ bool MapHandler::seed_quest_for_test(std::uint32_t player_id,
         it->second.quest_log, make_runtime_quest_definition(*def), now_ms);
 }
 
+bool MapHandler::clear_vitals_session_for_test(std::uint32_t player_id) {
+    std::lock_guard<std::mutex> lk(players_mu_);
+    const auto it = player_runtimes_.find(player_id);
+    if (it == player_runtimes_.end()) return false;
+    it->second.vitals_session.reset();
+    return true;
+}
+
 void MapHandler::persist_quest_log(std::uint32_t player_id) {
     // M3 D-stage: StartSyn quest_log persistence.  Snapshots every
     // quest in the player's quest_log under players_mu_ and

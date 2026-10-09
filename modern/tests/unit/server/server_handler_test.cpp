@@ -2950,6 +2950,10 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(connection, game_in);
+    // Exercise the legacy ground-drop wire path independently of the
+    // revisioned vitals/EXP award gate, which intentionally withholds drops
+    // until the obtain-array transaction is available.
+    ASSERT_TRUE(handler.clear_vitals_session_for_test(123u));
 
     mxh::server::DropTable table;
     table.drop_id = 9u;
