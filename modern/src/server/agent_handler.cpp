@@ -1772,6 +1772,25 @@ void AgentHandler::handle_legacy_character_make(
         return;
     }
 
+    // Character creation selections are full starter items, not cosmetic
+    // preview-only icons.  Persist them in the authoritative item table so
+    // MapServer can rebuild combat stats, durability and later logout/save
+    // state from the same records as every other equipped item.
+    mxh::db::ResultSet item_id_rows;
+    const auto item_id_result = db_.query(
+        "SELECT COALESCE(MAX(db_idx),699999) AS max_db_idx "
+        "FROM modern_player_item WHERE db_idx < 2147483648", {}, item_id_rows);
+    if (!item_id_result.ok() || item_id_rows.empty()) {
+        std::cerr << "[Agent] CreateCharacter starter item ID allocation failed\n";
+        reject_confirmed_rollback();
+        return;
+    }
+    auto next_item_id = get_int(item_id_rows, 0, "max_db_idx", 699999) + 1;
+    if (next_item_id <= 0 || next_item_id > UINT32_MAX) {
+        std::cerr << "[Agent] CreateCharacter starter item ID space exhausted\n";
+        reject_confirmed_rollback();
+        return;
+    }
     for (std::size_t slot = 0; slot < weared_item_idx.size(); ++slot) {
         if (weared_item_idx[slot] == 0) continue;
         const auto equipment_result = db_.execute(
@@ -1782,6 +1801,20 @@ void AgentHandler::handle_legacy_character_make(
         if (!equipment_result.ok() || equipment_result.rows_affected != 1) {
             std::cerr << "[Agent] CreateCharacter equipment DB error: "
                       << equipment_result.error_message << "\n";
+            reject_confirmed_rollback();
+            return;
+        }
+        const auto item_result = db_.execute(
+            "INSERT INTO modern_player_item "
+            "(player_id,container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param) "
+            "VALUES(?,1,?,?,?,100,0,0,0)",
+            {mxh::db::bind(chrid),
+             mxh::db::bind(static_cast<std::int64_t>(slot)),
+             mxh::db::bind(next_item_id++) ,
+             mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
+        if (!item_result.ok() || item_result.rows_affected != 1) {
+            std::cerr << "[Agent] CreateCharacter starter item DB error: "
+                      << item_result.error_message << "\n";
             reject_confirmed_rollback();
             return;
         }

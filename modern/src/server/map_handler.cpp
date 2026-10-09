@@ -1827,6 +1827,20 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         reply_(id, nack);
         return;
     }
+    // Character creation persists the selected starter gear in
+    // modern_character_equipment before any inventory row exists.  Merge
+    // that authoritative appearance/equipment projection before rebuilding
+    // combat stats; otherwise a fresh character renders with a weapon but
+    // calculates with empty equipment and deals only floor damage.
+    mxh::game::ItemTotalInfo appearance{};
+    load_character_equipment(db_, player_id, appearance);
+    for (std::size_t slot = 0; slot < mxh::game::WEARED_ITEM_MAX; ++slot) {
+        auto& equipped = runtime.actor.state().equipment.items[slot];
+        if (equipped.dwDBIdx == 0u &&
+            appearance.WearedItem[slot].wIconIdx != 0u) {
+            equipped.wIconIdx = appearance.WearedItem[slot].wIconIdx;
+        }
+    }
     if (!rebuild_equipment_stats(runtime.actor.state(), pi.combat,
             [&](auto icon, auto& info) { return item_manager_.try_get(icon, info); })) {
         std::cerr << "[Map] unsupported-equipment-stats player=" << player_id << '\n';
@@ -1926,8 +1940,6 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         pi.items.Inventory[i] = runtime.actor.state().inventory.items[i];
     for (std::size_t i = 0; i < runtime.actor.state().equipment.items.size(); ++i)
         pi.items.WearedItem[i] = runtime.actor.state().equipment.items[i];
-    mxh::game::ItemTotalInfo appearance{};
-    load_character_equipment(db_, player_id, appearance);
     for (std::size_t slot = 0; slot < mxh::game::WEARED_ITEM_MAX; ++slot)
         if (pi.items.WearedItem[slot].dwDBIdx == 0u && appearance.WearedItem[slot].wIconIdx != 0u)
             pi.items.WearedItem[slot].wIconIdx = appearance.WearedItem[slot].wIconIdx;
