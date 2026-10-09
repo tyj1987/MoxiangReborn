@@ -2340,6 +2340,8 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStreetBuyStallTest.ResetClearsData
     # InterfaceScript parser (1:1 layout recovery from legacy bin files)
     InterfaceScriptParser.ParsesSingleRootDialog
+    InterfaceScriptParser.PreservesSignedTextOffsets
+    InterfaceScriptParser.RejectsMalformedNewTextStyleValues
     InterfaceScriptParser.ParsesDialogProperties
     InterfaceScriptParser.ParsesCommentLines
     InterfaceScriptParser.ParsesChildrenRecursively
@@ -2379,6 +2381,7 @@ if(MSVC)
 endif()
 gtest_add_tests(TARGET mxh_ui_text_render_tests
     TextRenderAdapterTest.StaticForwardsLegacyGeometryAndShadow
+    TextRenderAdapterTest.StaticSignedOffsetsAndOverflowFailClosed
     TextRenderAdapterTest.EditBoxForwardsMaskedTextCaretAndStyle
     TextRenderAdapterTest.ButtonForwardsStateColorAlignmentAndShadow
     TextRenderAdapterTest.MsgBoxRendersLegacyLabelsAndMultilineBody

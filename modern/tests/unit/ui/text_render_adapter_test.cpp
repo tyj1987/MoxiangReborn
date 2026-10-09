@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <limits>
 
 #include "cButton.hpp"
 #include "cEditBox.hpp"
@@ -64,6 +65,35 @@ TEST_F(TextRenderAdapterTest, StaticForwardsLegacyGeometryAndShadow) {
     EXPECT_EQ(g_calls[1].request.font_index, 7u);
     EXPECT_EQ(g_calls[1].request.align, mxh::ui::TextRenderAlign::Right);
     EXPECT_EQ(g_calls[1].request.color, 0xFF112233u);
+}
+
+TEST_F(TextRenderAdapterTest, StaticSignedOffsetsAndOverflowFailClosed) {
+    mxh::ui::cStatic label;
+    label.Init(100, 50, 80, 20, nullptr, 1);
+    label.SetStaticText("offset");
+    label.SetTextXY(-1, -2);
+    label.SetShadow(true);
+    label.SetShadowTextXY(-3, -4);
+    label.Render();
+    ASSERT_EQ(g_calls.size(), 2u);
+    EXPECT_EQ(g_calls[0].request.x, 97);
+    EXPECT_EQ(g_calls[0].request.y, 44);
+    EXPECT_EQ(g_calls[1].request.y, 48);
+    EXPECT_EQ(g_calls[1].request.left_inset, -1);
+
+    g_calls.clear();
+    label.SetTextXY(0, std::numeric_limits<std::int32_t>::max());
+    label.Render();
+    EXPECT_TRUE(g_calls.empty());
+
+    label.SetTextXY(std::numeric_limits<std::int32_t>::max(), 0);
+    label.Render();
+    EXPECT_TRUE(g_calls.empty());
+
+    label.SetTextXY(0, 0);
+    label.SetShadowTextXY(std::numeric_limits<std::int32_t>::max(), 0);
+    label.Render();
+    EXPECT_TRUE(g_calls.empty());
 }
 
 TEST_F(TextRenderAdapterTest, EditBoxForwardsMaskedTextCaretAndStyle) {

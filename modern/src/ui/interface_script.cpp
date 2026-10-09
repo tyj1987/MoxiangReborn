@@ -5,6 +5,8 @@
 
 #include <cctype>
 #include <algorithm>
+#include <charconv>
+#include <limits>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -94,6 +96,34 @@ bool parse_int(std::string_view payload, std::size_t& pos, std::int32_t& out) {
         out = static_cast<std::int32_t>(v);
     }
     return true;
+}
+
+// The legacy atoi-compatible parser above is retained for old fields (some
+// shipped scripts contain the letter O for zero). Newly applied text style
+// fields must keep a leading minus and reject malformed/out-of-range values.
+std::int32_t parse_style_int(std::string_view payload, std::size_t& pos,
+                             std::string_view prop, std::int32_t min_value,
+                             std::int32_t max_value) {
+    while (pos < payload.size() &&
+           std::isspace(static_cast<unsigned char>(payload[pos]))) ++pos;
+    const auto start = pos;
+    while (pos < payload.size() &&
+           !std::isspace(static_cast<unsigned char>(payload[pos])) &&
+           payload[pos] != '{' && payload[pos] != '}' &&
+           payload[pos] != '(' && payload[pos] != ')') ++pos;
+    auto token = payload.substr(start, pos - start);
+    if (!token.empty() && token.front() == '+') token.remove_prefix(1);
+    if (token.empty()) {
+        throw std::invalid_argument("invalid #" + std::string(prop) + " value");
+    }
+    std::int32_t value = 0;
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (parsed.ec != std::errc{} ||
+        parsed.ptr != token.data() + token.size() ||
+        value < min_value || value > max_value) {
+        throw std::invalid_argument("invalid #" + std::string(prop) + " value");
+    }
+    return value;
 }
 
 // Read 5 ints — used by #BASICIMAGE: idx l t r b.
@@ -250,21 +280,27 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
     }
     if (prop == "FGCOLOR" || prop == "SHADOWCOLOR") {
         std::array<std::int32_t, 3> rgb{};
-        for (auto& channel : rgb) if (!parse_int(payload, pos, channel)) return false;
+        for (auto& channel : rgb) {
+            channel = parse_style_int(payload, pos, prop, 0, 255);
+        }
         if (prop == "FGCOLOR") node.fg_color = rgb;
         else node.shadow_color = rgb;
         return true;
     }
     if (prop == "TEXTXY" || prop == "SHADOWTEXTXY") {
         std::array<std::int32_t, 2> xy{};
-        for (auto& coordinate : xy) if (!parse_int(payload, pos, coordinate)) return false;
+        for (auto& coordinate : xy) {
+            coordinate = parse_style_int(payload, pos, prop,
+                std::numeric_limits<std::int32_t>::min(),
+                std::numeric_limits<std::int32_t>::max());
+        }
         if (prop == "TEXTXY") node.text_xy = xy;
         else node.shadow_text_xy = xy;
         return true;
     }
     if (prop == "TEXTALIGN" || prop == "SHADOW") {
-        std::int32_t value;
-        if (!parse_int(payload, pos, value)) return false;
+        const auto value = parse_style_int(payload, pos, prop, 0,
+                                           prop == "TEXTALIGN" ? 2 : 1);
         if (prop == "TEXTALIGN") node.text_align = value;
         else node.shadow = value != 0;
         return true;

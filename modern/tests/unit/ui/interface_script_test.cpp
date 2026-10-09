@@ -9,6 +9,8 @@
 #include <string_view>
 #include <set>
 #include <cstdint>
+#include <stdexcept>
+#include <vector>
 
 #include "mxh/ui/interface_script.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -118,6 +120,40 @@ $DLG
     EXPECT_EQ((*styled->shadow_text_xy)[1], 1);
     EXPECT_FALSE(plain->fg_color.has_value());
     EXPECT_FALSE(plain->shadow.has_value());
+}
+
+TEST(InterfaceScriptParser, PreservesSignedTextOffsets) {
+    const auto parsed = parse_interface_script(R"(
+$STATIC {
+  #TEXTXY -1 +5
+  #SHADOWTEXTXY -2 -3
+  #TEXTALIGN 2
+  #SHADOW 1
+}
+)");
+    ASSERT_EQ(parsed.roots.size(), 1u);
+    ASSERT_TRUE(parsed.roots[0]->text_xy.has_value());
+    ASSERT_TRUE(parsed.roots[0]->shadow_text_xy.has_value());
+    EXPECT_EQ(*parsed.roots[0]->text_xy,
+              (std::array<std::int32_t, 2>{-1, 5}));
+    EXPECT_EQ(*parsed.roots[0]->shadow_text_xy,
+              (std::array<std::int32_t, 2>{-2, -3}));
+}
+
+TEST(InterfaceScriptParser, RejectsMalformedNewTextStyleValues) {
+    const std::vector<std::string> properties = {
+        "#FGCOLOR 256 0 0", "#FGCOLOR -1 0 0",
+        "#SHADOWCOLOR 0 0 256", "#SHADOWCOLOR O 0 0",
+        "#TEXTXY 1.5 0", "#TEXTXY -2147483649 0",
+        "#SHADOWTEXTXY 2147483648 0", "#SHADOWTEXTXY NaN 0",
+        "#TEXTALIGN -1", "#TEXTALIGN 3", "#SHADOW 2",
+        "#SHADOW 1x", "#TEXTXY 1"
+    };
+    for (const auto& property : properties) {
+        SCOPED_TRACE(property);
+        EXPECT_THROW(parse_interface_script("$STATIC {\n" + property + "\n}"),
+                     std::invalid_argument);
+    }
 }
 
 TEST(InterfaceScriptParser, ParsesDialogProperties) {
