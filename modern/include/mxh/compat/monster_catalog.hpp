@@ -30,6 +30,13 @@ struct MonsterVisual {
     std::uint8_t attack_count = 0;
     std::array<std::uint32_t, 2> attack_skills{};
     std::array<std::uint32_t, 2> attack_rates{};
+    // MonsterList fields immediately after the two attack weights. The
+    // category order is money, item1, item2, item3, no item on disk.
+    std::uint32_t min_drop_money = 0;
+    std::uint32_t max_drop_money = 0;
+    std::array<std::uint32_t, 5> drop_rates{};
+    std::array<std::uint16_t, 3> item_list_ids{};
+    std::uint8_t max_drop_item_num = 0;
 };
 
 class MonsterCatalog {

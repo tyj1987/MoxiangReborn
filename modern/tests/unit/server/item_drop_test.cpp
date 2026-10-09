@@ -124,6 +124,59 @@ TEST(MonsterDropPool, EmptyCurrentPoolAutomaticallyReloads) {
     EXPECT_EQ(draw_monster_drop_item(pool, 1), 99u);
 }
 
+TEST(MonsterDropChoices, CanonicalKind105FiveCategoryBoundaries) {
+    mxh::compat::MonsterVisual monster;
+    monster.drop_rates = {5400u, 660u, 679u, 1u, 3260u};
+    monster.item_list_ids = {313u, 314u, 315u};
+    monster.max_drop_item_num = 1u;
+    const auto profile = monster_drop_profile_from(monster);
+    EXPECT_EQ(profile.rates,
+              (std::array<std::uint32_t, 5>{3260u, 5400u, 660u, 679u, 1u}));
+    EXPECT_TRUE(valid_monster_drop_profile(profile));
+    const auto choose = [&](std::uint32_t roll) {
+        const std::array<std::uint32_t, 1> rolls{roll};
+        return select_monster_drop_choices(profile, {}, rolls);
+    };
+    const auto no_item = choose(3260u);
+    ASSERT_TRUE(no_item);
+    EXPECT_EQ((*no_item)[0].kind, DropItemKind::NoItem);
+    EXPECT_EQ((*no_item)[0].item_list_id, 0u);
+    const auto money = choose(3261u);
+    ASSERT_TRUE(money);
+    EXPECT_EQ((*money)[0].kind, DropItemKind::Money);
+    EXPECT_EQ((*money)[0].item_list_id, 0u);
+    EXPECT_EQ((*choose(8660u))[0].kind, DropItemKind::Money);
+    EXPECT_EQ((*choose(8661u))[0].item_list_id, 313u);
+    EXPECT_EQ((*choose(9320u))[0].item_list_id, 313u);
+    EXPECT_EQ((*choose(9321u))[0].item_list_id, 314u);
+    EXPECT_EQ((*choose(9999u))[0].item_list_id, 314u);
+    EXPECT_EQ((*choose(10000u))[0].item_list_id, 315u);
+    EXPECT_FALSE(choose(0u));
+    EXPECT_FALSE(choose(10001u));
+}
+
+TEST(MonsterDropChoices, MaxRollCountAndMissingListFailClosed) {
+    MonsterDropProfile profile{{0u, 0u, 10000u, 0u, 0u},
+                               {313u, 314u, 315u}, 0u};
+    EXPECT_TRUE(select_monster_drop_choices(profile, {}, {}).has_value());
+    EXPECT_TRUE(select_monster_drop_choices(profile, {}, {})->empty());
+    profile.max_rolls = 2u;
+    const std::array<std::uint32_t, 1> short_rolls{1u};
+    EXPECT_FALSE(select_monster_drop_choices(profile, {}, short_rolls));
+    const std::array<std::uint32_t, 3> rolls{1u, 10000u, 0u};
+    const auto choices = select_monster_drop_choices(profile, {}, rolls);
+    ASSERT_TRUE(choices);
+    ASSERT_EQ(choices->size(), 2u);
+    EXPECT_EQ((*choices)[0].item_list_id, 313u);
+    EXPECT_EQ((*choices)[1].item_list_id, 313u);
+    profile.item_list_ids[0] = 0u;
+    EXPECT_FALSE(select_monster_drop_choices(profile, {}, rolls));
+    profile.item_list_ids[0] = 313u;
+    profile.rates[0] = 1u;
+    EXPECT_FALSE(valid_monster_drop_profile(profile));
+    EXPECT_FALSE(select_monster_drop_choices(profile, {}, rolls));
+}
+
 TEST(MapItemDrop, SelectUsesOneBasedInclusiveIntervals) {
     MapDropTable table{1, 1, {{10, 2, 0, 1}, {20, 3, 0, 1}}, 5};
     EXPECT_EQ(select_map_drop_item(table, 2), 0u);

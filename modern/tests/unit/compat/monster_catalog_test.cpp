@@ -10,7 +10,8 @@ TEST(MonsterCatalog, ParsesVisualColumns) {
     const std::string text =
         "1\tMonster\tMonster\t7\t-1\t0\tL001.chx\t1.3\t30\t1\t1\t1000\t50\t90\t2"
         "\t12\t20\t3\t4\t0\t0\t0\t0\t0\t50\t100\t120\t0\t0\t0\t0\t0\t0\t0"
-        "\t1000\t0\t0\t1\t750\t0\t500\t360\t0\t2\t301\t302\t70\t30\r\n";
+        "\t1000\t0\t0\t1\t750\t0\t500\t360\t0\t2\t301\t302\t70\t30"
+        "\t10\t20\t5400\t660\t679\t1\t3260\t313\t314\t315\t1\r\n";
     const auto catalog = mxh::compat::MonsterCatalog::parse_text(
         {reinterpret_cast<const std::uint8_t*>(text.data()), text.size()});
     ASSERT_TRUE(catalog.has_value());
@@ -26,6 +27,13 @@ TEST(MonsterCatalog, ParsesVisualColumns) {
     EXPECT_EQ(visual->attack_count, 2u);
     EXPECT_EQ(visual->attack_skills[0], 301u);
     EXPECT_EQ(visual->attack_rates[1], 30u);
+    EXPECT_EQ(visual->min_drop_money, 10u);
+    EXPECT_EQ(visual->max_drop_money, 20u);
+    EXPECT_EQ(visual->drop_rates,
+              (std::array<std::uint32_t, 5>{5400u, 660u, 679u, 1u, 3260u}));
+    EXPECT_EQ(visual->item_list_ids,
+              (std::array<std::uint16_t, 3>{313u, 314u, 315u}));
+    EXPECT_EQ(visual->max_drop_item_num, 1u);
     EXPECT_EQ(catalog->find(2), nullptr);
 }
 
@@ -73,4 +81,46 @@ TEST(MonsterCatalog, ParsesCanonicalPlayDh) {
     EXPECT_EQ(passive->defense, 451u);
     EXPECT_FALSE(passive->aggressive);
     EXPECT_EQ(passive->attack_skills[0], 1508u);
+    EXPECT_EQ(passive->min_drop_money, 542u);
+    EXPECT_EQ(passive->max_drop_money, 704u);
+    EXPECT_EQ(passive->drop_rates,
+              (std::array<std::uint32_t, 5>{5400u, 660u, 679u, 1u, 3260u}));
+    EXPECT_EQ(passive->item_list_ids,
+              (std::array<std::uint16_t, 3>{313u, 314u, 315u}));
+    EXPECT_EQ(passive->max_drop_item_num, 1u);
+    const auto* no_entries = catalog->find(219u);
+    ASSERT_NE(no_entries, nullptr);
+    EXPECT_EQ(no_entries->drop_rates,
+              (std::array<std::uint32_t, 5>{0u, 10000u, 0u, 0u, 0u}));
+    EXPECT_EQ(no_entries->item_list_ids,
+              (std::array<std::uint16_t, 3>{655u, 656u, 657u}));
+    struct Map10DropGolden {
+        std::uint16_t kind;
+        std::array<std::uint16_t, 3> lists;
+        std::array<std::uint32_t, 5> rates;
+    };
+    constexpr std::array<Map10DropGolden, 6> expected{{
+        {73u, {217u, 218u, 219u}, {5400u, 660u, 679u, 1u, 3260u}},
+        {102u, {304u, 305u, 306u}, {4800u, 650u, 669u, 1u, 3880u}},
+        {103u, {307u, 308u, 309u}, {4800u, 650u, 669u, 1u, 3880u}},
+        {104u, {310u, 311u, 312u}, {4200u, 640u, 659u, 1u, 4500u}},
+        {105u, {313u, 314u, 315u}, {5400u, 660u, 679u, 1u, 3260u}},
+        {219u, {655u, 656u, 657u}, {0u, 10000u, 0u, 0u, 0u}},
+    }};
+    for (const auto& golden : expected) {
+        const auto* monster = catalog->find(golden.kind);
+        ASSERT_NE(monster, nullptr) << golden.kind;
+        EXPECT_EQ(monster->item_list_ids, golden.lists) << golden.kind;
+        EXPECT_EQ(monster->drop_rates, golden.rates) << golden.kind;
+        EXPECT_EQ(monster->max_drop_item_num, 1u) << golden.kind;
+    }
+}
+
+TEST(MonsterCatalog, RejectsTruncatedDropColumns) {
+    const std::string text =
+        "1\tMonster\tMonster\t7\t-1\t0\tL001.chx\t1.3\t30\t1\t1\t1000\t50\t90\t2"
+        "\t12\t20\t3\t4\t0\t0\t0\t0\t0\t50\t100\t120\t0\t0\t0\t0\t0\t0\t0"
+        "\t1000\t0\t0\t1\t750\t0\t500\t360\t0\t2\t301\t302\t70\t30\r\n";
+    EXPECT_FALSE(mxh::compat::MonsterCatalog::parse_text(
+        {reinterpret_cast<const std::uint8_t*>(text.data()), text.size()}));
 }

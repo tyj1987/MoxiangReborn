@@ -49,7 +49,7 @@ std::optional<MonsterCatalog> MonsterCatalog::parse_text(
     while (std::getline(input, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const auto fields = splitTabs(line);
-        if (fields.size() < 48 || fields[6].empty()) continue;
+        if (fields.size() < 59 || fields[6].empty()) continue;
         unsigned kind = 0;
         const auto parsed = std::from_chars(fields[0].data(), fields[0].data() + fields[0].size(), kind);
         if (parsed.ec != std::errc{} || kind == 0 || kind > 65535u) continue;
@@ -90,7 +90,19 @@ std::optional<MonsterCatalog> MonsterCatalog::parse_text(
             !parseInteger(fields[45], visual.attack_skills[1]) ||
             !parseInteger(fields[46], visual.attack_rates[0]) ||
             !parseInteger(fields[47], visual.attack_rates[1]) ||
+            !parseInteger(fields[48], visual.min_drop_money) ||
+            !parseInteger(fields[49], visual.max_drop_money) ||
+            !parseInteger(fields[50], visual.drop_rates[0]) ||
+            !parseInteger(fields[51], visual.drop_rates[1]) ||
+            !parseInteger(fields[52], visual.drop_rates[2]) ||
+            !parseInteger(fields[53], visual.drop_rates[3]) ||
+            !parseInteger(fields[54], visual.drop_rates[4]) ||
+            !parseInteger(fields[55], visual.item_list_ids[0]) ||
+            !parseInteger(fields[56], visual.item_list_ids[1]) ||
+            !parseInteger(fields[57], visual.item_list_ids[2]) ||
+            !parseInteger(fields[58], visual.max_drop_item_num) ||
             visual.life == 0 || visual.attack_min > visual.attack_max ||
+            visual.min_drop_money > visual.max_drop_money ||
             visual.walk_speed < 0.0f || visual.run_speed < 0.0f ||
             visual.domain_range < 0.0f || visual.search_period_ms < 0.0f ||
             visual.search_range < 0.0f) continue;
