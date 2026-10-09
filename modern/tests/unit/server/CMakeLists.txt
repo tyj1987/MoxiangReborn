@@ -16,6 +16,14 @@ gtest_add_tests(TARGET mxh_present_revive_tests
     PRE_SHIP_BUILD
 )
 
+add_executable(mxh_original_vitals_store_tests original_vitals_store_test.cpp)
+target_link_libraries(mxh_original_vitals_store_tests PRIVATE mxh_server mxh_db gtest_main)
+target_include_directories(mxh_original_vitals_store_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_original_vitals_store_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 target_link_libraries(mxh_server_handler_tests PRIVATE
     mxh_server mxh_db mxh_client_lib gtest_main
 )

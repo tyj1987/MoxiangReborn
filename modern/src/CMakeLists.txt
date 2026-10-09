@@ -180,6 +180,7 @@ add_library(mxh_server STATIC
     server/character_calc_manager.cpp
     server/player.cpp
     server/player_state.cpp
+    server/original_vitals_store.cpp
     server/monster.cpp
     server/boss_state.cpp
     server/boss_monster.cpp
