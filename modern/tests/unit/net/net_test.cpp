@@ -86,6 +86,163 @@ private:
     std::string last_addr_;
 };
 
+SOCKET connect_raw_loopback(int port) {
+    SOCKET client = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client == INVALID_SOCKET) return client;
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_port = htons(static_cast<u_short>(port));
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    if (connect(client, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
+        closesocket(client);
+        return INVALID_SOCKET;
+    }
+    return client;
+}
+
+TEST(TcpServerTest, DisconnectInsideConnectCallbackNotifiesAfterReturnOnce) {
+    struct Handler : CountingHandler {
+        TcpServer* server = nullptr;
+        std::atomic<std::size_t> notifications_inside_connect{0};
+        bool on_connect(ConnectionId id, const std::string& address) override {
+            CountingHandler::on_connect(id, address);
+            server->disconnect(id);
+            notifications_inside_connect.store(disconnects.load());
+            return true;
+        }
+    } handler;
+    TcpServer server(handler);
+    handler.server = &server;
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    SOCKET client = connect_raw_loopback(port);
+    ASSERT_NE(client, INVALID_SOCKET);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while ((handler.disconnects.load() == 0 || server.connection_count() != 0) &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    EXPECT_EQ(handler.connects.load(), 1u);
+    EXPECT_EQ(handler.notifications_inside_connect.load(), 0u);
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+    server.stop();
+    closesocket(client);
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+}
+
+TEST(TcpServerTest, RejectedConnectReleasesHandlerStateOnce) {
+    struct Handler : CountingHandler {
+        bool on_connect(ConnectionId id, const std::string& address) override {
+            CountingHandler::on_connect(id, address);
+            return false;
+        }
+    } handler;
+    TcpServer server(handler);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    SOCKET client = connect_raw_loopback(port);
+    ASSERT_NE(client, INVALID_SOCKET);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while ((handler.disconnects.load() == 0 || server.connection_count() != 0) &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    EXPECT_EQ(handler.connects.load(), 1u);
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+    EXPECT_EQ(server.connection_count(), 0u);
+    server.stop();
+    closesocket(client);
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+}
+
+TEST(TcpServerTest, ExternalDisconnectDuringConnectCallbackDefersNotification) {
+    struct Handler : CountingHandler {
+        std::atomic<bool> entered{false};
+        std::atomic<bool> release{false};
+        std::atomic<std::uint64_t> connection_id{0};
+        bool on_connect(ConnectionId id, const std::string& address) override {
+            CountingHandler::on_connect(id, address);
+            connection_id.store(id.value);
+            entered.store(true);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (!release.load() && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            return true;
+        }
+    } handler;
+    TcpServer server(handler);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    SOCKET client = connect_raw_loopback(port);
+    ASSERT_NE(client, INVALID_SOCKET);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!handler.entered.load() && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    if (handler.entered.load()) {
+        server.disconnect(ConnectionId{handler.connection_id.load()});
+        EXPECT_EQ(handler.disconnects.load(), 0u);
+    }
+    handler.release.store(true);
+    const auto notified = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (handler.disconnects.load() == 0 && std::chrono::steady_clock::now() < notified)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    EXPECT_TRUE(handler.entered.load());
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+    server.stop();
+    closesocket(client);
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+}
+
+TEST(TcpServerTest, StopDuringConnectCallbackDefersNotificationUntilReturn) {
+    struct Handler : CountingHandler {
+        std::atomic<bool> entered{false};
+        std::atomic<bool> release{false};
+        std::atomic<bool> inside_connect{false};
+        std::atomic<bool> notified_inside_connect{false};
+        bool on_connect(ConnectionId id, const std::string& address) override {
+            CountingHandler::on_connect(id, address);
+            inside_connect.store(true);
+            entered.store(true);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (!release.load() && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            inside_connect.store(false);
+            return true;
+        }
+        void on_disconnect(ConnectionId id, NetError reason) override {
+            if (inside_connect.load()) notified_inside_connect.store(true);
+            CountingHandler::on_disconnect(id, reason);
+        }
+    } handler;
+    TcpServer server(handler);
+    const int port = find_free_port();
+    ASSERT_GT(port, 0);
+    ServerConfig cfg;
+    cfg.port = static_cast<std::uint16_t>(port);
+    ASSERT_EQ(server.start(cfg), NetError::Ok);
+    SOCKET client = connect_raw_loopback(port);
+    ASSERT_NE(client, INVALID_SOCKET);
+    const auto entered_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (!handler.entered.load() && std::chrono::steady_clock::now() < entered_deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    std::thread stopper([&] { server.stop(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(handler.disconnects.load(), 0u);
+    handler.release.store(true);
+    stopper.join();
+    closesocket(client);
+    EXPECT_TRUE(handler.entered.load());
+    EXPECT_FALSE(handler.notified_inside_connect.load());
+    EXPECT_EQ(handler.disconnects.load(), 1u);
+}
+
 TEST(TcpServerTest, NotRunningBeforeStart) {
     CountingHandler h;
     TcpServer srv(h);

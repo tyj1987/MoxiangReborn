@@ -135,6 +135,10 @@ struct Connection {
     std::atomic<bool> active{true};
     std::atomic<bool> ready_for_reap{false};
     std::atomic<bool> disconnect_notified{false};
+    // on_connect may be initializing handler-owned encryption state while
+    // another thread requests shutdown. Its on_disconnect must wait until
+    // that callback has returned.
+    std::atomic<bool> connect_callback_complete{false};
     std::atomic<bool> shutdown_requested{false};
     IEncryptor* encryptor = nullptr;
     std::mutex encryptor_mu;
@@ -323,16 +327,21 @@ NetError TcpServer::start(const ServerConfig& cfg) {
             // dropped with Disconnected.
             {
                 std::lock_guard<std::mutex> lk(impl_->connections_mu);
-                impl_->connections[id] = std::move(conn);
+                impl_->connections[id] = conn;
             }
-            if (!handler_.on_connect(cid, remote)) {
+            const bool accepted = handler_.on_connect(cid, remote);
+            conn->connect_callback_complete.store(true);
+            if (!accepted || impl_->stopping.load() || !conn->active.load()) {
+                conn->request_shutdown();
+                if (!conn->disconnect_notified.exchange(true))
+                    handler_.on_disconnect(cid, NetError::Disconnected);
                 {
                     std::lock_guard<std::mutex> lk(impl_->connections_mu);
                     impl_->connections.erase(id);
                 }
+                conn->close_after_join();
                 continue;
             }
-            if (impl_->stopping.load()) continue;
 
             // Spawn worker for this connection.
             if ((std::size_t)impl_->worker_threads.size() <
@@ -585,13 +594,14 @@ void TcpServer::stop() {
     if (impl_->stop_cleanup_started.exchange(true)) return;
     impl_->stopping.store(true);
 
-    auto shutdown_connections = [&] {
+    auto shutdown_connections = [&](bool notify) {
         std::vector<ConnectionId> stop_disconnects;
         {
             std::lock_guard<std::mutex> lk(impl_->connections_mu);
             for (auto& [_, conn] : impl_->connections) {
                 conn->request_shutdown();
-                if (!conn->disconnect_notified.exchange(true)) {
+                if (notify && conn->connect_callback_complete.load() &&
+                    !conn->disconnect_notified.exchange(true)) {
                     stop_disconnects.push_back(ConnectionId{conn->id});
                 }
             }
@@ -601,15 +611,16 @@ void TcpServer::stop() {
             handler_.on_disconnect(id, NetError::Disconnected);
     };
 
-    // Wake blocked send/recv first, then finish any accept that raced with
-    // stopping and include its newly registered connection in a second pass.
-    shutdown_connections();
+    // First wake I/O without notifying handlers: accept may still be inside
+    // on_connect, including a reentrant HSEL key-delivery send. After accept
+    // exits, handler-owned state can be released by on_disconnect safely.
+    shutdown_connections(false);
     if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
     if (impl_->listen_sock != INVALID_SOCKET) {
         closesocket(impl_->listen_sock);
         impl_->listen_sock = INVALID_SOCKET;
     }
-    shutdown_connections();
+    shutdown_connections(true);
 
     if (impl_->reaper_thread.joinable()) impl_->reaper_thread.join();
 
@@ -756,7 +767,8 @@ void TcpServer::disconnect(ConnectionId id) {
         auto it = impl_->connections.find(id.value);
         if (it == impl_->connections.end()) return;
         it->second->request_shutdown();
-        notify = !it->second->disconnect_notified.exchange(true);
+        notify = it->second->connect_callback_complete.load() &&
+                 !it->second->disconnect_notified.exchange(true);
     }
     if (notify) {
         ServerThreadScope callback_scope(this);
