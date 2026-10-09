@@ -6,7 +6,14 @@ $tokens = $null
 $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($wrapper, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw 'Original VM112 wrapper does not parse.' }
-$names = @('Write-OriginalOwnedPidManifest', 'Stop-OriginalOwnedProcess')
+$native = @($ast.FindAll({ param($node)
+    $node -is [Management.Automation.Language.CommandAst] -and
+    $node.GetCommandName() -ceq 'Add-Type'
+}, $true))
+if ($native.Count -ne 1) { throw 'Expected one production process-image P/Invoke declaration.' }
+. ([scriptblock]::Create($native[0].Extent.Text))
+$names = @('Assert-OriginalOwnedProcessImage', 'Write-OriginalOwnedPidManifest',
+    'Stop-OriginalOwnedProcess')
 foreach ($name in $names) {
     $definitions = @($ast.FindAll({ param($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name
@@ -38,12 +45,21 @@ try {
     catch [IO.IOException] { $duplicateRejected = $true }
     if (-not $duplicateRejected) { throw 'CreateNew allowed an existing PID manifest.' }
 
-    $powershell = Join-Path $PSHOME 'powershell.exe'
+    $powershell = Join-Path $env:WINDIR 'SysWOW64\WindowsPowerShell\v1.0\powershell.exe'
     $childA = Start-Process -FilePath $powershell -ArgumentList '-NoProfile -NonInteractive -Command Start-Sleep -Seconds 30' -WindowStyle Hidden -PassThru
     $null = $childA.Handle
+    Assert-OriginalOwnedProcessImage -Process $childA -ExpectedPath $powershell
     $childB = Start-Process -FilePath $powershell -ArgumentList '-NoProfile -NonInteractive -Command Start-Sleep -Seconds 30' -WindowStyle Hidden -PassThru
     $null = $childB.Handle
+    Assert-OriginalOwnedProcessImage -Process $childB -ExpectedPath $powershell
     if ($childA.HasExited -or $childB.HasExited) { throw 'Harmless fixture process exited before ownership test.' }
+    $wrongPathRejected = $false
+    try { Assert-OriginalOwnedProcessImage -Process $childA -ExpectedPath 'C:\wrong\not-owned.exe' }
+    catch {
+        if ($_.Exception.Message -like '*image path differs*') { $wrongPathRejected = $true }
+        else { throw }
+    }
+    if (-not $wrongPathRejected) { throw 'Wrong owned executable path was not rejected.' }
     Stop-OriginalOwnedProcess -Process $childA
     if (-not $childA.HasExited -or $childB.HasExited) { throw 'Owned handle cleanup affected another process.' }
     Stop-OriginalOwnedProcess -Process $childB
@@ -51,7 +67,8 @@ try {
     if (-not $childB.HasExited) { throw 'Second owned fixture process did not exit.' }
     [ordered]@{manifestCreateNew=$true;manifestAtomicReplace=$true;
         persistedStartTicksAndExeHash=$true;ownedHandleStoppedOnlyTarget=$true;
-        idempotentAlreadyExited=$true;gameServersStarted=$false;databaseTouched=$false} |
+        idempotentAlreadyExited=$true;sameHandleX86ImagePath=$true;
+        wrongImagePathRejected=$wrongPathRejected;gameServersStarted=$false;databaseTouched=$false} |
         ConvertTo-Json -Compress
 } finally {
     foreach ($child in @($childA, $childB)) {

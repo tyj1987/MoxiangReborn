@@ -163,6 +163,35 @@ if (-not $?) {
 }
 $logRoot = Join-Path $stageRoot 'run\logs'
 $null = New-Item -ItemType Directory -Path $logRoot -Force
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class OriginalOwnedProcessImage {
+    [DllImport("kernel32.dll", EntryPoint="QueryFullProcessImageNameW", CharSet=CharSet.Unicode, SetLastError=true)]
+    public static extern bool QueryFullProcessImageName(IntPtr process, int flags, StringBuilder path, ref int length);
+}
+'@
+function Assert-OriginalOwnedProcessImage {
+    param([Diagnostics.Process]$Process, [string]$ExpectedPath)
+    $lastErrorCode = 0
+    for ($attempt = 0; $attempt -lt 10; $attempt++) {
+        if ($Process.HasExited) {
+            throw "Owned process $($Process.Id) exited before image check; exit code $($Process.ExitCode)."
+        }
+        $path = [Text.StringBuilder]::new(1024)
+        $length = 1024
+        if ([OriginalOwnedProcessImage]::QueryFullProcessImageName($Process.Handle, 0, $path, [ref]$length)) {
+            if (-not [StringComparer]::OrdinalIgnoreCase.Equals($path.ToString(), $ExpectedPath)) {
+                throw "Owned process $($Process.Id) image path differs from its fixed stage executable."
+            }
+            return
+        }
+        $lastErrorCode = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+        Start-Sleep -Milliseconds 50
+    }
+    throw "Owned process $($Process.Id) image path remained unreadable; Win32 error $lastErrorCode."
+}
 function Write-OriginalOwnedPidManifest {
     param([string]$Path, [object[]]$Entries, [bool]$Initial)
     $bytes = [Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Json -InputObject @($Entries) -Depth 4) + "`n")
@@ -197,9 +226,7 @@ try {
         $process = Start-Process -FilePath $spec.exe -ArgumentList $spec.args -WorkingDirectory (Split-Path -Parent $spec.exe) -RedirectStandardOutput (Join-Path $logRoot "$($spec.name).out.log") -RedirectStandardError (Join-Path $logRoot "$($spec.name).err.log") -WindowStyle Hidden -PassThru
         $started += $process
         $null = $process.Handle
-        if (-not [StringComparer]::OrdinalIgnoreCase.Equals($process.Path, $spec.exe)) {
-            throw "$($spec.name) executable path changed during startup."
-        }
+        Assert-OriginalOwnedProcessImage -Process $process -ExpectedPath $spec.exe
         $owned += [ordered]@{ name = $spec.name; pid = $process.Id; exe = $spec.exe; port = $spec.port;
             startUtcTicks = $process.StartTime.ToUniversalTime().Ticks;
             exeSha256 = (Get-FileHash -LiteralPath $spec.exe -Algorithm SHA256).Hash.ToLowerInvariant() }
