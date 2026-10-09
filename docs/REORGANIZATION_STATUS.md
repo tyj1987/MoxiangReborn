@@ -37,7 +37,7 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 
 ## 资源与独有成果
 
-原版和Unity的canonical PlayDH均按5131文件、1,681,042,155字节验证；原资源清单SHA为`27ce90226af0b6a97ab2ebf8ec7272392f74bcbb3e75efb7d8f3e605023215a5`。241份派生文件已移入独立overlay，原资源禁止回写。Unity另有精确Effekseer279项和复合来源5135/0验证；45个地图发布阻塞（27 HFL、18 TTB）仍存在。
+原版 canonical PlayDH 基线仍按5131文件、1,681,042,155字节核验；本轮新增的 `Resource/Map/95.hfl` 是独立恢复文件，不回写 canonical hash manifest，来源与哈希记录在同目录 provenance 文件。241份派生文件已移入独立overlay，原资源禁止回写。原版线当前剩余44个地图发布阻塞（26 HFL、18 TTB）；Unity另有精确Effekseer279项和复合来源5135/0验证，其独立基线仍为45个阻塞。
 
 原树初始182修改、241删除、1499未跟踪和空暂存区已保全，没有整体提交或覆盖。29个初始refs、指定WIP和资产在私有PVE恢复验证；范围不包含所有ignored和全部DB。04:13 UTC主树去向表为1118项候选同路径同字节、558项待整合、20项新增量和243项原有删除；delta-v4的20文件/158772原字节已独立恢复，ZIP SHA `fc9bd1091e61fbb4afd9b1d1bd7e4f626e6977669ecadae7879666fe46959147`。Unity当时4746项Git WIP中4737项命中已验证私有包，另9项/457585字节在delta独立恢复（SHA `dc5d391ab4be52997210fbf66cd93ea2b9457b573cc9c17db30f6f74b37eddc3`）。后续构建与文档增量分别记录；字节恢复不等于已整合或验收。
 
