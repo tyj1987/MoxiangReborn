@@ -17,7 +17,7 @@
 | Unity网络 | `84d3a0c5`已部署；39836319修复测试fixture路径 | 纯网络52/52、定向4/4、wire mock20/20；新native core110/110无DB测试通过；PVE两轮228/228 | 协议实体到达不证明Managed呈现或GUI交互；POSIX和故障恢复未验收 |
 | Foundation | `ad0e096b`，独立吸收，CI748通过 | 当时13工具/测试、8可编辑输入与原manifest快照，22/22 Git blob原字节；37通过、2跳过；7组35产物可重生成 | 后续7eda接入单测并退役旧CI入口；仅私有审查，许可、画面、地图和Player未验收 |
 
-GitLab 项目12已经验证为私有工程主源。用户授权后，Broker 部署服务器恢复了项目专用 mTLS 身份和普通 Git 推送；令牌留在服务器，通道只允许两个候选分支，不允许 force/delete。2026-10-10 已重新校验四个 GitLab LFS 对象并完成原版分支快进：`codex/reorg-original-20261009` 从 `c26f5760` 到 `ad75d829`，dry-run 与实际推送的远端回读均一致。GitHub 镜像、长期分支归并和 PR #1 拆分吸收仍未完成；本轮没有删远端分支或正式发布。
+GitLab 项目12已经验证为私有工程主源。用户授权后，Broker 部署服务器恢复了项目专用 mTLS 身份和普通 Git 推送；令牌留在服务器，通道只允许两个候选分支，不允许 force/delete。2026-10-10 已重新校验四个 GitLab LFS 对象并完成两条长期分支快进：原版 `c26f5760→340b7472`、Unity `5178e733→f1231e26`，dry-run 与实际推送的远端回读均一致；对应 GitLab pipeline **772**、**773** 均 success。GitHub 镜像、长期分支归并和 PR #1 拆分吸收仍未完成；本轮没有删远端分支或正式发布。
 
 CI范围为治理、Python和精确资源校验。Windows C++、Unity Editor/Player目前是本机构建证据，尚未接入远端构建CI。GitLab与GitHub四个LFS对象均已完整独立读回，共1,228,054,889字节，逐对象大小与SHA-256一致；GitHub续传完成时间为2026-10-09 01:12 UTC，证明见`broker-access/dual-remote-lfs-comparison.json`。这只覆盖四个对象，不代表两端refs、WIP、全部资源和配置已经统一。
 
