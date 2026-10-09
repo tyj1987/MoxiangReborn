@@ -1083,13 +1083,6 @@ int run_e2e(const CliArgs& cli) {
                 const auto nearest = std::min_element(
                     game.monsters().begin(), game.monsters().end(),
                     [&game](const auto& lhs, const auto& rhs) {
-                        // Prefer a normal low-life Map10 spawn for the
-                        // starter-avatar combat gate.  The nearest object can
-                        // be a boss/titan with thousands of defence, which
-                        // proves hit delivery but cannot reach the natural
-                        // death/drop path within a bounded acceptance run.
-                        if (lhs.current_life != rhs.current_life)
-                            return lhs.current_life < rhs.current_life;
                         const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
                         const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
                         const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
