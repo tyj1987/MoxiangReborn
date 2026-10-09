@@ -4366,6 +4366,31 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath
     EXPECT_EQ(snapshot->current_hp, 0u);
     EXPECT_EQ(snapshot->lifecycle, PlayerLifecycle::Dead);
 
+    // Another connected player would receive a leaked dead-player move if
+    // the Map merely skipped its position update but still broadcast below.
+    mxh::net::Message second_game_in = game_in;
+    second_game_in.header.object_id = 456u;
+    handler.on_message(mxh::net::make_connection_id(56), second_game_in);
+    reply.messages.clear();
+    mxh::net::Message dead_move;
+    dead_move.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+    dead_move.header.protocol = static_cast<std::uint8_t>(mxh::proto::MoveProtocol::OneTarget);
+    dead_move.header.object_id = 123u;
+    dead_move.payload.resize(4u);
+    const std::uint16_t requested_x = 200u, requested_z = 300u;
+    std::memcpy(dead_move.payload.data(), &requested_x, 2);
+    std::memcpy(dead_move.payload.data() + 2, &requested_z, 2);
+    handler.on_message(connection, dead_move);
+    ASSERT_EQ(reply.messages.size(), 1u) << "dead move must not broadcast";
+    EXPECT_EQ(reply.last_id.value, connection.value);
+    EXPECT_EQ(reply.messages[0].header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Correction));
+    ASSERT_EQ(reply.messages[0].payload.size(), 4u);
+    const auto after_dead_move = handler.player_runtime_snapshot(123u);
+    ASSERT_TRUE(after_dead_move.has_value());
+    EXPECT_FLOAT_EQ(after_dead_move->pos_x, snapshot->pos_x);
+    EXPECT_FLOAT_EQ(after_dead_move->pos_z, snapshot->pos_z);
+
     reply.messages.clear();
     now = 3000u;
     handler.tick_monster_ai();

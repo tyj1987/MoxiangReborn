@@ -108,6 +108,7 @@ TEST(InGamePlayable, StaticCollisionQueryRejectsCandidateStep) {
     info.position_x = 1000;
     info.position_z = 1000;
     info.map_num = 10;
+    info.life = info.max_life = 125;
     state.dispatch_gamein_ack(info);
     state.set_collision_query([](float x, float z, float) {
         return x >= 900.0f && z >= 900.0f;
@@ -126,6 +127,7 @@ TEST(InGamePlayable, OpeningChatClearsLatchedMovementInput) {
     info.position_x = 1000;
     info.position_z = 1000;
     info.map_num = 10;
+    info.life = info.max_life = 125;
     state.dispatch_gamein_ack(info);
 
     state.OnKeyEvent(true, mxh::client::kVkW);
@@ -417,7 +419,10 @@ mxh::net::Message make_gamein_ack_at(std::uint16_t x, std::uint16_t z) {
         mxh::proto::UserConnProtocol::GameInAck);
     ack.payload.assign(mxh::game::HERO_TOTAL_EMPTY_PAYLOAD_SIZE, 0);
     const std::uint32_t player_id = 42;
+    const std::uint32_t life = 125;
     std::memcpy(ack.payload.data(), &player_id, 4);
+    std::memcpy(ack.payload.data() + 35, &life, 4);
+    std::memcpy(ack.payload.data() + 39, &life, 4);
     std::memcpy(ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &x, 2);
     std::memcpy(ack.payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &z, 2);
     return ack;
@@ -479,6 +484,78 @@ TEST(InGamePlayable, CharacterDeltasAndDeathUseAuthoritativeMessages) {
     std::memcpy(death.payload.data() + 4, &player, 4);
     state.on_message(mxh::net::make_connection_id(1), death);
     EXPECT_EQ(state.game_info().life, 0u);
+}
+
+TEST(InGamePlayable, DeathStopsClickAndKeyboardPredictionUntilNewGameIn) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    const auto initial = make_gamein_ack_at(25000u, 25000u);
+    state.on_message(mxh::net::make_connection_id(1), initial);
+    int ground_queries = 0;
+    state.set_world_screen_queries(
+        [&](float, float) -> std::optional<mxh::client::GroundPoint> {
+            ++ground_queries;
+            return mxh::client::GroundPoint{25100.0f, 25100.0f};
+        }, {});
+    ASSERT_TRUE(state.move_to_screen(400.0f, 300.0f));
+    ASSERT_EQ(ground_queries, 1);
+    ASSERT_EQ(state.local_x(), 25100u);
+    state.OnKeyEvent(true, mxh::client::kVkW);  // held before death
+
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    death.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterDie);
+    death.payload.resize(8u);
+    const std::uint32_t victim = 42u;
+    std::memcpy(death.payload.data() + 4, &victim, 4);
+    state.on_message(mxh::net::make_connection_id(1), death);
+    ASSERT_EQ(state.game_info().life, 0u);
+    EXPECT_FALSE(state.move_to_screen(400.0f, 300.0f));
+    EXPECT_TRUE(state.OnMouseButton(true, true, 400, 300));
+    EXPECT_EQ(ground_queries, 1);
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.update_movement(1000u);
+    state.update_movement(1100u);
+    EXPECT_EQ(state.local_x(), 25100u);
+    EXPECT_EQ(state.local_z(), 25100u);
+
+    // A stray positive LifeAck alone is not a revive or a new GameIn.
+    mxh::net::Message life;
+    life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+    life.header.object_id = victim;
+    const std::int32_t heal = 125;
+    life.payload.resize(4u);
+    std::memcpy(life.payload.data(), &heal, 4);
+    state.on_message(mxh::net::make_connection_id(1), life);
+    EXPECT_EQ(state.game_info().life, 125u);
+    EXPECT_FALSE(state.move_to_screen(400.0f, 300.0f));
+
+    state.on_message(mxh::net::make_connection_id(1), initial);
+    EXPECT_TRUE(state.move_to_screen(400.0f, 300.0f));
+    EXPECT_EQ(ground_queries, 2);
+}
+
+TEST(InGamePlayable, ZeroLifeAckStopsMovementBeforeDeathNotify) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000u, 25000u));
+    mxh::net::Message life;
+    life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+    life.header.object_id = 42u;
+    const std::int32_t lethal = -125;
+    life.payload.resize(4u);
+    std::memcpy(life.payload.data(), &lethal, 4);
+    state.on_message(mxh::net::make_connection_id(1), life);
+    EXPECT_EQ(state.game_info().life, 0u);
+    state.OnKeyEvent(true, mxh::client::kVkW);
+    state.update_movement(1000u);
+    state.update_movement(1100u);
+    EXPECT_EQ(state.local_x(), 25000u);
+    EXPECT_EQ(state.local_z(), 25000u);
 }
 
 TEST(InGamePlayable, ShieldAckUpdatesOnlyOwnShieldWithinServerMaximum) {

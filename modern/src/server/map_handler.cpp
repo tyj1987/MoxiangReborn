@@ -1802,7 +1802,8 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
         proto == mxh::proto::MoveProtocol::Stop ||
         proto == mxh::proto::MoveProtocol::Warp ||
         proto == mxh::proto::MoveProtocol::Correction) {
-        bool rejected_jump = false;
+        bool rejected_move = false;
+        bool rejected_dead = false;
         std::uint16_t accepted_x = 0;
         std::uint16_t accepted_z = 0;
         {
@@ -1812,7 +1813,14 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
             if (player_it != connected_players_.end() && runtime_it != player_runtimes_.end()) {
                 auto& info = player_it->second;
                 auto& state = runtime_it->second.actor.state();
-                if (msg.payload.size() >= 4) {
+                if (!runtime_it->second.actor.is_alive() ||
+                    state.vitals.current_hp == 0u) {
+                    rejected_move = rejected_dead = true;
+                    accepted_x = static_cast<std::uint16_t>(
+                        std::clamp(info.pos_x, 0.0f, 65535.0f));
+                    accepted_z = static_cast<std::uint16_t>(
+                        std::clamp(info.pos_z, 0.0f, 65535.0f));
+                } else if (msg.payload.size() >= 4) {
                     std::uint16_t x = 0;
                     std::uint16_t z = 0;
                     std::memcpy(&x, msg.payload.data(), sizeof(x));
@@ -1823,7 +1831,7 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
                     if ((proto == mxh::proto::MoveProtocol::OneTarget ||
                          proto == mxh::proto::MoveProtocol::Target) &&
                         dx * dx + dz * dz > kMaxClientStep * kMaxClientStep) {
-                        rejected_jump = true;
+                        rejected_move = true;
                         accepted_x = static_cast<std::uint16_t>(
                             std::clamp(info.pos_x, 0.0f, 65535.0f));
                         accepted_z = static_cast<std::uint16_t>(
@@ -1837,7 +1845,7 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
                 }
             }
         }
-        if (rejected_jump) {
+        if (rejected_move) {
             mxh::net::Message correction;
             correction.header.category = static_cast<std::uint8_t>(
                 mxh::proto::Category::Move);
@@ -1848,8 +1856,9 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
             std::memcpy(correction.payload.data(), &accepted_x, sizeof(accepted_x));
             std::memcpy(correction.payload.data() + 2, &accepted_z, sizeof(accepted_z));
             reply_(id, correction);
-            std::cout << "[Map] rejected excessive move jump from player="
-                      << sender_pid << "\n";
+            std::cout << "[Map] rejected "
+                      << (rejected_dead ? "dead-player move" : "excessive move jump")
+                      << " from player=" << sender_pid << "\n";
             return;
         }
         // Echo the move back to the sender (side-by-side move

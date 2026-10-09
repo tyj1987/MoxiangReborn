@@ -745,6 +745,7 @@ void CInGameState::Release() {
     m_playerId = 0;
     m_mapNum = 0;
     m_inGame   = false;
+    m_dead     = false;
     m_started  = false;
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
@@ -1407,6 +1408,7 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
                 const auto life = static_cast<std::int64_t>(m_info.life) + delta;
                 m_info.life = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
                     life, 0, m_info.max_life));
+                if (m_info.life == 0) stop_movement_on_death();
                 refresh_live_ui_bindings();
             } else if (protocol == mxh::proto::CharacterProtocol::ShieldAck) {
                 const auto shield = static_cast<std::int64_t>(m_info.shield) + delta;
@@ -1608,6 +1610,8 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     if (info.player_id != 0u) m_playerId = info.player_id;
     m_info   = info;
     m_inGame = true;
+    m_dead = false;
+    if (m_info.life == 0) stop_movement_on_death();
     // Phase 1: disarm the GameInAck timeout — the ack arrived before
     // the deadline.
     m_pendingGameInAckSinceMs = 0;
@@ -1708,6 +1712,7 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                     std::min(info->life, std::uint32_t{0xffffu}));
                 m_info.max_life = static_cast<std::uint16_t>(
                     std::min(info->max_life, std::uint32_t{0xffffu}));
+                if (m_info.life == 0) stop_movement_on_death();
                 m_info.shield = info->shield;
                 m_info.max_shield = info->max_shield;
                 m_info.gender = info->gender;
@@ -1819,9 +1824,7 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             const auto victim = get_u32(msg.payload.data() + 4);
             if (victim == m_playerId) {
                 m_info.life = 0;
-                m_pendingAttackTarget = 0;
-                m_pendingSkillId = 0;
-                m_pendingSkillTargetId = 0;
+                stop_movement_on_death();
                 refresh_live_ui_bindings();
             }
             break;
@@ -2883,6 +2886,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
     const std::uint32_t move_mask = key_mask_for_vk(vk);
     if (move_mask != 0 && !m_chatOpen && !m_shopOpen) {
         // HUD widgets must not swallow WASD/QE. Original Q/E is strafe.
+        if (m_inGame && (m_dead || m_info.life == 0)) {
+            m_keyMask &= ~move_mask;
+            return;
+        }
         if (pressed) m_keyMask |= move_mask;
         else m_keyMask &= ~move_mask;
         return;
@@ -3039,6 +3046,10 @@ void CInGameState::OnKeyEvent(bool pressed, std::uint32_t vk) {
 
     const std::uint32_t mask = key_mask_for_vk(vk);
     if (mask == 0) return;
+    if (m_inGame && (m_dead || m_info.life == 0)) {
+        m_keyMask &= ~mask;
+        return;
+    }
     if (pressed) {
         m_keyMask |= mask;
     } else {
@@ -3329,6 +3340,9 @@ bool CInGameState::OnMouseButton(bool left, bool down,
         // movement, NPC selection or combat while the shop is open.
         return true;
     }
+    // Dialogs remain usable, but a dead avatar cannot create a world
+    // destination or an attack/pickup target from the same click.
+    if (left && down && m_inGame && (m_dead || m_info.life == 0)) return true;
     if (left && down && !m_shopOpen) {
         const float fx = static_cast<float>(x);
         const float fy = static_cast<float>(y);
@@ -3497,6 +3511,11 @@ void CInGameState::set_map_change_target_resolver(
 
 void CInGameState::update_movement(std::uint64_t now_ms) {
     if (!m_inGame) return;
+    if (m_dead || m_info.life == 0) {
+        m_keyMask = 0;
+        m_moving = false;
+        return;
+    }
     float dt = 0.016f;
     if (m_lastTickMs != 0) {
         dt = std::min(0.05f,
@@ -3562,7 +3581,7 @@ void CInGameState::update_movement(std::uint64_t now_ms) {
 }
 
 bool CInGameState::move_to_screen(float screen_x, float screen_y) {
-    if (!m_inGame) return false;
+    if (!m_inGame || m_dead || m_info.life == 0) return false;
     // The world uses the legacy 800x600 logical canvas.  In widescreen
     // pillarbox mode, clicks in the side bars must remain inert instead of
     // being projected into the world.
@@ -3656,7 +3675,7 @@ bool CInGameState::move_to_screen(float screen_x, float screen_y) {
 
 void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
                              mxh::proto::MoveProtocol proto) {
-    if (!is_connected()) return;
+    if (!m_inGame || m_dead || m_info.life == 0 || !is_connected()) return;
     const auto e = m_pEngine->agent_session().send(
         make_move_message(m_playerId, proto, x, z));
     if (e != mxh::net::NetError::Ok) {
@@ -3673,6 +3692,18 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
         MLOG_DEBUG("CInGameState: send_move proto=%d pos=(%u,%u)",
                    static_cast<int>(proto), x, z);
     }
+}
+
+void CInGameState::stop_movement_on_death() noexcept {
+    m_dead = true;
+    m_keyMask = 0;
+    m_moving = false;
+    m_lastMoveSendMs = 0;
+    m_pendingAttackTarget = 0;
+    m_lastAttackTarget = 0;
+    m_pendingSkillId = 0;
+    m_pendingSkillTargetId = 0;
+    m_pendingSkillSinceMs = 0;
 }
 
 void CInGameState::try_attack() {

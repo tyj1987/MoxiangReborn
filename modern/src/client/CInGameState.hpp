@@ -580,6 +580,7 @@ public:
     bool interact_with_npc(std::uint32_t npc_id);
     void send_move(std::uint16_t x, std::uint16_t z,
                    mxh::proto::MoveProtocol proto);
+    void stop_movement_on_death() noexcept;
     void try_attack();
     std::uint32_t pick_drop_at_screen(float sx, float sy) const;
     std::uint32_t pick_nearest_drop() const noexcept;
@@ -643,6 +644,7 @@ public:
     std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;
     bool                     m_started    = false;
     bool                     m_inGame     = false;
+    bool                     m_dead       = false;  // cleared only by a new GameIn
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
     bool                     m_sentGameOutSyn = false;
