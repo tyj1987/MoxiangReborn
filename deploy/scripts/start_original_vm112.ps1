@@ -163,22 +163,57 @@ if (-not $?) {
 }
 $logRoot = Join-Path $stageRoot 'run\logs'
 $null = New-Item -ItemType Directory -Path $logRoot -Force
+function Write-OriginalOwnedPidManifest {
+    param([string]$Path, [object[]]$Entries, [bool]$Initial)
+    $bytes = [Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Json -InputObject @($Entries) -Depth 4) + "`n")
+    if ($Initial) {
+        $stream = [IO.FileStream]::new($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
+        finally { $stream.Dispose() }
+    } else {
+        $suffix = [Guid]::NewGuid().ToString('N')
+        $temp = $Path + '.' + $suffix + '.tmp'
+        $backup = $Path + '.' + $suffix + '.bak'
+        $stream = [IO.FileStream]::new($temp, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
+        finally { $stream.Dispose() }
+        [IO.File]::Replace($temp, $Path, $backup)
+    }
+}
+function Stop-OriginalOwnedProcess {
+    param([Diagnostics.Process]$Process)
+    if (-not $Process.HasExited) {
+        try { $Process.Kill() }
+        catch { if (-not $Process.HasExited) { throw } }
+        if (-not $Process.WaitForExit(30000) -or -not $Process.HasExited) {
+            throw "Owned process $($Process.Id) did not exit."
+        }
+    }
+}
 $owned = @()
+$started = @()
 try {
     foreach ($spec in $serverSpecs) {
         $process = Start-Process -FilePath $spec.exe -ArgumentList $spec.args -WorkingDirectory (Split-Path -Parent $spec.exe) -RedirectStandardOutput (Join-Path $logRoot "$($spec.name).out.log") -RedirectStandardError (Join-Path $logRoot "$($spec.name).err.log") -WindowStyle Hidden -PassThru
-        $owned += [ordered]@{ name = $spec.name; pid = $process.Id; exe = $spec.exe; port = $spec.port }
-        $owned | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath $statePath -Encoding UTF8
+        $started += $process
+        $null = $process.Handle
+        if (-not [StringComparer]::OrdinalIgnoreCase.Equals($process.Path, $spec.exe)) {
+            throw "$($spec.name) executable path changed during startup."
+        }
+        $owned += [ordered]@{ name = $spec.name; pid = $process.Id; exe = $spec.exe; port = $spec.port;
+            startUtcTicks = $process.StartTime.ToUniversalTime().Ticks;
+            exeSha256 = (Get-FileHash -LiteralPath $spec.exe -Algorithm SHA256).Hash.ToLowerInvariant() }
+        Write-OriginalOwnedPidManifest -Path $statePath -Entries $owned -Initial ($owned.Count -eq 1)
         Start-Sleep -Milliseconds 500
         if ($process.HasExited) { throw "$($spec.name) exited during startup; inspect stage logs." }
     }
 } catch {
-    foreach ($entry in $owned) {
-        $process = Get-Process -Id $entry.pid -ErrorAction SilentlyContinue
-        if ($null -ne $process -and [StringComparer]::OrdinalIgnoreCase.Equals($process.Path, [string]$entry.exe)) {
-            Stop-Process -Id $entry.pid -Force -ErrorAction SilentlyContinue
-        }
+    $startError = $_
+    for ($index = $started.Count - 1; $index -ge 0; $index--) {
+        $process = $started[$index]
+        try { Stop-OriginalOwnedProcess -Process $process }
+        catch { Write-Warning "Owned startup cleanup failed for $($process.Id): $($_.FullyQualifiedErrorId)" }
     }
-    throw
+    throw $startError
 }
 Write-Host "VM112 original three-service stack started; PID manifest: $statePath"
