@@ -1,4 +1,5 @@
 #include "CInGameState.hpp"
+#include "GameWorldInputBinding.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/net/net.hpp"
 
@@ -781,6 +782,100 @@ TEST(InGamePlayable, ClickMoveSlidesAlongClearAxis) {
     state.OnMouseButton(true, true, 320, 220);
     EXPECT_TRUE(state.local_x() != 25000u || state.local_z() != 25000u);
     EXPECT_TRUE(state.local_x() == 25000u || state.local_z() == 25000u);
+}
+
+namespace {
+struct ReadyInputTerrain {
+    mxh::gx::MATRIX4 camera{};
+
+    ReadyInputTerrain() {
+        const mxh::gx::VECTOR3 eye{25.0f, 7.0f, 18.0f};
+        const mxh::gx::VECTOR3 at{25.0f, 0.0f, 25.0f};
+        const mxh::gx::VECTOR3 up{0.0f, 1.0f, 0.0f};
+        mxh::gx::MATRIX4 view{};
+        mxh::gx::MatrixLookAtLH(&view, &eye, &at, &up);
+        mxh::gx::MATRIX4 projection{};
+        const float f = 1.0f / std::tan(mxh::gx::PI / 6.0f);
+        projection._11 = f / (4.0f / 3.0f);
+        projection._22 = f;
+        projection._33 = 100.0f / (100.0f - 0.1f);
+        projection._34 = 1.0f;
+        projection._43 = -0.1f * 100.0f / (100.0f - 0.1f);
+        mxh::gx::MatrixMultiply2(&camera, &view, &projection);
+    }
+    float worldWidth() const { return 50000.0f; }
+    float worldHeight() const { return 50000.0f; }
+    float heightSampleSpacing() const { return 100.0f; }
+    float heightAt(float, float) const { return 0.0f; }
+    std::pair<float, float> mapCenter() const { return {0.0f, 0.0f}; }
+    const mxh::gx::MATRIX4& viewProj() const { return camera; }
+};
+
+struct InputStaticScene {
+    bool blocked = false;
+    bool blocksPoint(float, float, float) const { return blocked; }
+};
+} // namespace
+
+TEST(InGamePlayable, WorldReadyBeforeNewGameInBindsActualClickQueries) {
+    // The host loads the world before constructing GameIn. The shared binder
+    // must attach its camera to this newly created state, not only to a state
+    // that happened to exist during world commit.
+    ReadyInputTerrain world;
+    InputStaticScene static_scene;
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1),
+                     make_gamein_ack_at(25000, 25000));
+    mxh::client::bind_game_world_input(state, &world, &static_scene);
+    const auto visible = mxh::client::project_world_point(
+        world.viewProj(), world.mapCenter(),
+        [&world](float x, float z) { return world.heightAt(x, z); },
+        25000.0f, 22000.0f);
+    ASSERT_TRUE(visible);
+    ASSERT_GT(visible->y, 300.0f);
+    state.OnMouseButton(true, true,
+                        static_cast<int>(std::lround(visible->x)),
+                        static_cast<int>(std::lround(visible->y)));
+    EXPECT_LT(state.local_z(), 25000u);
+}
+
+TEST(InGamePlayable, MapChangeRebindsNewWorldAndClearsStaleQueries) {
+    ReadyInputTerrain old_world;
+    InputStaticScene old_scene;
+    mxh::client::CInGameState old_game;
+    old_game.Init(nullptr);
+    mxh::client::bind_game_world_input(old_game, &old_world, &old_scene);
+
+    ReadyInputTerrain new_world;
+    InputStaticScene new_scene;
+    new_scene.blocked = true;
+    mxh::client::CInGameState new_game;
+    new_game.Init(nullptr);
+    new_game.on_message(mxh::net::make_connection_id(1),
+                        make_gamein_ack_at(25000, 25000));
+    mxh::client::bind_game_world_input(new_game, &new_world, &new_scene);
+    const auto visible = mxh::client::project_world_point(
+        new_world.viewProj(), new_world.mapCenter(),
+        [&new_world](float x, float z) { return new_world.heightAt(x, z); },
+        25000.0f, 22000.0f);
+    ASSERT_TRUE(visible);
+    const auto x = static_cast<int>(std::lround(visible->x));
+    const auto y = static_cast<int>(std::lround(visible->y));
+    new_game.OnMouseButton(true, true, x, y);
+    EXPECT_EQ(new_game.local_z(), 25000u);
+
+    // A scene replacement must update both collision and camera callbacks.
+    new_scene.blocked = false;
+    mxh::client::bind_game_world_input(new_game, &new_world, &new_scene);
+    new_game.OnMouseButton(true, true, x, y);
+    EXPECT_LT(new_game.local_z(), 25000u);
+    mxh::client::bind_game_world_input(
+        new_game, static_cast<ReadyInputTerrain*>(nullptr),
+        static_cast<InputStaticScene*>(nullptr));
+    const auto before = new_game.local_z();
+    new_game.OnMouseButton(true, true, x, y);
+    EXPECT_EQ(new_game.local_z(), before);
 }
 
 TEST(InGamePlayable, FullyBlockedClickDoesNotAutoAttack) {

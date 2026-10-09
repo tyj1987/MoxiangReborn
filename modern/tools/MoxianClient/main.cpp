@@ -64,6 +64,7 @@
 #include "GameStateStubs.hpp"
 #include "ClientSettings.hpp"
 #include "GameLoadingCoordinator.hpp"
+#include "GameWorldInputBinding.hpp"
 #include "LogicalViewport.hpp"
 #include "SpriteRenderGeometry.hpp"
 
@@ -687,37 +688,11 @@ public:
         }
 
         g_terrain = std::move(terrain_);
-        if (g_inputTarget) {
-            g_inputTarget->set_world_bounds(g_terrain->worldWidth(), g_terrain->worldHeight());
-        }
         g_staticScene = std::move(static_scene_);
         g_skyScene = std::move(sky_scene_);
         g_entityScene = std::move(entity_scene_);
-        if (g_inputTarget && g_staticScene) {
-            auto* static_scene = g_staticScene.get();
-            g_inputTarget->set_collision_query(
-                [static_scene](float x, float z, float radius) {
-                    return static_scene->blocksPoint(x, z, radius);
-                });
-        }
-        if (g_inputTarget && g_terrain) {
-            auto* terrain = g_terrain.get();
-            const auto height_at = [terrain](float x, float z) {
-                return terrain->heightAt(x, z);
-            };
-            g_inputTarget->set_world_screen_queries(
-                [terrain, height_at](float sx, float sy) {
-                    return mxh::client::pick_ground_point(
-                        terrain->viewProj(), terrain->mapCenter(), height_at,
-                        sx, sy, terrain->worldWidth(), terrain->worldHeight(),
-                        terrain->heightSampleSpacing());
-                },
-                [terrain, height_at](float x, float z, float offset) {
-                    return mxh::client::project_world_point(
-                        terrain->viewProj(), terrain->mapCenter(), height_at,
-                        x, z, offset);
-                });
-        }
+        if (g_inputTarget) mxh::client::bind_game_world_input(
+            *g_inputTarget, g_terrain.get(), g_staticScene.get());
         g_renderTerrain = true;
         if (g_overviewCamera) g_captureTerrainFrame = options_.save_frame;
         if (descriptor_) {
@@ -3803,22 +3778,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                         }
                         g_inputTarget = g;
                         MLOG_HEAP("main_post_inputtarget");
-                        // World loading commits before the new GameIn state
-                        // is constructed. Rebind authoritative terrain bounds
-                        // and static collision to this fresh input target;
-                        // otherwise MapChange would leave the new player with
-                        // the protocol-wide default movement limits.
-                        if (g_terrain) {
-                            g->set_world_bounds(g_terrain->worldWidth(),
-                                                g_terrain->worldHeight());
-                        }
-                        if (g_staticScene) {
-                            auto* static_scene = g_staticScene.get();
-                            g->set_collision_query(
-                                [static_scene](float x, float z, float radius) {
-                                    return static_scene->blocksPoint(x, z, radius);
-                                });
-                        }
+                        // The world normally commits before a fresh GameIn.
+                        // Bind its camera and terrain queries as well as bounds
+                        // and collision; map changes create a new input target.
+                        mxh::client::bind_game_world_input(
+                            *g, g_terrain.get(), g_staticScene.get());
                         g->set_map_change_target_resolver(
                             [](std::uint32_t npc_id, std::uint16_t current_map)
                                 -> std::optional<std::uint16_t> {
