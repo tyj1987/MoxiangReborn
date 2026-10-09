@@ -4,8 +4,8 @@
   "source": "canonical PlayDH current resource tree (derived runtime files excluded)",
   "root": "C:\\moxiang\\modern\\data\\PlayDH",
   "generatedAtUtc": "2026-08-25T00:49:35.7063415Z",
-  "fileCount": 5131,
-  "byteCount": 1681042155,
+  "fileCount": 5132,
+  "byteCount": 1682222623,
   "files": [
     {
       "path": "ANRaster.tga",
@@ -21591,6 +21591,11 @@
       "path": "Resource/Map/95.ttb",
       "bytes": 2097160,
       "sha256": "c05aaa7c10c9edaf3cd485dd6f4b9bf893ae0fd34b2f8f74d164430931b5681d"
+    },
+    {
+      "path": "Resource/Map/95.hfl",
+      "bytes": 1180468,
+      "sha256": "fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746"
     },
     {
       "path": "Resource/Map/96.ttb",
