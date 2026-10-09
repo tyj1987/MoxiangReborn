@@ -90,6 +90,56 @@ bool create_fixture_character(mxh::db::IDbAdapter& db, std::uint32_t character) 
                       "PRIMARY KEY(player_id,container,slot),UNIQUE(player_id,db_idx))").ok();
 }
 
+// Keep SQLite integration fixtures aligned with the production GameIn
+// contract.  Older tests created only the original five-column progression
+// row; MapHandler now deliberately refuses to backfill missing progression or
+// vitals, so those fixtures must provide the authoritative rows explicitly.
+bool seed_fixture_runtime_state(mxh::db::IDbAdapter& db, std::uint32_t player_id,
+                                 std::uint32_t level = 1, std::uint32_t exp = 0,
+                                 std::uint32_t money = 0) {
+    if (!db.execute(
+            "CREATE TABLE IF NOT EXISTS modern_player_state ("
+            "player_id INTEGER PRIMARY KEY,money INTEGER NOT NULL DEFAULT 0,"
+            "level INTEGER NOT NULL DEFAULT 1,exp INTEGER NOT NULL DEFAULT 0,"
+            "max_level INTEGER NULL,exp_flag INTEGER NULL,level_up_point INTEGER NULL,"
+            "hp_mp_flag INTEGER NULL,party_id INTEGER NOT NULL DEFAULT 0,"
+            "guild_id INTEGER NOT NULL DEFAULT 0,updated_at TEXT NOT NULL)").ok()) return false;
+    for (const char* statement : {
+             "ALTER TABLE modern_player_state ADD COLUMN max_level INTEGER NULL",
+             "ALTER TABLE modern_player_state ADD COLUMN exp_flag INTEGER NULL",
+             "ALTER TABLE modern_player_state ADD COLUMN level_up_point INTEGER NULL",
+             "ALTER TABLE modern_player_state ADD COLUMN hp_mp_flag INTEGER NULL",
+             "ALTER TABLE modern_player_state ADD COLUMN party_id INTEGER NOT NULL DEFAULT 0",
+             "ALTER TABLE modern_player_state ADD COLUMN guild_id INTEGER NOT NULL DEFAULT 0"}) {
+        (void)db.execute(statement);
+    }
+    const auto args = std::vector<mxh::db::Bind>{
+        mxh::db::bind(static_cast<std::int64_t>(player_id)),
+        mxh::db::bind(static_cast<std::int64_t>(money)),
+        mxh::db::bind(static_cast<std::int64_t>(level)),
+        mxh::db::bind(static_cast<std::int64_t>(exp))};
+    if (!db.execute(
+            "INSERT OR IGNORE INTO modern_player_state "
+            "(player_id,money,level,exp,max_level,exp_flag,level_up_point,hp_mp_flag,updated_at) "
+            "VALUES(?,?,?,?,?,?,?, ?,CURRENT_TIMESTAMP)",
+            {args[0], args[1], args[2], args[3], args[2], mxh::db::bind(16),
+             mxh::db::bind(0), mxh::db::bind(0)}).ok()) return false;
+    if (!db.execute(
+            "UPDATE modern_player_state SET max_level=COALESCE(max_level,?),"
+            "exp_flag=COALESCE(exp_flag,16),level_up_point=COALESCE(level_up_point,0),"
+            "hp_mp_flag=COALESCE(hp_mp_flag,0) WHERE player_id=?",
+            {args[2], args[0]}).ok()) return false;
+    if (!db.execute(
+            "CREATE TABLE IF NOT EXISTS modern_player_vitals ("
+            "player_id INTEGER PRIMARY KEY,hp INTEGER,shield INTEGER,mp INTEGER,"
+            "dead INTEGER NOT NULL,initialized INTEGER NOT NULL,revision INTEGER NOT NULL,"
+            "updated_at TEXT NOT NULL)").ok()) return false;
+    return db.execute(
+        "INSERT OR IGNORE INTO modern_player_vitals "
+        "(player_id,hp,shield,mp,dead,initialized,revision,updated_at) "
+        "VALUES(?,125,0,125,0,1,1,CURRENT_TIMESTAMP)", {args[0]}).ok();
+}
+
 // ===========================================================================
 // Mock IDbAdapter ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â minimum viable stub for handler construction.
 //
@@ -1919,6 +1969,7 @@ TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState
         "CREATE TABLE modern_player_item (player_id INTEGER);"
         "CREATE TABLE modern_player_quest_log (player_id INTEGER);"
         "CREATE TABLE modern_player_quest_sub (player_id INTEGER);"
+        "CREATE TABLE modern_player_vitals (player_id INTEGER);"
         "CREATE TABLE modern_item_grant (character_id INTEGER);"
         "INSERT INTO character_info VALUES(1001,'42','OwnedHero');"
         "INSERT INTO character_info VALUES(1002,'99','OtherHero');"
@@ -1926,6 +1977,7 @@ TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState
         "INSERT INTO modern_player_item VALUES(1001);"
         "INSERT INTO modern_player_quest_log VALUES(1001);"
         "INSERT INTO modern_player_quest_sub VALUES(1001);"
+        "INSERT INTO modern_player_vitals VALUES(1001);"
         "INSERT INTO modern_item_grant VALUES(1001);").ok());
 
     ReplySpy reply;
@@ -1953,6 +2005,7 @@ TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 1002);
     for (const auto table : {"modern_player_state", "modern_player_item",
                              "modern_player_quest_log", "modern_player_quest_sub",
+                             "modern_player_vitals",
                              "modern_item_grant"}) {
         rows = {};
         ASSERT_TRUE(db.query("SELECT * FROM " + std::string(table), no_args, rows).ok());
@@ -2447,6 +2500,7 @@ TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
     ASSERT_TRUE(db->execute("CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,level INTEGER,sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,map_num INTEGER)").ok());
     ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES (123,'GrantHero',1,0,0,0,1,1,7)").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(*db, 123u));
     ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT)").ok());
     ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,8000,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
     ReplySpy reply; mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
@@ -2519,6 +2573,7 @@ TEST(MapHandlerTest, GameInRestoresProgressAndSerializesLegacyHeroOffsets) {
         "INSERT INTO character_info VALUES(123,'PersistHero',0,1,1,1.0,1.0,1,7);"
         "INSERT INTO modern_player_state VALUES(123,7654321,12,34567,'now');").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u, 12u, 34567u, 7654321u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -2563,6 +2618,7 @@ TEST(MapHandlerTest, DISABLED_InventoryAndEquipmentSurviveDisconnectAndRelogin) 
         "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
         "INSERT INTO modern_player_item VALUES(123,1,1,9002,11000,100,0,65535,1);").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
 
     const auto connection = mxh::net::make_connection_id(55);
     {
@@ -2616,6 +2672,7 @@ TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundar
         "INSERT INTO modern_player_item VALUES(123,5,2,9004,888,80,3,6,7);"
         "INSERT INTO modern_player_item VALUES(999,0,0,2147483646,556,100,0,65535,1);").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
 
     ReplySpy reply;
     MapHandler handler(db, 7, make_reply_spy(reply));
@@ -3591,6 +3648,7 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
     ASSERT_TRUE(db->execute("INSERT INTO character_info VALUES(123,'Hero',0,1,1,1,1,1,7)").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
     ASSERT_TRUE(db->execute("CREATE TABLE modern_player_state(player_id INTEGER PRIMARY KEY,money INTEGER DEFAULT 0,level INTEGER DEFAULT 1,exp INTEGER DEFAULT 0,updated_at TEXT)").ok());
+    ASSERT_TRUE(seed_fixture_runtime_state(*db, 123u));
     ReplySpy reply;
     {
         mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
@@ -4881,6 +4939,7 @@ TEST(MapHandlerTest, DISABLED_CompletedQuestRewardPersistsAndCannotBeClaimedTwic
         "INSERT INTO character_info VALUES(123,'QuestHero',0,1,1,1,1,1,7);"
         "INSERT INTO modern_player_state VALUES(123,100,1,0,'now');").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
     const std::string quest_text =
@@ -4932,7 +4991,15 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
         " accepted_time_ms INTEGER NOT NULL DEFAULT 0,"
         " updated_at       TEXT    NOT NULL,"
         " PRIMARY KEY (player_id, quest_id));").ok());
+    ASSERT_TRUE(db.exec_multi(
+        "CREATE TABLE modern_player_quest_sub (player_id INTEGER NOT NULL,quest_id INTEGER NOT NULL,"
+        "sub_index INTEGER NOT NULL,kind INTEGER NOT NULL,target_id INTEGER NOT NULL,count INTEGER NOT NULL,"
+        "target_count INTEGER NOT NULL,PRIMARY KEY(player_id,quest_id,sub_index));"
+        "CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,"
+        "character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,"
+        "created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT);").ok());
     ASSERT_TRUE(create_fixture_character(db, 888u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 888u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4957,7 +5024,10 @@ TEST(MapHandlerTest, PersistQuestLogForTestHitsDb) {
     start.payload.resize(2);
     const std::uint16_t qid = 7u;
     std::memcpy(start.payload.data(), &qid, sizeof(qid));
-    handler.on_message(connection, start);
+    // Revisioned players deliberately reject wire quest mutations until the
+    // quest/vitals write is atomic. Seed the in-memory log through the
+    // test-only fixture hook, then exercise the same persistence path.
+    ASSERT_TRUE(handler.seed_quest_for_test(888u, 7u));
     ASSERT_EQ(handler.persisted_quest_count_for_test(888u), 1u);
 
     // Clear the row and verify persist_quest_log_for_test rewrites it.
@@ -4997,6 +5067,7 @@ TEST(MapHandlerTest, GameOutSynPersistsLiveMoneyBeforeRuntimeRemoval) {
         " rare_idx INTEGER NOT NULL, quick_position INTEGER NOT NULL, item_param INTEGER NOT NULL);"
     ).ok());
     ASSERT_TRUE(create_fixture_character(db, 777u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 777u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 10, make_reply_spy(reply));
@@ -5907,6 +5978,7 @@ TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutat
     mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 777u, 48u));
     ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,level,"
                            "base_gengol,base_minchub,base_cheryuk,base_simmek) "
                            "VALUES(123,'1','UnsupportedHero',1,12,12,12,12)", {}).ok());
@@ -6026,6 +6098,7 @@ TEST(EquipmentPersistence, UnknownAndPartialLegacyAttributesRejectWithoutBackfil
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ASSERT_TRUE(db.execute("INSERT INTO character_info(chrid,userid,charname,level) "
                            "VALUES(777,'123','OldUnknown',48)", {}).ok());
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 777u, 48u));
     ReplySpy reply;
     MapHandler handler(db, 10, make_reply_spy(reply));
     mxh::net::Message game_in;

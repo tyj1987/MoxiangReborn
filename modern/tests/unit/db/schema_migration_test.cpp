@@ -37,8 +37,12 @@ TEST(SchemaMigration, IsIdempotent) {
 
     mxh::db::ResultSet versions;
     ASSERT_TRUE(db.query("SELECT version FROM modern_schema_version", {}, versions).ok());
-    ASSERT_EQ(versions.rows.size(), 1u);
-    EXPECT_EQ(std::get<std::int64_t>(versions.rows[0][0]), mxh::db::kModernSchemaVersion);
+    // The migration ledger keeps one row per applied release.  Idempotence
+    // means the ledger does not grow on the second call and its maximum
+    // remains the current schema version.
+    ASSERT_EQ(versions.rows.size(), 3u);
+    EXPECT_EQ(std::get<std::int64_t>(versions.rows.back()[0]),
+              mxh::db::kModernSchemaVersion);
 }
 
 TEST(SchemaMigration, UpgradesLegacyCharacterTableInPlace) {
@@ -93,7 +97,10 @@ TEST(SchemaMigration, UpgradesLegacyPlayerStateWithSocialColumns) {
 
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(modern_player_state)", {}, columns).ok());
-    ASSERT_EQ(columns.rows.size(), 7u);
+    // The current shared schema includes progression plus party/guild
+    // ownership columns.  Legacy databases are upgraded in place to the
+    // complete eleven-column contract.
+    ASSERT_EQ(columns.rows.size(), 11u);
     std::vector<std::string> names;
     for (const auto& row : columns.rows) names.push_back(std::get<std::string>(row[1]));
     EXPECT_NE(std::find(names.begin(), names.end(), "party_id"), names.end());

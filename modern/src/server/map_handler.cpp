@@ -896,6 +896,26 @@ bool MapHandler::persist_quest_log_for_test(std::uint32_t player_id) {
     return true;
 }
 
+bool MapHandler::seed_quest_for_test(std::uint32_t player_id,
+                                     std::uint32_t quest_id) {
+    const QuestScriptDefinition* def = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(quest_mu_);
+        def = quest_definitions_.find_quest(quest_id);
+    }
+    if (def == nullptr) return false;
+    std::lock_guard<std::mutex> lk(players_mu_);
+    const auto it = player_runtimes_.find(player_id);
+    if (it == player_runtimes_.end()) return false;
+    if (it->second.quest_log.player_id == 0u)
+        it->second.quest_log.player_id = player_id;
+    const auto now_ms = static_cast<std::uint32_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count());
+    return mxh::server::accept_quest(
+        it->second.quest_log, make_runtime_quest_definition(*def), now_ms);
+}
+
 void MapHandler::persist_quest_log(std::uint32_t player_id) {
     // M3 D-stage: StartSyn quest_log persistence.  Snapshots every
     // quest in the player's quest_log under players_mu_ and
