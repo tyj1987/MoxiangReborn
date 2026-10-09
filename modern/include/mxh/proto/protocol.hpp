@@ -460,7 +460,9 @@ enum class GuildProtocol : std::uint8_t {
 
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
-// 1:1 with the original C enum MP_PROTOCOL_ITEM.
+// Current modern-to-modern Item profile. The separately generated
+// original_item::ItemProtocol records the SHA-pinned C enum; values diverge
+// after MoveNack because modern Pickup occupies original Buy's 19..21.
 // ============================================================================
 enum class ItemProtocol : std::uint8_t {
     TotalInfoLocal       = 0,   // client-local dispatch from GameInAck
@@ -487,8 +489,8 @@ enum class ItemProtocol : std::uint8_t {
     MoveAck              = 17,  // S -> C: move success
     MoveNack             = 18,
 
-    // Modern-only ground-drop claim. Original skipped these numbers
-    // (commented YY_MOVE). Commercial RC is modern↔modern.
+    // Modern-only ground-drop claim. The original YY_MOVE lines are comments,
+    // so these 19..21 values collide with original BuySyn/Ack/Nack.
     PickupSyn            = 19,  // C -> S: claim ground drop [object_id:u32]
     PickupAck            = 20,  // S -> C: [object_id:u32][item_id:u16][count:u16]
     PickupNack           = 21,  // S -> C: claim failed
