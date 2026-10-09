@@ -36,6 +36,8 @@ public:
     [[nodiscard]] float heightAt(float world_x, float world_z) const noexcept;
     [[nodiscard]] float worldWidth() const noexcept;
     [[nodiscard]] float worldHeight() const noexcept;
+    // HFL height samples are spaced by this many raw map units.
+    [[nodiscard]] float heightSampleSpacing() const noexcept;
     // Returns the (X, Z) half-extent of the current map in scaled world units.
     // Used by downstream scenes (entity / static / effect) to re-centre their
     // own X/Z coords by the same offset the terrain mesh builder subtracts in

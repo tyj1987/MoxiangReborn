@@ -501,6 +501,10 @@ float TerrainScene::worldHeight() const noexcept {
     return static_cast<float>(impl_->terrain.desc.height);
 }
 
+float TerrainScene::heightSampleSpacing() const noexcept {
+    return impl_->terrain.desc.face_size;
+}
+
 std::pair<float, float> TerrainScene::mapCenter() const noexcept {
     // Returns the scaled world units that the terrain mesh builder subtracts
     // from each X / Z vertex (so positions become centred around the origin).

@@ -29,13 +29,16 @@ std::optional<ScreenPoint> project_world_point(
     const TerrainHeightQuery& height_at,
     float world_x, float world_z, float height_offset_raw = 0.0f) noexcept;
 
-// Cast a ray through the 800x600 logical canvas and return its first crossing
-// with the actual terrain. No fallback camera approximation is used.
+// Cast a ray through the 800x600 logical canvas and return the first sampled
+// crossing with the actual HFL terrain. Sampling is bounded to quarter-cell
+// horizontal steps; sub-cell spikes and tangential contacts are not exact.
+// No fallback camera approximation is used.
 std::optional<GroundPoint> pick_ground_point(
     const mxh::gx::MATRIX4& view_proj,
     std::pair<float, float> map_center,
     const TerrainHeightQuery& height_at,
     float screen_x, float screen_y,
-    float world_limit_x, float world_limit_z) noexcept;
+    float world_limit_x, float world_limit_z,
+    float terrain_sample_spacing_raw) noexcept;
 
 }  // namespace mxh::client

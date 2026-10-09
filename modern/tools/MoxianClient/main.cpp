@@ -709,7 +709,8 @@ public:
                 [terrain, height_at](float sx, float sy) {
                     return mxh::client::pick_ground_point(
                         terrain->viewProj(), terrain->mapCenter(), height_at,
-                        sx, sy, terrain->worldWidth(), terrain->worldHeight());
+                        sx, sy, terrain->worldWidth(), terrain->worldHeight(),
+                        terrain->heightSampleSpacing());
                 },
                 [terrain, height_at](float x, float z, float offset) {
                     return mxh::client::project_world_point(
