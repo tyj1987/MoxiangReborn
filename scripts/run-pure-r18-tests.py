@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BUILD = ROOT / "modern" / "build-vitals-r18"
+BUILD = ROOT / "modern" / "build-vitals-r18-clean"
 CASES = {
     "mxh_original_vitals_store_tests": {
         "source": "modern/tests/unit/server/original_vitals_store_test.cpp",
@@ -53,12 +53,16 @@ CASES = {
             "AgentCharacterCreateTest.ProgressFailureRollsBackCharacterBeforeClothes",
             "AgentCharacterCreateTest.UnknownCommitRetiresAdapterWithoutFalseNack",
             "AgentCharacterCreateTest.FailedRollbackRetiresAdapterWithoutFalseNack",
+            "AgentCharacterCreateTest.SharedAdapterSerializesCreationFriendTxnAndSessionRead",
+            "CharacterAddTargetRoute.ChangeMapPublishesRouteBeforeSynchronousMapReply",
+            "CharacterAddTargetRoute.DisconnectDuringTargetSendDoesNotRestoreSession",
             "MapHandlerTest.RevisionedKillNeverPublishesIncompatibleGroundObtain",
             "MapHandlerTest.MonsterDeathAwardsExperienceAndSendsLegacyNotification",
             "MapHandlerTest.ProgressionGameInSnapshotRestoresNonzeroExperienceAndPoints",
             "MapHandlerTest.NormalExperienceSegmentRefillsAndPersistsOnce",
             "MapHandlerTest.FailedMonsterExperienceTransactionKeepsMonsterAliveAndNoRewardWire",
             "MapHandlerTest.RevisionedSkillSpendsMpBeforeMonsterAttackAndRejectsUnsafeTargets",
+            "MapHandlerTest.LethalSkillPublishesFinalRefilledMpToClient",
             "MapHandlerTest.PreloadedQuestRejectsRevisionedSkillBeforeMpAndMonsterChange",
             "MapHandlerTest.LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend",
             "MapHandlerTest.RevisionedVitalsRejectsUncoupledItemAndQuestWritesBeforeMutation",

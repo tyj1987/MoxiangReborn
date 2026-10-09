@@ -5148,6 +5148,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             // below must not mutate HP outside that transaction.
             bool revisioned_caster = false;
             OriginalVitalsSession* caster_session = nullptr;
+            std::uint32_t committed_spend_mp = 0u;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 const auto live = connected_players_.find(caster_id);
@@ -5206,6 +5207,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     }
                     break;
                 }
+                committed_spend_mp = candidate.mp;
                 {
                     std::lock_guard<std::mutex> lk(players_mu_);
                     auto runtime = player_runtimes_.find(caster_id);
@@ -5287,6 +5289,22 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                         std::chrono::steady_clock::now().time_since_epoch()).count());
                 skill_obj.duration = simple.duration;
                 active_skills_.push_back(skill_obj);
+            }
+
+            // Both the MP spend and any lethal experience/refill transaction
+            // have now committed. Send the final absolute value: an earlier
+            // post-spend value would overwrite a same-cast level-up refill.
+            if (revisioned_caster && caster_session->record.mp == committed_spend_mp) {
+                mxh::net::Message mp_sync;
+                mp_sync.header.category = static_cast<std::uint8_t>(
+                    mxh::proto::Category::Character);
+                mp_sync.header.protocol = static_cast<std::uint8_t>(
+                    mxh::proto::CharacterProtocol::NaeRyukAck);
+                mp_sync.header.object_id = caster_id;
+                mp_sync.payload.resize(4u);
+                const auto final_mp = caster_session->record.mp;
+                std::memcpy(mp_sync.payload.data(), &final_mp, sizeof(final_mp));
+                reply_(id, mp_sync);
             }
 
             // Send StartAck to caster

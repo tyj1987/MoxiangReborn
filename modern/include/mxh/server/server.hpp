@@ -229,6 +229,13 @@ private:
 
 
     mxh::db::IDbAdapter& db_;
+    // TcpServer dispatches each connection on its own receive thread. All
+    // public Agent entrypoints that can use the shared adapter hold this for
+    // the whole handler, including transaction cleanup and replies. A mock
+    // sender can synchronously reenter forward_from_map/on_disconnect on the
+    // same thread, so this boundary must be recursive. Never take it after
+    // user_mu_ or map_route_mu_.
+    std::recursive_mutex db_dispatch_mu_;
     ReplyFn reply_;
     bool use_legacy_framing_;
     std::uint16_t default_map_num_ = 12;

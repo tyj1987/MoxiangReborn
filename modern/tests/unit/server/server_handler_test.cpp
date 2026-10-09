@@ -44,8 +44,11 @@
 #include <atomic>
 #include <array>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <future>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <thread>
@@ -294,10 +297,15 @@ public:
 class CharacterCreateDb final : public mxh::db::IDbAdapter {
 public:
     mxh::db::DbResult connect(const mxh::db::ConnectionConfig&) override { return {}; }
-    void disconnect() override { connected = false; ++disconnects; }
+    void disconnect() override { connected = false; transaction_active = false; ++disconnects; }
     bool is_connected() const noexcept override { return connected; }
     mxh::db::DbResult query(std::string_view, std::span<const mxh::db::Bind>,
                             mxh::db::ResultSet& out) override {
+        {
+            std::lock_guard<std::mutex> lock(pause_mu);
+            if (transaction_active && transaction_owner != std::this_thread::get_id())
+                ++foreign_reads_during_transaction;
+        }
         out = {};
         return {};
     }
@@ -305,6 +313,12 @@ public:
                                std::span<const mxh::db::Bind> params) override {
         if (sql.find("INSERT INTO character_info") != std::string_view::npos) {
             ++character_inserts;
+            if (pause_character_insert) {
+                std::unique_lock<std::mutex> lock(pause_mu);
+                character_insert_waiting = true;
+                pause_cv.notify_all();
+                pause_cv.wait(lock, [&] { return release_character_insert; });
+            }
             return {mxh::db::DbError::Ok, {}, 1};
         } else if (sql.find("INSERT INTO modern_character_equipment") !=
                    std::string_view::npos) {
@@ -339,16 +353,28 @@ public:
         }
         return {};
     }
-    mxh::db::DbResult begin_transaction() override { ++begins; return {}; }
+    mxh::db::DbResult begin_transaction() override {
+        ++begins;
+        std::lock_guard<std::mutex> lock(pause_mu);
+        if (transaction_active) return {mxh::db::DbError::ConstraintViolation,
+                                        "another transaction already owns adapter"};
+        transaction_active = true;
+        transaction_owner = std::this_thread::get_id();
+        return {};
+    }
     mxh::db::DbResult commit() override {
         ++commits;
-        return fail_commit ? mxh::db::DbResult{mxh::db::DbError::IoError,
-            "simulated unknown commit"} : mxh::db::DbResult{};
+        if (fail_commit) return {mxh::db::DbError::IoError,
+                                 "simulated unknown commit"};
+        transaction_active = false;
+        return {};
     }
     mxh::db::DbResult rollback() override {
         ++rollbacks;
-        return fail_rollback ? mxh::db::DbResult{mxh::db::DbError::IoError,
-            "simulated rollback failure"} : mxh::db::DbResult{};
+        if (fail_rollback) return {mxh::db::DbError::IoError,
+                                   "simulated rollback failure"};
+        transaction_active = false;
+        return {};
     }
     std::string backend_name() const noexcept override { return "test"; }
     bool fail_equipment = false;
@@ -362,9 +388,17 @@ public:
     int equipment_inserts = 0;
     int progress_inserts = 0;
     int pending_vitals_inserts = 0;
-    int begins = 0;
-    int commits = 0;
-    int rollbacks = 0;
+    std::atomic<int> begins{0};
+    std::atomic<int> commits{0};
+    std::atomic<int> rollbacks{0};
+    std::mutex pause_mu;
+    std::condition_variable pause_cv;
+    bool pause_character_insert = false;
+    bool character_insert_waiting = false;
+    bool release_character_insert = false;
+    std::atomic<bool> transaction_active{false};
+    std::thread::id transaction_owner{};
+    std::atomic<int> foreign_reads_during_transaction{0};
 };
 
 // Helper: a ReplyFn-compatible spy that counts calls.
@@ -503,6 +537,99 @@ TEST(AgentCharacterCreateTest, FailedRollbackRetiresAdapterWithoutFalseNack) {
     EXPECT_EQ(db.rollbacks, 1);
     EXPECT_EQ(db.disconnects, 1);
     EXPECT_TRUE(reply.messages.empty());
+}
+
+TEST(AgentCharacterCreateTest, SharedAdapterSerializesCreationFriendTxnAndSessionRead) {
+    CharacterCreateDb db;
+    db.pause_character_insert = true;
+    std::mutex reply_mu;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::AgentHandler handler(db,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& msg) {
+            std::lock_guard<std::mutex> lock(reply_mu);
+            replies.push_back(msg);
+        }, true);
+    const auto friend_connection = mxh::net::make_connection_id(9101);
+    handler.register_session(friend_connection, 1u, 123u, 10u, 0u);
+    std::thread creator([&] {
+        handler.on_message(mxh::net::make_connection_id(9102),
+                           character_make_with_default_clothes());
+    });
+    {
+        std::unique_lock<std::mutex> lock(db.pause_mu);
+        const bool entered = db.pause_cv.wait_for(lock, std::chrono::seconds(2),
+            [&] { return db.character_insert_waiting; });
+        if (!entered) {
+            db.release_character_insert = true;
+            lock.unlock();
+            db.pause_cv.notify_all();
+            creator.join();
+            FAIL() << "CharacterMake did not reach its in-transaction pause";
+        }
+    }
+
+    mxh::net::Message friend_del;
+    friend_del.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+    friend_del.header.protocol = 8u; // FriendDelSyn, separate client connection
+    friend_del.header.object_id = 456u;
+    std::promise<void> friend_started, friend_done, read_started, read_done;
+    auto friend_started_future = friend_started.get_future();
+    auto friend_done_future = friend_done.get_future();
+    auto read_started_future = read_started.get_future();
+    auto read_done_future = read_done.get_future();
+    std::thread friend_thread([&] {
+        friend_started.set_value();
+        handler.on_message(friend_connection, friend_del);
+        friend_done.set_value();
+    });
+    std::thread reader([&] {
+        read_started.set_value();
+        handler.register_session(mxh::net::make_connection_id(9103),
+                                 2u, 789u, 10u, 0u);
+        read_done.set_value();
+    });
+    friend_started_future.wait();
+    read_started_future.wait();
+    // Both calls have been launched while the first transaction is paused.
+    // A second begin/rollback or query on the same adapter must wait for the
+    // entire creation handler to finish, not merely for one SQL statement.
+    const auto friend_wait = friend_done_future.wait_for(std::chrono::milliseconds(50));
+    const auto read_wait = read_done_future.wait_for(std::chrono::milliseconds(50));
+    const int begins_while_paused = db.begins;
+    const int rollbacks_while_paused = db.rollbacks;
+    const int foreign_reads_while_paused = db.foreign_reads_during_transaction;
+    {
+        std::lock_guard<std::mutex> lock(db.pause_mu);
+        db.release_character_insert = true;
+    }
+    db.pause_cv.notify_all();
+    creator.join();
+    friend_thread.join();
+    reader.join();
+    EXPECT_EQ(friend_wait, std::future_status::timeout);
+    EXPECT_EQ(read_wait, std::future_status::timeout);
+    EXPECT_EQ(begins_while_paused, 1);
+    EXPECT_EQ(rollbacks_while_paused, 0);
+    EXPECT_EQ(foreign_reads_while_paused, 0);
+    EXPECT_EQ(db.begins, 2);
+    EXPECT_EQ(db.commits, 2);
+    EXPECT_EQ(db.rollbacks, 0);
+    EXPECT_EQ(db.character_inserts, 1);
+    EXPECT_EQ(db.progress_inserts, 1);
+    EXPECT_EQ(db.pending_vitals_inserts, 1);
+    EXPECT_TRUE(db.is_connected());
+    EXPECT_EQ(std::count_if(replies.begin(), replies.end(), [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(
+                   mxh::proto::Category::UserConn) &&
+               msg.header.protocol == static_cast<std::uint8_t>(
+                   mxh::proto::UserConnProtocol::CharacterListAck);
+    }), 1);
+    EXPECT_EQ(std::count_if(replies.begin(), replies.end(), [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(
+                   mxh::proto::Category::UserConn) &&
+               msg.header.protocol == static_cast<std::uint8_t>(
+                   mxh::proto::UserConnProtocol::CharacterMakeNack);
+    }), 0);
 }
 
 // ===========================================================================
@@ -4955,6 +5082,16 @@ TEST(MapHandlerTest, RevisionedSkillSpendsMpBeforeMonsterAttackAndRejectsUnsafeT
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     game_in.header.object_id = 123u;
     handler.on_message(source, game_in);
+    const auto game_in_ack = std::find_if(reply.messages.begin(), reply.messages.end(),
+        [](const auto& message) {
+            return message.header.object_id == 123u &&
+                message.header.category == static_cast<std::uint8_t>(
+                    mxh::proto::Category::UserConn) &&
+                message.header.protocol == static_cast<std::uint8_t>(
+                    mxh::proto::UserConnProtocol::GameInAck);
+        });
+    ASSERT_NE(game_in_ack, reply.messages.end());
+    const auto initial_wire = *game_in_ack;
     game_in.header.object_id = 456u;
     handler.on_message(mxh::net::make_connection_id(56), game_in);
     ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
@@ -5006,6 +5143,23 @@ TEST(MapHandlerTest, RevisionedSkillSpendsMpBeforeMonsterAttackAndRejectsUnsafeT
     const auto snapshot = handler.player_runtime_snapshot(123u);
     ASSERT_TRUE(snapshot.has_value());
     EXPECT_EQ(snapshot->current_mp, 15u);
+    const auto mp_sync = std::find_if(reply.messages.begin(), reply.messages.end(),
+        [](const auto& message) {
+            return message.header.category == static_cast<std::uint8_t>(
+                       mxh::proto::Category::Character) &&
+                message.header.protocol == static_cast<std::uint8_t>(
+                       mxh::proto::CharacterProtocol::NaeRyukAck);
+        });
+    ASSERT_NE(mp_sync, reply.messages.end());
+    ASSERT_EQ(mp_sync->payload.size(), 4u);
+    std::uint32_t wire_mp = 0;
+    std::memcpy(&wire_mp, mp_sync->payload.data(), sizeof(wire_mp));
+    EXPECT_EQ(wire_mp, 15u);
+    mxh::client::CInGameState client;
+    client.Init(nullptr);
+    client.on_message(source, initial_wire);
+    client.on_message(source, *mp_sync);
+    EXPECT_EQ(client.game_info().mp, 15u);
     EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Skill) &&
                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartAck);
@@ -5151,6 +5305,83 @@ TEST(MapHandlerTest, LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend) {
     EXPECT_EQ(db.commit_count, commits);
     EXPECT_EQ(db.vitals_rows.at(123u)[2], 15);
     EXPECT_EQ(handler.live_monster_count_for_test(), live_before);
+}
+
+TEST(MapHandlerTest, LethalSkillPublishesFinalRefilledMpToClient) {
+    MockDbAdapter db;
+    db.seed_ready_vitals(123u, 125u, 245u, 20u);
+    ReplySpy reply;
+    MapHandler handler(db, 10, make_reply_spy(reply));
+    handler.set_skill_damage_rng_seed_for_test(1u);
+    std::vector<std::string> fields;
+    std::istringstream input(build_monster_attack_skill_row(42u));
+    for (std::string field; std::getline(input, field, '\t'); ) fields.push_back(field);
+    ASSERT_GT(fields.size(), 43u);
+    fields[43] = "5";
+    std::ostringstream cost_row;
+    for (std::size_t i = 0; i < fields.size(); ++i) {
+        if (i) cost_row << '\t';
+        cost_row << fields[i];
+    }
+    const auto path = write_temp_bin(synthesize_item_list_bin(cost_row.str()));
+    handler.load_skill_list(path.string());
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
+        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    const auto source = mxh::net::make_connection_id(55);
+    mxh::net::Message game_in;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    game_in.header.object_id = 123u;
+    handler.on_message(source, game_in);
+    const auto game_in_ack = std::find_if(reply.messages.begin(), reply.messages.end(),
+        [](const auto& message) {
+            return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInAck);
+        });
+    ASSERT_NE(game_in_ack, reply.messages.end());
+    const auto initial_wire = *game_in_ack;
+    ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 88043u;
+    monster.monster_kind = 73u;
+    monster.map_num = 10u;
+    monster.level = 1u;
+    monster.max_life = monster.current_life = 1u;
+    monster.exp_reward = 4u;  // canonical Lv1 first 20% interval refills MP
+    const auto initial_monster_count = handler.live_monster_count_for_test();
+    ASSERT_TRUE(handler.add_monster_instance(monster));
+    mxh::net::Message skill;
+    skill.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
+    skill.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartSyn);
+    skill.header.object_id = 123u;
+    skill.payload.resize(16u, 0u);
+    const std::uint32_t skill_id = 42u;
+    std::memcpy(skill.payload.data(), &skill_id, 4u);
+    std::memcpy(skill.payload.data() + 4u, &monster.object_id, 4u);
+    reply.messages.clear();
+    handler.on_message(source, skill);
+    ASSERT_EQ(db.progress_rows.at(123u)[1], 4);
+    ASSERT_EQ(db.vitals_rows.at(123u)[2], 125);
+    ASSERT_EQ(handler.live_monster_count_for_test(), initial_monster_count);
+    std::vector<mxh::net::Message> mp_messages;
+    for (const auto& message : reply.messages) {
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Character) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::NaeRyukAck)) {
+            mp_messages.push_back(message);
+        }
+    }
+    ASSERT_EQ(mp_messages.size(), 1u) << "spent MP must not overwrite the later authoritative refill";
+    ASSERT_EQ(mp_messages.front().payload.size(), 4u);
+    std::uint32_t wire_mp = 0;
+    std::memcpy(&wire_mp, mp_messages.front().payload.data(), sizeof(wire_mp));
+    EXPECT_EQ(wire_mp, 125u);
+    mxh::client::CInGameState client;
+    client.Init(nullptr);
+    client.on_message(source, initial_wire);
+    client.on_message(source, mp_messages.front());
+    EXPECT_EQ(client.game_info().mp, 125u);
 }
 
 TEST(MapHandlerTest, RevisionedVitalsRejectsUncoupledItemAndQuestWritesBeforeMutation) {

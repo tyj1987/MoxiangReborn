@@ -183,6 +183,7 @@ mxh::net::IEncryptor* AgentHandler::encryptor_for(
 
 bool AgentHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     std::cout << "[Agent] client connected from " << remote_addr << "\n";
 
     // Phase 7.6: In legacy mode, immediately send AGENT_CONNECTSUCCESS.
@@ -203,6 +204,7 @@ bool AgentHandler::on_connect(mxh::net::ConnectionId id,
 
 void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     std::cout << "[Agent] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << "\n";
     hsel_.on_disconnect(id);
@@ -328,6 +330,7 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
 
 void AgentHandler::on_message(mxh::net::ConnectionId id,
                               const mxh::net::Message& msg) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     if (cat == mxh::proto::Category::UserConn) {
         handle_userconn(id, msg);
@@ -904,6 +907,7 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
                                     std::uint32_t char_id,
                                     std::uint16_t map_num,
                                     std::uint8_t user_level) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     // Phase 12.1 P2-13 follow-up: see header for rationale. This
     // populates the same four maps the legacy character list/select
     // handlers would fill through the binary protocol, so unit tests
@@ -957,6 +961,7 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
                                     const mxh::net::Message& msg,
                                     std::uint16_t ingress_map_num,
                                     mxh::net::ITcpSender* ingress_client) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
 
     // MapServer multiplexes its players over one connection. A Map response

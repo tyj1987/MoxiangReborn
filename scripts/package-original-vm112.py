@@ -11,17 +11,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "modern" / "build-vitals-r18" / "vm112-stage-r18-candidate"
+OUTPUT = ROOT / "modern" / "build-vitals-r18-clean" / "vm112-stage-r18-candidate"
 ARCHIVE = OUTPUT.with_suffix(".zip")
 RESOURCE_ROOT = ROOT / "modern/data/PlayDH"
 DEBUG_CRT = Path(r"C:\BuildTools\VC\Redist\MSVC\14.44.35112\debug_nonredist\x86\Microsoft.VC143.DebugCRT")
 DEBUG_UCRT = Path(r"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\ucrt")
 FILES = {
-    "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": ROOT / "modern/build-vitals-r18/tools/MoxianLoginServer/mxh_login_server.exe",
-    "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": ROOT / "modern/build-vitals-r18/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe",
-    "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": ROOT / "modern/build-vitals-r18/tools/MoxianMapServer/mxh_map_server_CHINA.exe",
-    "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": ROOT / "modern/build-vitals-r18/tools/MoxianDbTool/mxh_db_tool.exe",
-    "modern/build/tests/unit/db/mxh_db_tests.exe": ROOT / "modern/build-vitals-r18/tests/unit/db/mxh_db_tests.exe",
+    "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": ROOT / "modern/build-vitals-r18-clean/tools/MoxianLoginServer/mxh_login_server.exe",
+    "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": ROOT / "modern/build-vitals-r18-clean/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe",
+    "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": ROOT / "modern/build-vitals-r18-clean/tools/MoxianMapServer/mxh_map_server_CHINA.exe",
+    "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": ROOT / "modern/build-vitals-r18-clean/tools/MoxianDbTool/mxh_db_tool.exe",
+    "modern/build/tests/unit/db/mxh_db_tests.exe": ROOT / "modern/build-vitals-r18-clean/tests/unit/db/mxh_db_tests.exe",
     "runtime/msvcp140d.dll": DEBUG_CRT / "msvcp140d.dll",
     "runtime/vcruntime140d.dll": DEBUG_CRT / "vcruntime140d.dll",
     "runtime/ucrtbased.dll": DEBUG_UCRT / "ucrtbased.dll",
