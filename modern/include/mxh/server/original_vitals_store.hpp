@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <optional>
 
 namespace mxh::server {
@@ -19,6 +20,16 @@ struct OriginalVitalsRecord {
     bool dead = false;
     std::int64_t revision = 0;
 };
+
+// LifeAck and ShieldAck carry signed 32-bit changes to an authoritative
+// uint32 value. Reject an unrepresentable change before its DB transaction.
+[[nodiscard]] inline std::optional<std::int32_t> original_vitals_wire_delta(
+    std::uint32_t before, std::uint32_t after) noexcept {
+    const auto value = static_cast<std::int64_t>(after) - before;
+    if (value < std::numeric_limits<std::int32_t>::min() ||
+        value > std::numeric_limits<std::int32_t>::max()) return std::nullopt;
+    return static_cast<std::int32_t>(value);
+}
 
 enum class OriginalVitalsLoadState {
     Ready,
@@ -62,13 +73,15 @@ struct OriginalVitalsSession {
 [[nodiscard]] mxh::db::DbResult insert_pending_original_vitals(
     mxh::db::IDbAdapter& db, std::uint32_t player_id);
 
-// Initialize exactly one pending row. A caller must re-read on uncertain
-// outcomes; this routine never reconstructs a missing older player's state.
-[[nodiscard]] OriginalVitalsCommitState initialize_original_vitals(
-    mxh::db::IDbAdapter& db, const OriginalVitalsRecord& initial);
-
 using OriginalVitalsCompanionWrite =
     std::function<mxh::db::DbResult(mxh::db::IDbAdapter&)>;
+
+// Initialize exactly one pending row. Companion progression normalization is
+// in the same transaction. A caller must re-read on uncertain outcomes; this
+// routine never reconstructs a missing older player's state.
+[[nodiscard]] OriginalVitalsCommitState initialize_original_vitals(
+    mxh::db::IDbAdapter& db, const OriginalVitalsRecord& initial,
+    const OriginalVitalsCompanionWrite& companion = {});
 
 // The optional companion writes items, equipment, or progression in the SAME
 // transaction. Its caller must check its own expected row counts and convert

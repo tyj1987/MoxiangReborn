@@ -149,7 +149,8 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     std::memcpy(payload.data() + 77, &map_num, sizeof(map_num));
     const std::uint32_t mp = 1200;
     const std::uint32_t max_mp = 1500;
-    const std::uint32_t exp = 980;
+    const std::int64_t exp = 980;
+    const std::uint16_t level_up_points = 7;
     const std::uint32_t money = 123456;
     const std::array<std::uint16_t, 4> attributes{111, 222, 333, 444};
     for (std::size_t i = 0; i < attributes.size(); ++i) {
@@ -160,9 +161,11 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
                 &mp, sizeof(mp));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12,
                 &max_mp, sizeof(max_mp));
-    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20,
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 22,
                 &exp, sizeof(exp));
-    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30,
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 34,
+                &level_up_points, sizeof(level_up_points));
+    std::memcpy(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 36,
                 &money, sizeof(money));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET, &position_x, sizeof(position_x));
     std::memcpy(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2, &position_z, sizeof(position_z));
@@ -199,6 +202,7 @@ TEST(InGameGameInAck, DecodesCurrentLegacyLayout) {
     EXPECT_EQ(info->che_ryuk, attributes[2]);
     EXPECT_EQ(info->sim_mek, attributes[3]);
     EXPECT_EQ(info->exp, exp);
+    EXPECT_EQ(info->level_up_points, level_up_points);
     EXPECT_EQ(info->money, money);
     EXPECT_EQ(info->position_x, position_x);
     EXPECT_EQ(info->position_z, position_z);

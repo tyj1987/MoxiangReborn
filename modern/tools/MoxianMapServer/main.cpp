@@ -309,6 +309,7 @@ int main(int argc, char** argv) {
     // existing e2e and side-by-side paths keep their deterministic traces.
     if (!args.resource_root.empty()) {
         const auto root = std::filesystem::path(args.resource_root);
+        handler.load_map_kind_info((root / "Resource" / "MapKindInfo.bin").string());
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
         if (!handler.has_loaded_skill_list()) {
             std::cerr << "FATAL: required SkillList.bin could not be loaded from "

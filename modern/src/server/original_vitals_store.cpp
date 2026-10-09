@@ -112,7 +112,8 @@ mxh::db::DbResult insert_pending_original_vitals(
 }
 
 OriginalVitalsCommitState initialize_original_vitals(
-    mxh::db::IDbAdapter& db, const OriginalVitalsRecord& initial) {
+    mxh::db::IDbAdapter& db, const OriginalVitalsRecord& initial,
+    const OriginalVitalsCompanionWrite& companion) {
     if (!valid_original_vitals_record(initial) || initial.revision != 1 || initial.dead) {
         return OriginalVitalsCommitState::KnownNotCommitted;
     }
@@ -134,6 +135,10 @@ OriginalVitalsCommitState initialize_original_vitals(
              mxh::db::bind(static_cast<std::int64_t>(initial.mp)),
              mxh::db::bind(static_cast<std::int64_t>(initial.player_id))});
         if (!write.ok() || write.rows_affected != 1) return confirmed_rollback_or_unknown(db);
+        if (companion) {
+            const auto result = companion(db);
+            if (!result.ok()) return confirmed_rollback_or_unknown(db);
+        }
         committing = true;
         return db.commit().ok() ? OriginalVitalsCommitState::Committed
                                 : uncertain_commit(db);

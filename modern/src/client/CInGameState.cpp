@@ -60,11 +60,12 @@ constexpr std::uint8_t kFriendAddNack = 2;
 // -------------------------------------------------------------------------
 
 namespace {
-constexpr std::array<std::string_view, 18> kChinaGameInUiScripts{
+constexpr std::array<std::string_view, 19> kChinaGameInUiScripts{
     "15.bin", "51.bin", "24.bin", "10.bin", "11.bin", "23.bin",
     "19.bin", "22.bin", "31.bin", "14.bin", "17.bin",
     "QuestTotal.bin", "ItemShop.bin", "BigMap.bin", "Friend.bin", "MiniFriend.bin",
-    "Guild.bin", "21.bin"};
+    "Guild.bin", "21.bin", "Revive.bin"};
+constexpr std::string_view kReviveDialogId = "CR_DIALOG";
 constexpr std::string_view kInventoryDialogId = "IN_INVENTORYDLG";
 constexpr std::array<std::string_view, 4> kInventoryTabButtonIds{
     "IN_TABBTN1", "IN_TABBTN2", "IN_TABBTN3", "IN_TABBTN4"};
@@ -609,15 +610,22 @@ parse_legacy_gamein_ack(std::span<const std::uint8_t> payload) {
     info.level    = get_u16(payload.data() + 35 + 40);
     info.map_num  = get_u16(payload.data() + 35 + 42);
 
-    // HERO_TOTALINFO [147..206): naeryuk(+8/+12), exp(+20), money(+30).
+    // This candidate's fixed HERO_TOTALINFO prefix [147..206): MP(+8/+12),
+    // signed EXPTYPE(+22), LevelUpPoint(+34), Money(+36), MaxLevel(+58).
     info.gen_gol  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 0);
     info.min_chub = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 2);
     info.che_ryuk = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 4);
     info.sim_mek  = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 6);
     info.mp      = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 8);
     info.max_mp  = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 12);
-    info.exp     = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 20);
-    info.money   = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 30);
+    std::int64_t exp = 0;
+    std::memcpy(&exp, payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 22,
+                sizeof(exp));
+    if (exp < 0 || exp > std::numeric_limits<std::uint32_t>::max()) return std::nullopt;
+    info.exp = static_cast<std::uint32_t>(exp);
+    info.level_up_points = get_u16(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 34);
+    if (info.level_up_points > 32767u) return std::nullopt;
+    info.money = get_u32(payload.data() + mxh::game::HERO_TOTAL_HERO_OFFSET + 36);
 
     info.position_x = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET);
     info.position_z = get_u16(payload.data() + mxh::game::HERO_TOTAL_MOVE_OFFSET + 2);
@@ -746,6 +754,9 @@ void CInGameState::Release() {
     m_mapNum = 0;
     m_inGame   = false;
     m_dead     = false;
+    m_reviveReady = false;
+    m_reviveRequestPending = false;
+    m_reviveSyncMask = 0;
     m_started  = false;
     m_sentGameInSyn = false;
     m_sentGameOutSyn = false;
@@ -1400,21 +1411,79 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
             handle_monster_broadcast(msg);
             break;
         case Category::Character: {
-            if (msg.header.object_id != m_playerId || msg.payload.size() != 4) break;
+            if (msg.header.object_id != m_playerId) break;
             const auto protocol = static_cast<mxh::proto::CharacterProtocol>(msg.header.protocol);
-            std::int32_t delta = 0;
-            std::memcpy(&delta, msg.payload.data(), sizeof(delta));
-            if (protocol == mxh::proto::CharacterProtocol::LifeAck) {
-                const auto life = static_cast<std::int64_t>(m_info.life) + delta;
-                m_info.life = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
-                    life, 0, m_info.max_life));
-                if (m_info.life == 0) stop_movement_on_death();
+            if (protocol == mxh::proto::CharacterProtocol::LevelNotify) {
+                // Original MSG_LEVEL: WORD level + signed EXPTYPE current/max.
+                if (msg.payload.size() != 18u) break;
+                std::int64_t current = 0, maximum = 0;
+                std::memcpy(&current, msg.payload.data() + 2u, sizeof(current));
+                std::memcpy(&maximum, msg.payload.data() + 10u, sizeof(maximum));
+                const auto level = get_u16(msg.payload.data());
+                if (level < 1u || level >= mxh::game::MAX_CHARACTER_LEVEL_NUM ||
+                    current < 0 || current > std::numeric_limits<std::uint32_t>::max() ||
+                    maximum <= 0 || maximum > std::numeric_limits<std::uint32_t>::max()) break;
+                m_info.level = level;
+                m_info.exp = static_cast<std::uint32_t>(current);
+                m_info.max_exp = static_cast<std::uint32_t>(maximum);
                 refresh_live_ui_bindings();
-            } else if (protocol == mxh::proto::CharacterProtocol::ShieldAck) {
-                const auto shield = static_cast<std::int64_t>(m_info.shield) + delta;
-                m_info.shield = static_cast<std::uint32_t>(std::clamp<std::int64_t>(
-                    shield, 0, m_info.max_shield));
+            } else if (protocol == mxh::proto::CharacterProtocol::ExpPointAck) {
+                // Original MSG_EXPPOINT: absolute signed EXPTYPE + ExpKind.
+                if (msg.payload.size() != 9u || msg.payload[8] > 2u) break;
+                std::int64_t current = 0;
+                std::memcpy(&current, msg.payload.data(), sizeof(current));
+                if (current < 0 || current > std::numeric_limits<std::uint32_t>::max()) break;
+                m_info.exp = static_cast<std::uint32_t>(current);
                 refresh_live_ui_bindings();
+            } else if (protocol == mxh::proto::CharacterProtocol::LevelUpPointNotify) {
+                if (msg.payload.size() != 4u) break;
+                const auto value = get_u32(msg.payload.data());
+                if (value > 32767u) break;
+                m_info.level_up_points = static_cast<std::uint16_t>(value);
+            } else if (protocol == mxh::proto::CharacterProtocol::MaxLifeNotify) {
+                if (msg.payload.size() != 4u) break;
+                const auto maximum = get_u32(msg.payload.data());
+                if (maximum == 0u || maximum > std::numeric_limits<std::uint16_t>::max()) break;
+                m_info.max_life = static_cast<std::uint16_t>(maximum);
+                refresh_live_ui_bindings();
+            } else if (protocol == mxh::proto::CharacterProtocol::MaxShieldNotify) {
+                if (msg.payload.size() != 4u) break;
+                m_info.max_shield = get_u32(msg.payload.data());
+                refresh_live_ui_bindings();
+            } else if (protocol == mxh::proto::CharacterProtocol::MaxNaeRyukNotify) {
+                if (msg.payload.size() != 4u) break;
+                m_info.max_mp = get_u32(msg.payload.data());
+                refresh_live_ui_bindings();
+            } else if (protocol == mxh::proto::CharacterProtocol::NaeRyukAck) {
+                if (msg.payload.size() != 4u) break;
+                m_info.mp = std::min(get_u32(msg.payload.data()), m_info.max_mp);
+                if (m_reviveSyncMask != 0) m_reviveSyncMask |= 4u;
+                refresh_live_ui_bindings();
+            } else {
+                if (msg.payload.size() != 4u) break;
+                std::int32_t delta = 0;
+                std::memcpy(&delta, msg.payload.data(), sizeof(delta));
+                if (protocol == mxh::proto::CharacterProtocol::LifeAck) {
+                    const auto life = static_cast<std::int64_t>(m_info.life) + delta;
+                    m_info.life = static_cast<std::uint16_t>(std::clamp<std::int64_t>(
+                        life, 0, m_info.max_life));
+                    if (m_info.life == 0) stop_movement_on_death();
+                    else if (m_reviveSyncMask != 0) m_reviveSyncMask |= 1u;
+                    refresh_live_ui_bindings();
+                } else if (protocol == mxh::proto::CharacterProtocol::ShieldAck) {
+                    const auto shield = static_cast<std::int64_t>(m_info.shield) + delta;
+                    m_info.shield = static_cast<std::uint32_t>(std::clamp<std::int64_t>(
+                        shield, 0, m_info.max_shield));
+                    if (m_reviveSyncMask != 0) m_reviveSyncMask |= 2u;
+                    refresh_live_ui_bindings();
+                }
+            }
+            if (m_reviveSyncMask == 15u && m_info.life != 0) {
+                m_dead = false;
+                m_reviveReady = false;
+                m_reviveRequestPending = false;
+                m_reviveSyncMask = 0;
+                m_uiRuntime.setDialogActive(kReviveDialogId, false);
             }
             break;
         }
@@ -1611,6 +1680,10 @@ void CInGameState::dispatch_gamein_ack(const GameInInfo& info) {
     m_info   = info;
     m_inGame = true;
     m_dead = false;
+    m_reviveReady = false;
+    m_reviveRequestPending = false;
+    m_reviveSyncMask = 0;
+    m_uiRuntime.setDialogActive(kReviveDialogId, false);
     if (m_info.life == 0) stop_movement_on_death();
     // Phase 1: disarm the GameInAck timeout — the ack arrived before
     // the deadline.
@@ -1826,6 +1899,50 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                 m_info.life = 0;
                 stop_movement_on_death();
                 refresh_live_ui_bindings();
+            }
+            break;
+        }
+        case UserConnProtocol::ReadyToRevive: {
+            if (msg.header.object_id != m_playerId || !msg.payload.empty() ||
+                !m_inGame || !m_dead || m_info.life != 0) break;
+            m_reviveReady = true;
+            m_reviveRequestPending = false;
+            m_uiRuntime.setDialogActive(kReviveDialogId, true);
+            // The current authoritative capability is PresentSpot only.
+            // Keep the original dialog, but do not offer unsupported choices.
+            if (auto* login = m_uiRuntime.findWindowByLegacyId("CR_LOGINSPOT"))
+                login->SetActive(false);
+            if (auto* town = m_uiRuntime.findWindowByLegacyId("CR_TOWNSPOT"))
+                town->SetActive(false);
+            break;
+        }
+        case UserConnProtocol::CharacterRevive: {
+            if (msg.payload.size() != 8 || !m_inGame ||
+                get_u32(msg.payload.data()) != msg.header.object_id) break;
+            if (msg.header.object_id != m_playerId) {
+                const auto remote = m_remotePlayers.find(msg.header.object_id);
+                if (remote != m_remotePlayers.end()) {
+                    remote->second.position_x = get_u16(msg.payload.data() + 4);
+                    remote->second.position_z = get_u16(msg.payload.data() + 6);
+                }
+                break;
+            }
+            if (!m_reviveReady || !m_dead) break;
+            m_localX = static_cast<float>(get_u16(msg.payload.data() + 4));
+            m_localZ = static_cast<float>(get_u16(msg.payload.data() + 6));
+            m_info.position_x = static_cast<std::uint16_t>(m_localX);
+            m_info.position_z = static_cast<std::uint16_t>(m_localZ);
+            m_keyMask = 0;
+            m_moving = false;
+            m_reviveReady = false;
+            m_reviveSyncMask = 8u; // transfer arrived; await three vitals packets
+            refresh_live_ui_bindings();
+            break;
+        }
+        case UserConnProtocol::CharacterReviveNack: {
+            if (msg.header.object_id == m_playerId && msg.payload.size() == 1u &&
+                m_dead && m_reviveRequestPending) {
+                m_reviveRequestPending = false;
             }
             break;
         }
@@ -2773,6 +2890,19 @@ bool CInGameState::select_quest_index(std::size_t index) noexcept {
 
 bool CInGameState::handle_ui_activation(
     const ClientUiActivation& activation) {
+    if (activation.dialog_legacy_id == kReviveDialogId) {
+        if (activation.legacy_id == "CR_PRESENTSPOT" && m_reviveReady &&
+            !m_reviveRequestPending && m_inGame && m_dead && m_info.life == 0 &&
+            is_connected() && m_pEngine) {
+            mxh::net::Message request;
+            request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::CharRevive);
+            request.header.protocol = 0; // original PresentSpotSyn MSGBASE
+            request.header.object_id = m_playerId;
+            if (m_pEngine->agent_session().send(std::move(request)) == mxh::net::NetError::Ok)
+                m_reviveRequestPending = true;
+        }
+        return true; // unsupported login/village choices are never sent
+    }
     // CI_BESTTIP is the original character-information button in the HUD.
     // Dispatch it by legacy ID so layout changes do not turn into a coordinate
     // based shortcut and the real stats dialog receives live state.
@@ -3696,6 +3826,9 @@ void CInGameState::send_move(std::uint16_t x, std::uint16_t z,
 
 void CInGameState::stop_movement_on_death() noexcept {
     m_dead = true;
+    m_reviveReady = false;
+    m_reviveRequestPending = false;
+    m_reviveSyncMask = 0;
     m_keyMask = 0;
     m_moving = false;
     m_lastMoveSendMs = 0;

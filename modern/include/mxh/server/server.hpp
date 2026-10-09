@@ -17,6 +17,7 @@
 #include "mxh/game/skill_types.hpp"
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/server/player.hpp"
+#include "mxh/server/original_vitals_store.hpp"
 #include "mxh/server/party_manager.hpp"
 #include "mxh/server/guild_manager.hpp"
 #include "mxh/server/drop_item.hpp"
@@ -35,6 +36,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -311,6 +313,8 @@ public:
         std::size_t titan_count = 0;
         std::uint32_t current_hp = 0;
         std::uint32_t max_hp = 0;
+        std::uint32_t current_shield = 0;
+        std::uint32_t max_shield = 0;
         std::uint32_t current_mp = 0;
         std::uint32_t max_mp = 0;
         std::uint32_t inventory_count = 0;
@@ -330,6 +334,8 @@ public:
     // leaves item_manager_ empty and is rejected by production startup.
     void load_item_list(const std::string& path);
     void load_monster_list(const std::string& path);
+    void load_map_kind_info(const std::string& path);
+    bool ordinary_map_verified() const noexcept { return ordinary_map_verified_; }
     bool has_loaded_monster_list() const noexcept { return monster_catalog_.has_value(); }
     bool has_ai_group_monster_templates(const AiGroupList& groups) const noexcept;
     void load_drop_item_list(const std::string& path,
@@ -459,15 +465,24 @@ public:
     void set_monster_ai_rng_for_test(std::function<std::uint32_t()> rng) {
         monster_ai_rng_ = std::move(rng);
     }
+    void set_skill_damage_rng_seed_for_test(std::uint32_t seed) {
+        skill_damage_rng_.seed(seed);
+    }
     std::size_t install_ai_groups(const AiGroupList& groups);
     std::size_t monster_count_for_test();
     std::size_t live_monster_count_for_test();
-    std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id, std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value);
+    std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id,
+        std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value,
+        OriginalVitalsCommitState* award_state = nullptr);
 
 
     // Per-player state stored on the server.
     struct PlayerRuntime {
         Player actor;
+        std::optional<OriginalVitalsSession> vitals_session;
+        std::uint64_t dead_since_ms = 0;
+        bool monster_pve_death_verified = false;
+        bool ready_to_revive_sent = false;
         QuestLog quest_log;
         PetManagerState pet_manager;
         TitanManagerState titan_manager;
@@ -511,6 +526,8 @@ public:
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
+    void handle_char_revive(mxh::net::ConnectionId id,
+                            const mxh::net::Message& msg);
     void handle_move(mxh::net::ConnectionId id,
                      const mxh::net::Message& msg);
     void handle_chat(mxh::net::ConnectionId id,
@@ -629,6 +646,7 @@ private:
     std::mutex dispatch_mu_;
     mxh::db::IDbAdapter& db_;
     std::uint16_t map_num_;
+    bool ordinary_map_verified_ = false;
     ReplyFn reply_;
     bool use_legacy_framing_;
 
@@ -650,6 +668,7 @@ private:
     // references held by inventory, equipment and persistence layers.
     std::atomic<std::uint32_t> next_item_db_idx_{700000};
     std::unique_ptr<mxh::game::ExperienceCurve> experience_curve_;
+    std::mt19937 skill_damage_rng_{std::random_device{}()};
     DropTableRegistry drop_tables_;
 
     // Phase 10c: Monster management

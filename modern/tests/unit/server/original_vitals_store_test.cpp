@@ -17,6 +17,17 @@ using mxh::server::OriginalVitalsCommitState;
 using mxh::server::OriginalVitalsLoadState;
 using mxh::server::OriginalVitalsRecord;
 
+TEST(OriginalVitalsWireDelta, RejectsUnrepresentableChangesBeforeCommit) {
+    using mxh::server::original_vitals_wire_delta;
+    EXPECT_EQ(original_vitals_wire_delta(100u, 80u), -20);
+    EXPECT_EQ(original_vitals_wire_delta(0u, 2147483647u),
+              std::numeric_limits<std::int32_t>::max());
+    EXPECT_EQ(original_vitals_wire_delta(2147483648u, 0u),
+              std::numeric_limits<std::int32_t>::min());
+    EXPECT_FALSE(original_vitals_wire_delta(0u, 2147483648u));
+    EXPECT_FALSE(original_vitals_wire_delta(2147483649u, 0u));
+}
+
 class MockVitalsDb final : public mxh::db::IDbAdapter {
 public:
     struct Row {

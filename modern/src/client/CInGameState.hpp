@@ -91,6 +91,8 @@ struct GameInInfo {
     std::uint32_t  mp           = 0;
     std::uint32_t  max_mp       = 0;
     std::uint32_t  exp          = 0;
+    std::uint32_t  max_exp      = 0;
+    std::uint16_t  level_up_points = 0;
     std::uint32_t  money        = 0;
     std::uint8_t   gender       = 0;
     std::uint8_t   face_type    = 0;
@@ -644,7 +646,10 @@ public:
     std::unordered_map<std::uint32_t, RemotePlayerInfo> m_remotePlayers;
     bool                     m_started    = false;
     bool                     m_inGame     = false;
-    bool                     m_dead       = false;  // cleared only by a new GameIn
+    bool                     m_dead       = false;  // cleared by GameIn or authoritative revive
+    bool                     m_reviveReady = false;
+    bool                     m_reviveRequestPending = false;
+    std::uint8_t             m_reviveSyncMask = 0; // Life, Shield, absolute MP
     bool                     m_failed     = false;
     bool                     m_sentGameInSyn = false;  // gate for Process() retry
     bool                     m_sentGameOutSyn = false;

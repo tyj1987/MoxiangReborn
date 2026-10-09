@@ -486,6 +486,96 @@ TEST(InGamePlayable, CharacterDeltasAndDeathUseAuthoritativeMessages) {
     EXPECT_EQ(state.game_info().life, 0u);
 }
 
+TEST(InGamePlayable, OriginalProgressionNotificationsUseAbsolutePackedValues) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    state.on_message(mxh::net::make_connection_id(1), make_gamein_ack_at(25000, 25000));
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    msg.header.object_id = 42u;
+    const auto send_u32 = [&](mxh::proto::CharacterProtocol protocol, std::uint32_t value) {
+        msg.header.protocol = static_cast<std::uint8_t>(protocol);
+        msg.payload.resize(4u);
+        std::memcpy(msg.payload.data(), &value, sizeof(value));
+        state.on_message(mxh::net::make_connection_id(1), msg);
+    };
+    send_u32(mxh::proto::CharacterProtocol::MaxLifeNotify, 130u);
+    send_u32(mxh::proto::CharacterProtocol::MaxShieldNotify, 300u);
+    send_u32(mxh::proto::CharacterProtocol::MaxNaeRyukNotify, 400u);
+    send_u32(mxh::proto::CharacterProtocol::LevelUpPointNotify, 10u);
+    EXPECT_EQ(state.game_info().max_life, 130u);
+    EXPECT_EQ(state.game_info().max_shield, 300u);
+    EXPECT_EQ(state.game_info().max_mp, 400u);
+    EXPECT_EQ(state.game_info().level_up_points, 10u);
+
+    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LevelNotify);
+    msg.payload.resize(18u);
+    const std::uint16_t level = 2u;
+    const std::int64_t current = 103, maximum = 40;
+    std::memcpy(msg.payload.data(), &level, sizeof(level));
+    std::memcpy(msg.payload.data() + 2u, &current, sizeof(current));
+    std::memcpy(msg.payload.data() + 10u, &maximum, sizeof(maximum));
+    state.on_message(mxh::net::make_connection_id(1), msg);
+    EXPECT_EQ(state.game_info().level, 2u);
+    EXPECT_EQ(state.game_info().exp, 103u);
+    EXPECT_EQ(state.game_info().max_exp, 40u);
+    msg.header.object_id = 99u;
+    const std::uint16_t wrong_level = 9u;
+    std::memcpy(msg.payload.data(), &wrong_level, sizeof(wrong_level));
+    state.on_message(mxh::net::make_connection_id(1), msg);
+    EXPECT_EQ(state.game_info().level, 2u);
+    msg.header.object_id = 42u;
+    msg.payload.resize(17u);
+    state.on_message(mxh::net::make_connection_id(1), msg);
+    EXPECT_EQ(state.game_info().level, 2u);
+
+    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::ExpPointAck);
+    msg.payload.resize(9u, 0u);
+    const std::int64_t absolute_exp = 14;
+    std::memcpy(msg.payload.data(), &absolute_exp, sizeof(absolute_exp));
+    state.on_message(mxh::net::make_connection_id(1), msg);
+    EXPECT_EQ(state.game_info().exp, 14u);
+    msg.payload[8] = 3u;  // Unknown ExpKind is not a successful update.
+    state.on_message(mxh::net::make_connection_id(1), msg);
+    EXPECT_EQ(state.game_info().exp, 14u);
+}
+
+TEST(InGamePlayable, MaximaThenDeltaDoNotDoubleClampCurrentVitals) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto ack = make_gamein_ack_at(25000, 25000);
+    const std::uint32_t old_current = 100u;
+    std::memcpy(ack.payload.data() + 35u, &old_current, 4u);
+    std::memcpy(ack.payload.data() + 39u, &old_current, 4u);
+    std::memcpy(ack.payload.data() + 43u, &old_current, 4u);
+    std::memcpy(ack.payload.data() + 47u, &old_current, 4u);
+    state.on_message(mxh::net::make_connection_id(1), ack);
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    message.header.object_id = 42u;
+    const std::uint32_t new_maximum = 80u;
+    message.payload.resize(4u);
+    std::memcpy(message.payload.data(), &new_maximum, 4u);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::MaxLifeNotify);
+    state.on_message(mxh::net::make_connection_id(1), message);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::MaxShieldNotify);
+    state.on_message(mxh::net::make_connection_id(1), message);
+    EXPECT_EQ(state.game_info().life, 100u);
+    EXPECT_EQ(state.game_info().shield, 100u);
+    const std::int32_t delta = -20;
+    std::memcpy(message.payload.data(), &delta, 4u);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::LifeAck);
+    state.on_message(mxh::net::make_connection_id(1), message);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::ShieldAck);
+    state.on_message(mxh::net::make_connection_id(1), message);
+    EXPECT_EQ(state.game_info().life, 80u);
+    EXPECT_EQ(state.game_info().shield, 80u);
+}
+
 TEST(InGamePlayable, DeathStopsClickAndKeyboardPredictionUntilNewGameIn) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
@@ -535,6 +625,98 @@ TEST(InGamePlayable, DeathStopsClickAndKeyboardPredictionUntilNewGameIn) {
     state.on_message(mxh::net::make_connection_id(1), initial);
     EXPECT_TRUE(state.move_to_screen(400.0f, 300.0f));
     EXPECT_EQ(ground_queries, 2);
+}
+
+TEST(InGamePlayable, OriginalPresentReviveRequiresReadyAndAuthoritativeMove) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    auto game_in = make_gamein_ack_at(25000u, 25000u);
+    const std::uint32_t old_shield = 95u, max_shield = 245u;
+    std::memcpy(game_in.payload.data() + 43, &old_shield, 4u);
+    std::memcpy(game_in.payload.data() + 47, &max_shield, 4u);
+    state.on_message(mxh::net::make_connection_id(1), game_in);
+    ASSERT_EQ(state.game_info().shield, old_shield);
+    ASSERT_FALSE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    death.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterDie);
+    death.payload.resize(8u);
+    const std::uint32_t self = 42u;
+    std::memcpy(death.payload.data() + 4, &self, 4u);
+    state.on_message(mxh::net::make_connection_id(1), death);
+    ASSERT_EQ(state.game_info().life, 0u);
+
+    mxh::net::Message ready;
+    ready.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    ready.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ReadyToRevive);
+    ready.header.object_id = 99u;
+    state.on_message(mxh::net::make_connection_id(1), ready);
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    ready.header.object_id = self;
+    ready.payload = {0};
+    state.on_message(mxh::net::make_connection_id(1), ready);
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    ready.payload.clear();
+    state.on_message(mxh::net::make_connection_id(1), ready);
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CR_LOGINSPOT"));
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CR_TOWNSPOT"));
+
+    mxh::net::Message revived;
+    revived.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    revived.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRevive);
+    revived.header.object_id = self;
+    revived.payload.resize(8u);
+    std::memcpy(revived.payload.data(), &self, 4u);
+    const std::uint16_t x = 25100u, z = 25200u;
+    std::memcpy(revived.payload.data() + 4, &x, 2u);
+    std::memcpy(revived.payload.data() + 6, &z, 2u);
+    revived.payload.pop_back();
+    state.on_message(mxh::net::make_connection_id(1), revived);
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    revived.payload.push_back(static_cast<std::uint8_t>(z >> 8));
+    state.on_message(mxh::net::make_connection_id(1), revived);
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    EXPECT_EQ(state.local_x(), x);
+    EXPECT_EQ(state.local_z(), z);
+    EXPECT_EQ(state.game_info().life, 0u);
+
+    mxh::net::Message life;
+    life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+    life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+    life.header.object_id = self;
+    const std::int32_t restored = 37;
+    life.payload.resize(4u);
+    std::memcpy(life.payload.data(), &restored, 4u);
+    state.on_message(mxh::net::make_connection_id(1), life);
+    EXPECT_EQ(state.game_info().life, 37u);
+    state.set_world_screen_queries(
+        [](float, float) -> std::optional<mxh::client::GroundPoint> {
+            return mxh::client::GroundPoint{25300.0f, 25400.0f};
+        }, {});
+    EXPECT_FALSE(state.move_to_screen(400.0f, 300.0f));
+    EXPECT_TRUE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    mxh::net::Message shield = life;
+    shield.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::ShieldAck);
+    const std::int32_t shield_delta = -22; // 95 -> floor(245 * .3) = 73
+    std::memcpy(shield.payload.data(), &shield_delta, 4u);
+    state.on_message(mxh::net::make_connection_id(1), shield);
+    EXPECT_EQ(state.game_info().shield, 73u);
+    EXPECT_FALSE(state.move_to_screen(400.0f, 300.0f));
+    mxh::net::Message mp = life;
+    mp.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::CharacterProtocol::NaeRyukAck);
+    const std::uint32_t absolute_mp = 0;
+    std::memcpy(mp.payload.data(), &absolute_mp, 4u);
+    state.on_message(mxh::net::make_connection_id(1), mp);
+    EXPECT_EQ(state.game_info().mp, 0u);
+    EXPECT_FALSE(state.ui_runtime().isDialogActive("CR_DIALOG"));
+    EXPECT_TRUE(state.move_to_screen(400.0f, 300.0f));
 }
 
 TEST(InGamePlayable, ZeroLifeAckStopsMovementBeforeDeathNotify) {

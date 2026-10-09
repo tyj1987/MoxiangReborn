@@ -58,6 +58,12 @@ struct LearnedSkill final {
 struct PlayerProgress final {
     std::uint32_t player_id  = 0;
     std::uint16_t level      = 1;
+    std::uint16_t max_level  = 1;
+    std::uint16_t level_up_points = 0;
+    std::uint8_t exp_flag = 0;
+    // The old server kept this recovery flag in memory. Persisting it here
+    // prevents a relog from repeating the same 20% recovery interval.
+    std::uint8_t hp_mp_flag = 0;
     std::uint32_t level_exp  = 0;       // current exp within level
     std::uint32_t total_exp  = 0;       // cumulative exp
     std::uint32_t money      = 0;

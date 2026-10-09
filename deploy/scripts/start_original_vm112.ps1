@@ -4,23 +4,34 @@ param(
     [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
     [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
     [string]$DatabaseHost = '',
-    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
-    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
-    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [ValidateRange(1, 65535)] [int]$LoginPort = 36001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 37001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 38001,
     [ValidateRange(0, 255)] [int]$MapNumber = 10,
     [string]$AdvertisedAgentAddress = '192.168.2.244',
-    [string]$ResourceRoot = 'C:\Moxiang\original\stage-20261009\modern\data\PlayDH',
-    [string]$ServerResourceRoot = 'C:\Moxiang\original\stage-20261009\modern\data\PlayDH\Resource\Server'
+    [string]$ResourceRoot = 'C:\Moxiang\original\stage-r18-20261009\modern\data\PlayDH',
+    [string]$ServerResourceRoot = 'C:\Moxiang\original\stage-r18-20261009\modern\data\PlayDH\Resource\Server'
 )
 
 $ErrorActionPreference = 'Stop'
 $stageRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..')).TrimEnd('\')
-$expectedStage = 'C:\Moxiang\original\stage-20261009'
+$expectedStage = 'C:\Moxiang\original\stage-r18-20261009'
 if (-not [StringComparer]::OrdinalIgnoreCase.Equals($stageRoot, $expectedStage)) {
     throw "This wrapper is limited to VM112 stage $expectedStage; found $stageRoot"
 }
 if ($LoginPort -eq $AgentPort -or $LoginPort -eq $MapPort -or $AgentPort -eq $MapPort) {
     throw 'Login, Agent and Map ports must be distinct.'
+}
+if ($LoginPort -ne 36001 -or $AgentPort -ne 37001 -or $MapPort -ne 38001) {
+    throw 'This isolated r18 stage requires its assigned 36001/37001/38001 ports.'
+}
+if (-not [StringComparer]::OrdinalIgnoreCase.Equals(
+        [IO.Path]::GetFullPath($ResourceRoot).TrimEnd('\'),
+        (Join-Path $expectedStage 'modern\data\PlayDH')) -or
+    -not [StringComparer]::OrdinalIgnoreCase.Equals(
+        [IO.Path]::GetFullPath($ServerResourceRoot).TrimEnd('\'),
+        (Join-Path $expectedStage 'modern\data\PlayDH\Resource\Server'))) {
+    throw 'Resource roots must be the canonical copy inside this r18 stage.'
 }
 if ($AdvertisedAgentAddress -ne '192.168.2.244') {
     throw 'VM112 must advertise 192.168.2.244 in LoginAck.'
@@ -38,11 +49,16 @@ if ([int]$manifest.schema -ne 1 -or [string]$manifest.stage -ne $expectedStage) 
 }
 $writerContract = $manifest.writerContract
 if ($null -eq $writerContract -or
-    [string]$writerContract.id -ne 'original-vm112-modern-mssql-v1' -or
+    [string]$writerContract.id -ne 'original-vm112-r18-mssql-v3' -or
     [string]$writerContract.stageBuild -ne 'china-x86-debug-20261009' -or
     [string]$writerContract.databaseHost -ne '192.168.2.238' -or
-    [string]$writerContract.database -ne 'MoxiangOriginalTest_20261009' -or
-    [int]$writerContract.schemaVersion -ne 1 -or
+    [string]$writerContract.database -ne 'MoxiangOriginalR18Test_20261009' -or
+    [int]$writerContract.schemaVersion -ne 3 -or
+    [string]$writerContract.vitalsContract -ne 'original-vitals-cas-v2' -or
+    [string]$writerContract.progressionContract -ne 'original-exp-points-v3' -or
+    [int]$manifest.listenerPorts.login -ne $LoginPort -or
+    [int]$manifest.listenerPorts.agent -ne $AgentPort -or
+    [int]$manifest.listenerPorts.map -ne $MapPort -or
     [string]$writerContract.numericAttributes -ne 'base-4-int-nullable-checked-v1' -or
     [string]$writerContract.resourceProfile -ne 'playdh-current' -or
     [string]$manifest.sourceHead -notmatch '^[0-9a-f]{40}$' -or
@@ -131,19 +147,24 @@ if ($DatabaseHost -ne '192.168.2.238') {
     throw 'This VM112 stage may only use the isolated CT930 database host 192.168.2.238.'
 }
 $databaseConfig = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
-if ([string]::IsNullOrWhiteSpace($databaseConfig) -or
-    $databaseConfig -notmatch '(?i)(^|;)\s*backend\s*=\s*mssql_odbc\s*(;|$)' -or
-    $databaseConfig -notmatch '(?i)(^|;)\s*host\s*=\s*([^;]+)') {
-    throw "Protected process environment $DatabaseConfigEnv must contain MSSQL ODBC backend and host."
+if ([string]::IsNullOrWhiteSpace($databaseConfig)) {
+    throw "Protected process environment $DatabaseConfigEnv is missing."
 }
-if ($Matches[2].Trim() -ine $DatabaseHost) {
-    throw 'Database host in protected configuration does not match -DatabaseHost.'
-}
-foreach ($required in @('database=MoxiangOriginalTest_20261009', 'encrypt=yes', 'trust_server_certificate=no')) {
-    if ($databaseConfig -notlike "*$required*") {
-        throw "Protected database configuration is missing required test isolation or TLS setting: $required"
+function Assert-OriginalProtectedConfigValue {
+    param([string]$Config, [string]$Name, [string]$Expected)
+    $pattern = '(?i)(?:^|;)\s*' + [regex]::Escape($Name) + '\s*=\s*([^;]+)'
+    $found = [regex]::Matches($Config, $pattern)
+    if ($found.Count -ne 1 -or
+        -not [StringComparer]::OrdinalIgnoreCase.Equals(
+            $found[0].Groups[1].Value.Trim(), $Expected)) {
+        throw "Protected database configuration has a missing, duplicate, or mismatched $Name value."
     }
 }
+Assert-OriginalProtectedConfigValue $databaseConfig 'backend' 'mssql_odbc'
+Assert-OriginalProtectedConfigValue $databaseConfig 'host' $DatabaseHost
+Assert-OriginalProtectedConfigValue $databaseConfig 'database' 'MoxiangOriginalR18Test_20261009'
+Assert-OriginalProtectedConfigValue $databaseConfig 'encrypt' 'yes'
+Assert-OriginalProtectedConfigValue $databaseConfig 'trust_server_certificate' 'no'
 foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
     if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0) {
         throw "Port $port is already listening; refusing to take over an existing service."

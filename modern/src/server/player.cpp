@@ -1,5 +1,6 @@
 ﻿#include "mxh/server/player.hpp"
 #include "mxh/server/money_manager.hpp"
+#include "mxh/game/experience_curve.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -9,7 +10,8 @@ namespace mxh::server {
 namespace {
 constexpr std::uint16_t kInventorySlots = mxh::game::SLOT_INVENTORY_NUM;
 constexpr std::uint16_t kEquipmentBase = mxh::game::TP_WEAREDITEM_START;
-constexpr std::uint16_t kMaxLevel = 99;
+// Legacy SetLevel rejects levels >= MAX_CHARACTER_LEVEL_NUM (121).
+constexpr std::uint16_t kMaxLevel = mxh::game::MAX_CHARACTER_LEVEL_NUM - 1;
 
 bool valid_item(const mxh::game::ItemBase& item) noexcept {
     return item.dwDBIdx != 0 && item.wIconIdx != 0;
@@ -87,9 +89,12 @@ std::uint32_t Player::add_experience(std::uint32_t amount,
                             state_.progress.level_exp;
     state_.progress.level_exp += std::min(applied, level_room);
     std::uint32_t level_ups = 0;
-    while (state_.progress.level < kMaxLevel &&
-           next_level_exp != 0 &&
-           state_.progress.level_exp >= next_level_exp) {
+    // Legacy CPlayer::SetPlayerExpPoint checks the current level threshold
+    // once and calls SetLevel(level + 1) once per experience grant.  Carry the
+    // remainder forward; another grant may trigger the next level.
+    if (state_.progress.level < kMaxLevel &&
+        next_level_exp != 0 &&
+        state_.progress.level_exp >= next_level_exp) {
         state_.progress.level_exp -= next_level_exp;
         ++state_.progress.level;
         ++level_ups;
@@ -229,6 +234,19 @@ bool Player::revive() noexcept {
     if (lifecycle_ != PlayerLifecycle::Dead) return false;
     state_.vitals.current_hp = std::max<std::uint32_t>(1, state_.vitals.max_hp / 2);
     state_.vitals.current_shield = 0;
+    lifecycle_ = PlayerLifecycle::Active;
+    return true;
+}
+
+bool Player::resume_after_authoritative_revive(std::uint32_t hp,
+                                               std::uint32_t shield,
+                                               std::uint32_t mp) noexcept {
+    if (lifecycle_ != PlayerLifecycle::Dead || hp == 0 ||
+        hp > state_.vitals.max_hp || shield > state_.vitals.max_shield ||
+        mp > state_.vitals.max_mp) return false;
+    state_.vitals.current_hp = hp;
+    state_.vitals.current_shield = shield;
+    state_.vitals.current_mp = mp;
     lifecycle_ = PlayerLifecycle::Active;
     return true;
 }

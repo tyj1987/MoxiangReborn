@@ -71,6 +71,9 @@ public:
     PlayerDamageResult apply_damage(std::uint32_t amount) noexcept;
     bool mark_dead_if_zero_life() noexcept;
     bool revive() noexcept;
+    bool resume_after_authoritative_revive(std::uint32_t hp,
+                                           std::uint32_t shield,
+                                           std::uint32_t mp) noexcept;
     void heal_full() noexcept;
 
 private:

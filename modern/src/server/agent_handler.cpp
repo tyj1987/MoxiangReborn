@@ -24,6 +24,7 @@
 //   - CharacterAdd/ObjectRemove forwarded to other players
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/original_vitals_store.hpp"
 #include "mxh/net/packet_trace.hpp"
 
 #include <algorithm>
@@ -333,6 +334,7 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
     } else if (cat == mxh::proto::Category::Friend) {
         handle_friend(id, msg);
     } else if (cat == mxh::proto::Category::Move ||
+               cat == mxh::proto::Category::CharRevive ||
                cat == mxh::proto::Category::Chat ||
                cat == mxh::proto::Category::Item ||
                cat == mxh::proto::Category::Monster ||
@@ -987,6 +989,27 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
 
     if (cat == mxh::proto::Category::UserConn) {
         const auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
+        if (proto == mxh::proto::UserConnProtocol::CharacterRevive) {
+            if (msg.payload.size() != 8u || msg.header.object_id == 0u) return;
+            std::uint32_t mover = 0;
+            std::memcpy(&mover, msg.payload.data(), sizeof(mover));
+            if (mover != msg.header.object_id) return;
+            for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
+            return;
+        }
+        if (proto == mxh::proto::UserConnProtocol::ReadyToRevive ||
+            proto == mxh::proto::UserConnProtocol::CharacterReviveNack) {
+            const std::size_t expected = proto == mxh::proto::UserConnProtocol::ReadyToRevive
+                ? 0u : 1u;
+            if (msg.header.object_id == 0u || msg.payload.size() != expected) return;
+            for (const auto& [char_id, connection] : map_recipients()) {
+                if (char_id == msg.header.object_id) {
+                    reply_(connection, msg);
+                    break;
+                }
+            }
+            return;
+        }
         const bool monster_add = proto == mxh::proto::UserConnProtocol::MonsterAdd;
         const bool npc_add = proto == mxh::proto::UserConnProtocol::NpcAdd;
         const bool object_remove = proto == mxh::proto::UserConnProtocol::ObjectRemove;
@@ -1417,11 +1440,11 @@ void AgentHandler::handle_legacy_character_remove(
         send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
         return;
     }
-
-    const std::array<std::string_view, 5> child_tables = {
+    const std::array<std::string_view, 6> child_tables = {
         "modern_player_quest_sub",
         "modern_player_quest_log",
         "modern_player_item",
+        "modern_player_vitals",
         "modern_player_state",
         "modern_item_grant",
     };
@@ -1701,6 +1724,19 @@ void AgentHandler::handle_legacy_character_make(
         reply_(id, m);
         return;
     }
+    const auto reject_confirmed_rollback = [&]() {
+        if (!db_.rollback().ok()) {
+            // The shared adapter may still own an open transaction. Retire it
+            // and leave the result unknown instead of inviting a retry.
+            db_.disconnect();
+            return;
+        }
+        mxh::net::Message m;
+        m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        m.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeNack);
+        reply_(id, m);
+    };
 
     auto result = db_.execute(
         "INSERT INTO character_info "
@@ -1710,16 +1746,24 @@ void AgentHandler::handle_legacy_character_make(
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 12, 12, 12, 12)",
         ins_params);
 
-    if (!result.ok()) {
+    if (!result.ok() || result.rows_affected != 1) {
         std::cerr << "[Agent] CreateCharacter DB error: "
                   << result.error_message << "\n";
-        (void)db_.rollback();
-        mxh::net::Message m;
-        m.header.category = static_cast<std::uint8_t>(
-            mxh::proto::Category::UserConn);
-        m.header.protocol = static_cast<std::uint8_t>(
-            mxh::proto::UserConnProtocol::CharacterMakeNack);
-        reply_(id, m);
+        reject_confirmed_rollback();
+        return;
+    }
+
+    // A new character's progress must exist before Map can atomically award
+    // monster experience alongside its revisioned vitals. Never synthesize a
+    // missing progress row during GameIn or after a kill.
+    const auto progress_seed = db_.execute(
+        "INSERT INTO modern_player_state "
+        "(player_id,money,level,exp,max_level,exp_flag,level_up_point,hp_mp_flag,updated_at) "
+        "VALUES (?,0,1,0,1,0,0,0,CURRENT_TIMESTAMP)",
+        {mxh::db::bind(chrid)});
+    if (!progress_seed.ok() || progress_seed.rows_affected != 1) {
+        std::cerr << "[Agent] CreateCharacter progress insert failed\n";
+        reject_confirmed_rollback();
         return;
     }
 
@@ -1730,28 +1774,24 @@ void AgentHandler::handle_legacy_character_make(
             "VALUES(?,?,?,CURRENT_TIMESTAMP)",
             {mxh::db::bind(chrid), mxh::db::bind(static_cast<std::int64_t>(slot)),
              mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
-        if (!equipment_result.ok()) {
+        if (!equipment_result.ok() || equipment_result.rows_affected != 1) {
             std::cerr << "[Agent] CreateCharacter equipment DB error: "
                       << equipment_result.error_message << "\n";
-            (void)db_.rollback();
-            mxh::net::Message m;
-            m.header.category = static_cast<std::uint8_t>(
-                mxh::proto::Category::UserConn);
-            m.header.protocol = static_cast<std::uint8_t>(
-                mxh::proto::UserConnProtocol::CharacterMakeNack);
-            reply_(id, m);
+            reject_confirmed_rollback();
             return;
         }
     }
+    const auto pending_vitals = insert_pending_original_vitals(
+        db_, static_cast<std::uint32_t>(chrid));
+    if (!pending_vitals.ok() || pending_vitals.rows_affected != 1) {
+        std::cerr << "[Agent] CreateCharacter pending vitals insert failed\n";
+        reject_confirmed_rollback();
+        return;
+    }
     if (!db_.commit().ok()) {
-        std::cerr << "[Agent] CreateCharacter DB commit failed\n";
-        (void)db_.rollback();
-        mxh::net::Message m;
-        m.header.category = static_cast<std::uint8_t>(
-            mxh::proto::Category::UserConn);
-        m.header.protocol = static_cast<std::uint8_t>(
-            mxh::proto::UserConnProtocol::CharacterMakeNack);
-        reply_(id, m);
+        std::cerr << "[Agent] CreateCharacter DB commit outcome unknown; adapter retired\n";
+        (void)db_.rollback(); // best effort cleanup; not proof of non-commit
+        db_.disconnect();
         return;
     }
 

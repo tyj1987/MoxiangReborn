@@ -11,17 +11,17 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "modern" / "build" / "vm112-stage-20261009-r5"
+OUTPUT = ROOT / "modern" / "build-vitals-r18" / "vm112-stage-r18-candidate"
 ARCHIVE = OUTPUT.with_suffix(".zip")
 RESOURCE_ROOT = ROOT / "modern/data/PlayDH"
 DEBUG_CRT = Path(r"C:\BuildTools\VC\Redist\MSVC\14.44.35112\debug_nonredist\x86\Microsoft.VC143.DebugCRT")
 DEBUG_UCRT = Path(r"C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\ucrt")
 FILES = {
-    "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": ROOT / "modern/build/tools/MoxianLoginServer/mxh_login_server.exe",
-    "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": ROOT / "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe",
-    "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": ROOT / "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe",
-    "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": ROOT / "modern/build/tools/MoxianDbTool/mxh_db_tool.exe",
-    "modern/build/tests/unit/db/mxh_db_tests.exe": ROOT / "modern/build/tests/unit/db/mxh_db_tests.exe",
+    "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": ROOT / "modern/build-vitals-r18/tools/MoxianLoginServer/mxh_login_server.exe",
+    "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": ROOT / "modern/build-vitals-r18/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe",
+    "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": ROOT / "modern/build-vitals-r18/tools/MoxianMapServer/mxh_map_server_CHINA.exe",
+    "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": ROOT / "modern/build-vitals-r18/tools/MoxianDbTool/mxh_db_tool.exe",
+    "modern/build/tests/unit/db/mxh_db_tests.exe": ROOT / "modern/build-vitals-r18/tests/unit/db/mxh_db_tests.exe",
     "runtime/msvcp140d.dll": DEBUG_CRT / "msvcp140d.dll",
     "runtime/vcruntime140d.dll": DEBUG_CRT / "vcruntime140d.dll",
     "runtime/ucrtbased.dll": DEBUG_UCRT / "ucrtbased.dll",
@@ -29,7 +29,7 @@ FILES = {
     "deploy/scripts/assert_original_writer_contract.ps1": ROOT / "deploy/scripts/assert_original_writer_contract.ps1",
     "deploy/scripts/start_modern.ps1": ROOT / "deploy/scripts/start_modern.ps1",
     "deploy/resource-profiles.json": ROOT / "deploy/resource-profiles.json",
-    "deploy/VM112_STAGE.md": ROOT / "deploy/VM112_STAGE.md",
+    "deploy/VM112_R18_STAGE.md": ROOT / "deploy/VM112_R18_STAGE.md",
     "reference/manifests/playdh-current.sha256.json": ROOT / "reference/manifests/playdh-current.sha256.json",
 }
 
@@ -95,18 +95,21 @@ def main():
                     "sha256": sha256(patch_path)})
     manifest = {
         "schema": 1,
-        "stage": r"C:\Moxiang\original\stage-20261009",
+        "stage": r"C:\Moxiang\original\stage-r18-20261009",
+        "listenerPorts": {"login": 36001, "agent": 37001, "map": 38001},
         "generatedUtc": datetime.now(timezone.utc).isoformat(),
         "sourceHead": git("rev-parse", "HEAD").decode().strip(),
         "sourcePatchSha256": patch_sha,
         "sourceUntracked": untracked,
         "resourcePaks": pointer_entries,
         "writerContract": {
-            "id": "original-vm112-modern-mssql-v1",
+            "id": "original-vm112-r18-mssql-v3",
             "stageBuild": "china-x86-debug-20261009",
             "databaseHost": "192.168.2.238",
-            "database": "MoxiangOriginalTest_20261009",
-            "schemaVersion": 1,
+            "database": "MoxiangOriginalR18Test_20261009",
+            "schemaVersion": 3,
+            "vitalsContract": "original-vitals-cas-v2",
+            "progressionContract": "original-exp-points-v3",
             "numericAttributes": "base-4-int-nullable-checked-v1",
             "resourceProfile": "playdh-current",
             "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),

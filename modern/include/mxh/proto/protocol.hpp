@@ -212,7 +212,15 @@ inline const char* category_name(Category c) {
 // Character sub-protocols (MP_CHAR_*). These are existing legacy wire values.
 enum class CharacterProtocol : std::uint8_t {
     LifeAck = 1,
+    MaxLifeNotify = 3,
     ShieldAck = 5,
+    MaxShieldNotify = 7,
+    NaeRyukAck = 9,
+    MaxNaeRyukNotify = 11,
+    ExpPointAck = 13,
+    LevelNotify = 19,
+    PlayerLevelUpNotify = 20,
+    LevelUpPointNotify = 24,
 };
 
 // UserConn sub-protocols (MP_USERCONN_*).

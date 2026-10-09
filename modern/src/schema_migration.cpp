@@ -47,11 +47,34 @@ CREATE TABLE IF NOT EXISTS modern_player_state (
     money INTEGER NOT NULL DEFAULT 0,
     level INTEGER NOT NULL DEFAULT 1,
     exp INTEGER NOT NULL DEFAULT 0,
+    max_level INTEGER NULL CHECK (max_level BETWEEN 1 AND 120),
+    exp_flag INTEGER NULL CHECK (exp_flag BETWEEN 0 AND 31),
+    level_up_point INTEGER NULL CHECK (level_up_point BETWEEN 0 AND 32767),
+    hp_mp_flag INTEGER NULL CHECK (hp_mp_flag BETWEEN 0 AND 15),
     party_id INTEGER NOT NULL DEFAULT 0,
     guild_id INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_modern_player_state_updated_at ON modern_player_state(updated_at);
+CREATE TABLE IF NOT EXISTS modern_player_vitals (
+    player_id INTEGER NOT NULL PRIMARY KEY,
+    hp INTEGER NULL,
+    shield INTEGER NULL,
+    mp INTEGER NULL,
+    dead INTEGER NOT NULL,
+    initialized INTEGER NOT NULL,
+    revision INTEGER NOT NULL,
+    updated_at TEXT NOT NULL,
+    CONSTRAINT ck_modern_player_vitals_state CHECK (
+        player_id > 0 AND dead IN (0,1) AND initialized IN (0,1) AND
+        ((initialized=0 AND hp IS NULL AND shield IS NULL AND mp IS NULL AND
+          dead=0 AND revision=0) OR
+         (initialized=1 AND hp IS NOT NULL AND shield IS NOT NULL AND mp IS NOT NULL AND
+          hp BETWEEN 0 AND 4294967295 AND shield BETWEEN 0 AND 4294967295 AND
+          mp BETWEEN 0 AND 4294967295 AND revision BETWEEN 1 AND 9223372036854775806 AND
+          ((dead=1 AND hp=0) OR (dead=0 AND hp>0))))
+    )
+);
 CREATE TABLE IF NOT EXISTS modern_player_skill (
     player_id INTEGER NOT NULL,
     slot INTEGER NOT NULL,
@@ -197,9 +220,11 @@ CREATE TABLE IF NOT EXISTS log_chat (
     logtime TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (1);
+INSERT OR IGNORE INTO modern_schema_version(version) VALUES (2);
+INSERT OR IGNORE INTO modern_schema_version(version) VALUES (3);
 )SQL";
 
-constexpr std::array<std::string_view, 31> kMssqlSchema = {
+constexpr std::array<std::string_view, 38> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NULL CREATE TABLE dbo.modern_schema_version (version INT NOT NULL PRIMARY KEY, applied_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL CREATE TABLE dbo.chr_log_info (id NVARCHAR(50) NOT NULL PRIMARY KEY, pw NVARCHAR(160) NOT NULL, userlevel INT NOT NULL DEFAULT 0, registerdate NVARCHAR(32) NULL, lastlogindate NVARCHAR(32) NULL, lastloginip NVARCHAR(64) NULL, usepoint BIGINT NOT NULL DEFAULT 0)",
     "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL",
@@ -212,6 +237,11 @@ constexpr std::array<std::string_view, 31> kMssqlSchema = {
     "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.character_info') AND name=N'userid' AND TYPE_NAME(user_type_id)<>N'nvarchar') ALTER TABLE dbo.character_info ALTER COLUMN userid NVARCHAR(50) NOT NULL",
     "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'ux_character_info_charname' AND object_id=OBJECT_ID(N'dbo.character_info')) CREATE UNIQUE NONCLUSTERED INDEX ux_character_info_charname ON dbo.character_info(charname)",
     "IF OBJECT_ID(N'dbo.modern_player_state', N'U') IS NULL CREATE TABLE dbo.modern_player_state (player_id BIGINT NOT NULL PRIMARY KEY, money BIGINT NOT NULL DEFAULT 0, level INT NOT NULL DEFAULT 1, exp BIGINT NOT NULL DEFAULT 0, party_id BIGINT NOT NULL DEFAULT 0, guild_id BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL)",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'max_level') IS NULL ALTER TABLE dbo.modern_player_state WITH CHECK ADD max_level INT NULL CONSTRAINT ck_modern_player_state_max_level CHECK (max_level BETWEEN 1 AND 120)",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'exp_flag') IS NULL ALTER TABLE dbo.modern_player_state WITH CHECK ADD exp_flag INT NULL CONSTRAINT ck_modern_player_state_exp_flag CHECK (exp_flag BETWEEN 0 AND 31)",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'level_up_point') IS NULL ALTER TABLE dbo.modern_player_state WITH CHECK ADD level_up_point INT NULL CONSTRAINT ck_modern_player_state_level_up_point CHECK (level_up_point BETWEEN 0 AND 32767)",
+    "IF COL_LENGTH(N'dbo.modern_player_state', N'hp_mp_flag') IS NULL ALTER TABLE dbo.modern_player_state WITH CHECK ADD hp_mp_flag INT NULL CONSTRAINT ck_modern_player_state_hp_mp_flag CHECK (hp_mp_flag BETWEEN 0 AND 15)",
+    "IF OBJECT_ID(N'dbo.modern_player_vitals', N'U') IS NULL CREATE TABLE dbo.modern_player_vitals (player_id BIGINT NOT NULL PRIMARY KEY, hp BIGINT NULL, shield BIGINT NULL, mp BIGINT NULL, dead BIT NOT NULL, initialized BIT NOT NULL, revision BIGINT NOT NULL, updated_at NVARCHAR(32) NOT NULL, CONSTRAINT ck_modern_player_vitals_state CHECK (player_id>0 AND ((initialized=0 AND hp IS NULL AND shield IS NULL AND mp IS NULL AND dead=0 AND revision=0) OR (initialized=1 AND hp IS NOT NULL AND shield IS NOT NULL AND mp IS NOT NULL AND hp BETWEEN 0 AND 4294967295 AND shield BETWEEN 0 AND 4294967295 AND mp BETWEEN 0 AND 4294967295 AND revision BETWEEN 1 AND 9223372036854775806 AND ((dead=1 AND hp=0) OR (dead=0 AND hp>0)))))",
     "IF COL_LENGTH(N'dbo.modern_player_state', N'party_id') IS NULL ALTER TABLE dbo.modern_player_state ADD party_id BIGINT NOT NULL DEFAULT 0",
     "IF COL_LENGTH(N'dbo.modern_player_state', N'guild_id') IS NULL ALTER TABLE dbo.modern_player_state ADD guild_id BIGINT NOT NULL DEFAULT 0",
     "IF OBJECT_ID(N'dbo.modern_party', N'U') IS NULL CREATE TABLE dbo.modern_party (party_id BIGINT NOT NULL PRIMARY KEY, [option] TINYINT NOT NULL DEFAULT 0, created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
@@ -230,7 +260,9 @@ constexpr std::array<std::string_view, 31> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_live_event', N'U') IS NULL CREATE TABLE dbo.modern_live_event (event_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY, event_type NVARCHAR(32) NOT NULL, title NVARCHAR(128) NOT NULL, config_json NVARCHAR(MAX) NOT NULL, starts_at DATETIME2 NOT NULL, ends_at DATETIME2 NOT NULL, enabled INT NOT NULL DEFAULT 1, created_by NVARCHAR(64) NOT NULL, created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.modern_item_grant', N'U') IS NULL CREATE TABLE dbo.modern_item_grant (grant_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY, idempotency_key NVARCHAR(128) NOT NULL UNIQUE, character_id BIGINT NOT NULL, item_id INT NOT NULL, item_count BIGINT NOT NULL, status NVARCHAR(16) NOT NULL DEFAULT N'pending', inventory_slot INT NULL, created_by NVARCHAR(64) NOT NULL, reason NVARCHAR(256) NOT NULL, created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(), claimed_at DATETIME2 NULL)",
     "IF OBJECT_ID(N'dbo.log_chat', N'U') IS NULL CREATE TABLE dbo.log_chat (logid BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY, chrname NVARCHAR(64) NOT NULL, channel NVARCHAR(32) NOT NULL, message NVARCHAR(512) NOT NULL, logtime DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
-    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=1) INSERT INTO dbo.modern_schema_version(version) VALUES (1)"
+    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=1) INSERT INTO dbo.modern_schema_version(version) VALUES (1)",
+    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=2) INSERT INTO dbo.modern_schema_version(version) VALUES (2)",
+    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=3) INSERT INTO dbo.modern_schema_version(version) VALUES (3)"
 };
 
 DbResult not_supported(const std::string& backend) {
@@ -281,9 +313,13 @@ DbResult add_missing_sqlite_player_state_columns(IDbAdapter& db) {
             if (const auto* name = std::get_if<std::string>(&row[1])) columns.insert(*name);
         }
     }
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 2> additions = {{
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 6> additions = {{
         {"party_id", "ALTER TABLE modern_player_state ADD COLUMN party_id INTEGER NOT NULL DEFAULT 0"},
-        {"guild_id", "ALTER TABLE modern_player_state ADD COLUMN guild_id INTEGER NOT NULL DEFAULT 0"}
+        {"guild_id", "ALTER TABLE modern_player_state ADD COLUMN guild_id INTEGER NOT NULL DEFAULT 0"},
+        {"max_level", "ALTER TABLE modern_player_state ADD COLUMN max_level INTEGER NULL CHECK (max_level BETWEEN 1 AND 120)"},
+        {"exp_flag", "ALTER TABLE modern_player_state ADD COLUMN exp_flag INTEGER NULL CHECK (exp_flag BETWEEN 0 AND 31)"},
+        {"level_up_point", "ALTER TABLE modern_player_state ADD COLUMN level_up_point INTEGER NULL CHECK (level_up_point BETWEEN 0 AND 32767)"},
+        {"hp_mp_flag", "ALTER TABLE modern_player_state ADD COLUMN hp_mp_flag INTEGER NULL CHECK (hp_mp_flag BETWEEN 0 AND 15)"}
     }};
     for (const auto& [name, sql] : additions) {
         if (columns.contains(std::string(name))) continue;
