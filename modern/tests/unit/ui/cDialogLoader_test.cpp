@@ -56,6 +56,9 @@
 
 #include <functional>
 
+#include <Windows.h>
+
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -193,17 +196,41 @@ int main() {
 
     // ---- Test 3: LoadOneCorruptPayloadReportsError ----
     {
-        auto bad = is_dir / "_tmp_empty.bin";
-        {
-            std::ofstream of(bad, std::ios::binary);
-            of << "";
+        // GetTempFileNameW atomically creates a unique empty file outside
+        // the canonical PlayDH tree. Only this test-owned file is removed.
+        std::array<wchar_t, MAX_PATH> temp_dir{};
+        std::array<wchar_t, MAX_PATH> temp_file{};
+        const auto dir_len = GetTempPathW(MAX_PATH, temp_dir.data());
+        bool outside_playdh = true;
+        if (dir_len > 0 && dir_len < MAX_PATH) {
+            for (auto cursor = fs::path(temp_dir.data()); !cursor.empty();) {
+                std::error_code ec;
+                if (fs::equivalent(cursor, playdh, ec) && !ec) {
+                    outside_playdh = false;
+                    break;
+                }
+                const auto parent = cursor.parent_path();
+                if (parent == cursor) break;
+                cursor = parent;
+            }
         }
-        mxh::ui::cWindowManager wm;
-        auto rep = mxh::ui::cDialogLoader::LoadOne(bad, wm);
-        EXPECT(!rep.ok, "empty file: not ok");
-        std::error_code ec;
-        fs::remove(bad, ec);  // 显式清理,避免污染
-        EXPECT_EQ(wm.dialogCount(), std::size_t(0), "empty file: WM empty");
+        const bool created = dir_len > 0 && dir_len < MAX_PATH &&
+            outside_playdh &&
+            GetTempFileNameW(temp_dir.data(), L"mxd", 0, temp_file.data()) != 0;
+        EXPECT(created, "unique temp fixture created");
+        if (created) {
+            struct OwnedTempFile {
+                fs::path path;
+                ~OwnedTempFile() {
+                    std::error_code ec;
+                    fs::remove(path, ec);
+                }
+            } bad{fs::path(temp_file.data())};
+            mxh::ui::cWindowManager wm;
+            auto rep = mxh::ui::cDialogLoader::LoadOne(bad.path, wm);
+            EXPECT(!rep.ok, "empty file: not ok");
+            EXPECT_EQ(wm.dialogCount(), std::size_t(0), "empty file: WM empty");
+        }
     }
 
     // ---- Test 4: LoadAllLoadsEveryBinFile ----

@@ -9,7 +9,7 @@
 namespace mxh::gx::dx11::test {
 
 TEST(PrimitiveTexturedColor, CanonicalLightBlueProducesRgbaVertexBytes) {
-    // PlayDH 17.bin TEXTCOLOR 208 234 245 becomes legacy ARGB 0xFFD0EAF5.
+    // PlayDH 17.bin FGCOLOR 208 234 245 becomes legacy ARGB 0xFFD0EAF5.
     const std::uint32_t vertex = pack_argb_for_rgba_vertex(0xFFD0EAF5u);
     std::array<std::uint8_t, 4> bytes{};
     std::memcpy(bytes.data(), &vertex, bytes.size());
