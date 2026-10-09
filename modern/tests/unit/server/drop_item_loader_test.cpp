@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 
 namespace {
@@ -26,17 +27,18 @@ std::filesystem::path find_playdh_root() {
 }
 
 std::filesystem::path find_reference_drop_file() {
-    auto base = std::filesystem::current_path();
-    for (int depth = 0; depth < 8; ++depth) {
-        const auto candidate = base / "modern" / "scratch" /
-            "2026-08-20-source-recovery" / "recovered" / "legacy-source" /
-            "SWorking" / "Resource" / "Server" /
-            "MonsterDropItemList.bin";
-        if (std::filesystem::exists(candidate)) return candidate;
-        const auto parent = base.parent_path();
-        if (parent == base) break;
-        base = parent;
-    }
+    // Opt in to a specific preserved 4dddd9a6 reference snapshot. Never
+    // discover a historical scratch tree by walking parent directories.
+    const char* configured = std::getenv("MXH_LEGACY_REFERENCE_ROOT");
+    if (!configured || !*configured) return {};
+    const std::filesystem::path root(configured);
+    if (!root.is_absolute() || root.filename() != "4dddd9a6") return {};
+    std::error_code ec;
+    const auto protocol = root / "[CC]Header" / "Protocol.h";
+    const auto candidate = root / "SWorking" / "Resource" / "Server" /
+        "MonsterDropItemList.bin";
+    if (std::filesystem::is_regular_file(protocol, ec) && !ec &&
+        std::filesystem::is_regular_file(candidate, ec) && !ec) return candidate;
     return {};
 }
 
