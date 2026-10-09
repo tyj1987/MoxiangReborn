@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateSet('start', 'stop', 'status', 'restart')]
-    [string]$Mode = 'start',
+    [string]$Mode = 'status',
     [ValidateSet('CHINA', 'KOR', 'HK', 'JAPAN', 'TL')]
     [string]$Locale = 'CHINA',
     [ValidateSet('Debug', 'Release')]
@@ -30,6 +30,21 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# This generic server helper is an implementation detail of the VM112 wrappers.
+# PC launch/acceptance scripts must never start or stop a local stack implicitly.
+if (-not $DryRun -and $Mode -in @('start', 'restart', 'stop')) {
+    if ([Environment]::MachineName -ne 'MOXIANG-SERVER') {
+        throw 'Server mutation is limited to PVE VM112. On PC use the line-specific client-only acceptance entry.'
+    }
+    $pveAddresses = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+        Select-Object -ExpandProperty IPAddress)
+    if ($pveAddresses -notcontains '192.168.2.244') {
+        throw 'Server mutation requires the configured VM112 address 192.168.2.244.'
+    }
+}
+if ($DryRun -and $Mode -in @('restart', 'stop')) {
+    throw 'DryRun cannot stop or restart services. Use start -DryRun to inspect a startup plan.'
+}
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
