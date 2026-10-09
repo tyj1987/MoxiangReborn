@@ -127,7 +127,7 @@ TEST(MhFileExUtf8, C34SentinelWriteAndRead) {
 //
 // R-12 (2026-08-22): walk-up search for the legacy EUC-KR copy rather than
 // hard-coding D:\. The file was originally at
-//   D:\xe5��香全套源代码（源码+资源+客户端+服务端+教程）\...
+//   D:\xe5��香全套源代码（源码+资源+客户端+服务端+教程）\...
 // but the source-recovery scratch (modern/scratch/2026-08-20-source-recovery/)
 // also has a copy under SWorking/Resource/Server/. Walk up to 8 parent levels
 // looking for any file named "TitanServer.bin.old_euc_kr" (R-12 walk-up
@@ -139,12 +139,16 @@ TEST(MhFileExUtf8, LegacyEucKrTitanServerBinDecodesToEucKr) {
         auto root = fs::current_path();
         for (int level = 0; level < 8; ++level) {
             std::error_code ec;
-            for (const auto& first : fs::recursive_directory_iterator(
-                     root, fs::directory_options::skip_permission_denied, ec)) {
-                if (ec) break;
-                if (!first.is_regular_file(ec)) continue;
-                if (first.path().filename() != "TitanServer.bin.old_euc_kr") continue;
-                return first.path();
+            try {
+                for (const auto& first : fs::recursive_directory_iterator(
+                         root, fs::directory_options::skip_permission_denied, ec)) {
+                    if (ec) break;
+                    if (!first.is_regular_file(ec)) continue;
+                    if (first.path().filename() != "TitanServer.bin.old_euc_kr") continue;
+                    return first.path();
+                }
+            } catch (const fs::filesystem_error&) {
+                // Optional VHD fixture; stale recovery roots are skipped.
             }
             if (!root.has_parent_path() || root.parent_path() == root) break;
             root = root.parent_path();
