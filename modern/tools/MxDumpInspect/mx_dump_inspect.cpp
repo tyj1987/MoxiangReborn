@@ -64,6 +64,25 @@ void print_exception_stream(const std::uint8_t* base,
         std::printf("\n[thread context]\n");
         std::printf("  ContextFlags   : 0x%08lX\n",
                     static_cast<unsigned long>(ctx->ContextFlags));
+#if defined(_M_X64) || defined(__x86_64__)
+        // CONTEXT is architecture-specific.  The inspector itself is built
+        // as x64 in the supported Windows toolchain, so use the x64 register
+        // names here while retaining the 32-bit view for legacy builds.
+        std::printf("  Rip            : 0x%016llX\n",
+                    static_cast<unsigned long long>(ctx->Rip));
+        std::printf("  Rsp            : 0x%016llX\n",
+                    static_cast<unsigned long long>(ctx->Rsp));
+        std::printf("  Rbp            : 0x%016llX\n",
+                    static_cast<unsigned long long>(ctx->Rbp));
+        std::printf("  Rax Rcx Rdx Rbx : 0x%016llX 0x%016llX 0x%016llX 0x%016llX\n",
+                    static_cast<unsigned long long>(ctx->Rax),
+                    static_cast<unsigned long long>(ctx->Rcx),
+                    static_cast<unsigned long long>(ctx->Rdx),
+                    static_cast<unsigned long long>(ctx->Rbx));
+        std::printf("  Rsi Rdi        : 0x%016llX 0x%016llX\n",
+                    static_cast<unsigned long long>(ctx->Rsi),
+                    static_cast<unsigned long long>(ctx->Rdi));
+#else
         std::printf("  Eip            : 0x%08lX\n",
                     static_cast<unsigned long>(ctx->Eip));
         std::printf("  Esp            : 0x%08lX\n",
@@ -78,6 +97,7 @@ void print_exception_stream(const std::uint8_t* base,
         std::printf("  Esi Edi        : 0x%08lX 0x%08lX\n",
                     static_cast<unsigned long>(ctx->Esi),
                     static_cast<unsigned long>(ctx->Edi));
+#endif
         std::printf("  EFlags         : 0x%08lX\n",
                     static_cast<unsigned long>(ctx->EFlags));
     } else {
