@@ -1782,7 +1782,9 @@ TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
         [](const mxh::net::Message& candidate) {
             return candidate.header.protocol == static_cast<std::uint8_t>(
                        mxh::proto::UserConnProtocol::CharacterAdd) &&
-                   candidate.header.object_id == 202u;
+                   candidate.header.object_id == 101u &&
+                   candidate.payload.size() == 288u &&
+                   candidate.payload[0] == 202u;
         });
     ASSERT_NE(message, reply.messages.end());
     ASSERT_EQ(message->payload.size(), 288u);
@@ -1794,6 +1796,154 @@ TEST(MapHandlerTest, CharacterAddCarriesVisiblePlayerVitals) {
                 sizeof(maxLife));
     EXPECT_EQ(currentLife, 125u);
     EXPECT_EQ(maxLife, 125u);
+}
+
+TEST(CharacterAddTargetRoute, TwoWayAndThirdPlayerUseOneDeliveryPerPair) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    mxh::server::AgentHandler agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            delivered.emplace_back(id.value, msg);
+        });
+    MockTcpSender map_link;
+    const auto map_connection = mxh::net::make_connection_id(77);
+    agent.set_map_server_for_map(7u, &map_link, map_connection);
+    for (std::uint32_t player : {101u, 202u, 303u}) {
+        agent.register_session(mxh::net::make_connection_id(1000u + player),
+                               player, player, 7u);
+    }
+    std::vector<mxh::net::Message> map_emitted;
+    mxh::server::MapHandler map(db, 7u,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            if (msg.header.protocol == static_cast<std::uint8_t>(
+                    mxh::proto::UserConnProtocol::CharacterAdd)) {
+                map_emitted.push_back(msg);
+            }
+            agent.forward_from_map(id, msg, 7u, &map_link);
+        });
+    const auto enter = [&](std::uint32_t player) {
+        mxh::net::Message game_in;
+        game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        game_in.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInSyn);
+        game_in.header.object_id = player;
+        map.on_message(map_connection, game_in);
+    };
+    enter(101u);
+    enter(202u);
+    enter(303u);
+
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> pairs;
+    for (const auto& [connection, msg] : delivered) {
+        if (msg.header.protocol != static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::CharacterAdd)) continue;
+        ASSERT_GE(connection, 1000u);
+        const auto recipient = static_cast<std::uint32_t>(connection - 1000u);
+        pairs.emplace_back(recipient, msg.header.object_id);
+        ASSERT_EQ(msg.payload.size(), 288u);
+        std::uint32_t payload_source = 0;
+        std::memcpy(&payload_source, msg.payload.data(), 4);
+        EXPECT_EQ(payload_source, msg.header.object_id);
+    }
+    std::sort(pairs.begin(), pairs.end());
+    EXPECT_EQ(pairs, (std::vector<std::pair<std::uint32_t, std::uint32_t>>{
+        {101u, 202u}, {101u, 303u}, {202u, 101u},
+        {202u, 303u}, {303u, 101u}, {303u, 202u}}));
+    ASSERT_EQ(map_emitted.size(), 6u);
+    // On the Map-Agent hop, the header identifies the recipient while the
+    // payload identifies the source. No new client wire bytes were added.
+    EXPECT_EQ(map_emitted.front().header.object_id, 101u);
+    EXPECT_EQ(map_emitted.front().payload[0], 202u);
+}
+
+TEST(CharacterAddTargetRoute, MapSendsOnlyOnRecipientsOwnLink) {
+    MockDbAdapter db;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> sent;
+    mxh::server::MapHandler map(db, 7u,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            if (msg.header.protocol == static_cast<std::uint8_t>(
+                    mxh::proto::UserConnProtocol::CharacterAdd)) {
+                sent.emplace_back(id.value, msg);
+            }
+        });
+    const auto enter = [&](std::uint32_t player, std::uint64_t connection) {
+        mxh::net::Message game_in;
+        game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        game_in.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInSyn);
+        game_in.header.object_id = player;
+        map.on_message(mxh::net::make_connection_id(connection), game_in);
+    };
+    enter(101u, 51u);
+    enter(202u, 52u);
+    ASSERT_EQ(sent.size(), 2u);
+    EXPECT_EQ(sent[0].first, 51u);
+    EXPECT_EQ(sent[0].second.header.object_id, 101u);
+    EXPECT_EQ(sent[0].second.payload[0], 202u);
+    EXPECT_EQ(sent[1].first, 52u);
+    EXPECT_EQ(sent[1].second.header.object_id, 202u);
+    EXPECT_EQ(sent[1].second.payload[0], 101u);
+}
+
+TEST(CharacterAddTargetRoute, RejectsCrossMapMalformedAndStaleMapLink) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler agent(db, make_reply_spy(reply));
+    MockTcpSender old_link, new_link;
+    const auto old_connection = mxh::net::make_connection_id(77);
+    const auto new_connection = mxh::net::make_connection_id(88);
+    agent.set_map_server_for_map(7u, &old_link, old_connection);
+    agent.register_session(mxh::net::make_connection_id(1101), 1u, 101u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1202), 2u, 202u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1404), 4u, 404u, 8u);
+
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    add.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterAdd);
+    add.header.object_id = 101u;
+    add.payload.resize(288u);
+    const std::uint32_t source = 202u;
+    const std::uint16_t map_num = 7u;
+    std::memcpy(add.payload.data(), &source, 4);
+    std::memcpy(add.payload.data() + 4, &source, 4);
+    std::memcpy(add.payload.data() + 77, &map_num, 2);
+    std::memcpy(add.payload.data() + 79, &map_num, 2);
+    const auto rejected = [&](const mxh::net::Message& candidate,
+                              mxh::net::ConnectionId connection,
+                              mxh::net::ITcpSender* link) {
+        const auto before = reply.call_count.load();
+        agent.forward_from_map(connection, candidate, 7u, link);
+        EXPECT_EQ(reply.call_count.load(), before);
+    };
+    auto wrong = add;
+    wrong.header.object_id = 404u;
+    rejected(wrong, old_connection, &old_link);
+    wrong = add;
+    wrong.payload.pop_back();
+    rejected(wrong, old_connection, &old_link);
+    wrong = add;
+    wrong.payload[4] = 0;
+    rejected(wrong, old_connection, &old_link);
+    wrong = add;
+    wrong.payload[79] = 8;
+    rejected(wrong, old_connection, &old_link);
+    const auto before_wrong_ingress = reply.call_count.load();
+    agent.forward_from_map(old_connection, add, 8u, &old_link);
+    EXPECT_EQ(reply.call_count.load(), before_wrong_ingress);
+    agent.set_map_server_for_map(7u, &new_link, new_connection);
+    rejected(add, old_connection, &old_link);
+
+    agent.forward_from_map(new_connection, add, 7u, &new_link);
+    ASSERT_EQ(reply.call_count.load(), 1);
+    EXPECT_EQ(reply.last_id.value, 1101u);
+    EXPECT_EQ(reply.last_message.header.object_id, source);
+    EXPECT_EQ(reply.last_message.payload, add.payload);
+    // An appearance refresh targeting the source itself remains valid.
+    add.header.object_id = source;
+    agent.forward_from_map(new_connection, add, 7u, &new_link);
+    ASSERT_EQ(reply.call_count.load(), 2);
+    EXPECT_EQ(reply.last_id.value, 1202u);
 }
 
 TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {

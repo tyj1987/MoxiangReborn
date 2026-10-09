@@ -143,7 +143,9 @@ public:
 
     // Phase 9: forward MapServer response to the correct client.
     void forward_from_map(mxh::net::ConnectionId map_id,
-                          const mxh::net::Message& msg);
+                          const mxh::net::Message& msg,
+                          std::uint16_t ingress_map_num = 0,
+                          mxh::net::ITcpSender* ingress_client = nullptr);
 
     // Phase 12.1 P2-13 follow-up: explicit session registration so unit
     // tests can drive the on_disconnect -> GameOutSyn forwarding path

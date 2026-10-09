@@ -950,8 +950,10 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
 }
 
 
-void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
-                                    const mxh::net::Message& msg) {
+void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
+                                    const mxh::net::Message& msg,
+                                    std::uint16_t ingress_map_num,
+                                    mxh::net::ITcpSender* ingress_client) {
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
 
     // Phase 9.2: Move/Chat are broadcast messages — forward to ALL clients
@@ -985,6 +987,52 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
     // object_id >= 50000, i.e. a monster) need broadcast to all clients.
     if (cat == mxh::proto::Category::UserConn) {
         auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
+        if (proto == mxh::proto::UserConnProtocol::CharacterAdd) {
+            // Map->Agent header.object_id names the recipient. The original
+            // client wire header names the source entity; restore that only
+            // after validating the complete authoritative Map payload.
+            constexpr std::size_t kCharacterAddSize = 35u + 112u + 14u + 120u + 4u + 1u + 2u;
+            if (msg.payload.size() != kCharacterAddSize) return;
+            std::uint32_t source = 0, repeated_source = 0;
+            std::uint16_t map_num = 0, repeated_map = 0;
+            std::memcpy(&source, msg.payload.data(), sizeof(source));
+            std::memcpy(&repeated_source, msg.payload.data() + 4, sizeof(repeated_source));
+            std::memcpy(&map_num, msg.payload.data() + 77, sizeof(map_num));
+            std::memcpy(&repeated_map, msg.payload.data() + 79, sizeof(repeated_map));
+            const auto recipient = msg.header.object_id;
+            if (source == 0 || recipient == 0 || source != repeated_source ||
+                map_num == 0 || map_num != repeated_map) return;
+
+            std::optional<mxh::net::ConnectionId> target;
+            {
+                std::lock_guard<std::mutex> users(user_mu_);
+                std::lock_guard<std::mutex> routes(map_route_mu_);
+                const auto target_it = char_to_client_.find(recipient);
+                const auto source_it = char_to_client_.find(source);
+                const auto route_it = map_routes_.find(map_num);
+                if (ingress_map_num != map_num || ingress_client == nullptr ||
+                    route_it == map_routes_.end() ||
+                    route_it->second.client != ingress_client ||
+                    route_it->second.connection.value != map_id.value ||
+                    target_it == char_to_client_.end() ||
+                    source_it == char_to_client_.end()) return;
+                const auto target_map = conn_map_nums_.find(target_it->second);
+                const auto source_map = conn_map_nums_.find(source_it->second);
+                const auto target_char = conn_char_ids_.find(target_it->second);
+                const auto source_char = conn_char_ids_.find(source_it->second);
+                if (target_map == conn_map_nums_.end() ||
+                    source_map == conn_map_nums_.end() ||
+                    target_char == conn_char_ids_.end() ||
+                    source_char == conn_char_ids_.end() ||
+                    target_map->second != map_num || source_map->second != map_num ||
+                    target_char->second != recipient || source_char->second != source) return;
+                target = mxh::net::ConnectionId{target_it->second};
+            }
+            auto client_message = msg;
+            client_message.header.object_id = source;
+            reply_(*target, client_message);
+            return;
+        }
         if (proto == mxh::proto::UserConnProtocol::MonsterAdd ||
             proto == mxh::proto::UserConnProtocol::BossMonsterAdd ||
             proto == mxh::proto::UserConnProtocol::NpcAdd) {

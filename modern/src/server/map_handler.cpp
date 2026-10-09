@@ -1632,7 +1632,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
             send_character_add_locked(player_id, existing);
         }
     }
-    std::cout << "[Map] broadcast CHARACTER_ADD for player=" << player_id << "\n";
+    std::cout << "[Map] sent targeted CHARACTER_ADD for player=" << player_id << "\n";
 
     // Phase 10c: Spawn monsters on first player entry and send existing monsters
     {
@@ -2342,35 +2342,21 @@ void MapHandler::send_character_add(std::uint32_t target_player_id,
 void MapHandler::send_character_add_locked(std::uint32_t target_player_id,
                                            const PlayerInfo& info) {
     // Caller must hold players_mu_.
-    // Phase 9.2: AgentServer multiplexes all players through a single TCP
-    // connection.  Instead of looking up the target's stored conn_id (which
-    // may be stale after a MapClient reconnect), send to ALL active
-    // connections.  The AgentServer will route the message to the correct
-    // test client based on char_to_client_.
-    std::vector<std::uint64_t> active_conns;
-    for (auto& [pid, pinfo] : connected_players_) {
-        if (std::find(active_conns.begin(), active_conns.end(), pinfo.conn_id)
-            == active_conns.end()) {
-            active_conns.push_back(pinfo.conn_id);
-        }
-    }
-    // Also send to the target's stored conn_id if present.
-    auto it = connected_players_.find(target_player_id);
-    if (it != connected_players_.end()) {
-        auto c = it->second.conn_id;
-        if (std::find(active_conns.begin(), active_conns.end(), c)
-            == active_conns.end()) {
-            active_conns.push_back(c);
-        }
-    }
-    for (auto conn : active_conns) {
-        mxh::net::ConnectionId target{conn};
-        mxh::net::Message m;
-        m.header.category = static_cast<std::uint8_t>(
-            mxh::proto::Category::UserConn);
-        m.header.protocol = static_cast<std::uint8_t>(
-            mxh::proto::UserConnProtocol::CharacterAdd);
-        m.header.object_id = info.player_id;
+    // Map->Agent uses object_id for the recipient. The source remains in
+    // BASEOBJECT_INFO and Agent restores it before the client-facing send.
+    const auto target_it = connected_players_.find(target_player_id);
+    const auto source_it = connected_players_.find(info.player_id);
+    if (target_it == connected_players_.end() ||
+        source_it == connected_players_.end() ||
+        target_it->second.map_num != map_num_ ||
+        source_it->second.map_num != map_num_ || info.map_num != map_num_) return;
+    mxh::net::ConnectionId target{target_it->second.conn_id};
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterAdd);
+    m.header.object_id = target_player_id;
 
     constexpr std::size_t kPayloadSize = 35 + 112 + 14 + 120 + 4 + 1 + 2;
     m.payload.resize(kPayloadSize, 0);
@@ -2419,8 +2405,7 @@ void MapHandler::send_character_add_locked(std::uint32_t target_player_id,
 
     // AddableInfoList (2B) = empty list (size=0)
 
-        reply_(target, m);
-    }
+    reply_(target, m);
 }
 
 void MapHandler::send_object_remove(std::uint32_t target_player_id,
