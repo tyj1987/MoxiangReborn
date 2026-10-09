@@ -26,6 +26,7 @@
 #include "mxh/server/server.hpp"
 #include "mxh/net/packet_trace.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <iostream>
@@ -956,13 +957,94 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
                                     mxh::net::ITcpSender* ingress_client) {
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
 
+    // MapServer multiplexes its players over one connection. A Map response
+    // may only reach sessions still bound to that exact MapClient and map.
+    const auto map_recipients = [&]() {
+        std::vector<std::pair<std::uint32_t, mxh::net::ConnectionId>> recipients;
+        std::lock_guard<std::mutex> users(user_mu_);
+        std::lock_guard<std::mutex> routes(map_route_mu_);
+        const auto route = map_routes_.find(ingress_map_num);
+        if (ingress_map_num == 0u || ingress_client == nullptr ||
+            route == map_routes_.end() || route->second.client != ingress_client ||
+            route->second.connection.value != map_id.value) return recipients;
+        for (const auto& [char_id, connection] : char_to_client_) {
+            const auto map = conn_map_nums_.find(connection);
+            const auto current_char = conn_char_ids_.find(connection);
+            if (map != conn_map_nums_.end() && current_char != conn_char_ids_.end() &&
+                map->second == ingress_map_num && current_char->second == char_id)
+                recipients.emplace_back(char_id, mxh::net::ConnectionId{connection});
+        }
+        return recipients;
+    };
+
+    const bool monster_move = cat == mxh::proto::Category::Move &&
+        msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MoveProtocol::MonsterMoveNotify);
+    if (cat == mxh::proto::Category::Monster || monster_move) {
+        if (msg.header.object_id == 0u) return;
+        for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
+        return;
+    }
+
+    if (cat == mxh::proto::Category::UserConn) {
+        const auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
+        const bool monster_add = proto == mxh::proto::UserConnProtocol::MonsterAdd;
+        const bool npc_add = proto == mxh::proto::UserConnProtocol::NpcAdd;
+        const bool object_remove = proto == mxh::proto::UserConnProtocol::ObjectRemove;
+        if (monster_add || npc_add || object_remove) {
+            const std::size_t expected = object_remove ? 4u : 64u;
+            if (msg.header.object_id == 0u || msg.payload.size() != expected) return;
+            std::uint32_t entity_id = 0;
+            std::memcpy(&entity_id, msg.payload.data(), sizeof(entity_id));
+            if (entity_id == 0u) return;
+            if (!object_remove) {
+                std::uint32_t repeated = 0;
+                std::uint16_t payload_map = 0;
+                std::memcpy(&repeated, msg.payload.data() + 4, sizeof(repeated));
+                std::memcpy(&payload_map, msg.payload.data() + (monster_add ? 47u : 39u),
+                            sizeof(payload_map));
+                if (entity_id != repeated || payload_map != ingress_map_num) return;
+            }
+            for (const auto& [char_id, connection] : map_recipients()) {
+                if (char_id != msg.header.object_id) continue;
+                auto client_message = msg;
+                client_message.header.object_id = object_remove ? 0u : entity_id;
+                reply_(connection, client_message);
+                break;
+            }
+            return;
+        }
+        if (proto == mxh::proto::UserConnProtocol::CharacterDie) {
+            if (msg.payload.size() != 8u || msg.header.object_id == 0u) return;
+            std::uint32_t killer = 0, victim = 0;
+            std::memcpy(&killer, msg.payload.data(), sizeof(killer));
+            std::memcpy(&victim, msg.payload.data() + 4, sizeof(victim));
+            if (killer != msg.header.object_id || victim == 0u) return;
+            // The Map produced this event only after finding the victim in
+            // its authoritative player set. A second Agent on the same Map
+            // may not own that victim, but a locally known victim must still
+            // be bound to this ingress Map and current character session.
+            {
+                std::lock_guard<std::mutex> users(user_mu_);
+                std::lock_guard<std::mutex> routes(map_route_mu_);
+                const auto local = char_to_client_.find(victim);
+                if (local != char_to_client_.end()) {
+                    const auto map = conn_map_nums_.find(local->second);
+                    const auto current_char = conn_char_ids_.find(local->second);
+                    if (map == conn_map_nums_.end() || current_char == conn_char_ids_.end() ||
+                        map->second != ingress_map_num || current_char->second != victim) return;
+                }
+            }
+            const auto recipients = map_recipients();
+            for (const auto& [char_id, connection] : recipients) reply_(connection, msg);
+            return;
+        }
+    }
+
     // Phase 9.2: Move/Chat are broadcast messages — forward to ALL clients
     // except the sender (whose char_id matches msg.header.object_id).
-    // Phase 10c: Monster/Npc/UserConn(MonsterAdd/ObjectRemove) are also
-    // broadcast to all clients since they use monster object_id, not char_id.
+    // Object notifications above use validated map-scoped or targeted routes.
     if (cat == mxh::proto::Category::Move ||
         cat == mxh::proto::Category::Chat ||
-        cat == mxh::proto::Category::Monster ||
         cat == mxh::proto::Category::Npc ||
         cat == mxh::proto::Category::Skill) {
         std::uint32_t sender_char_id = msg.header.object_id;
@@ -983,8 +1065,7 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
         return;
     }
 
-    // Phase 10c: UserConn messages with MonsterAdd/ObjectRemove (when
-    // object_id >= 50000, i.e. a monster) need broadcast to all clients.
+    // Other UserConn messages retain their established route.
     if (cat == mxh::proto::Category::UserConn) {
         auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
         if (proto == mxh::proto::UserConnProtocol::CharacterAdd) {
@@ -1033,34 +1114,8 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
             reply_(*target, client_message);
             return;
         }
-        if (proto == mxh::proto::UserConnProtocol::MonsterAdd ||
-            proto == mxh::proto::UserConnProtocol::BossMonsterAdd ||
-            proto == mxh::proto::UserConnProtocol::NpcAdd) {
-            // Broadcast to ALL clients
-            std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
-                reply_(mxh::net::ConnectionId{conn_val}, msg);
-                ++routed;
-            }
-            if (mxh::net::packet_trace_enabled()) {
-                std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
-                          << " proto=" << static_cast<int>(proto)
-                          << " routed=" << routed << "\n";
-            }
-            return;
-        }
-        if (proto == mxh::proto::UserConnProtocol::ObjectRemove) {
-            // ObjectRemove could be for a monster — broadcast to all
-            std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
-                reply_(mxh::net::ConnectionId{conn_val}, msg);
-                ++routed;
-            }
-            if (mxh::net::packet_trace_enabled()) {
-                std::cout << "[Agent] broadcast ObjectRemove routed=" << routed << "\n";
-            }
+        if (proto == mxh::proto::UserConnProtocol::BossMonsterAdd) {
+            for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
             return;
         }
     }

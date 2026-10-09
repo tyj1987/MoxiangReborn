@@ -3233,9 +3233,11 @@ TEST(MapHandlerTest, CanonicalMonster10BinSpawnsAllGroups) {
     ASSERT_GE(first_add->payload.size(), 64u);
 
     mxh::client::CInGameState state;
-    state.on_message({}, *first_add);
+    auto client_add = *first_add;
+    std::memcpy(&client_add.header.object_id, client_add.payload.data(), 4u);
+    state.on_message({}, client_add);
     ASSERT_EQ(state.monsters().size(), 1u);
-    EXPECT_EQ(state.monsters().front().object_id, first_add->header.object_id);
+    EXPECT_EQ(state.monsters().front().object_id, client_add.header.object_id);
     const auto kind = static_cast<std::uint16_t>(
         first_add->payload[43] | (static_cast<std::uint16_t>(first_add->payload[44]) << 8));
     const auto pos_x = static_cast<std::uint16_t>(
@@ -3266,6 +3268,8 @@ TEST(AgentHandlerTest, ForwardFromMapMonsterAddReachesRegisteredClient) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    MockTcpSender map_link;
+    handler.set_map_server_for_map(10u, &map_link, mxh::net::make_connection_id(42));
     handler.register_session(
         mxh::net::make_connection_id(7),
         /*user_id=*/3, /*char_id=*/100003, /*map_num=*/10);
@@ -3274,17 +3278,230 @@ TEST(AgentHandlerTest, ForwardFromMapMonsterAddReachesRegisteredClient) {
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::MonsterAdd);
-    msg.header.object_id = 50000u;
+    msg.header.object_id = 100003u;
     msg.payload.assign(64, 0);
-    msg.payload[0] = 0x50;
+    const std::uint32_t monster_id = 50000u;
+    const std::uint16_t map_num = 10u;
+    std::memcpy(msg.payload.data(), &monster_id, 4u);
+    std::memcpy(msg.payload.data() + 4u, &monster_id, 4u);
+    std::memcpy(msg.payload.data() + 47u, &map_num, 2u);
     msg.payload[43] = 105;
-    handler.forward_from_map(mxh::net::make_connection_id(42), msg);
+    handler.forward_from_map(mxh::net::make_connection_id(42), msg, 10u, &map_link);
 
     ASSERT_EQ(reply.call_count.load(), 1);
     EXPECT_EQ(reply.last_id.value, 7u);
     EXPECT_EQ(reply.last_message.header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd));
     EXPECT_EQ(reply.last_message.header.object_id, 50000u);
+}
+
+TEST(MonsterMapRoute, SharedAgentGetsOneMovePerCharacterAndNoOtherMapLeak) {
+    MockDbAdapter db;
+    MockTcpSender map_link;
+    const auto map_connection = mxh::net::make_connection_id(77);
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    mxh::server::AgentHandler agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            delivered.emplace_back(id.value, msg);
+        });
+    agent.set_map_server_for_map(7u, &map_link, map_connection);
+    agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1003), 3u, 303u, 8u);
+    std::vector<mxh::net::Message> map_messages;
+    mxh::server::MapHandler map(db, 7u,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            map_messages.push_back(msg);
+            agent.forward_from_map(id, msg, 7u, &map_link);
+        });
+    map.set_allow_dev_monster_fallback(false);
+    for (const auto player : {101u, 202u}) {
+        mxh::net::Message game_in;
+        game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        game_in.header.object_id = player;
+        map.on_message(map_connection, game_in);
+    }
+    map_messages.clear();
+    delivered.clear();
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 50143u;
+    monster.monster_kind = 73u;
+    monster.map_num = 7u;
+    monster.max_life = monster.current_life = 100u;
+    monster.pos_x = monster.pos_z = 100.0f;
+    monster.spawn_x = monster.spawn_z = 0.0f;
+    monster.walk_speed = 100u;
+    monster.search_period_ms = 1u;
+    monster.ai_state = mxh::game::MonsterAIState::Return;
+    ASSERT_TRUE(map.add_monster_instance(monster));
+    map.set_monster_ai_clock_for_test([] { return 1000u; });
+    map.tick_monster_ai();
+    const auto is_move = [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move) &&
+            msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MoveProtocol::MonsterMoveNotify) &&
+            msg.header.object_id == 50143u;
+    };
+    EXPECT_EQ(std::count_if(map_messages.begin(), map_messages.end(), is_move), 1u);
+    std::vector<std::uint64_t> targets;
+    for (const auto& [connection, msg] : delivered) if (is_move(msg)) targets.push_back(connection);
+    std::sort(targets.begin(), targets.end());
+    EXPECT_EQ(targets, (std::vector<std::uint64_t>{1001u, 1002u}));
+
+    agent.register_session(mxh::net::make_connection_id(1004), 4u, 404u, 7u);
+    map_messages.clear();
+    delivered.clear();
+    mxh::net::Message third_game_in;
+    third_game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    third_game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    third_game_in.header.object_id = 404u;
+    map.on_message(map_connection, third_game_in);
+    const auto is_add = [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+            msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    };
+    EXPECT_EQ(std::count_if(map_messages.begin(), map_messages.end(), is_add), 1u);
+    targets.clear();
+    for (const auto& [connection, msg] : delivered) if (is_add(msg)) targets.push_back(connection);
+    EXPECT_EQ(targets, (std::vector<std::uint64_t>{1004u}));
+
+    map_messages.clear();
+    delivered.clear();
+    (void)map.apply_monster_damage(101u, 50143u, 1u, 0u);
+    const auto is_life = [](const auto& msg) {
+        return msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Monster) &&
+            msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify) &&
+            msg.header.object_id == 50143u;
+    };
+    EXPECT_EQ(std::count_if(map_messages.begin(), map_messages.end(), is_life), 1u);
+    targets.clear();
+    for (const auto& [connection, msg] : delivered) if (is_life(msg)) targets.push_back(connection);
+    std::sort(targets.begin(), targets.end());
+    EXPECT_EQ(targets, (std::vector<std::uint64_t>{1001u, 1002u, 1004u}));
+}
+
+TEST(MonsterMapRoute, SnapshotAndRemoveUseTargetWithinSharedMapConnection) {
+    MockDbAdapter db;
+    MockTcpSender map_link, old_link;
+    const auto connection = mxh::net::make_connection_id(77);
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    mxh::server::AgentHandler agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            delivered.emplace_back(id.value, msg);
+        });
+    agent.set_map_server_for_map(7u, &map_link, connection);
+    agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1003), 3u, 303u, 8u);
+    mxh::net::Message add;
+    add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    add.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::MonsterAdd);
+    add.header.object_id = 202u;
+    add.payload.resize(64u);
+    const std::uint32_t monster = 50143u;
+    const std::uint16_t map_num = 7u;
+    std::memcpy(add.payload.data(), &monster, 4u);
+    std::memcpy(add.payload.data() + 4u, &monster, 4u);
+    std::memcpy(add.payload.data() + 47u, &map_num, 2u);
+    agent.forward_from_map(connection, add, 7u, &map_link);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 1002u);
+    EXPECT_EQ(delivered[0].second.header.object_id, monster);
+    EXPECT_EQ(delivered[0].second.payload, add.payload);
+    delivered.clear();
+    mxh::net::Message npc = add;
+    npc.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NpcAdd);
+    npc.header.object_id = 101u;
+    const std::uint32_t npc_id = 4100u;
+    std::memcpy(npc.payload.data(), &npc_id, 4u);
+    std::memcpy(npc.payload.data() + 4u, &npc_id, 4u);
+    std::memcpy(npc.payload.data() + 39u, &map_num, 2u);
+    agent.forward_from_map(connection, npc, 7u, &map_link);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 1001u);
+    EXPECT_EQ(delivered[0].second.header.object_id, npc_id);
+    delivered.clear();
+    auto invalid = add;
+    invalid.payload[47] = 8u;
+    agent.forward_from_map(connection, invalid, 7u, &map_link);
+    invalid = add;
+    invalid.header.object_id = 303u;
+    agent.forward_from_map(connection, invalid, 7u, &map_link);
+    agent.forward_from_map(mxh::net::make_connection_id(88), add, 7u, &old_link);
+    EXPECT_TRUE(delivered.empty());
+
+    mxh::net::Message remove;
+    remove.header.category = add.header.category;
+    remove.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ObjectRemove);
+    remove.header.object_id = 101u;
+    remove.payload.resize(4u);
+    std::memcpy(remove.payload.data(), &monster, 4u);
+    agent.forward_from_map(connection, remove, 7u, &map_link);
+    ASSERT_EQ(delivered.size(), 1u);
+    EXPECT_EQ(delivered[0].first, 1001u);
+    EXPECT_EQ(delivered[0].second.header.object_id, 0u);
+    EXPECT_EQ(delivered[0].second.payload, remove.payload);
+}
+
+TEST(MonsterMapRoute, DeathRequiresCurrentMapVictimAndPreservesOriginalWire) {
+    MockDbAdapter db;
+    MockTcpSender current_link, replacement_link;
+    const auto current = mxh::net::make_connection_id(77);
+    const auto replacement = mxh::net::make_connection_id(88);
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    mxh::server::AgentHandler agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            delivered.emplace_back(id.value, msg);
+        });
+    agent.set_map_server_for_map(7u, &current_link, current);
+    agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
+    agent.register_session(mxh::net::make_connection_id(1003), 3u, 303u, 8u);
+    mxh::net::Message death;
+    death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+    death.header.object_id = 50143u;
+    death.payload.resize(8u);
+    const std::uint32_t killer = 50143u, victim = 101u;
+    std::memcpy(death.payload.data(), &killer, 4u);
+    std::memcpy(death.payload.data() + 4u, &victim, 4u);
+    agent.forward_from_map(current, death, 7u, &current_link);
+    ASSERT_EQ(delivered.size(), 2u);
+    EXPECT_EQ(delivered[0].second.header.object_id, killer);
+    EXPECT_EQ(delivered[0].second.payload, death.payload);
+    std::vector<std::uint64_t> targets{delivered[0].first, delivered[1].first};
+    std::sort(targets.begin(), targets.end());
+    EXPECT_EQ(targets, (std::vector<std::uint64_t>{1001u, 1002u}));
+    delivered.clear();
+    auto wrong_victim = death;
+    const std::uint32_t cross_map = 303u;
+    std::memcpy(wrong_victim.payload.data() + 4u, &cross_map, 4u);
+    agent.forward_from_map(current, wrong_victim, 7u, &current_link);
+    auto wrong_killer = death;
+    wrong_killer.header.object_id++;
+    agent.forward_from_map(current, wrong_killer, 7u, &current_link);
+    agent.forward_from_map(replacement, death, 7u, &replacement_link);
+    agent.set_map_server_for_map(7u, &replacement_link, replacement);
+    agent.forward_from_map(current, death, 7u, &current_link);
+    EXPECT_TRUE(delivered.empty());
+
+    // A separate Agent attached to the same Map sees observers but does not
+    // own the victim's session. The authoritative Map still sends its death
+    // packet once to that Agent's Map connection.
+    MockTcpSender second_agent_map;
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> second_delivered;
+    mxh::server::AgentHandler second_agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            second_delivered.emplace_back(id.value, msg);
+        });
+    const auto second_link_id = mxh::net::make_connection_id(99);
+    second_agent.set_map_server_for_map(7u, &second_agent_map, second_link_id);
+    second_agent.register_session(mxh::net::make_connection_id(2005), 5u, 505u, 7u);
+    second_agent.forward_from_map(second_link_id, death, 7u, &second_agent_map);
+    ASSERT_EQ(second_delivered.size(), 1u);
+    EXPECT_EQ(second_delivered[0].first, 2005u);
+    EXPECT_EQ(second_delivered[0].second.header.object_id, killer);
+    EXPECT_EQ(second_delivered[0].second.payload, death.payload);
 }
 
 TEST(MapHandlerTest, GameInOnConnectionZeroSendsMonsterAdds) {
@@ -4304,7 +4521,12 @@ TEST(MapHandlerTest, Map10AiKindsRequireCanonicalMonsterList) {
 TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath) {
     MockDbAdapter db;
     ReplySpy reply;
-    MapHandler handler(db, 10, make_reply_spy(reply));
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> routed;
+    const auto spy = make_reply_spy(reply);
+    MapHandler handler(db, 10, [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+        routed.emplace_back(id.value, msg);
+        spy(id, msg);
+    });
     const auto skill_path = write_temp_bin(synthesize_item_list_bin(
         build_monster_attack_skill_row(42u)));
     handler.load_skill_list(skill_path.string());
@@ -4318,6 +4540,10 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(connection, game_in);
+    game_in.header.object_id = 456u;
+    handler.on_message(connection, game_in);
+    game_in.header.object_id = 789u;
+    handler.on_message(mxh::net::make_connection_id(56), game_in);
     ASSERT_TRUE(handler.set_player_position_for_test(123u, 0.0f, 0.0f));
     ASSERT_TRUE(handler.set_player_vitals_for_test(123u, 3u, 0u));
 
@@ -4361,6 +4587,14 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath
         static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie));
     ASSERT_NE(death, reply.messages.end());
     ASSERT_EQ(death->payload.size(), 8u);
+    std::vector<std::uint64_t> death_links;
+    for (const auto& [link, message] : routed) {
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie))
+            death_links.push_back(link);
+    }
+    std::sort(death_links.begin(), death_links.end());
+    EXPECT_EQ(death_links, (std::vector<std::uint64_t>{55u, 56u}));
     const auto snapshot = handler.player_runtime_snapshot(123u);
     ASSERT_TRUE(snapshot.has_value());
     EXPECT_EQ(snapshot->current_hp, 0u);

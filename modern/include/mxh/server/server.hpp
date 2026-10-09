@@ -560,7 +560,8 @@ private:
         std::string name;
     };
     void spawn_map_npcs();
-    void send_npc_add(mxh::net::ConnectionId id, const ServerNpc& npc);
+    void send_npc_add(mxh::net::ConnectionId id, std::uint32_t player_id,
+                      const ServerNpc& npc);
 
     // Phase 10d: Skill management
     void init_skill_table();

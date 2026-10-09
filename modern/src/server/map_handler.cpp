@@ -1672,7 +1672,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     spawn_map_npcs();
     {
         std::lock_guard<std::mutex> lk(npcs_mu_);
-        for (const auto& npc : npcs_) send_npc_add(id, npc);
+        for (const auto& npc : npcs_) send_npc_add(id, player_id, npc);
     }
     std::cout << "[Map] sent " << npcs_.size() << " npc adds to player=" << player_id << "\n";
 }
@@ -1766,6 +1766,7 @@ void MapHandler::spawn_map_npcs() {
 }
 
 void MapHandler::send_npc_add(mxh::net::ConnectionId id,
+                              std::uint32_t player_id,
                               const ServerNpc& npc) {
     if (npc.npc_id > 0xffffu) {
         std::cout << "[Map] refusing NPC_ADD with out-of-range id="
@@ -1777,7 +1778,9 @@ void MapHandler::send_npc_add(mxh::net::ConnectionId id,
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::NpcAdd);
-    m.header.object_id = npc.npc_id;
+    // Map->Agent target; Agent restores the NPC id from the payload on wire.
+    // The shared Map connection cannot identify an individual client.
+    m.header.object_id = player_id;
     m.payload.resize(64, 0);
     put_u32(m.payload, 0, npc.npc_id);
     put_u32(m.payload, 4, npc.npc_id);
@@ -2426,17 +2429,17 @@ void MapHandler::send_object_remove(std::uint32_t target_player_id,
 void MapHandler::send_object_remove_locked(std::uint32_t target_player_id,
                                            std::uint32_t object_id) {
     // Caller must hold players_mu_.
-    std::uint64_t target_conn = 0;
+    std::optional<std::uint64_t> target_conn;
     auto it = connected_players_.find(target_player_id);
     if (it != connected_players_.end()) target_conn = it->second.conn_id;
-    if (target_conn == 0) return;
-    mxh::net::ConnectionId target{target_conn};
+    if (!target_conn.has_value()) return;
+    mxh::net::ConnectionId target{*target_conn};
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::ObjectRemove);
-    m.header.object_id = 0;
+    m.header.object_id = target_player_id;
 
     m.payload.resize(4, 0);
     put_u32(m.payload, 0, object_id);
@@ -3406,7 +3409,8 @@ void MapHandler::send_monster_add(std::uint32_t player_id,
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::MonsterAdd);
-    m.header.object_id = monster.object_id;
+    // Internal Map->Agent recipient; restore the monster id from payload.
+    m.header.object_id = player_id;
 
     // Payload: BASEOBJECT_INFO(35B) + MONSTER_TOTALINFO(14B) + SEND_MOVEINFO(14B) + bLogin(1B)
     constexpr std::size_t kPayloadSize = 35 + 14 + 14 + 1;
@@ -3469,7 +3473,7 @@ void MapHandler::send_monster_remove(std::uint32_t player_id,
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::ObjectRemove);
-    m.header.object_id = 0;
+    m.header.object_id = player_id;
     m.payload.resize(4, 0);
     put_u32(m.payload, 0, monster_object_id);
     reply_(target, m);
@@ -3493,7 +3497,7 @@ void MapHandler::broadcast_monster_add(const mxh::game::MonsterInstance& monster
             mxh::proto::Category::UserConn);
         m.header.protocol = static_cast<std::uint8_t>(
             mxh::proto::UserConnProtocol::MonsterAdd);
-        m.header.object_id = monster.object_id;
+        m.header.object_id = pid;
         constexpr std::size_t kPayloadSize = 35 + 14 + 14 + 1;
         m.payload.resize(kPayloadSize, 0);
         std::size_t off = 0;
@@ -3524,7 +3528,7 @@ void MapHandler::broadcast_monster_remove(std::uint32_t monster_object_id) {
             mxh::proto::Category::UserConn);
         m.header.protocol = static_cast<std::uint8_t>(
             mxh::proto::UserConnProtocol::ObjectRemove);
-        m.header.object_id = 0;
+        m.header.object_id = pid;
         m.payload.resize(4, 0);
         put_u32(m.payload, 0, monster_object_id);
         reply_(target, m);
@@ -3532,21 +3536,22 @@ void MapHandler::broadcast_monster_remove(std::uint32_t monster_object_id) {
 }
 
 void MapHandler::broadcast_monster_life(const mxh::game::MonsterInstance& monster) {
-    std::lock_guard<std::mutex> lk(players_mu_);
-    for (auto& [pid, info] : connected_players_) {
-        mxh::net::ConnectionId target{info.conn_id};
-        mxh::net::Message m;
-        m.header.category = static_cast<std::uint8_t>(
-            mxh::proto::Category::Monster);
-        m.header.protocol = static_cast<std::uint8_t>(
-            mxh::proto::MonsterProtocol::LifeNotify);
-        m.header.object_id = monster.object_id;
-        // Payload: Life(4B) + Shield(4B)
-        m.payload.resize(8, 0);
-        put_u32(m.payload, 0, monster.current_life);
-        put_u32(m.payload, 4, monster.current_shield);
-        reply_(target, m);
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Monster);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify);
+    m.header.object_id = monster.object_id;
+    m.payload.resize(8, 0);
+    put_u32(m.payload, 0, monster.current_life);
+    put_u32(m.payload, 4, monster.current_shield);
+    std::vector<std::uint64_t> connections;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        for (const auto& [pid, info] : connected_players_) {
+            if (std::find(connections.begin(), connections.end(), info.conn_id) == connections.end())
+                connections.push_back(info.conn_id);
+        }
     }
+    for (auto conn : connections) reply_(mxh::net::ConnectionId{conn}, m);
 }
 
 void MapHandler::broadcast_monster_move(
@@ -3561,11 +3566,15 @@ void MapHandler::broadcast_monster_move(
     put_u16(m.payload, 0, static_cast<std::uint16_t>(monster.pos_x));
     put_u16(m.payload, 2, static_cast<std::uint16_t>(monster.pos_z));
 
-    std::lock_guard<std::mutex> lk(players_mu_);
-    for (auto& [pid, info] : connected_players_) {
-        mxh::net::ConnectionId target{info.conn_id};
-        reply_(target, m);
+    std::vector<std::uint64_t> connections;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        for (const auto& [pid, info] : connected_players_) {
+            if (std::find(connections.begin(), connections.end(), info.conn_id) == connections.end())
+                connections.push_back(info.conn_id);
+        }
     }
+    for (auto conn : connections) reply_(mxh::net::ConnectionId{conn}, m);
 }
 
 void MapHandler::tick_monster_ai() {
@@ -3792,7 +3801,10 @@ void MapHandler::tick_monster_ai() {
             death.payload.resize(8);
             std::memcpy(death.payload.data(), &attack.monster_id, 4);
             std::memcpy(death.payload.data() + 4, &attack.player_id, 4);
-            reply_(mxh::net::ConnectionId{attack.connection_id}, death);
+            // A shared Agent connection carries several players. Send once
+            // per Map connection; Agent validates the victim and fans out in
+            // this map while preserving the original killer/victim wire.
+            broadcast_except(0, death);
         }
         broadcast_skill_object_remove(0, attack.skill.skill_object_id);
     }
