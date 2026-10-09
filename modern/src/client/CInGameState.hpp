@@ -403,6 +403,13 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
                                                     std::uint16_t current_map)>;
     void set_map_change_target_resolver(MapChangeTargetResolver resolver);
     void use_quick_slot(std::size_t slot);
+    // Explicit target hook shared by headless acceptance and the GUI cursor
+    // path.  It preserves the legacy rule that attacks require a selected
+    // live monster; callers still pass through try_attack() for range and
+    // server authority checks.
+    void select_attack_target(std::uint32_t object_id) noexcept {
+        m_pendingAttackTarget = object_id;
+    }
     void toggle_inventory() noexcept;
     void try_pickup();
     // Pick the nearest NPC to the player by world distance (max 500 units).

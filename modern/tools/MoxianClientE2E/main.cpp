@@ -37,6 +37,7 @@
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
 //                  [--no-spawn]  # assume servers are already running
+//                  [--account NAME] [--password-env ENV_NAME]
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
 //                  [--db DB]          SQLite file or MSSQL kv string
@@ -129,6 +130,7 @@ struct CliArgs {
     std::string character_name;
     std::string account = "mxh_e2e";
     std::string password = "Pass1234";
+    std::string password_env;
     std::string login_host = "127.0.0.1";
     std::string agent_host;  // empty = LoginAck agent_addr, else override
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
@@ -214,6 +216,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
         else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
+        else if (s == "--password-env" && i + 1 < argc) a.password_env = argv[++i];
         else if (s == "--login-host" && i + 1 < argc) a.login_host = argv[++i];
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
@@ -231,6 +234,15 @@ CliArgs parse_cli(int argc, char** argv) {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
         }
+    }
+    if (!a.password_env.empty()) {
+        const char* value = std::getenv(a.password_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::fprintf(stderr, "password environment variable is empty: %s\n",
+                         a.password_env.c_str());
+            std::exit(3);
+        }
+        a.password = value;
     }
     return a;
 }
@@ -1072,6 +1084,11 @@ int run_e2e(const CliArgs& cli) {
                     if (dx * dx + dz * dz <= 500.0f * 500.0f) break;
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
+                // The production attack path requires an explicit cursor
+                // selection.  Headless acceptance has no screen projection,
+                // so select the same authoritative monster after moving into
+                // range and then exercise try_attack().
+                game.select_attack_target(nearest->object_id);
             }
             auto next_attack = std::chrono::steady_clock::now();
             while (std::chrono::steady_clock::now() < combat_deadline) {
