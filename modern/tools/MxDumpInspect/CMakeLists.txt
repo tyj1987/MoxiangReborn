@@ -12,9 +12,12 @@ add_executable(mx_find_throw_site mx_find_throw_site.cpp)
 target_include_directories(mx_find_throw_site PRIVATE
     "C:/BuildTools/DIA SDK/include"
 )
-target_link_directories(mx_find_throw_site PRIVATE
-    "C:/BuildTools/DIA SDK/lib"
-)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(MX_DIA_LIB_DIR "C:/BuildTools/DIA SDK/lib/amd64")
+else()
+    set(MX_DIA_LIB_DIR "C:/BuildTools/DIA SDK/lib")
+endif()
+target_link_directories(mx_find_throw_site PRIVATE "${MX_DIA_LIB_DIR}")
 target_link_libraries(mx_find_throw_site PRIVATE
     diaguids
 )
