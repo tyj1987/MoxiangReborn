@@ -6,7 +6,7 @@
 
 原版独立工作树 `codex/reorg-original-20261009` 已在 `C:\BuildTools` 的 VS2022 x64 工具链下完成全目标 Release 构建；DIA、客户端崩溃转储和最小转储工具均已修正为架构正确的链接/寄存器访问。客户端单元与 dump CLI 定向验收为 **155/155 通过**。本机不持有 VHD 恢复资产的 6 项测试现在明确 Skip，并不会伪装成资源已恢复；HSEL Map round-trip 在缺少 PVE 权威角色/进度/生命值表时 Skip，具备完整 PVE schema 时仍执行真实 GameInAck 断言。对应提交：`7519e1d8`、`e925f4e6`、`ed338bb3`、`2054c7c4`、`65a4654d`。
 
-本次验证没有启动本机三服或数据库，也没有改变 canonical PlayDH、Unity WIP、PVE 数据或远端 refs。完整 CTest 仍必须在 PVE 资源/数据库契约可用时收敛；本机 release 资源基线的 45 个 HFL/TTB 阻塞仍有效。
+本次验证没有启动本机三服或数据库，也没有改变 canonical PlayDH、Unity WIP、PVE 数据或远端 refs。随后在同一 Release 构建目录运行全量 CTest：**12551/12551 实际执行用例通过，22 项按缺失 PVE/VHD/资源契约 Skip，另外的禁用项未运行，退出码 0**；日志为 `modern/build-commercial-check-20261010/ctest-r4.log`。该结果只证明本机代码/fixture 回归，不替代 PVE 资源、数据库和真实 GUI 验收。本机 release 资源基线的 45 个 HFL/TTB 阻塞仍有效。
 
 ## 工程与远端
 
