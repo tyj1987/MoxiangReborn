@@ -744,9 +744,16 @@ int run_e2e(const CliArgs& cli) {
             params.body_type  = 0;
             params.hair_type  = 1;
             params.face_type  = 1;
-            params.start_area = 18;
+            params.start_area = 17;
             params.height     = 1.0f;
             params.width      = 0.9f;
+            // Match the canonical CHINA character-creation defaults from
+            // CharMakeOptionCatalog.  An empty equipment array creates a
+            // visually valid but combat-invalid avatar (no weapon stats),
+            // which makes the real Map10 combat/drop gate take minutes.
+            params.weared_item_idx[1] = 11000; // starter weapon
+            params.weared_item_idx[2] = 23000; // starter cloth
+            params.weared_item_idx[3] = 27000; // starter boots
             if (!charmake.SubmitCharacter(params)) {
                 LOG("[3/5] FAIL: SubmitCharacter rejected: %s",
                     charmake.failure_reason().c_str());
