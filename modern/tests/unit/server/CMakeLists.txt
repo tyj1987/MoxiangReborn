@@ -7,6 +7,15 @@ add_executable(mxh_server_handler_tests
     player_equipment_stats_test.cpp
 )
 
+include(GoogleTest)
+add_executable(mxh_present_revive_tests present_revive_test.cpp)
+target_link_libraries(mxh_present_revive_tests PRIVATE gtest_main)
+target_include_directories(mxh_present_revive_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_present_revive_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 target_link_libraries(mxh_server_handler_tests PRIVATE
     mxh_server mxh_db mxh_client_lib gtest_main
 )
