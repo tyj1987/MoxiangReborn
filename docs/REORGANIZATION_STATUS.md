@@ -2,6 +2,12 @@
 
 更新：2026-10-09。优先原版 modern DX11；完整计划尚未交付。计划见 [ROADMAP](../ROADMAP.md)，可玩结论见 [PLAYABLE_STATUS.md](PLAYABLE_STATUS.md)，缺陷见 [KNOWN_BUGS.md](KNOWN_BUGS.md)，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。
 
+## 2026-10-10 工程基线复核
+
+原版独立工作树 `codex/reorg-original-20261009` 已在 `C:\BuildTools` 的 VS2022 x64 工具链下完成全目标 Release 构建；DIA、客户端崩溃转储和最小转储工具均已修正为架构正确的链接/寄存器访问。客户端单元与 dump CLI 定向验收为 **155/155 通过**。本机不持有 VHD 恢复资产的 6 项测试现在明确 Skip，并不会伪装成资源已恢复；HSEL Map round-trip 在缺少 PVE 权威角色/进度/生命值表时 Skip，具备完整 PVE schema 时仍执行真实 GameInAck 断言。对应提交：`7519e1d8`、`e925f4e6`、`ed338bb3`、`2054c7c4`、`65a4654d`。
+
+本次验证没有启动本机三服或数据库，也没有改变 canonical PlayDH、Unity WIP、PVE 数据或远端 refs。完整 CTest 仍必须在 PVE 资源/数据库契约可用时收敛；本机 release 资源基线的 45 个 HFL/TTB 阻塞仍有效。
+
 ## 工程与远端
 
 | 分线 | 已验证源码 | 本轮验证 | 当前边界 |
