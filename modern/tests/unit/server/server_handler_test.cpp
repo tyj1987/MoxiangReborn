@@ -43,6 +43,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -280,6 +281,7 @@ public:
         last_message = msg;
         if (!connected || fail_send) return mxh::net::NetError::SendFailed;
         sent_msgs.push_back(msg);
+        if (on_send) on_send(msg);
         return mxh::net::NetError::Ok;
     }
     [[nodiscard]] bool is_connected() const noexcept override { return connected; }
@@ -292,6 +294,7 @@ public:
     std::atomic<int> send_count{0};
     std::vector<mxh::net::Message> sent_msgs;
     mxh::net::Message last_message{};
+    std::function<void(const mxh::net::Message&)> on_send;
 private:
     bool connected = true;
     bool fail_send = false;
@@ -843,6 +846,135 @@ TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
     ASSERT_EQ(reply.messages.size(), 1u);
     EXPECT_EQ(reply.messages.front().header.protocol,
               static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
+}
+
+TEST(CharacterAddTargetRoute, ChangeMapPublishesRouteBeforeSynchronousMapReply) {
+    MockDbAdapter db;
+    const auto moving_connection = mxh::net::make_connection_id(1101);
+    const auto resident_connection = mxh::net::make_connection_id(1202);
+    const auto map_connection = mxh::net::make_connection_id(10);
+    std::vector<std::pair<std::uint64_t, mxh::net::Message>> delivered;
+    mxh::server::AgentHandler agent(db,
+        [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+            delivered.emplace_back(id.value, msg);
+        }, true, false, {}, 7u);
+    agent.register_session(moving_connection, 1u, 101u, 7u);
+    agent.register_session(resident_connection, 2u, 202u, 10u);
+    MockTcpSender old_map, target_map;
+    agent.set_map_server(&old_map, mxh::net::make_connection_id(7));
+    agent.set_map_server_for_map(10u, &target_map, map_connection);
+    const auto add = [](std::uint32_t recipient, std::uint32_t source) {
+        mxh::net::Message msg;
+        msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        msg.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterAdd);
+        msg.header.object_id = recipient;
+        msg.payload.resize(288u);
+        const std::uint16_t map = 10u;
+        std::memcpy(msg.payload.data(), &source, 4);
+        std::memcpy(msg.payload.data() + 4, &source, 4);
+        std::memcpy(msg.payload.data() + 77, &map, 2);
+        std::memcpy(msg.payload.data() + 79, &map, 2);
+        return msg;
+    };
+    target_map.on_send = [&](const mxh::net::Message& sent) {
+        if (sent.header.protocol != static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInSyn)) return;
+        // A Map response can run before ITcpSender::send returns. Both
+        // appearance directions must already see the destination map.
+        agent.forward_from_map(map_connection, add(202u, 101u), 10u, &target_map);
+        agent.forward_from_map(map_connection, add(101u, 202u), 10u, &target_map);
+    };
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    change.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapSyn);
+    change.header.object_id = 101u;
+    change.payload.resize(4u);
+    const std::uint16_t target_num = 10u;
+    std::memcpy(change.payload.data(), &target_num, 2);
+    agent.on_message(moving_connection, change);
+
+    ASSERT_EQ(delivered.size(), 3u);
+    EXPECT_EQ(delivered[0].first, resident_connection.value);
+    EXPECT_EQ(delivered[0].second.header.object_id, 101u);
+    EXPECT_EQ(delivered[1].first, moving_connection.value);
+    EXPECT_EQ(delivered[1].second.header.object_id, 202u);
+    EXPECT_EQ(delivered[2].first, moving_connection.value);
+    EXPECT_EQ(delivered[2].second.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapAck));
+}
+
+TEST(CharacterAddTargetRoute, FailedChangeMapSendRestoresPriorRoute) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler agent(db, make_reply_spy(reply), true,
+                                    false, {}, 7u);
+    const auto client = mxh::net::make_connection_id(1101);
+    agent.register_session(client, 1u, 101u, 7u);
+    MockTcpSender old_map, target_map;
+    target_map.set_fail_send(true);
+    agent.set_map_server(&old_map, mxh::net::make_connection_id(7));
+    agent.set_map_server_for_map(10u, &target_map,
+                                  mxh::net::make_connection_id(10));
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    change.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapSyn);
+    change.header.object_id = 101u;
+    change.payload.resize(2u);
+    const std::uint16_t target_num = 10u;
+    std::memcpy(change.payload.data(), &target_num, 2);
+    agent.on_message(client, change);
+    ASSERT_EQ(reply.messages.size(), 1u);
+    EXPECT_EQ(reply.messages.front().header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapNack));
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameOutSyn);
+    agent.on_message(client, out);
+    ASSERT_EQ(old_map.sent_msgs.size(), 2u);
+    EXPECT_EQ(old_map.sent_msgs.back().header.object_id, 101u);
+    EXPECT_EQ(target_map.send_count.load(), 1);
+}
+
+TEST(CharacterAddTargetRoute, DisconnectDuringTargetSendDoesNotRestoreSession) {
+    MockDbAdapter db;
+    ReplySpy reply;
+    mxh::server::AgentHandler agent(db, make_reply_spy(reply), true,
+                                    false, {}, 7u);
+    const auto client = mxh::net::make_connection_id(1101);
+    agent.register_session(client, 1u, 101u, 7u);
+    MockTcpSender old_map, target_map;
+    agent.set_map_server(&old_map, mxh::net::make_connection_id(7));
+    agent.set_map_server_for_map(10u, &target_map,
+                                  mxh::net::make_connection_id(10));
+    target_map.on_send = [&](const mxh::net::Message& sent) {
+        if (sent.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInSyn)) {
+            agent.on_disconnect(client, mxh::net::NetError::Disconnected);
+        }
+    };
+    mxh::net::Message change;
+    change.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    change.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapSyn);
+    change.header.object_id = 101u;
+    change.payload.resize(2u);
+    const std::uint16_t target_num = 10u;
+    std::memcpy(change.payload.data(), &target_num, 2);
+    agent.on_message(client, change);
+    EXPECT_TRUE(reply.messages.empty()) << "disconnected client must not receive ChangeMapAck";
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameOutSyn);
+    agent.on_message(client, out);
+    // Without a session map, the default route is 7, never target 10.
+    ASSERT_EQ(old_map.sent_msgs.size(), 2u);
+    EXPECT_EQ(target_map.send_count.load(), 2);
+    EXPECT_EQ(old_map.sent_msgs.back().header.object_id, 0u);
 }
 
 TEST(AgentHandlerTest, ChangeMapWithoutTargetRouteReturnsNackAndKeepsCurrentMap) {

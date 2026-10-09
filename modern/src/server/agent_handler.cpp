@@ -2101,7 +2101,43 @@ void AgentHandler::handle_legacy_change_map_syn(
     std::memcpy(fwd.payload.data() + 0, &user_id, sizeof(user_id));
     std::memcpy(fwd.payload.data() + 8, &user_level, sizeof(user_level));
     std::memcpy(fwd.payload.data() + 12, &target_map, sizeof(target_map));
+    // A Map reply can arrive from another thread before send() returns.
+    // Publish the target route first so its GameIn/CharacterAdd sees the
+    // correct map, but never hold user_mu_ across a reentrant send().
+    std::uint16_t previous_map = 0;
+    bool route_prepared = false;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        const auto selected = conn_char_ids_.find(id.value);
+        const auto active_map = conn_map_nums_.find(id.value);
+        if (selected != conn_char_ids_.end() && selected->second == char_id &&
+            active_map != conn_map_nums_.end()) {
+            previous_map = active_map->second;
+            active_map->second = target_map;
+            route_prepared = true;
+        }
+    }
+    if (!route_prepared) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
     if (target.client->send(fwd) != mxh::net::NetError::Ok) {
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            const auto selected = conn_char_ids_.find(id.value);
+            const auto active_map = conn_map_nums_.find(id.value);
+            if (selected != conn_char_ids_.end() && selected->second == char_id &&
+                active_map != conn_map_nums_.end() &&
+                active_map->second == target_map) {
+                active_map->second = previous_map;
+            }
+        }
         mxh::net::Message nack;
         nack.header.category = static_cast<std::uint8_t>(
             mxh::proto::Category::UserConn);
@@ -2113,10 +2149,11 @@ void AgentHandler::handle_legacy_change_map_syn(
     }
     {
         std::lock_guard<std::mutex> lk(user_mu_);
-        // Subsequent explicit GameOutSyn and disconnect cleanup must target
-        // the new map route, otherwise the old map retains no-op cleanup
-        // while the destination runtime remains active.
-        conn_map_nums_[id.value] = target_map;
+        const auto selected = conn_char_ids_.find(id.value);
+        const auto active_map = conn_map_nums_.find(id.value);
+        if (selected == conn_char_ids_.end() || selected->second != char_id ||
+            active_map == conn_map_nums_.end() ||
+            active_map->second != target_map) return;
     }
 
     mxh::net::Message ack;
