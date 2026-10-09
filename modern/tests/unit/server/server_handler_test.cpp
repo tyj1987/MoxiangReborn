@@ -3443,7 +3443,7 @@ TEST(MapHandlerTest, DISABLED_MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 1u);
 }
 
-TEST(MapHandlerTest, RevisionedKillNeverPublishesIncompatibleGroundObtain) {
+TEST(MapHandlerTest, RevisionedKillPublishesGroundObtainAndPersistsPickup) {
     MockDbAdapter db;
     db.seed_ready_vitals(123u, 125u, 245u, 125u);
     ReplySpy reply;
@@ -3475,15 +3475,19 @@ TEST(MapHandlerTest, RevisionedKillNeverPublishesIncompatibleGroundObtain) {
     ASSERT_TRUE(handler.add_monster_instance(monster));
     reply.messages.clear();
     const auto writes_before = db.commit_count;
-    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 1u, 0u));
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    ASSERT_TRUE(drop.has_value());
+    EXPECT_EQ(drop->item_id, 501u);
     EXPECT_EQ(db.commit_count, writes_before + 1);
     EXPECT_EQ(db.progress_rows.at(123u)[1], 4);
     EXPECT_EQ(handler.live_monster_count_for_test(), 0u);
-    EXPECT_TRUE(std::none_of(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
+    EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(
                 mxh::proto::ItemProtocol::MonsterObtainNotify);
     }));
+    ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
+    EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
 }
 
 TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {

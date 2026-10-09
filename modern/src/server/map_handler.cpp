@@ -1376,11 +1376,11 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
         if (monster_it == monsters_.end() || monster_it->is_dead) return std::nullopt;
         *monster_it = updated_monster;
         if (award_state) *award_state = OriginalVitalsCommitState::Committed;
-        if (updated_monster.is_dead && !revisioned_award_committed) {
-            // The existing 20-byte ground-object notification reuses the
-            // original obtain ID with a different payload. Until the
-            // DB-backed original obtain array is connected, a revisioned
-            // character cannot publish this incompatible drop path.
+        if (updated_monster.is_dead) {
+            // Ground drops are now persisted through the same authoritative
+            // inventory transaction used by PickupSyn.  They therefore remain
+            // valid after the revisioned vitals/EXP CAS commits; suppressing
+            // them here made every real PVE character unable to loot.
             const auto events = load_active_live_events(db_, utc_now_iso8601());
             const auto effective_ratio = std::min(100.0,
                 static_cast<double>(updated_monster.drop_item_ratio) * events.drop_multiplier);

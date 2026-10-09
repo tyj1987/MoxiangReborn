@@ -86,6 +86,7 @@
 #include "mxh/db/mssql_odbc_adapter.hpp"
 #include "mxh/db/schema_migration.hpp"
 #include "mxh/server/account_service.hpp"
+#include "mxh/game/npc_role.hpp"
 
 #include <algorithm>
 #include <array>
@@ -935,11 +936,19 @@ int run_e2e(const CliArgs& cli) {
         }
 
         if (cli.exercise_shop) {
-            // npc_id=0 is an explicit server-side catalog resolution path;
-            // it is not a fabricated NPC. The MapHandler resolves it against
-            // the canonical DealItem catalog before emitting ShopList.
-            LOG("[5/5] Shop: requesting canonical NPC shop catalog ...");
-            game.open_shop(0);
+            const auto dealer = std::find_if(
+                game.npcs().begin(), game.npcs().end(), [](const auto& npc) {
+                    const auto role = mxh::game::role_from_wire(npc.npc_kind);
+                    return role == mxh::game::NpcRole::Dealer ||
+                           role == mxh::game::NpcRole::Bobusang;
+                });
+            if (dealer == game.npcs().end()) {
+                LOG("[5/5] FAIL: Map10 has no canonical dealer NPC");
+                return 2;
+            }
+            LOG("[5/5] Shop: requesting canonical NPC shop catalog npc=%u ...",
+                static_cast<unsigned>(dealer->npc_id));
+            game.open_shop(dealer->npc_id);
             const auto shop_deadline = std::chrono::steady_clock::now() +
                                        std::chrono::seconds(cli.timeout_s);
             while (!game.shop_open() &&
