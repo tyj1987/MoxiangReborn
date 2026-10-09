@@ -15,6 +15,8 @@
 #include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cminifrienddialog.hpp"
 #include "mxh/ui/cfrienddialog.hpp"
+#include "mxh/ui/cObjectGuagen.hpp"
+#include "mxh/ui/cStatic.hpp"
 
 #include <algorithm>
 #include <cstdlib>
@@ -31,6 +33,7 @@
 #include "mxh/game/npc_role.hpp"
 #include "mxh/proto/protocol.hpp"
 #include "mxh/ui/bigmapdlg.hpp"
+#include "mxh/ui/guagedialog.hpp"
 #include "mxh/ui/minimapdlg.hpp"
 
 namespace mxh::client {
@@ -1101,15 +1104,67 @@ void CInGameState::Start(CEngine* engine, std::uint32_t player_id,
 }
 
 void CInGameState::refresh_live_ui_bindings() {
-    if (!m_playerStatsService) return;
+    // These labels have no static text in the shipped InterfaceScript.  The
+    // original CHero sets them from the live character, and CMiniMapDlg sets
+    // its two labels from the current map/hero position.  Empty/zero source
+    // fields are left blank rather than presented as a fabricated character.
+    const bool actor_ready = m_inGame && m_playerId != 0;
+    const auto set_text = [](mxh::ui::cDialog& dialog,
+                             std::string_view id, std::string value) {
+        auto* label = dynamic_cast<mxh::ui::cStatic*>(
+            dialog.findWindowByLegacyId(id));
+        if (label && label->GetStaticText() != value) {
+            label->SetStaticText(std::move(value));
+        }
+    };
+    const auto set_gauge = [](mxh::ui::cDialog& dialog,
+                              std::string_view id, std::uint32_t current,
+                              std::uint32_t maximum) {
+        auto* gauge = dynamic_cast<mxh::ui::cObjectGuagen*>(
+            dialog.findWindowByLegacyId(id));
+        if (!gauge) return;
+        const float value = maximum == 0 ? 0.0f :
+            static_cast<float>(std::min(current, maximum)) /
+                static_cast<float>(maximum);
+        if (gauge->GetCurPercentRate() != value) gauge->SetValue(value, 0);
+    };
+    const auto current_over_max = [](std::uint32_t current,
+                                     std::uint32_t maximum) {
+        return maximum == 0 ? std::string{} :
+            std::to_string(current) + " / " + std::to_string(maximum);
+    };
     for (auto& dialog : m_uiRuntime.dialogsMutable()) {
         if (!dialog) continue;
+        if (dynamic_cast<mxh::ui::cGuageDialog*>(dialog.get())) {
+            set_text(*dialog, "CG_GUAGENAME",
+                     actor_ready ? m_info.name : std::string{});
+            set_text(*dialog, "CG_GUAGELEVEL",
+                     actor_ready && m_info.level != 0
+                         ? std::to_string(m_info.level) : std::string{});
+            set_text(*dialog, "CG_GUAGELIFETEXT",
+                     actor_ready ? current_over_max(m_info.life, m_info.max_life)
+                                 : std::string{});
+            set_text(*dialog, "CG_GUAGESHIELDTEXT",
+                     actor_ready ? current_over_max(m_info.shield, m_info.max_shield)
+                                 : std::string{});
+            set_text(*dialog, "CG_GUAGENAERYUKTEXT",
+                     actor_ready ? current_over_max(m_info.mp, m_info.max_mp)
+                                 : std::string{});
+            set_gauge(*dialog, "CG_GUAGELIFE",
+                      actor_ready ? m_info.life : 0, m_info.max_life);
+            set_gauge(*dialog, "CG_GUAGESHIELD",
+                      actor_ready ? m_info.shield : 0, m_info.max_shield);
+            set_gauge(*dialog, "CG_GUAGENAERYUK",
+                      actor_ready ? m_info.mp : 0, m_info.max_mp);
+        }
         if (auto* character = dynamic_cast<mxh::ui::cCharacterDialog*>(dialog.get())) {
+            if (!m_playerStatsService) continue;
             character->SetPlayerStatsService(m_playerStatsService.get());
             character->RefreshFromPlayerStats();
             character->SetShield(m_info.shield);
         }
         if (auto* mp = dynamic_cast<mxh::ui::cMPGuageDialog*>(dialog.get())) {
+            if (!m_playerStatsService) continue;
             mp->SetPlayerStatsService(m_playerStatsService.get());
             mp->RefreshFromPlayerStats();
         }
@@ -1150,6 +1205,16 @@ void CInGameState::refresh_live_ui_bindings() {
             }
         }
         if (auto* mini_map = dynamic_cast<mxh::ui::cMiniMapDlg*>(dialog.get())) {
+            // No localized map-name catalog is bound here.  Display the
+            // authoritative map number explicitly as an identifier.
+            set_text(*mini_map, "MNM_MAPNAME",
+                     actor_ready && m_mapNum != 0
+                         ? "Map " + std::to_string(m_mapNum) : std::string{});
+            set_text(*mini_map, "MNM_POSXY",
+                     actor_ready && m_mapNum != 0
+                         ? std::to_string(std::lround(m_info.position_x * 0.01)) + "," +
+                               std::to_string(std::lround(m_info.position_z * 0.01))
+                         : std::string{});
             mini_map->SetBigMapCallbacks(
                 [this]() noexcept { return m_mapOpen; },
                 [this](bool active) noexcept { set_map_open(active); });

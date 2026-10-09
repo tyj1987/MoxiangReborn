@@ -892,8 +892,15 @@ bool textRenderAdapter(void* /*context*/,
         } else if (request.align == mxh::ui::TextRenderAlign::Center) {
             x = request.x + (request.width - extent.cx) / 2;
         }
-        RECT rect{x, line_y, request.x + request.width,
-                  line_y + request.height};
+        // Legacy cStatic passed a 1x1 anchor RECT to RenderFont, which
+        // measured and drew its text without clipping to #POINT width/height.
+        // Shipped minimap captions deliberately have 0x0 #POINT extents, so
+        // the modern text adapter must include the measured glyph bounds.
+        RECT rect{x, line_y,
+                  std::max<LONG>(request.x + request.width,
+                                 x + std::max<LONG>(extent.cx, 1)),
+                  line_y + std::max<LONG>(request.height,
+                                          std::max<LONG>(extent.cy, 1))};
         BOOL drawn = FALSE;
         if (!wide.empty()) {
             drawn = g_renderer->RenderFont(
