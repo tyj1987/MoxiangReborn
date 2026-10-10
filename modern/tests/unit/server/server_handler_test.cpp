@@ -2615,7 +2615,7 @@ TEST(MapHandlerTest, GameInRestoresProgressAndSerializesLegacyHeroOffsets) {
     EXPECT_EQ(wire_money, 7654321u);
 }
 
-TEST(MapHandlerTest, DISABLED_InventoryAndEquipmentSurviveDisconnectAndRelogin) {
+TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
     cfg.backend = "sqlite";
@@ -2738,7 +2738,7 @@ TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundar
             EXPECT_EQ(std::get<std::int64_t>(rows.rows[i][j]), expected[i][j]);
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
+TEST(MapHandlerTest, MoveSynSwapsAuthoritativeSlotsAndPersistsDestination) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
@@ -2748,6 +2748,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynSwapsAuthoritativeSlotsAndPersistsDestinati
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
     ASSERT_TRUE(create_fixture_character(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::net::Message game_in; game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -2770,7 +2771,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynSwapsAuthoritativeSlotsAndPersistsDestinati
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 555);
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynMovesInventoryItemIntoEquipmentAndPersistsContainer) {
+TEST(MapHandlerTest, MoveSynMovesInventoryItemIntoEquipmentAndPersistsContainer) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
@@ -2780,6 +2781,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynMovesInventoryItemIntoEquipmentAndPersistsC
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
     ASSERT_TRUE(create_fixture_character(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::net::Message game_in; game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -2816,7 +2818,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynMovesInventoryItemIntoEquipmentAndPersistsC
     EXPECT_EQ(reply.messages.back().payload.size(), sizeof(mxh::game::ItemTotalInfo));
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynRejectsKnownNonEquipmentItemIntoEquipment) {
+TEST(MapHandlerTest, MoveSynRejectsKnownNonEquipmentItemIntoEquipment) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
@@ -2826,6 +2828,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynRejectsKnownNonEquipmentItemIntoEquipment) 
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));").ok());
     ASSERT_TRUE(create_fixture_character(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
     mxh::game::ItemInfo item_info{};
     item_info.ItemIdx = 601u;
@@ -2854,7 +2857,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynRejectsKnownNonEquipmentItemIntoEquipment) 
     EXPECT_EQ(snapshot->inventory_count, 1u);
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynRejectsEquipmentInWrongWearSlot) {
+TEST(MapHandlerTest, MoveSynRejectsEquipmentInWrongWearSlot) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -2884,7 +2887,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynRejectsEquipmentInWrongWearSlot) {
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynRejectsEquipmentAbovePlayerLevelLimit) {
+TEST(MapHandlerTest, MoveSynRejectsEquipmentAbovePlayerLevelLimit) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -2915,7 +2918,7 @@ TEST(MapHandlerTest, DISABLED_MoveSynRejectsEquipmentAbovePlayerLevelLimit) {
               static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
 }
 
-TEST(MapHandlerTest, DISABLED_MoveSynRejectsCrossEquipmentSwapThatWouldMisplaceTarget) {
+TEST(MapHandlerTest, MoveSynRejectsCrossEquipmentSwapThatWouldMisplaceTarget) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
