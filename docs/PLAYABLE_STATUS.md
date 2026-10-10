@@ -10,6 +10,8 @@
 
 同一 Release 构建按玩法范围重跑服务端 CTest **125/125 通过**，覆盖路由、Map10 实体、战斗/死亡、自然掉落、近距离拾取、商店、任务、装备和重登；回执为 `audit/2026-10-09-reorg/original-integration/server-playability-ctest-20261011.json`。这显著扩大了工程级闭环证据，但仍不替代 PVE MSSQL 的真实写入和真人 GUI 全链验收。
 
+当前候选包所用的 DB 工具与测试目标已从同一 VS Release 构建生成；`mxh_db_tests.exe` 运行 **35/39 通过、4 跳过、0 失败**。通过项覆盖 SQLite 持久化、DB 线程、schema migration、真实资源解析和 ODBC 负面连接；4 项跳过均明确要求外部 MSSQL 凭据/实例，回执见 `audit/2026-10-09-reorg/original-integration/db-tests-20261011.json`。未把跳过项计为数据库业务验收通过。
+
 本轮最新原版工程基线为提交 `2894804e`：revisioned 玩家使用消耗品时，生命值 CAS、物品扣除、任务进度和背包写入在同一事务中完成；商店购买、丢弃、出售、UseSyn、背包移动/装备栏校验、任务开始持久化、重登恢复和完成奖励防重复领取场景均已启用并通过。击杀任务进度现在会在 revisioned 战斗提交后继续推进，不再因已有任务而拒绝击杀。独立客户端默认端点已统一为 PVE `192.168.2.244`，可通过 `MXH_LOGIN_HOST` 或显式 `--login-host` 覆盖，不再隐式回落 loopback。PVE VM112 的 16001、17001、18001、18002、18003 端口当前可达。上述证据只关闭工程子项，不关闭真人 GUI、完整地图、切图重登或商业发布门禁。
 
 2026-10-10 在重新生成的 Visual Studio 2022 x64 构建目录 `modern/build-vs-rebuild` 中补齐掉落测试目标 `mxh_drop_item_tests`；`DropTableRegistryTest` 与加载器相关测试共 28 项通过（CTest `-I 3092,3119 -C Debug`），`mxh_monster_ext_tests` 直接运行 24/24 通过。此前旧 NMake 构建目录缺少这些可执行文件，不能再将其 `Not Run` 结果视为测试失败。该证据仍属于工程级掉落逻辑验证，尚不替代 PVE 自然击杀掉落、点击拾取和数据库持久化验收。
