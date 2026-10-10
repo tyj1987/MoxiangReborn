@@ -257,6 +257,12 @@ public:
             }
             return {};
         }
+        if (sql.find("modern_player_item") != std::string_view::npos &&
+            sql.find("MAX") != std::string_view::npos) {
+            out.columns = {"max_db_idx"};
+            out.rows.push_back({std::int64_t{699999}});
+            return {};
+        }
         if (sql.find("FROM modern_player_state") != std::string_view::npos) {
             const auto id = std::get<std::int64_t>(args[0].value);
             if (!missing_progress_ids.contains(id)) {
@@ -349,7 +355,7 @@ public:
     mxh::db::DbResult connect(const mxh::db::ConnectionConfig&) override { return {}; }
     void disconnect() override { connected = false; transaction_active = false; ++disconnects; }
     bool is_connected() const noexcept override { return connected; }
-    mxh::db::DbResult query(std::string_view, std::span<const mxh::db::Bind>,
+    mxh::db::DbResult query(std::string_view sql, std::span<const mxh::db::Bind>,
                             mxh::db::ResultSet& out) override {
         {
             std::lock_guard<std::mutex> lock(pause_mu);
@@ -357,6 +363,11 @@ public:
                 ++foreign_reads_during_transaction;
         }
         out = {};
+        if (sql.find("modern_player_item") != std::string_view::npos &&
+            sql.find("MAX") != std::string_view::npos) {
+            out.columns = {"max_db_idx"};
+            out.rows.push_back({std::int64_t{699999}});
+        }
         return {};
     }
     mxh::db::DbResult execute(std::string_view sql,
@@ -391,6 +402,9 @@ public:
                 return {mxh::db::DbError::ConstraintViolation,
                         "simulated pending vitals failure"};
             }
+            return {mxh::db::DbError::Ok, {}, 1};
+        } else if (sql.find("INSERT INTO modern_player_item") !=
+                   std::string_view::npos) {
             return {mxh::db::DbError::Ok, {}, 1};
         } else if (sql.find("INSERT INTO modern_player_state") !=
                    std::string_view::npos) {
