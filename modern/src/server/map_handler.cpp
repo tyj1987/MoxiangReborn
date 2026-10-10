@@ -42,6 +42,7 @@
 #include "mxh/game/item_list_parser.hpp"
 #include "mxh/game/battle_factory.hpp"
 #include "mxh/server/item_id.hpp"
+#include "mxh/server/item_drop.hpp"
 #include "mxh/server/player_equipment_stats.hpp"
 #include "mxh/server/present_revive.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
@@ -1410,14 +1411,38 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             // valid after the revisioned vitals/EXP CAS commits; suppressing
             // them here made every real PVE character unable to loot.
             const auto events = load_active_live_events(db_, utc_now_iso8601());
-            const auto effective_ratio = std::min(100.0,
-                static_cast<double>(updated_monster.drop_item_ratio) * events.drop_multiplier);
-            const bool ratio_hit = effective_ratio >= 100.0 ||
-                static_cast<double>(rng_value % 100u) < effective_ratio;
-            const auto item_id = ratio_hit
-                ? drop_tables_.roll(updated_monster.monster_kind,
-                    updated_monster.drop_item_id, rng_value)
-                : 0u;
+            std::uint32_t item_id = 0u;
+            const auto* visual = monster_catalog_
+                ? monster_catalog_->find(static_cast<std::uint16_t>(updated_monster.monster_kind))
+                : nullptr;
+            const auto profile = visual ? monster_drop_profile_from(*visual)
+                                        : MonsterDropProfile{};
+            if (visual && valid_monster_drop_profile(profile) && drop_tables_.size() != 0u) {
+                DropRateContext context;
+                context.baseRates = profile.rates;
+                context.itemEventRate = static_cast<float>(events.drop_multiplier);
+                const auto table = calculate_drop_rates(context);
+                std::vector<std::uint32_t> rolls(profile.max_rolls, 0u);
+                for (std::size_t i = 0; i < rolls.size(); ++i)
+                    rolls[i] = table.totalRate == 0u ? 0u :
+                        (static_cast<std::uint64_t>(rng_value) +
+                         static_cast<std::uint64_t>(i) * 2654435761ull) %
+                            table.totalRate + 1u;
+                const auto choices = select_monster_drop_choices(profile, context, rolls);
+                if (choices) for (std::size_t i = 0; i < choices->size() && item_id == 0u; ++i) {
+                    const auto& choice = (*choices)[i];
+                    if (choice.kind >= DropItemKind::Item1 && choice.kind <= DropItemKind::Item3)
+                        item_id = drop_tables_.roll(updated_monster.monster_kind,
+                            choice.item_list_id, rng_value + static_cast<std::uint32_t>(i));
+                }
+            } else {
+                const auto effective_ratio = std::min(100.0,
+                    static_cast<double>(updated_monster.drop_item_ratio) * events.drop_multiplier);
+                const bool ratio_hit = effective_ratio >= 100.0 ||
+                    static_cast<double>(rng_value % 100u) < effective_ratio;
+                item_id = ratio_hit ? drop_tables_.roll(updated_monster.monster_kind,
+                    updated_monster.drop_item_id, rng_value) : 0u;
+            }
             if (item_id != 0u) {
                 created_drop.source_monster_id = updated_monster.object_id;
                 created_drop.item_id = static_cast<std::uint16_t>(item_id);
