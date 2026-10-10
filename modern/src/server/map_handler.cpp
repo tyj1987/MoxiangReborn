@@ -1720,35 +1720,6 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
         }
     }
 
-    // The limited original-vitals writer does not yet make item effects
-    // atomic with the vitals CAS. UseSyn is therefore rejected while a
-    // revisioned vitals session is active. DiscardSyn and SellSyn only
-    // mutate inventory/money and use their own persistence transactions, so
-    // they remain available to a live player.
-    if (revisioned_player) {
-        std::optional<std::uint8_t> nack_protocol;
-        if (cat == mxh::proto::Category::Item) {
-            using P = mxh::proto::ItemProtocol;
-            switch (static_cast<P>(msg.header.protocol)) {
-                case P::UseSyn:     nack_protocol = static_cast<std::uint8_t>(P::UseNack); break;
-                default: break;
-            }
-        }
-        if (nack_protocol) {
-            mxh::net::Message nack;
-            nack.header.category = msg.header.category;
-            nack.header.protocol = *nack_protocol;
-            nack.header.object_id = msg.header.object_id;
-            nack.payload = msg.payload;
-            if (cat == mxh::proto::Category::Item &&
-                msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn)) {
-                nack.payload.resize(4u, 0u);
-            }
-            reply_(id, nack);
-            return;
-        }
-    }
-
     switch (cat) {
         case mxh::proto::Category::UserConn:
             handle_userconn(id, msg);
@@ -3130,6 +3101,15 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                              const mxh::net::Message& msg) {
     auto proto = static_cast<mxh::proto::ItemProtocol>(msg.header.protocol);
     std::uint32_t player_id = msg.header.object_id;
+    bool revisioned_player = false;
+    {
+        std::lock_guard<std::mutex> lk(players_mu_);
+        const auto live = connected_players_.find(player_id);
+        const auto runtime = player_runtimes_.find(player_id);
+        revisioned_player = live != connected_players_.end() && runtime != player_runtimes_.end() &&
+            live->second.conn_id == id.value && runtime->second.vitals_session &&
+            runtime->second.vitals_session->can_publish();
+    }
 
     std::cout << "[Map] ITEM proto=" << static_cast<int>(proto)
               << " player=" << player_id
@@ -3537,11 +3517,114 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                 break;
             }
 
-            // Apply the effect to the authoritative Player actor and consume one unit.
+            // Revisioned sessions must commit the vitals CAS and item removal
+            // in one database transaction. Build a candidate snapshot first;
+            // publish it to memory only after the transaction commits.
             std::uint32_t new_hp = 0;
             std::uint32_t new_mp = 0;
             bool consumed = false;
             std::vector<QuestEventChange> quest_changes;
+            if (revisioned_player) {
+                OriginalVitalsRecord candidate{};
+                InventorySlots candidate_inventory{};
+                EquipSlots candidate_equipment{};
+                mxh::game::PlayerCombatStats candidate_combat{};
+                QuestLog candidate_quest{};
+                std::vector<QuestEventChange> candidate_quest_changes;
+                bool ready = false;
+                OriginalVitalsSession* session = nullptr;
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    auto info_it = connected_players_.find(player_id);
+                    auto runtime_it = player_runtimes_.find(player_id);
+                    if (info_it != connected_players_.end() && runtime_it != player_runtimes_.end() &&
+                        runtime_it->second.vitals_session && runtime_it->second.vitals_session->can_publish()) {
+                        session = &*runtime_it->second.vitals_session;
+                        candidate = session->record;
+                        auto vitals = runtime_it->second.actor.state().vitals;
+                        apply_hp_delta(vitals, effect.hp_delta);
+                        apply_mp_delta(vitals, effect.mp_delta);
+                        candidate.hp = vitals.current_hp;
+                        candidate.shield = vitals.current_shield;
+                        candidate.mp = vitals.current_mp;
+                        candidate.dead = candidate.hp == 0u;
+                        if (candidate.revision < std::numeric_limits<std::int64_t>::max() - 1) {
+                            ++candidate.revision;
+                            candidate_inventory = runtime_it->second.actor.state().inventory;
+                            candidate_inventory.items[pos] = mxh::game::make_empty_item();
+                            candidate_inventory.items[pos].Position = pos;
+                            candidate_equipment = runtime_it->second.actor.state().equipment;
+                            candidate_combat = info_it->second.combat;
+                            candidate_quest = runtime_it->second.quest_log;
+                            candidate_quest_changes = dispatch_quest_event(
+                                candidate_quest,
+                                QuestEvent{QuestSubKind::Collect,
+                                           static_cast<std::uint32_t>(used_item.wIconIdx), 1u});
+                            candidate_combat.current_hp = candidate.hp;
+                            candidate_combat.current_mp = candidate.mp;
+                            ready = true;
+                        }
+                    }
+                }
+                if (ready && session != nullptr) {
+                    const auto commit = commit_original_vitals_for_session(
+                        db_, *session, candidate,
+                        [&](mxh::db::IDbAdapter& tx) {
+                            if (!tx.execute("DELETE FROM modern_player_item WHERE player_id=? AND container IN (0,1)",
+                                {mxh::db::bind(static_cast<std::int64_t>(player_id))}).ok())
+                                return mxh::db::DbResult{mxh::db::DbError::Unknown, "item delete failed"};
+                            bool failed = false;
+                            const auto write = [&](std::int64_t container, std::size_t slot,
+                                                   const mxh::game::ItemBase& item) {
+                                if (failed || item.dwDBIdx == 0u) return;
+                                const auto r = tx.execute(
+                                    "INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param) VALUES(?,?,?,?,?,?,?,?,?)",
+                                    {mxh::db::bind(static_cast<std::int64_t>(player_id)), mxh::db::bind(container),
+                                     mxh::db::bind(static_cast<std::int64_t>(slot)), mxh::db::bind(static_cast<std::int64_t>(item.dwDBIdx)),
+                                     mxh::db::bind(static_cast<std::int64_t>(item.wIconIdx)), mxh::db::bind(static_cast<std::int64_t>(item.Durability)),
+                                     mxh::db::bind(static_cast<std::int64_t>(item.RareIdx)), mxh::db::bind(static_cast<std::int64_t>(item.QuickPosition)),
+                                     mxh::db::bind(static_cast<std::int64_t>(item.ItemParam))});
+                                if (!r.ok()) failed = true;
+                            };
+                            for (std::size_t i = 0; i < candidate_inventory.items.size(); ++i) write(0, i, candidate_inventory.items[i]);
+                            for (std::size_t i = 0; i < candidate_equipment.items.size(); ++i) write(1, i, candidate_equipment.items[i]);
+                            return failed ? mxh::db::DbResult{mxh::db::DbError::Unknown, "item insert failed"} : mxh::db::DbResult{};
+                        });
+                    if (commit == OriginalVitalsCommitState::Committed) {
+                        std::lock_guard<std::mutex> lk(players_mu_);
+                        auto info_it = connected_players_.find(player_id);
+                        auto runtime_it = player_runtimes_.find(player_id);
+                        if (info_it != connected_players_.end() && runtime_it != player_runtimes_.end()) {
+                            runtime_it->second.actor.state().inventory = candidate_inventory;
+                            runtime_it->second.actor.state().equipment = candidate_equipment;
+                            runtime_it->second.actor.state().vitals.current_hp = candidate.hp;
+                            runtime_it->second.actor.state().vitals.current_shield = candidate.shield;
+                            runtime_it->second.actor.state().vitals.current_mp = candidate.mp;
+                            for (std::size_t i = 0; i < candidate_inventory.items.size(); ++i)
+                                info_it->second.items.Inventory[i] = candidate_inventory.items[i];
+                            info_it->second.combat = candidate_combat;
+                            runtime_it->second.quest_log = candidate_quest;
+                            quest_changes = candidate_quest_changes;
+                            new_hp = candidate.hp;
+                            new_mp = candidate.mp;
+                            consumed = true;
+                        }
+                    }
+                }
+                if (!consumed) {
+                    mxh::net::Message nack;
+                    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseNack);
+                    nack.header.object_id = player_id;
+                    nack.payload = msg.payload;
+                    reply_(id, nack);
+                    break;
+                }
+            }
+
+            if (!revisioned_player) {
+                // Legacy/non-revisioned path retains the existing in-memory
+                // behavior and persists the item snapshot below.
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 auto info_it = connected_players_.find(player_id);
@@ -3567,6 +3650,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                                        1u});
                     }
                 }
+            }
             }
             if (!consumed) {
                 mxh::net::Message reply;

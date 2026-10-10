@@ -3685,7 +3685,7 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
     const auto snapshot=restored.player_runtime_snapshot(123); ASSERT_TRUE(snapshot); EXPECT_EQ(snapshot->level, saved_level);
 }
 
-TEST(MapHandlerTest, DISABLED_UseConsumesActorItemAndUpdatesVitals) {
+TEST(MapHandlerTest, UseConsumesActorItemAndUpdatesVitals) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4268,7 +4268,7 @@ TEST(MapHandlerTest, LoadItemListPopulatesManagerFromBin) {
     EXPECT_FLOAT_EQ(info.LifeRecoverRate, 0.0f);
 }
 
-TEST(MapHandlerTest, DISABLED_UseAckReadsHpDeltaFromLoadedItemListBin) {
+TEST(MapHandlerTest, UseAckReadsHpDeltaFromLoadedItemListBin) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4317,9 +4317,7 @@ TEST(MapHandlerTest, DISABLED_UseAckReadsHpDeltaFromLoadedItemListBin) {
     EXPECT_EQ(hp_delta, 999);
 }
 
-// Deferred until ItemUse and quest progress share the vitals CAS transaction.
-// Keep this positive integration scenario intact for the next writer slice.
-TEST(MapHandlerTest, DISABLED_UseSynConsumesItemAndAdvancesUseItemQuest) {
+TEST(MapHandlerTest, UseSynConsumesItemAndAdvancesUseItemQuest) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
