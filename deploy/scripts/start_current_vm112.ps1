@@ -6,6 +6,8 @@ param(
     [int]$LoginPort = 16001,
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
+    [int]$Map12Port = 18002,
+    [int]$Map2Port = 18003,
     [int]$MapNumber = 10,
     [string]$AdvertisedAgentAddress = '192.168.2.244'
 )
@@ -37,16 +39,18 @@ $mapExe = Join-Path $bin 'MoxianMapServer\mxh_map_server_CHINA.exe'
 $agentExe = Join-Path $bin 'MoxianAgentServer\mxh_agent_server_CHINA.exe'
 $loginExe = Join-Path $bin 'MoxianLoginServer\mxh_login_server.exe'
 $state = Join-Path $stage 'run\pids-current.json'
-if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=@($LoginPort,$AgentPort,$MapPort);startsProcesses=$false} | ConvertTo-Json; return }
+if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=@($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port);startsProcesses=$false} | ConvertTo-Json; return }
 if (Test-Path $state) { throw 'current stage PID file already exists' }
 $cfg = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
 if ([string]::IsNullOrWhiteSpace($cfg) -or $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or $cfg -notmatch '(?i)(^|;)host=192\.168\.2\.238(;|$)' -or $cfg -notmatch '(?i)(^|;)database=MoxiangOriginalTest_20261009(;|$)') { throw 'protected database config missing or mismatched' }
-foreach ($port in @($LoginPort,$AgentPort,$MapPort)) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
+foreach ($port in @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
 $log = Join-Path $stage 'run\logs-current'; New-Item $log -ItemType Directory -Force | Out-Null
 $env:PATH = "$runtime;$env:PATH"
 $specs = @(
     [pscustomobject]@{name='map10';exe=$mapExe;port=$MapPort;args=@('--port',$MapPort,'--map',$MapNumber,'--bind-address','192.168.2.244','--resource-root',$resourceRoot,'--server-resource-root',$serverResourceRoot,'--resource-profile','playdh-current','--backend','mssql_odbc','--db-env',$DatabaseConfigEnv)},
-    [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map','12=192.168.2.244:18002','--map-server-map','2=192.168.2.244:18003','--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')},
+    [pscustomobject]@{name='map12';exe=$mapExe;port=$Map12Port;args=@('--port',$Map12Port,'--map',12,'--bind-address','192.168.2.244','--resource-root',$resourceRoot,'--server-resource-root',$serverResourceRoot,'--resource-profile','playdh-current','--backend','mssql_odbc','--db-env',$DatabaseConfigEnv)},
+    [pscustomobject]@{name='map2';exe=$mapExe;port=$Map2Port;args=@('--port',$Map2Port,'--map',2,'--bind-address','192.168.2.244','--resource-root',$resourceRoot,'--server-resource-root',$serverResourceRoot,'--resource-profile','playdh-current','--backend','mssql_odbc','--db-env',$DatabaseConfigEnv)},
+    [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map',"12=192.168.2.244:$Map12Port",'--map-server-map',"2=192.168.2.244:$Map2Port",'--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')},
     [pscustomobject]@{name='login';exe=$loginExe;port=$LoginPort;args=@('--port',$LoginPort,'--bind-address','192.168.2.244','--agent-addr','192.168.2.244','--agent-port',$AgentPort,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')}
 )
 $started=@(); $rows=@()
