@@ -1220,6 +1220,7 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     mxh::game::MonsterInstance updated_monster;
     GroundDrop created_drop;
     bool has_drop = false;
+    std::uint32_t awarded_money = 0u;
     {
         std::lock_guard<std::mutex> monster_lock(monsters_mu_);
         const auto monster_it = std::find_if(monsters_.begin(), monsters_.end(), [&](const auto& monster) {
@@ -1417,7 +1418,7 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                 : nullptr;
             const auto profile = visual ? monster_drop_profile_from(*visual)
                                         : MonsterDropProfile{};
-            if (visual && valid_monster_drop_profile(profile) && drop_tables_.size() != 0u) {
+            if (visual && valid_monster_drop_profile(profile)) {
                 DropRateContext context;
                 context.baseRates = profile.rates;
                 context.itemEventRate = static_cast<float>(events.drop_multiplier);
@@ -1429,9 +1430,22 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                          static_cast<std::uint64_t>(i) * 2654435761ull) %
                             table.totalRate + 1u;
                 const auto choices = select_monster_drop_choices(profile, context, rolls);
-                if (choices) for (std::size_t i = 0; i < choices->size() && item_id == 0u; ++i) {
+                if (choices) for (std::size_t i = 0; i < choices->size(); ++i) {
                     const auto& choice = (*choices)[i];
-                    if (choice.kind >= DropItemKind::Item1 && choice.kind <= DropItemKind::Item3)
+                    if (choice.kind == DropItemKind::Money) {
+                        const auto range = profile.max_rolls == 0u ? 0u :
+                            (visual->max_drop_money >= visual->min_drop_money
+                                ? visual->max_drop_money - visual->min_drop_money + 1u : 0u);
+                        const auto ranged = range == 0u ? visual->min_drop_money :
+                            visual->min_drop_money +
+                                ((rng_value + static_cast<std::uint32_t>(i)) % range);
+                        const auto amount = monster_drop_money(visual->min_drop_money,
+                            visual->max_drop_money, ranged,
+                            1.0f);
+                        const auto sum = static_cast<std::uint64_t>(awarded_money) + amount;
+                        awarded_money = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                            sum, std::numeric_limits<std::uint32_t>::max()));
+                    } else if (choice.kind >= DropItemKind::Item1 && choice.kind <= DropItemKind::Item3 && item_id == 0u)
                         item_id = drop_tables_.roll(updated_monster.monster_kind,
                             choice.item_list_id, rng_value + static_cast<std::uint32_t>(i));
                 }
@@ -1451,6 +1465,36 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                 created_drop.pos_z = updated_monster.pos_z;
                 has_drop = true;
             }
+        }
+    }
+    if (updated_monster.is_dead && awarded_money != 0u) {
+        std::uint32_t new_money = 0u;
+        mxh::net::ConnectionId money_connection{};
+        bool update_money = false;
+        {
+            std::lock_guard<std::mutex> player_lock(players_mu_);
+            const auto info = connected_players_.find(attacker_player_id);
+            const auto runtime = player_runtimes_.find(attacker_player_id);
+            if (info != connected_players_.end() && runtime != player_runtimes_.end()) {
+                const auto sum = static_cast<std::uint64_t>(info->second.money) + awarded_money;
+                new_money = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+                    sum, std::numeric_limits<std::uint32_t>::max()));
+                info->second.money = new_money;
+                runtime->second.actor.set_money(new_money);
+                runtime->second.actor.state().progress.money = new_money;
+                money_connection = mxh::net::ConnectionId{info->second.conn_id};
+                update_money = true;
+            }
+        }
+        if (update_money) {
+            persist_player_money(attacker_player_id, new_money);
+            mxh::net::Message money;
+            money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+            money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+            money.header.object_id = attacker_player_id;
+            money.payload.resize(sizeof(new_money));
+            std::memcpy(money.payload.data(), &new_money, sizeof(new_money));
+            reply_(money_connection, money);
         }
     }
     if (updated_monster.is_dead && !revisioned_award_committed) {
