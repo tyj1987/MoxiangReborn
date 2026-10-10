@@ -92,30 +92,40 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="mxh-map-audit-") as temp:
         temp_root = Path(temp)
         hfl_path = temp_root / f"{map_name}.hfl"
-        # Report an absent map entry as a deterministic profile blocker.  The
-        # old path let the explorer traceback leak through, obscuring whether
-        # the map or its textures were actually missing.
+        loose_hfl = root / "Resource" / "Map" / f"{map_name}.hfl"
+        # Original PlayDH profiles use both layouts: older complete drops keep
+        # authoring HFL files loose under Resource/Map, while the reduced
+        # playdh-current profile stores the converted HFL entries in Map.pak.
+        # Prefer the exact loose file when present, then fall back to the pack.
+        # This keeps the audit aligned with FilesystemFileStorage's runtime
+        # lookup order instead of rejecting a valid historical profile.
         pack_output = run(explorer, "list", str(map_pack))
         pack_names = parse_pack_names(pack_output)
-        if f"{map_name}.hfl".casefold() not in pack_names:
-            print(
-                f"FAIL: map {args.map_number} HFL entry is absent from Map.pak "
-                f"(expected {map_name}.hfl); profile does not ship this map",
-                file=sys.stderr,
-            )
-            return 2
-        # Explorer writes the extracted entry into the requested directory.
-        run(explorer, "extract-pak", str(map_pack), f"{map_name}.hfl", "-o", str(temp_root))
-        if not hfl_path.is_file():
-            print(f"FAIL: extracted HFL missing: {hfl_path}", file=sys.stderr)
-            return 2
-        hfl_output = run(explorer, "hfl", str(hfl_path))
+        if loose_hfl.is_file():
+            hfl_source = "loose"
+            hfl_output = run(explorer, "hfl", str(loose_hfl))
+        else:
+            if f"{map_name}.hfl".casefold() not in pack_names:
+                print(
+                    f"FAIL: map {args.map_number} HFL is absent from Resource/Map "
+                    f"and Map.pak (expected {map_name}.hfl); profile does not ship this map",
+                    file=sys.stderr,
+                )
+                return 2
+            # Explorer writes the extracted entry into the requested directory.
+            run(explorer, "extract-pak", str(map_pack), f"{map_name}.hfl", "-o", str(temp_root))
+            if not hfl_path.is_file():
+                print(f"FAIL: extracted HFL missing: {hfl_path}", file=sys.stderr)
+                return 2
+            hfl_source = "pak"
+            hfl_output = run(explorer, "hfl", str(hfl_path))
 
     required = parse_hfl_names(hfl_output)
     available = parse_pack_names(pack_output)
     missing = sorted(required - available)
     report = {
         "map": args.map_number,
+        "hfl_source": hfl_source,
         "hfl_used_texture_count": len(required),
         "pak_entry_count": len(available),
         "missing_texture_count": len(missing),
@@ -126,6 +136,7 @@ def main() -> int:
     else:
         result = [
             f"map={args.map_number}",
+            f"hfl_source={hfl_source}",
             f"hfl_used_texture_count={len(required)}",
             f"pak_entry_count={len(available)}",
             f"missing_texture_count={len(missing)}",
