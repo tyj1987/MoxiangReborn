@@ -1035,6 +1035,32 @@ int run_e2e(const CliArgs& cli) {
                 static_cast<unsigned long long>(before),
                 static_cast<unsigned long long>(count_item()),
                 static_cast<unsigned>(game.shop_npc_id()));
+            const auto shop_map = game.game_info().map_num;
+            game.Release();
+            mxh::client::CInGameState relog_after_shop;
+            relog_after_shop.Start(&engine, created_chrid, shop_map);
+            const auto relog_shop_deadline = std::chrono::steady_clock::now() +
+                                             std::chrono::seconds(cli.timeout_s * 3);
+            while (relog_after_shop.game_info().player_id != created_chrid &&
+                   std::chrono::steady_clock::now() < relog_shop_deadline) {
+                relog_after_shop.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            std::uint64_t relog_count = 0;
+            for (const auto& item : relog_after_shop.game_info().items.Inventory) {
+                if (item.wIconIdx == item_id) relog_count += item.ItemParam;
+            }
+            if (relog_after_shop.game_info().player_id != created_chrid ||
+                relog_count < before + 1u) {
+                LOG("[5/5] FAIL: shop purchase did not survive relog item=%u count=%llu",
+                    static_cast<unsigned>(item_id),
+                    static_cast<unsigned long long>(relog_count));
+                return 2;
+            }
+            LOG("[5/5] OK: shop purchase survives relog item=%u count=%llu",
+                static_cast<unsigned>(item_id),
+                static_cast<unsigned long long>(relog_count));
+            relog_after_shop.Release();
         }
 
         if (cli.exercise_mapchange) {
