@@ -21,6 +21,7 @@ using mxh::server::SkillCasterDecision;
 using mxh::server::SkillCasterRequest;
 using mxh::server::SkillCasterStatus;
 using mxh::server::skill_caster_calculate_damage;
+using mxh::server::skill_caster_calculate_monster_damage;
 using mxh::server::skill_caster_decide_use;
 using mxh::server::skill_caster_heal_amount;
 
@@ -220,6 +221,28 @@ TEST(SkillCasterDamageTest, BaseDamageClampedToOne) {
     // Clamped to 1, then * 1.5 because first rng() draw gives a crit
     // when crit_rate (5) + attacker.critical_rate (0) > 0.
     EXPECT_GE(dmg.damage, 1);
+}
+
+TEST(SkillCasterDamageTest, MonsterDamageUsesPhysicalRangeAndDefenceCurve) {
+    auto attacker = make_attacker();
+    attacker.level = 10;
+    attacker.has_physical_range = true;
+    attacker.phy_attack_min = 20;
+    attacker.phy_attack_max = 30;
+    attacker.phy_attack = 1; // ignored when a physical range is present
+    auto defender = make_defender();
+    defender.phy_defence = 0;
+    defender.dodge_rate = 0;
+    auto skill = make_full_skill(make_attack_skill());
+    skill.UpPhyAttack[0] = 10;
+    skill.AttackRate[0] = 1.0f;
+    std::mt19937 rng(0xBADC0DEu);
+
+    const auto result = skill_caster_calculate_monster_damage(
+        attacker, defender, skill, rng);
+    EXPECT_FALSE(result.is_miss);
+    EXPECT_GE(result.damage, 30);
+    EXPECT_LE(result.damage, 40);
 }
 
 TEST(SkillCasterDamageTest, MissWhenDodgeRollTriggers) {

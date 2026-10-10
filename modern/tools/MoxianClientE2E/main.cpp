@@ -1123,7 +1123,11 @@ int run_e2e(const CliArgs& cli) {
                     game.Process();
                     const auto dx = static_cast<float>(nearest->position_x) - game.local_x();
                     const auto dz = static_cast<float>(nearest->position_z) - game.local_z();
-                    if (dx * dx + dz * dz <= 500.0f * 500.0f) break;
+                    // Skill 1 has a 230-unit range.  Stop inside that range;
+                    // the earlier 500-unit probe could still be rejected by
+                    // the authoritative server and falsely report a combat
+                    // failure.
+                    if (dx * dx + dz * dz <= 180.0f * 180.0f) break;
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
                 }
                 // The production attack path requires an explicit cursor
@@ -1157,7 +1161,7 @@ int run_e2e(const CliArgs& cli) {
                             game.select_attack_target(observed_target);
                             const auto dx = static_cast<float>(target_it->position_x) - game.local_x();
                             const auto dz = static_cast<float>(target_it->position_z) - game.local_z();
-                            if (dx * dx + dz * dz > 500.0f * 500.0f) {
+                            if (dx * dx + dz * dz > 180.0f * 180.0f) {
                                 game.send_move(target_it->position_x, target_it->position_z,
                                                mxh::proto::MoveProtocol::OneTarget);
                             }

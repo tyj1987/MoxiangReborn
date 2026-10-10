@@ -1234,8 +1234,15 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
         }
 
         updated_monster = *monster_it;
-        updated_monster.current_life = damage >= updated_monster.current_life
-            ? 0u : updated_monster.current_life - damage;
+        // Monster shields absorb damage before life, matching the player
+        // vitals path and the wire snapshot sent to the client.  Keeping the
+        // shield intact while reducing life made lethal/drop timing diverge
+        // from the original combat contract.
+        const auto shield_damage = std::min(damage, updated_monster.current_shield);
+        updated_monster.current_shield -= shield_damage;
+        const auto life_damage = damage - shield_damage;
+        updated_monster.current_life = life_damage >= updated_monster.current_life
+            ? 0u : updated_monster.current_life - life_damage;
         if (updated_monster.current_life == 0u) {
             updated_monster.is_dead = true;
             updated_monster.ai_state = mxh::game::MonsterAIState::Dead;
@@ -5393,7 +5400,8 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     caster_session->quarantined = true;
                     break;  // MP was committed; no second cast in this session.
                 }
-                const auto dmg = calculate_damage(caster->combat, monster_stats, *skill);
+                const auto dmg = mxh::server::skill_caster_calculate_monster_damage(
+                    caster->combat, monster_stats, *skill, skill_damage_rng_);
                 const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
                 std::cout << "[Map] revisioned skill damage caster=" << caster_id
                           << " target=" << main_target
@@ -5549,7 +5557,8 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                         }
                     }
                     if (monster_found) {
-                        const auto dmg = calculate_damage(caster->combat, monster_stats, *skill);
+                        const auto dmg = mxh::server::skill_caster_calculate_monster_damage(
+                            caster->combat, monster_stats, *skill, skill_damage_rng_);
                         const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
                         static thread_local std::mt19937 drop_rng(std::random_device{}());
                         apply_monster_damage(caster_id, main_target, damage, drop_rng());
