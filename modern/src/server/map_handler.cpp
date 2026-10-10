@@ -971,15 +971,31 @@ void MapHandler::persist_quest_log(std::uint32_t player_id) {
             mxh::db::bind(state_i64),
             mxh::db::bind(atime_i64),
         };
-        auto r = db_.execute(
-            "INSERT INTO modern_player_quest_log "
-            "(player_id, quest_id, state, accepted_time_ms, updated_at) "
-            "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) "
-            "ON CONFLICT (player_id, quest_id) DO UPDATE SET "
-            "state = excluded.state, "
-            "accepted_time_ms = excluded.accepted_time_ms, "
-            "updated_at = excluded.updated_at",
-            params);
+        mxh::db::DbResult r;
+        if (db_.backend_name() == "mssql_odbc") {
+            r = db_.execute(
+                "MERGE modern_player_quest_log AS target "
+                "USING (SELECT ? AS player_id, ? AS quest_id, ? AS state, "
+                "? AS accepted_time_ms) AS source "
+                "ON target.player_id=source.player_id AND target.quest_id=source.quest_id "
+                "WHEN MATCHED THEN UPDATE SET state=source.state, "
+                "accepted_time_ms=source.accepted_time_ms,updated_at=CURRENT_TIMESTAMP "
+                "WHEN NOT MATCHED THEN INSERT "
+                "(player_id,quest_id,state,accepted_time_ms,updated_at) "
+                "VALUES(source.player_id,source.quest_id,source.state,"
+                "source.accepted_time_ms,CURRENT_TIMESTAMP);",
+                params);
+        } else {
+            r = db_.execute(
+                "INSERT INTO modern_player_quest_log "
+                "(player_id, quest_id, state, accepted_time_ms, updated_at) "
+                "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) "
+                "ON CONFLICT (player_id, quest_id) DO UPDATE SET "
+                "state = excluded.state, "
+                "accepted_time_ms = excluded.accepted_time_ms, "
+                "updated_at = excluded.updated_at",
+                params);
+        }
         if (!r.ok()) {
             std::cerr << "[Map] persist_quest_log(player=" << player_id
                       << ", quest=" << s.quest_id
