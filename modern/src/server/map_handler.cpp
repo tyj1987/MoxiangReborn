@@ -589,12 +589,24 @@ void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t mon
         mxh::db::bind(pid_i64),
         mxh::db::bind(money_i64),
     };
-    auto r = db_.execute(
-        "INSERT INTO modern_player_state (player_id, money, updated_at) "
-        "VALUES (?, ?, CURRENT_TIMESTAMP) "
-        "ON CONFLICT (player_id) DO UPDATE SET "
-        "money = excluded.money, updated_at = excluded.updated_at",
-        params);
+    mxh::db::DbResult r;
+    if (db_.backend_name() == "mssql_odbc") {
+        r = db_.execute(
+            "MERGE modern_player_state AS target "
+            "USING (SELECT ? AS player_id, ? AS money) AS source "
+            "ON target.player_id = source.player_id "
+            "WHEN MATCHED THEN UPDATE SET money=source.money,updated_at=CURRENT_TIMESTAMP "
+            "WHEN NOT MATCHED THEN INSERT (player_id,money,updated_at) "
+            "VALUES (source.player_id,source.money,CURRENT_TIMESTAMP);",
+            params);
+    } else {
+        r = db_.execute(
+            "INSERT INTO modern_player_state (player_id, money, updated_at) "
+            "VALUES (?, ?, CURRENT_TIMESTAMP) "
+            "ON CONFLICT (player_id) DO UPDATE SET "
+            "money = excluded.money, updated_at = excluded.updated_at",
+            params);
+    }
     if (!r.ok()) {
         std::cerr << "[Map] persist_player_money(" << player_id
                   << ", " << money << ") DB error: "
