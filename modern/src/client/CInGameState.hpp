@@ -409,6 +409,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // server authority checks.
     void select_attack_target(std::uint32_t object_id) noexcept {
         m_pendingAttackTarget = object_id;
+        m_lastAttackTarget = object_id;
     }
     void toggle_inventory() noexcept;
     void try_pickup();
