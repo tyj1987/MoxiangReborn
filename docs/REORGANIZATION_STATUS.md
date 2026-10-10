@@ -2,6 +2,8 @@
 
 更新：2026-10-09。优先原版 modern DX11；完整计划尚未交付。计划见 [ROADMAP](../ROADMAP.md)，可玩结论见 [PLAYABLE_STATUS.md](PLAYABLE_STATUS.md)，缺陷见 [KNOWN_BUGS.md](KNOWN_BUGS.md)，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。
 
+当前可恢复性校验（2026-10-11）：原版候选 `435d6f68` 与 Unity 候选 `03691818` 均通过 `git lfs fsck --objects` 和 `git lfs fsck --pointers`；对象与指针完整性回执见 `audit/2026-10-09-reorg/lfs-fsck-20261011.json`。这证明当前 HEAD 的 LFS 对象可读，不等于所有未跟踪 WIP 或 PVE stage 已同步。
+
 ## 2026-10-10 工程基线复核
 
 原版独立工作树 `codex/reorg-original-20261009` 已在 `C:\BuildTools` 的 VS2022 x64 工具链下完成全目标 Release 构建；DIA、客户端崩溃转储和最小转储工具均已修正为架构正确的链接/寄存器访问。客户端单元与 dump CLI 定向验收为 **155/155 通过**。本机不持有 VHD 恢复资产的 6 项测试现在明确 Skip，并不会伪装成资源已恢复；HSEL Map round-trip 在缺少 PVE 权威角色/进度/生命值表时 Skip，具备完整 PVE schema 时仍执行真实 GameInAck 断言。对应提交：`7519e1d8`、`e925f4e6`、`ed338bb3`、`2054c7c4`、`65a4654d`。
