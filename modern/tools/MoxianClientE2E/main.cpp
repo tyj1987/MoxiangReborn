@@ -1371,19 +1371,34 @@ int run_e2e(const CliArgs& cli) {
             std::size_t casts = 0;
             std::size_t life_changes = 0;
             std::size_t runtime_effect_events = 0;
-            std::unordered_map<std::uint32_t, std::uint32_t> skill_life;
+            std::unordered_map<std::uint32_t, std::pair<std::uint32_t, std::uint32_t>> skill_vitals;
             for (const auto& monster : game.monsters()) {
-                if (monster.current_life != 0) skill_life.emplace(
-                    monster.object_id, monster.current_life);
+                if (monster.current_life != 0) skill_vitals.emplace(
+                    monster.object_id,
+                    std::make_pair(monster.current_life, monster.current_shield));
             }
-            if (!skill_life.empty()) {
-                const auto target = std::find_if(
+            if (!skill_vitals.empty()) {
+                const auto target = std::min_element(
                     game.monsters().begin(), game.monsters().end(),
-                    [](const auto& monster) { return monster.current_life != 0; });
+                    [&game](const auto& lhs, const auto& rhs) {
+                        const auto distance_sq = [&game](const auto& monster) {
+                            const auto dx = static_cast<float>(monster.position_x) - game.local_x();
+                            const auto dz = static_cast<float>(monster.position_z) - game.local_z();
+                            return dx * dx + dz * dz;
+                        };
+                        if (lhs.current_life == 0) return false;
+                        if (rhs.current_life == 0) return true;
+                        return distance_sq(lhs) < distance_sq(rhs);
+                    });
                 if (target != game.monsters().end()) {
                     game.select_attack_target(target->object_id);
                     game.send_move(target->position_x, target->position_z,
                                    mxh::proto::MoveProtocol::OneTarget);
+                    // The client predicts the move locally, while the map
+                    // server applies it asynchronously.  Leave a short
+                    // settle window before sending the skill so the live
+                    // range check observes the authoritative position.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
                     const auto move_until = std::chrono::steady_clock::now() +
                                             std::chrono::seconds(3);
                     while (std::chrono::steady_clock::now() < move_until) {
@@ -1407,10 +1422,13 @@ int run_e2e(const CliArgs& cli) {
                     }
                     runtime_effect_events += game.drain_runtime_effect_events().size();
                     for (const auto& monster : game.monsters()) {
-                        const auto it = skill_life.find(monster.object_id);
-                        if (it != skill_life.end() && monster.current_life < it->second) {
+                        const auto it = skill_vitals.find(monster.object_id);
+                        if (it != skill_vitals.end() &&
+                            (monster.current_life < it->second.first ||
+                             monster.current_shield < it->second.second)) {
                             ++life_changes;
-                            it->second = monster.current_life;
+                            it->second = std::make_pair(monster.current_life,
+                                                        monster.current_shield);
                         }
                     }
                     std::this_thread::sleep_for(std::chrono::milliseconds(25));
