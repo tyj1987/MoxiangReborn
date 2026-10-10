@@ -48,6 +48,19 @@ def resource_pointers() -> list[dict[str, object]]:
     return rows
 
 
+def build_artifact(build: Path, relative: str) -> Path:
+    """Resolve both the legacy flat layout and VS multi-config Release output."""
+    direct = build / relative
+    if direct.is_file():
+        return direct
+    parts = Path(relative).parts
+    if len(parts) >= 2:
+        configured = build.joinpath(*parts[:-1], "Release", parts[-1])
+        if configured.is_file():
+            return configured
+    raise FileNotFoundError(f"missing build artifact in flat or Release layout: {direct}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--build-dir", type=Path, required=True)
@@ -62,11 +75,11 @@ def main() -> None:
         raise RuntimeError(f"refusing to overwrite existing package: {output}")
 
     mappings = {
-        "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": build / "tools/MoxianLoginServer/mxh_login_server.exe",
-        "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": build / "tools/MoxianAgentServer/mxh_agent_server_CHINA.exe",
-        "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": build / "tools/MoxianMapServer/mxh_map_server_CHINA.exe",
-        "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": build / "tools/MoxianDbTool/mxh_db_tool.exe",
-        "modern/build/tests/unit/db/mxh_db_tests.exe": build / "tests/unit/db/mxh_db_tests.exe",
+        "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": build_artifact(build, "tools/MoxianLoginServer/mxh_login_server.exe"),
+        "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": build_artifact(build, "tools/MoxianAgentServer/mxh_agent_server_CHINA.exe"),
+        "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": build_artifact(build, "tools/MoxianMapServer/mxh_map_server_CHINA.exe"),
+        "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": build_artifact(build, "tools/MoxianDbTool/mxh_db_tool.exe"),
+        "modern/build/tests/unit/db/mxh_db_tests.exe": build_artifact(build, "tests/unit/db/mxh_db_tests.exe"),
         "deploy/scripts/start_current_vm112.ps1": ROOT / "deploy/scripts/start_current_vm112.ps1",
         "deploy/scripts/assert_original_writer_contract.ps1": ROOT / "deploy/scripts/assert_original_writer_contract.ps1",
         "deploy/scripts/start_modern.ps1": ROOT / "deploy/scripts/start_modern.ps1",
