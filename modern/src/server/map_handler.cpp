@@ -1733,7 +1733,6 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
                 case P::DiscardSyn: nack_protocol = static_cast<std::uint8_t>(P::DiscardNack); break;
                 case P::SellSyn:    nack_protocol = static_cast<std::uint8_t>(P::SellNack); break;
                 case P::UseSyn:     nack_protocol = static_cast<std::uint8_t>(P::UseNack); break;
-                case P::BuySyn:     nack_protocol = static_cast<std::uint8_t>(P::BuyNack); break;
                 default: break;
             }
         }
