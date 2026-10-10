@@ -86,6 +86,7 @@
 #include "mxh/db/mssql_odbc_adapter.hpp"
 #include "mxh/db/schema_migration.hpp"
 #include "mxh/server/account_service.hpp"
+#include "mxh/server/quest_script_loader.hpp"
 #include "mxh/game/npc_role.hpp"
 
 #include <algorithm>
@@ -901,6 +902,31 @@ int run_e2e(const CliArgs& cli) {
         if (cli.exercise_quest) {
             const auto quest_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestString.bin";
             auto quest_catalog = mxh::compat::load_quest_string_catalog(quest_path);
+            const auto script_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestScript.bin";
+            const auto script_catalog = mxh::server::load_quest_script(script_path);
+            // QuestString.bin is a presentation catalog and its first main
+            // quest is not guaranteed to be present in the executable
+            // QuestScript.bin.  Select the first entry shared by both real
+            // resources, preferring a definition with actual subquests.
+            const mxh::compat::QuestStringEntry* selected_entry = nullptr;
+            for (const auto* entry : quest_catalog.main_quests()) {
+                if (!entry) continue;
+                const auto* definition = script_catalog.find_quest(entry->quest_id);
+                if (definition && !definition->subquests.empty()) {
+                    selected_entry = entry;
+                    break;
+                }
+            }
+            if (selected_entry) {
+                auto it = std::find_if(
+                    quest_catalog.entries.begin(), quest_catalog.entries.end(),
+                    [&](const auto& entry) {
+                        return entry.quest_id == selected_entry->quest_id &&
+                               entry.subquest_id == selected_entry->subquest_id;
+                    });
+                if (it != quest_catalog.entries.end())
+                    std::rotate(quest_catalog.entries.begin(), it, it + 1);
+            }
             game.set_quest_catalog(std::move(quest_catalog));
             const auto* selected = game.selected_quest();
             if (selected == nullptr || selected->quest_id == 0u) {
@@ -1355,6 +1381,7 @@ int run_e2e(const CliArgs& cli) {
                     game.monsters().begin(), game.monsters().end(),
                     [](const auto& monster) { return monster.current_life != 0; });
                 if (target != game.monsters().end()) {
+                    game.select_attack_target(target->object_id);
                     game.send_move(target->position_x, target->position_z,
                                    mxh::proto::MoveProtocol::OneTarget);
                     const auto move_until = std::chrono::steady_clock::now() +

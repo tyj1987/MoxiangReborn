@@ -1720,11 +1720,11 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
         }
     }
 
-    // The limited original-vitals writer does not yet make item/quest effects
-    // atomic with the vitals CAS. Reject destructive item/quest requests
-    // before their legacy handlers mutate state. Inventory moves are already
-    // an independent actor/database transaction and must remain usable while
-    // a revisioned vitals session is active.
+    // The limited original-vitals writer does not yet make item effects
+    // atomic with the vitals CAS. Reject destructive item requests before
+    // their legacy handlers mutate state. Quest start/end only mutate the
+    // quest log and are persisted by their own transaction, so they remain
+    // available while a valid revisioned vitals session is active.
     if (revisioned_player) {
         std::optional<std::uint8_t> nack_protocol;
         if (cat == mxh::proto::Category::Item) {
@@ -1734,13 +1734,6 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
                 case P::SellSyn:    nack_protocol = static_cast<std::uint8_t>(P::SellNack); break;
                 case P::UseSyn:     nack_protocol = static_cast<std::uint8_t>(P::UseNack); break;
                 case P::BuySyn:     nack_protocol = static_cast<std::uint8_t>(P::BuyNack); break;
-                default: break;
-            }
-        } else if (cat == mxh::proto::Category::Quest) {
-            using P = mxh::proto::QuestProtocol;
-            switch (static_cast<P>(msg.header.protocol)) {
-                case P::StartSyn: nack_protocol = static_cast<std::uint8_t>(P::StartNack); break;
-                case P::EndSyn:   nack_protocol = static_cast<std::uint8_t>(P::EndNack); break;
                 default: break;
             }
         }
@@ -1753,8 +1746,6 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
             if (cat == mxh::proto::Category::Item &&
                 msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn)) {
                 nack.payload.resize(4u, 0u);
-            } else if (cat == mxh::proto::Category::Quest) {
-                nack.payload.resize(2u, 0u);
             }
             reply_(id, nack);
             return;
