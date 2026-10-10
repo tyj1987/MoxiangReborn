@@ -1150,13 +1150,39 @@ int run_e2e(const CliArgs& cli) {
                     // this gate can prove a complete kill/drop flow rather
                     // than only the first server-authoritative hit.
                     if (observed_target != 0) {
-                        const auto target_it = std::find_if(
+                        auto target_it = std::find_if(
                             game.monsters().begin(), game.monsters().end(),
                             [observed_target](const auto& monster) {
                                 return monster.object_id == observed_target &&
                                        monster.current_life != 0;
                             });
-                        if (target_it != game.monsters().end())
+                        // A legitimate kill may have no item reward. Keep
+                        // exercising the same GUI target/select path against
+                        // another live monster until the acceptance window
+                        // observes an actual drop, instead of repeatedly
+                        // submitting a dead target and timing out.
+                        if (target_it == game.monsters().end()) {
+                            target_it = std::min_element(
+                                game.monsters().begin(), game.monsters().end(),
+                                [&game](const auto& lhs, const auto& rhs) {
+                                    if (lhs.current_life == 0 && rhs.current_life != 0)
+                                        return false;
+                                    if (lhs.current_life != 0 && rhs.current_life == 0)
+                                        return true;
+                                    const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
+                                    const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
+                                    const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
+                                    const auto rhs_dz = static_cast<float>(rhs.position_z) - game.local_z();
+                                    return lhs_dx * lhs_dx + lhs_dz * lhs_dz <
+                                           rhs_dx * rhs_dx + rhs_dz * rhs_dz;
+                                });
+                            if (target_it != game.monsters().end() &&
+                                target_it->current_life != 0) {
+                                observed_target = target_it->object_id;
+                            }
+                        }
+                        if (target_it != game.monsters().end() &&
+                            target_it->current_life != 0)
                         {
                             game.select_attack_target(observed_target);
                             const auto dx = static_cast<float>(target_it->position_x) - game.local_x();
