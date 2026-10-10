@@ -1093,6 +1093,20 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
         return;
     }
 
+    // Item responses (shop lists, buy/sell acknowledgements and inventory
+    // snapshots) are authoritative replies to the player on the ingress map.
+    // Route them through the validated map-scoped recipient set so a transfer
+    // cannot lose the response when the connection's char-id route changed.
+    if (cat == mxh::proto::Category::Item) {
+        for (const auto& [char_id, connection] : map_recipients()) {
+            if (char_id == msg.header.object_id) {
+                reply_(connection, msg);
+                break;
+            }
+        }
+        return;
+    }
+
     // Other UserConn messages retain their established route.
     if (cat == mxh::proto::Category::UserConn) {
         auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
@@ -2257,6 +2271,31 @@ void AgentHandler::handle_legacy_change_map_syn(
         nack.header.protocol = static_cast<std::uint8_t>(
             mxh::proto::UserConnProtocol::ChangeMapNack);
         nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
+    // A map transfer is durable character state as well as an in-memory
+    // Agent route. Persist it before forwarding GameInSyn so a fresh login
+    // resumes on the destination map.
+    const std::array<mxh::db::Bind, 2> map_params = {
+        mxh::db::bind(static_cast<std::int64_t>(target_map)),
+        mxh::db::bind(static_cast<std::int64_t>(char_id))};
+    if (!db_.execute("UPDATE character_info SET map_num=? WHERE chrid=?",
+                     map_params).ok()) {
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            const auto active_map = conn_map_nums_.find(id.value);
+            if (active_map != conn_map_nums_.end() &&
+                active_map->second == target_map) active_map->second = previous_map;
+        }
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        nack.payload.resize(2, 0);
+        std::memcpy(nack.payload.data(), &target_map, sizeof(target_map));
         reply_(id, nack);
         return;
     }

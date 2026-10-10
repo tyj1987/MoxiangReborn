@@ -3677,6 +3677,41 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     }
                 }
             }
+            // A product can be sold by more than one dealer.  The legacy
+            // request contains only item and quantity, so when the first
+            // catalog match is not the dealer the player is talking to,
+            // resolve the item against the live in-range dealer instead of
+            // rejecting a valid purchase for another NPC.
+            if (!dealer_in_range) {
+                std::optional<std::pair<float, float>> player_position;
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    if (const auto it = connected_players_.find(player_id);
+                        it != connected_players_.end()) {
+                        player_position = std::pair<float, float>{it->second.pos_x,
+                                                                  it->second.pos_z};
+                    }
+                }
+                if (player_position) {
+                    std::lock_guard<std::mutex> lk(dealitem_mu_);
+                    std::lock_guard<std::mutex> nk(npcs_mu_);
+                    for (const auto& candidate : dealitem_catalog_.npcs) {
+                        if (candidate.find_item(target_item_id) == nullptr) continue;
+                        const auto live = std::find_if(npcs_.begin(), npcs_.end(),
+                            [&candidate](const ServerNpc& value) {
+                                return value.npc_id == candidate.npc_index;
+                            });
+                        if (live == npcs_.end()) continue;
+                        const float dx = player_position->first - live->pos_x;
+                        const float dz = player_position->second - live->pos_z;
+                        if (dx * dx + dz * dz <= 500.0f * 500.0f) {
+                            npc_id = candidate.npc_index;
+                            dealer_in_range = true;
+                            break;
+                        }
+                    }
+                }
+            }
             if (!dealer_in_range) {
                 mxh::net::Message nack;
                 nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);

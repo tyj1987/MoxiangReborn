@@ -969,16 +969,29 @@ int run_e2e(const CliArgs& cli) {
         }
 
         if (cli.exercise_shop) {
-            const auto dealer = std::find_if(
-                game.npcs().begin(), game.npcs().end(), [](const auto& npc) {
-                    const auto role = mxh::game::role_from_wire(npc.npc_kind);
-                    return role == mxh::game::NpcRole::Dealer ||
-                           role == mxh::game::NpcRole::Bobusang;
+            const auto dealer = std::min_element(
+                game.npcs().begin(), game.npcs().end(), [&game](const auto& lhs, const auto& rhs) {
+                    const auto lhs_dealer = mxh::game::role_from_wire(lhs.npc_kind) ==
+                                             mxh::game::NpcRole::Dealer;
+                    const auto rhs_dealer = mxh::game::role_from_wire(rhs.npc_kind) ==
+                                             mxh::game::NpcRole::Dealer;
+                    if (lhs_dealer != rhs_dealer) return lhs_dealer;
+                    const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
+                    const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
+                    const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
+                    const auto rhs_dz = static_cast<float>(rhs.position_z) - game.local_z();
+                    return lhs_dx * lhs_dx + lhs_dz * lhs_dz <
+                           rhs_dx * rhs_dx + rhs_dz * rhs_dz;
                 });
-            if (dealer == game.npcs().end()) {
+            if (dealer == game.npcs().end() ||
+                mxh::game::role_from_wire(dealer->npc_kind) != mxh::game::NpcRole::Dealer) {
                 LOG("[5/5] FAIL: Map10 has no canonical dealer NPC");
                 return 2;
             }
+            game.send_move(dealer->position_x, dealer->position_z,
+                           mxh::proto::MoveProtocol::OneTarget);
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            game.Process();
             LOG("[5/5] Shop: requesting canonical NPC shop catalog npc=%u ...",
                 static_cast<unsigned>(dealer->npc_id));
             game.open_shop(dealer->npc_id);

@@ -50,4 +50,7 @@ TEST(DealItemParser, CanonicalProfileExposesDealerCatalogs) {
         parsed, parsed.npcs.front().npc_index);
     ASSERT_TRUE(first.has_value());
     EXPECT_FALSE(first->entries.empty());
+    const auto map12_dealer = mxh::server::catalog_for_npc(parsed, 52u);
+    ASSERT_TRUE(map12_dealer.has_value());
+    EXPECT_FALSE(map12_dealer->entries.empty());
 }
