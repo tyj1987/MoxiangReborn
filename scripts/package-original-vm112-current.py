@@ -116,7 +116,7 @@ def main() -> None:
             "resourceProfile": "playdh-current",
             "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),
         },
-        "listenerPorts": {"login": 16001, "agent": 17001, "map10": 18001, "map12": 18002},
+        "listenerPorts": {"login": 16001, "agent": 17001, "map10": 18001, "map12": 18002, "map2": 18003},
         "files": entries,
     }
     (output / "stage-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
