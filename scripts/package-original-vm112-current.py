@@ -67,7 +67,7 @@ def main() -> None:
         "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": build / "tools/MoxianMapServer/mxh_map_server_CHINA.exe",
         "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": build / "tools/MoxianDbTool/mxh_db_tool.exe",
         "modern/build/tests/unit/db/mxh_db_tests.exe": build / "tests/unit/db/mxh_db_tests.exe",
-        "deploy/scripts/start_original_vm112.ps1": ROOT / "deploy/scripts/start_original_vm112.ps1",
+        "deploy/scripts/start_current_vm112.ps1": ROOT / "deploy/scripts/start_current_vm112.ps1",
         "deploy/scripts/assert_original_writer_contract.ps1": ROOT / "deploy/scripts/assert_original_writer_contract.ps1",
         "deploy/scripts/start_modern.ps1": ROOT / "deploy/scripts/start_modern.ps1",
         "deploy/resource-profiles.json": ROOT / "deploy/resource-profiles.json",
