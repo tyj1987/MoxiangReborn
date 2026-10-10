@@ -3713,7 +3713,7 @@ TEST(MapHandlerTest, DISABLED_UseConsumesActorItemAndUpdatesVitals) {
     EXPECT_GE(reply.call_count.load(), 2);
 }
 
-TEST(MapHandlerTest, DISABLED_DiscardRemovesAuthoritativeInventoryItem) {
+TEST(MapHandlerTest, DiscardRemovesAuthoritativeInventoryItem) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4529,7 +4529,7 @@ TEST(MapHandlerTest, DISABLED_BuySynOkArmDeductsMoneyAndInsertsInventory) {
     EXPECT_EQ(snap->inventory_count, 3u); // qty=3 -> 3 stack items
 }
 
-TEST(MapHandlerTest, DISABLED_SellSynUsesItemListSellPriceAndPublishesState) {
+TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));

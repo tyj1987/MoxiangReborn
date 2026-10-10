@@ -1721,17 +1721,15 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
     }
 
     // The limited original-vitals writer does not yet make item effects
-    // atomic with the vitals CAS. Reject destructive item requests before
-    // their legacy handlers mutate state. Quest start/end only mutate the
-    // quest log and are persisted by their own transaction, so they remain
-    // available while a valid revisioned vitals session is active.
+    // atomic with the vitals CAS. UseSyn is therefore rejected while a
+    // revisioned vitals session is active. DiscardSyn and SellSyn only
+    // mutate inventory/money and use their own persistence transactions, so
+    // they remain available to a live player.
     if (revisioned_player) {
         std::optional<std::uint8_t> nack_protocol;
         if (cat == mxh::proto::Category::Item) {
             using P = mxh::proto::ItemProtocol;
             switch (static_cast<P>(msg.header.protocol)) {
-                case P::DiscardSyn: nack_protocol = static_cast<std::uint8_t>(P::DiscardNack); break;
-                case P::SellSyn:    nack_protocol = static_cast<std::uint8_t>(P::SellNack); break;
                 case P::UseSyn:     nack_protocol = static_cast<std::uint8_t>(P::UseNack); break;
                 default: break;
             }
