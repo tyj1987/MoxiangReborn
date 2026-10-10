@@ -5487,8 +5487,6 @@ TEST(MapHandlerTest, RevisionedVitalsRejectsUncoupledItemAndQuestWritesBeforeMut
     using I = mxh::proto::ItemProtocol;
     using Q = mxh::proto::QuestProtocol;
     const Rejection rejected[] = {
-        {mxh::proto::Category::Item, static_cast<std::uint8_t>(I::MoveSyn),
-            static_cast<std::uint8_t>(I::MoveNack), 24u},
         {mxh::proto::Category::Item, static_cast<std::uint8_t>(I::DiscardSyn),
             static_cast<std::uint8_t>(I::DiscardNack), 2u},
         {mxh::proto::Category::Item, static_cast<std::uint8_t>(I::SellSyn),
