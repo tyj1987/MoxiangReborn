@@ -2,6 +2,10 @@
 
 更新：2026-10-10。当前没有任何一条线通过“首个可玩”验收。历史运行记录已归档，当前结论只采用本轮可复核证据；定义见下方 E0–E5，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。执行总览见 [重整状态](REORGANIZATION_STATUS.md)，旧状态恢复位置见 [历史证据索引](HISTORICAL_EVIDENCE_INDEX.md)。
 
+## 2026-10-11 最新工程校准
+
+在原版提交 `1b5983d7` 的 VS Release 全量构建后，`ctest --test-dir modern/build-vs-rebuild -C Release --output-on-failure -j 4` 共注册 **12,574** 项，**12,574/12,574 通过**，退出码 0；其中 17 项因外部 MSSQL、PVE、旧资源或显式环境变量门禁而跳过。此前大量 `Not Run` 是未生成 VS 多配置目标，本次已完整构建后消除；回执与原始日志见 `audit/2026-10-09-reorg/original-integration/ctest-full-release-20261011.json` 和 `.log`。这只证明工程测试基线健康，不能替代 PVE 数据库、真实 GUI、完整资源许可和商业发布验收。
+
 ## 当前校准（2026-10-11）
 
 当前原版候选分支为 `b762668e`（GitLab `codex/reorg-original-20261009`），服务端单测重新运行 **161/161 通过**，包含自然死亡/掉落/拾取、商店金额持久化、任务和装备重登场景。该结果仍是宿主工程证据；本次端口复核仅确认原版 `16001/17001/18001` 可达，Unity `26101/27101/28101` 不可达，不能把旧文档中的“全部端口可达”继续视为当前事实。PVE 原版修复包 `r16b` 尚未部署，真人 GUI 的自然战斗、掉落拾取、切图和重登闭环仍未通过。
