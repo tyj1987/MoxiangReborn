@@ -4632,7 +4632,7 @@ TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
 // BuySyn Ok arm + SELECT verification.  Validates that the orchestrator
 // actually hits the DB (not just a mock) and that the row is readable
 // after the wire reply.
-TEST(MapHandlerTest, DISABLED_BuySynOkArmPersistsMoneyToSqliteMemory) {
+TEST(MapHandlerTest, BuySynOkArmPersistsMoneyToSqliteMemory) {
     // 1) Real in-memory SQLite.
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
@@ -4653,6 +4653,7 @@ TEST(MapHandlerTest, DISABLED_BuySynOkArmPersistsMoneyToSqliteMemory) {
         ");");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
     ASSERT_TRUE(create_fixture_character(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
 
     // 3) Build a MapHandler around the live db.  ReplySpy captures
     //    the BuyAck so we can confirm the wire shape did not change.
@@ -4718,13 +4719,14 @@ TEST(MapHandlerTest, DISABLED_BuySynOkArmPersistsMoneyToSqliteMemory) {
     EXPECT_EQ(std::get<std::int64_t>(rs.rows[0][0]), 1000);
 }
 
-TEST(MapHandlerTest, DISABLED_ItemPricesFillCatalogAndDeductRealMoney) {
+TEST(MapHandlerTest, ItemPricesFillCatalogAndDeductRealMoney) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
     cfg.backend = "sqlite";
     cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
     ASSERT_TRUE(create_fixture_character(db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     mxh::db::SqliteAdapter* db_ptr = &db;
     (void)db_ptr;
     ReplySpy reply;
