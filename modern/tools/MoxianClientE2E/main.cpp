@@ -1187,14 +1187,17 @@ int run_e2e(const CliArgs& cli) {
                     [&game](const auto& lhs, const auto& rhs) {
                         if (lhs.current_life == 0 && rhs.current_life != 0) return false;
                         if (lhs.current_life != 0 && rhs.current_life == 0) return true;
-                        const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
-                        const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
-                        if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
                         const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
                         const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
                         const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
                         const auto dz2 = static_cast<float>(rhs.position_z) - game.local_z();
-                        return dx1 * dx1 + dz1 * dz1 < dx2 * dx2 + dz2 * dz2;
+                        const auto d1 = dx1 * dx1 + dz1 * dz1;
+                        const auto d2 = dx2 * dx2 + dz2 * dz2;
+                        if (std::abs(d1 - d2) > 2500.0f) return d1 < d2;
+                        const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                        const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                        if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
+                        return d1 < d2;
                     });
                 game.send_move(nearest->position_x, nearest->position_z,
                                mxh::proto::MoveProtocol::OneTarget);
@@ -1250,15 +1253,18 @@ int run_e2e(const CliArgs& cli) {
                                         return false;
                                     if (lhs.current_life != 0 && rhs.current_life == 0)
                                         return true;
-                                    const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
-                                    const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
-                                    if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
                                     const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
                                     const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
                                     const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
                                     const auto rhs_dz = static_cast<float>(rhs.position_z) - game.local_z();
-                                    return lhs_dx * lhs_dx + lhs_dz * lhs_dz <
-                                           rhs_dx * rhs_dx + rhs_dz * rhs_dz;
+                                    const auto lhs_distance = lhs_dx * lhs_dx + lhs_dz * lhs_dz;
+                                    const auto rhs_distance = rhs_dx * rhs_dx + rhs_dz * rhs_dz;
+                                    if (std::abs(lhs_distance - rhs_distance) > 2500.0f)
+                                        return lhs_distance < rhs_distance;
+                                    const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                                    const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                                    if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
+                                    return lhs_distance < rhs_distance;
                                 });
                             if (target_it != game.monsters().end() &&
                                 target_it->current_life != 0) {
