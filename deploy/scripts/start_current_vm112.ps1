@@ -46,7 +46,7 @@ $log = Join-Path $stage 'run\logs-current'; New-Item $log -ItemType Directory -F
 $env:PATH = "$runtime;$env:PATH"
 $specs = @(
     [pscustomobject]@{name='map10';exe=$mapExe;port=$MapPort;args=@('--port',$MapPort,'--map',$MapNumber,'--bind-address','192.168.2.244','--resource-root',$resourceRoot,'--server-resource-root',$serverResourceRoot,'--resource-profile','playdh-current','--backend','mssql_odbc','--db-env',$DatabaseConfigEnv)},
-    [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map','12=192.168.2.244:18002','--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')},
+    [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map','12=192.168.2.244:18002','--map-server-map','2=192.168.2.244:18003','--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')},
     [pscustomobject]@{name='login';exe=$loginExe;port=$LoginPort;args=@('--port',$LoginPort,'--bind-address','192.168.2.244','--agent-addr','192.168.2.244','--agent-port',$AgentPort,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')}
 )
 $started=@(); $rows=@()
