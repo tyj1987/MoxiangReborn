@@ -4944,7 +4944,7 @@ TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
     EXPECT_EQ(progress->subs[0].target, 10u);
 }
 
-TEST(MapHandlerTest, DISABLED_CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
+TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{}; cfg.backend = "sqlite"; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());

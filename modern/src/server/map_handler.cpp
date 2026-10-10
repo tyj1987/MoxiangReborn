@@ -1278,10 +1278,6 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             const auto live = connected_players_.find(attacker_player_id);
             if (player != player_runtimes_.end() && live != connected_players_.end() &&
                 player->second.vitals_session) {
-                // A kill quest write is not yet in this award transaction.
-                // Reject before monster death and EXP rather than publish a
-                // partially persisted quest event afterward.
-                if (!player->second.quest_log.quests.empty()) return std::nullopt;
                 session = &*player->second.vitals_session;
                 candidate_actor = player->second.actor;
                 before_progress = player->second.actor.state().progress;
@@ -1515,10 +1511,10 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             reply_(money_connection, money);
         }
     }
-    if (updated_monster.is_dead && !revisioned_award_committed) {
-        // Quest kill progress writes are not in the r18 vitals/EXP CAS.
-        // Session-bearing players were checked for an empty quest log before
-        // the award, and never enter this older independent persistence path.
+    if (updated_monster.is_dead) {
+        // Quest kill progress is applied after the authoritative vitals/EXP
+        // commit. The quest log has its own persistence transaction; failure
+        // is reported without rolling back the already committed combat hit.
         std::vector<QuestEventChange> quest_changes;
         {
             std::lock_guard<std::mutex> player_lock(players_mu_);
