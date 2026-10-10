@@ -4505,7 +4505,7 @@ TEST(MapHandlerTest, LoadQuestScriptPopulatesDefinitionsFromBin) {
     ASSERT_EQ(def->subquests.size(), 1u);
     EXPECT_EQ(def->subquests[0].triggers.size(), 1u);
 }
-TEST(MapHandlerTest, DISABLED_BuySynOkArmDeductsMoneyAndInsertsInventory) {
+TEST(MapHandlerTest, BuySynOkArmDeductsMoneyAndInsertsInventory) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -4598,7 +4598,7 @@ TEST(MapHandlerTest, SellSynUsesItemListSellPriceAndPublishesState) {
     EXPECT_EQ(handler.player_runtime_snapshot(123u)->inventory_count, 0u);
 }
 
-TEST(MapHandlerTest, DISABLED_StartSynOkArmAddsQuestToPlayerLog) {
+TEST(MapHandlerTest, StartSynOkArmAddsQuestToPlayerLog) {
     MockDbAdapter db;
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
@@ -6034,7 +6034,7 @@ TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutat
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 555);
 }
 
-TEST(EquipmentPersistence, DISABLED_ProtocolCreateEquipUnequipRepeatAndRelogin) {
+TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg; cfg.path = ":memory:";
     ASSERT_TRUE(db.connect(cfg).ok());
