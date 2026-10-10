@@ -4821,7 +4821,7 @@ TEST(MapHandlerTest, PersistPlayerMoneyForTestHitsDb) {
 // StartSyn Ok arm + SELECT verification.  Validates that the
 // orchestrator actually hits the DB (not just a mock) and that
 // the row is readable after the wire reply.
-TEST(MapHandlerTest, DISABLED_StartSynOkArmPersistsQuestLogToSqliteMemory) {
+TEST(MapHandlerTest, StartSynOkArmPersistsQuestLogToSqliteMemory) {
     // 1) Real in-memory SQLite.
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
@@ -4842,6 +4842,7 @@ TEST(MapHandlerTest, DISABLED_StartSynOkArmPersistsQuestLogToSqliteMemory) {
         " PRIMARY KEY (player_id, quest_id));");
     ASSERT_TRUE(ct.ok()) << ct.error_message;
     ASSERT_TRUE(create_fixture_character(db, 456u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 456u));
 
     // 3) Build a MapHandler around the live db.  ReplySpy captures
     //    the StartAck so we can confirm the wire shape did not change.
@@ -4892,7 +4893,7 @@ TEST(MapHandlerTest, DISABLED_StartSynOkArmPersistsQuestLogToSqliteMemory) {
     EXPECT_NE(state_value, 0) << "expected state != 0 (None) after StartSyn Ok";
 }
 
-TEST(MapHandlerTest, DISABLED_GameInRestoresPersistedQuestSubProgress) {
+TEST(MapHandlerTest, GameInRestoresPersistedQuestSubProgress) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg{};
     cfg.backend = "sqlite";
@@ -4908,6 +4909,7 @@ TEST(MapHandlerTest, DISABLED_GameInRestoresPersistedQuestSubProgress) {
         "INSERT INTO modern_player_quest_log VALUES(456,99,1,1234,'now');"
         "INSERT INTO modern_player_quest_sub VALUES(456,99,0,1,10,4,10);").ok());
     ASSERT_TRUE(create_fixture_character(db, 456u));
+    ASSERT_TRUE(seed_fixture_runtime_state(db, 456u));
 
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
