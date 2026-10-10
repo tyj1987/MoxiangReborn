@@ -5201,8 +5201,12 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
             }
             if (revisioned_caster) {
-                bool supported_target = simple.skill_kind == mxh::game::SkillKind::Combo &&
-                                        main_target != 0;
+                const bool offensive_skill =
+                    simple.skill_kind == mxh::game::SkillKind::Combo ||
+                    simple.skill_kind == mxh::game::SkillKind::OuterMugong ||
+                    simple.skill_kind == mxh::game::SkillKind::InnerMugong ||
+                    simple.skill_kind == mxh::game::SkillKind::Titan;
+                bool supported_target = offensive_skill && main_target != 0;
                 if (supported_target) {
                     std::lock_guard<std::mutex> lk(monsters_mu_);
                     supported_target = std::any_of(monsters_.begin(), monsters_.end(),
@@ -5369,7 +5373,11 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 send_skill_single_result(caster_id, main_target,
                     revisioned_monster_damage->damage,
                     revisioned_monster_damage->hit_result);
-            } else if (main_target != 0 && simple.skill_kind == mxh::game::SkillKind::Combo) {
+            } else if (main_target != 0 &&
+                       (simple.skill_kind == mxh::game::SkillKind::Combo ||
+                        simple.skill_kind == mxh::game::SkillKind::OuterMugong ||
+                        simple.skill_kind == mxh::game::SkillKind::InnerMugong ||
+                        simple.skill_kind == mxh::game::SkillKind::Titan)) {
                 // Attack skill - calculate damage
                 PlayerInfo* target = nullptr;
                 {

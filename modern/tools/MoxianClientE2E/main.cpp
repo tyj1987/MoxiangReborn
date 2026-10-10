@@ -1084,9 +1084,31 @@ int run_e2e(const CliArgs& cli) {
             // spread across the map, so an attack-only probe would otherwise
             // prove only the range guard rather than combat.
             if (!game.monsters().empty()) {
-                const auto nearest = std::min_element(
+                // MonsterAdd can arrive before the first authoritative life
+                // snapshot.  Drain that initial burst so the cursor selects
+                // a live server-known entity instead of an object whose
+                // provisional life is still zero.
+                const auto snapshot_deadline = std::chrono::steady_clock::now() +
+                                               std::chrono::seconds(2);
+                while (std::chrono::steady_clock::now() < snapshot_deadline) {
+                    game.Process();
+                    const bool has_live = std::any_of(
+                        game.monsters().begin(), game.monsters().end(),
+                        [](const auto& monster) { return monster.current_life != 0; });
+                    if (has_live) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                const auto live_begin = std::find_if(
                     game.monsters().begin(), game.monsters().end(),
+                    [](const auto& monster) { return monster.current_life != 0; });
+                const auto live_end = game.monsters().end();
+                const auto selection_begin = live_begin == live_end
+                    ? game.monsters().begin() : live_begin;
+                const auto nearest = std::min_element(
+                    selection_begin, game.monsters().end(),
                     [&game](const auto& lhs, const auto& rhs) {
+                        if (lhs.current_life == 0 && rhs.current_life != 0) return false;
+                        if (lhs.current_life != 0 && rhs.current_life == 0) return true;
                         const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
                         const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
                         const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
