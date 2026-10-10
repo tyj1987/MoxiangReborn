@@ -3090,7 +3090,7 @@ std::string build_test_row_56(std::uint16_t item_idx, std::uint16_t life_recover
 }
 }  // namespace
 
-TEST(MapHandlerTest, DISABLED_SpeechSynShopListFeedsClientThenBuySynDebitsMoney) {
+TEST(MapHandlerTest, SpeechSynShopListFeedsClientThenBuySynDebitsMoney) {
     MockDbAdapter db;
     std::vector<mxh::net::Message> replies;
     mxh::server::MapHandler handler(db, 7,
