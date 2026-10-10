@@ -591,7 +591,7 @@ void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t mon
     };
     auto r = db_.execute(
         "INSERT INTO modern_player_state (player_id, money, updated_at) "
-        "VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+        "VALUES (?, ?, CURRENT_TIMESTAMP) "
         "ON CONFLICT (player_id) DO UPDATE SET "
         "money = excluded.money, updated_at = excluded.updated_at",
         params);
@@ -962,7 +962,7 @@ void MapHandler::persist_quest_log(std::uint32_t player_id) {
         auto r = db_.execute(
             "INSERT INTO modern_player_quest_log "
             "(player_id, quest_id, state, accepted_time_ms, updated_at) "
-            "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+            "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP) "
             "ON CONFLICT (player_id, quest_id) DO UPDATE SET "
             "state = excluded.state, "
             "accepted_time_ms = excluded.accepted_time_ms, "
@@ -5284,6 +5284,13 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
                 const auto dmg = calculate_damage(caster->combat, monster_stats, *skill);
                 const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
+                std::cout << "[Map] revisioned skill damage caster=" << caster_id
+                          << " target=" << main_target
+                          << " skill=" << skill_idx
+                          << " attack=" << caster->combat.phy_attack_min << "-"
+                          << caster->combat.phy_attack_max
+                          << " defence=" << monster_stats.phy_defence
+                          << " damage=" << damage << " hit=" << dmg.hit_result << "\n";
                 static thread_local std::mt19937 drop_rng(std::random_device{}());
                 OriginalVitalsCommitState reward_result = OriginalVitalsCommitState::KnownNotCommitted;
                 (void)apply_monster_damage(caster_id, main_target, damage,

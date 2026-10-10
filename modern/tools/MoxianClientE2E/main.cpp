@@ -1132,6 +1132,9 @@ int run_e2e(const CliArgs& cli) {
                 // range and then exercise try_attack().
                 game.select_attack_target(nearest->object_id);
                 observed_target = nearest->object_id;
+                LOG("[5/5] Combat target selected id=%u life=%u pos=(%d,%d)",
+                    nearest->object_id, nearest->current_life,
+                    nearest->position_x, nearest->position_z);
             }
             auto next_attack = std::chrono::steady_clock::now();
             while (std::chrono::steady_clock::now() < combat_deadline) {
@@ -1150,7 +1153,15 @@ int run_e2e(const CliArgs& cli) {
                                        monster.current_life != 0;
                             });
                         if (target_it != game.monsters().end())
+                        {
                             game.select_attack_target(observed_target);
+                            const auto dx = static_cast<float>(target_it->position_x) - game.local_x();
+                            const auto dz = static_cast<float>(target_it->position_z) - game.local_z();
+                            if (dx * dx + dz * dz > 500.0f * 500.0f) {
+                                game.send_move(target_it->position_x, target_it->position_z,
+                                               mxh::proto::MoveProtocol::OneTarget);
+                            }
+                        }
                     }
                     game.try_attack();
                     next_attack = std::chrono::steady_clock::now() +
