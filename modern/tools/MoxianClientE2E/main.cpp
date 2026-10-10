@@ -1134,12 +1134,15 @@ int run_e2e(const CliArgs& cli) {
             std::uint32_t initial_life = 0;
             bool observed_hit = false;
             bool observed_life_change = false;
+            bool observed_shield_change = false;
             bool observed_drop = false;
             bool observed_pickup = false;
             std::uint16_t observed_item_id = 0;
             std::unordered_map<std::uint32_t, std::uint32_t> life_before;
+            std::unordered_map<std::uint32_t, std::uint32_t> shield_before;
             for (const auto& monster : game.monsters()) {
                 life_before.emplace(monster.object_id, monster.current_life);
+                shield_before.emplace(monster.object_id, monster.current_shield);
             }
             std::size_t inventory_before = 0;
             std::unordered_map<std::uint32_t, bool> inventory_before_db;
@@ -1174,11 +1177,19 @@ int run_e2e(const CliArgs& cli) {
                 const auto live_end = game.monsters().end();
                 const auto selection_begin = live_begin == live_end
                     ? game.monsters().begin() : live_begin;
+                // Prefer the live target with the smallest effective vitality
+                // (life + shield), then use distance as a tie breaker. This
+                // keeps the GUI-equivalent target selection deterministic while
+                // allowing a fresh low-level character to exercise the real
+                // drop path against the least durable canonical spawn.
                 const auto nearest = std::min_element(
                     selection_begin, game.monsters().end(),
                     [&game](const auto& lhs, const auto& rhs) {
                         if (lhs.current_life == 0 && rhs.current_life != 0) return false;
                         if (lhs.current_life != 0 && rhs.current_life == 0) return true;
+                        const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                        const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                        if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
                         const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
                         const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
                         const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
@@ -1239,6 +1250,9 @@ int run_e2e(const CliArgs& cli) {
                                         return false;
                                     if (lhs.current_life != 0 && rhs.current_life == 0)
                                         return true;
+                                    const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                                    const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                                    if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
                                     const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
                                     const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
                                     const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
@@ -1279,6 +1293,11 @@ int run_e2e(const CliArgs& cli) {
                         monster.current_life < prior->second) {
                         observed_life_change = true;
                     }
+                    const auto prior_shield = shield_before.find(monster.object_id);
+                    if (prior_shield != shield_before.end() &&
+                        monster.current_shield < prior_shield->second) {
+                        observed_shield_change = true;
+                    }
                     if (monster.object_id == observed_target && initial_life == 0) {
                         initial_life = prior == life_before.end()
                             ? monster.current_life : prior->second;
@@ -1304,10 +1323,11 @@ int run_e2e(const CliArgs& cli) {
                 [](const auto& monster) { return monster.current_life != 0; });
             if (!observed_hit || !observed_life_change || !observed_drop ||
                 !observed_pickup) {
-                LOG("[5/5] FAIL: combat gate hit=%s life_change=%s drop=%s "
+                LOG("[5/5] FAIL: combat gate hit=%s life_change=%s shield_change=%s drop=%s "
                     "pickup=%s alive=%zu->%zu target=%u",
                     observed_hit ? "yes" : "no",
                     observed_life_change ? "yes" : "no",
+                    observed_shield_change ? "yes" : "no",
                     observed_drop ? "yes" : "no",
                     observed_pickup ? "yes" : "no",
                     initial_alive, alive_after, observed_target);
