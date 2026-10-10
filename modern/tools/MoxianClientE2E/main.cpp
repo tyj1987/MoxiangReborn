@@ -1072,8 +1072,12 @@ int run_e2e(const CliArgs& cli) {
                 life_before.emplace(monster.object_id, monster.current_life);
             }
             std::size_t inventory_before = 0;
+            std::unordered_map<std::uint32_t, bool> inventory_before_db;
             for (const auto& item : info.items.Inventory) {
-                if (!mxh::game::is_empty_slot(item)) ++inventory_before;
+                if (!mxh::game::is_empty_slot(item)) {
+                    ++inventory_before;
+                    if (item.dwDBIdx != 0) inventory_before_db[item.dwDBIdx] = true;
+                }
             }
             // Use the same authoritative movement path as the player client
             // before attacking.  Map10's spawn groups are intentionally
@@ -1105,11 +1109,27 @@ int run_e2e(const CliArgs& cli) {
                 // so select the same authoritative monster after moving into
                 // range and then exercise try_attack().
                 game.select_attack_target(nearest->object_id);
+                observed_target = nearest->object_id;
             }
             auto next_attack = std::chrono::steady_clock::now();
             while (std::chrono::steady_clock::now() < combat_deadline) {
                 game.Process();
                 if (std::chrono::steady_clock::now() >= next_attack) {
+                    // The production cursor selection is a one-shot pending
+                    // target.  A repeated GUI click selects the live target
+                    // again before each attack; mirror that interaction so
+                    // this gate can prove a complete kill/drop flow rather
+                    // than only the first server-authoritative hit.
+                    if (observed_target != 0) {
+                        const auto target_it = std::find_if(
+                            game.monsters().begin(), game.monsters().end(),
+                            [observed_target](const auto& monster) {
+                                return monster.object_id == observed_target &&
+                                       monster.current_life != 0;
+                            });
+                        if (target_it != game.monsters().end())
+                            game.select_attack_target(observed_target);
+                    }
                     game.try_attack();
                     next_attack = std::chrono::steady_clock::now() +
                                   std::chrono::milliseconds(850);
@@ -1169,16 +1189,38 @@ int run_e2e(const CliArgs& cli) {
             // server's MoveAck before testing relog persistence.
             bool observed_move = false;
             std::size_t move_source = mxh::game::SLOT_INVENTORY_NUM;
+            // Prefer the authoritative DB row introduced by pickup.  The
+            // ground-drop item id is a catalog/list id and is not guaranteed
+            // to equal ITEMBASE.wIconIdx after server resolution.
             for (std::size_t slot = 0;
                  slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
-                if (game.game_info().items.Inventory[slot].wIconIdx ==
+                const auto& item = game.game_info().items.Inventory[slot];
+                if (!mxh::game::is_empty_slot(item) && item.dwDBIdx != 0 &&
+                    inventory_before_db.find(item.dwDBIdx) == inventory_before_db.end()) {
+                    move_source = slot;
+                    break;
+                }
+            }
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                if (move_source == mxh::game::SLOT_INVENTORY_NUM &&
+                    game.game_info().items.Inventory[slot].wIconIdx ==
                     observed_item_id) {
                     move_source = slot;
                     break;
                 }
             }
-            const std::size_t move_target = move_source == 79u ? 78u : 79u;
+            std::size_t move_target = mxh::game::SLOT_INVENTORY_NUM;
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                if (slot != move_source &&
+                    mxh::game::is_empty_slot(game.game_info().items.Inventory[slot])) {
+                    move_target = slot;
+                    break;
+                }
+            }
             if (move_source < mxh::game::SLOT_INVENTORY_NUM &&
+                move_target < mxh::game::SLOT_INVENTORY_NUM &&
                 game.request_inventory_move(move_source, move_target)) {
                 const auto move_deadline = std::chrono::steady_clock::now() +
                                            std::chrono::seconds(cli.timeout_s);
