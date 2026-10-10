@@ -6,6 +6,7 @@
 
 - 在本工作树内准备**同一 source-bound 构建目录**，其中同时存在 `tools/MoxianLauncher/MoxianLauncher.exe` 和 `tools/MoxianClient/mxh_client.exe`。明确传给 `-BuildDirectory`，脚本不会搜索或回落到 `modern/build`。新的 r14 HUD 客户端单独构建时，还须在该目录构建 Launcher 后才能用于此入口。
 - 本机只运行 Launcher 与 DX11 Client。原版 Login/Agent/Map 和测试数据库在 PVE VM112/CT930；原版端点是 `192.168.2.244:16001/17001/18001`。PVE Login 通告的 `AdvertisedAgentAddress` 必须是客户端可达的 `192.168.2.244`。脚本拒绝 loopback，且不会启动本机三服、SQL 或注入账号凭据。
+- `mxh_client.exe` 和启动器默认使用 `192.168.2.244`；独立启动客户端时可通过受控环境变量 `MXH_LOGIN_HOST` 指定测试端点，或使用显式 `--login-host`。客户端不再把 loopback 作为隐式生产回落地址。
 - 资源是本工作树的 canonical `modern/data/PlayDH`、profile `playdh-current`；精确清单为 5,131 文件。运行前应单独核验全 SHA 与服务器 writer contract；脚本仅向 Launcher 传资源路径，不把存在目录视为资源验收。
 - Windows Debug 构建由脚本补入本机 BuildTools x86 Debug CRT 和 Windows SDK x86 UCRT 的实际目录。没有这些目录时会拒绝启动；也可从正确的 `vcvarsall.bat x86` 环境运行。不会依赖历史 `audit/numeric-r11/runtime` 或 scratch 工具链。
 

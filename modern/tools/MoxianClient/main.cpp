@@ -88,9 +88,9 @@ constexpr std::uint32_t kDefaultWindowHeight = 600;
 
 // Distribute / Agent connection info (parsed from MHVerInfo.ver in B.1).
 // Stub values for A.1: localhost:6000.
-char   g_DistributeAddr[16] = "127.0.0.1";
+char   g_DistributeAddr[16] = "192.168.2.244";
 std::uint16_t g_DistributePort = 6000;
-char   g_AgentAddr[16] = "127.0.0.1";
+char   g_AgentAddr[16] = "192.168.2.244";
 std::uint16_t g_AgentPort = 7001;
 
 // Version string mirrors the legacy g_CLIENTVERSION[32].  CMainTitle loads
@@ -107,7 +107,10 @@ bool g_running = true;
 namespace {
 
 struct ClientOptions {
-    std::string login_host = "127.0.0.1";
+    // Production/dev clients must target the PVE service endpoint explicitly;
+    // silently falling back to loopback makes a clean-machine install appear
+    // broken and can accidentally mix local test services with real data.
+    std::string login_host = "192.168.2.244";
     std::uint16_t login_port = 16001;
     std::uint16_t map_port = 18001;
     std::string username;
@@ -163,6 +166,19 @@ std::string narrow_ascii(const wchar_t* value) {
 
 ClientOptions parse_client_options() {
     ClientOptions options;
+    const auto read_host_env = [](const wchar_t* name) {
+        wchar_t value[256]{};
+        const auto length = GetEnvironmentVariableW(name, value, static_cast<DWORD>(std::size(value)));
+        return length == 0 || length >= std::size(value)
+            ? std::string{}
+            : narrow_ascii(value);
+    };
+    // Environment configuration is useful for staging without baking a
+    // machine-specific address into the binary. Command-line options below
+    // still take precedence and are what the launcher emits.
+    if (const auto host = read_host_env(L"MXH_LOGIN_HOST"); !host.empty()) {
+        options.login_host = host;
+    }
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (!argv) return options;
