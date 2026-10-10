@@ -3402,15 +3402,19 @@ TEST(MapHandlerTest, GroundDropCanBeClaimedExactlyOnce) {
     EXPECT_EQ(snapshot->inventory_count, 1u);
 }
 
-// Kept as the successful ground-extension scenario for the later item writer.
-// The r18 revisioned session must not emit its 20-byte non-original obtain.
-TEST(MapHandlerTest, DISABLED_MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
+// Legacy/fallback ground-extension scenario. Use a deliberately non-canonical
+// monster kind so the injected test table exercises the compatibility path;
+// canonical MonsterList entries are covered by the revisioned scenario below.
+TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     MockDbAdapter db;
+    db.seed_ready_vitals(123u, 125u, 245u, 125u);
     std::vector<mxh::net::Message> replies;
     mxh::server::MapHandler handler(db, 7,
         [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
             replies.push_back(message);
         });
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
+        "/data/PlayDH/Resource/CharacterExpPoint.bin");
     const auto connection = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
@@ -3420,18 +3424,21 @@ TEST(MapHandlerTest, DISABLED_MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
 
     mxh::server::DropTable table;
     table.drop_id = 9u;
-    table.monster_kind = 77u;
+    // 0 is the explicit wildcard used by the legacy table registry; the
+    // monster kind itself remains outside the canonical MonsterList.
+    table.monster_kind = 0u;
     table.entries.push_back(mxh::server::DropItemEntry{501u, 10000u, 1u, 1u});
     handler.register_drop_table(table);
 
     mxh::game::MonsterInstance monster;
     monster.object_id = 88000u;
-    monster.monster_kind = 77u;
+    monster.monster_kind = 65535u;
     monster.map_num = 7u;
     monster.max_life = 20u;
     monster.current_life = 20u;
     monster.drop_item_id = 9u;
     monster.drop_item_ratio = 100u;
+    monster.exp_reward = 1u;
     monster.pos_x = 10.0f;
     monster.pos_z = 20.0f;
     ASSERT_TRUE(handler.add_monster_instance(monster));
