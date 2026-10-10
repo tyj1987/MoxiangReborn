@@ -1219,6 +1219,7 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     if (award_state) *award_state = OriginalVitalsCommitState::KnownNotCommitted;
     mxh::game::MonsterInstance updated_monster;
     GroundDrop created_drop;
+    std::vector<GroundDrop> created_drops;
     bool has_drop = false;
     std::uint32_t awarded_money = 0u;
     {
@@ -1413,6 +1414,7 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             // them here made every real PVE character unable to loot.
             const auto events = load_active_live_events(db_, utc_now_iso8601());
             std::uint32_t item_id = 0u;
+            std::vector<std::uint16_t> item_ids;
             const auto* visual = monster_catalog_
                 ? monster_catalog_->find(static_cast<std::uint16_t>(updated_monster.monster_kind))
                 : nullptr;
@@ -1445,9 +1447,12 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                         const auto sum = static_cast<std::uint64_t>(awarded_money) + amount;
                         awarded_money = static_cast<std::uint32_t>(std::min<std::uint64_t>(
                             sum, std::numeric_limits<std::uint32_t>::max()));
-                    } else if (choice.kind >= DropItemKind::Item1 && choice.kind <= DropItemKind::Item3 && item_id == 0u)
-                        item_id = drop_tables_.roll(updated_monster.monster_kind,
+                    } else if (choice.kind >= DropItemKind::Item1 && choice.kind <= DropItemKind::Item3) {
+                        const auto rolled = drop_tables_.roll(updated_monster.monster_kind,
                             choice.item_list_id, rng_value + static_cast<std::uint32_t>(i));
+                        if (rolled != 0u)
+                            item_ids.push_back(static_cast<std::uint16_t>(rolled));
+                    }
                 }
             } else {
                 const auto effective_ratio = std::min(100.0,
@@ -1457,12 +1462,18 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
                 item_id = ratio_hit ? drop_tables_.roll(updated_monster.monster_kind,
                     updated_monster.drop_item_id, rng_value) : 0u;
             }
-            if (item_id != 0u) {
-                created_drop.source_monster_id = updated_monster.object_id;
-                created_drop.item_id = static_cast<std::uint16_t>(item_id);
-                created_drop.count = 1u;
-                created_drop.pos_x = updated_monster.pos_x;
-                created_drop.pos_z = updated_monster.pos_z;
+            if (item_id != 0u) item_ids.push_back(static_cast<std::uint16_t>(item_id));
+            for (const auto item : item_ids) {
+                GroundDrop drop;
+                drop.source_monster_id = updated_monster.object_id;
+                drop.item_id = item;
+                drop.count = 1u;
+                drop.pos_x = updated_monster.pos_x;
+                drop.pos_z = updated_monster.pos_z;
+                created_drops.push_back(drop);
+            }
+            if (!created_drops.empty()) {
+                created_drop = created_drops.front();
                 has_drop = true;
             }
         }
@@ -1583,23 +1594,26 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     std::vector<std::pair<mxh::net::ConnectionId, mxh::net::Message>> notifications;
     {
         std::lock_guard<std::mutex> player_lock(players_mu_);
-        created_drop.object_id = next_ground_drop_id_++;
-        ground_drops_[created_drop.object_id] = created_drop;
-        for (const auto& [player_id, player] : connected_players_) {
-            (void)player_id;
-            mxh::net::Message notify;
-            notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-            notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
-            notify.header.object_id = attacker_player_id;
-            notify.payload.resize(20u, 0u);
-            put_u32(notify.payload, 0u, created_drop.object_id);
-            put_u32(notify.payload, 4u, created_drop.source_monster_id);
-            std::memcpy(notify.payload.data() + 8u, &created_drop.item_id, sizeof(created_drop.item_id));
-            std::memcpy(notify.payload.data() + 10u, &created_drop.count, sizeof(created_drop.count));
-            std::memcpy(notify.payload.data() + 12u, &created_drop.pos_x, sizeof(created_drop.pos_x));
-            std::memcpy(notify.payload.data() + 16u, &created_drop.pos_z, sizeof(created_drop.pos_z));
-            notifications.emplace_back(mxh::net::ConnectionId{player.conn_id}, std::move(notify));
+        for (auto& drop : created_drops) {
+            drop.object_id = next_ground_drop_id_++;
+            ground_drops_[drop.object_id] = drop;
+            for (const auto& [player_id, player] : connected_players_) {
+                (void)player_id;
+                mxh::net::Message notify;
+                notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+                notify.header.object_id = attacker_player_id;
+                notify.payload.resize(20u, 0u);
+                put_u32(notify.payload, 0u, drop.object_id);
+                put_u32(notify.payload, 4u, drop.source_monster_id);
+                std::memcpy(notify.payload.data() + 8u, &drop.item_id, sizeof(drop.item_id));
+                std::memcpy(notify.payload.data() + 10u, &drop.count, sizeof(drop.count));
+                std::memcpy(notify.payload.data() + 12u, &drop.pos_x, sizeof(drop.pos_x));
+                std::memcpy(notify.payload.data() + 16u, &drop.pos_z, sizeof(drop.pos_z));
+                notifications.emplace_back(mxh::net::ConnectionId{player.conn_id}, std::move(notify));
+            }
         }
+        created_drop.object_id = created_drops.front().object_id;
     }
     for (const auto& [connection, notify] : notifications) reply_(connection, notify);
     return created_drop;
