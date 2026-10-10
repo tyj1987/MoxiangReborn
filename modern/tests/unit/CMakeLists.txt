@@ -22,7 +22,8 @@ include(GoogleTest)
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
-gtest_add_tests(TARGET mxh_compat_tests)
+gtest_add_tests(TARGET mxh_compat_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
 
 # -----------------------------------------------------------------------------
