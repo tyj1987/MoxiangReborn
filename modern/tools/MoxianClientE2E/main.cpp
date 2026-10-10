@@ -934,15 +934,20 @@ int run_e2e(const CliArgs& cli) {
                 return 2;
             }
             game.set_quest_open(true);
-            LOG("[5/5] Quest: accepting canonical quest=%u ...",
-                static_cast<unsigned>(game.quest_id()));
-            game.send_quest(mxh::proto::QuestProtocol::StartSyn);
-            const auto quest_deadline = std::chrono::steady_clock::now() +
-                                         std::chrono::seconds(cli.timeout_s);
-            while (game.quest_status() != "Active - hunt monsters" &&
-                   std::chrono::steady_clock::now() < quest_deadline) {
-                game.Process();
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            if (game.quest_status() == "Active - hunt monsters") {
+                LOG("[5/5] Quest: canonical quest=%u already active; reusing ...",
+                    static_cast<unsigned>(game.quest_id()));
+            } else {
+                LOG("[5/5] Quest: accepting canonical quest=%u ...",
+                    static_cast<unsigned>(game.quest_id()));
+                game.send_quest(mxh::proto::QuestProtocol::StartSyn);
+                const auto quest_deadline = std::chrono::steady_clock::now() +
+                                             std::chrono::seconds(cli.timeout_s);
+                while (game.quest_status() != "Active - hunt monsters" &&
+                       std::chrono::steady_clock::now() < quest_deadline) {
+                    game.Process();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
             }
             if (game.quest_status() != "Active - hunt monsters") {
                 LOG("[5/5] FAIL: Quest StartAck status='%s' quest=%u",
