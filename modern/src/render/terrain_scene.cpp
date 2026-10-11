@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -153,14 +154,17 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
             // old HFL descriptors retain their authoring-time .tga names.
             const auto dot = textureName.find_last_of('.');
             if (dot == std::string::npos) {
-                // Legacy HFL uses the literal name "1" for an intentionally
-                // untextured palette entry. It is not a missing asset and
-                // must not be replaced with a debug texture or counted as an
-                // unresolved resource.
-                if (textureName == "1") {
+                // Legacy HFL uses numeric palette tokens (currently "1" and
+                // "2" in the original Map95 source) for intentionally
+                // untextured entries. They are not files and must not be
+                // replaced with a debug texture or counted as missing.
+                const bool numeric_token = !textureName.empty() &&
+                    std::all_of(textureName.begin(), textureName.end(),
+                                [](unsigned char c) { return std::isdigit(c) != 0; });
+                if (numeric_token) {
                     ++paletteEntries;
-                    MLOG_INFO("[terrain] used[i=%u] name=1 status=palette-skip",
-                              static_cast<unsigned>(i));
+                    MLOG_INFO("[terrain] used[i=%u] name=%s status=palette-skip",
+                              static_cast<unsigned>(i), textureName.c_str());
                     continue;
                 }
                 ++impl_->unresolved_textures;

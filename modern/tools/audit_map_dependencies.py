@@ -52,7 +52,9 @@ def parse_hfl_names(text: str) -> set[str]:
         if not match:
             continue
         name = match.group(1).strip()
-        if name == "1":
+        # Numeric HFL palette tokens are intentional untextured entries, not
+        # filesystem resources (Map95 uses both "1" and "2").
+        if name.isdigit():
             continue
         if name.lower().endswith(".tga"):
             name = name[:-4] + ".dds"
