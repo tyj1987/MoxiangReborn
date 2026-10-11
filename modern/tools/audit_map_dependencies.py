@@ -122,12 +122,22 @@ def main() -> int:
 
     required = parse_hfl_names(hfl_output)
     available = parse_pack_names(pack_output)
+    # FilesystemFileStorage checks loose files before every pack.  Include
+    # root-level loose texture names in the dependency set so a recovered
+    # legacy profile is audited in the same order as the runtime.
+    loose_names = {
+        path.name.casefold()
+        for path in root.iterdir()
+        if path.is_file()
+    }
+    available.update(loose_names)
     missing = sorted(required - available)
     report = {
         "map": args.map_number,
         "hfl_source": hfl_source,
         "hfl_used_texture_count": len(required),
         "pak_entry_count": len(available),
+        "loose_root_entry_count": len(loose_names),
         "missing_texture_count": len(missing),
         "missing": missing,
     }
@@ -139,6 +149,7 @@ def main() -> int:
             f"hfl_source={hfl_source}",
             f"hfl_used_texture_count={len(required)}",
             f"pak_entry_count={len(available)}",
+            f"loose_root_entry_count={len(loose_names)}",
             f"missing_texture_count={len(missing)}",
         ]
         result.extend(f"missing={name}" for name in missing)
