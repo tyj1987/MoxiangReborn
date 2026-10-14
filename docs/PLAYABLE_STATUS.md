@@ -2,7 +2,7 @@
 
 ## 2026-10-15 当前原版资源准入与 PVE 协议回执
 
-当前原版分支 `codex/reorg-original-20261009` 提交 `d5ade8b620b3ae0eeece34ee9ed4e0b4c1c9a920`。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。
+本次原版资源准入回执绑定服务包提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`；当前分支继续在 GitLab `codex/reorg-original-20261009` 上快进维护。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。
 
 资源格式回归脚本已适配当前 Resource Explorer 输出格式，并真实核验 7 个 PAK 的条目数、MonsterList/ItemList 元数据及两个代表性条目提取；结构化回执为 [`original-resource-format-verify-20261015.json`](evidence/original-resource-format-verify-20261015.json)。
 
