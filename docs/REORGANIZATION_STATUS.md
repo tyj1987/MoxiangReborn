@@ -8,7 +8,7 @@
 
 这一步只提升原版工程/PVE 协议证据等级，不宣称首个可玩或商业完成；真人 GUI、自然掉落拾取、装备/切图/重登、完整原资源覆盖、双线 CI 和 24 小时稳定性仍是后续门禁。
 
-更新：2026-10-09。优先原版 modern DX11；完整计划尚未交付。计划见 [ROADMAP](../ROADMAP.md)，可玩结论见 [PLAYABLE_STATUS.md](PLAYABLE_STATUS.md)，缺陷见 [KNOWN_BUGS.md](KNOWN_BUGS.md)，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。
+历史入口（2026-10-09）：优先原版 modern DX11；当时完整计划尚未交付。当前执行以本文件顶部回执和 [ROADMAP](../ROADMAP.md) 为准；可玩结论见 [PLAYABLE_STATUS.md](PLAYABLE_STATUS.md)，缺陷见 [KNOWN_BUGS.md](KNOWN_BUGS.md)，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。
 
 当前可恢复性校验（2026-10-11）：原版候选 `435d6f68` 与 Unity 候选 `03691818` 均通过 `git lfs fsck --objects` 和 `git lfs fsck --pointers`；对象与指针完整性回执见 `audit/2026-10-09-reorg/lfs-fsck-20261011.json`。这证明当前 HEAD 的 LFS 对象可读，不等于所有未跟踪 WIP 或 PVE stage 已同步。
 

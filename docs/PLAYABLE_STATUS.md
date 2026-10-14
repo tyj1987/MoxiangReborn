@@ -10,7 +10,7 @@
 
 这关闭了“原版 Release 工程 + PVE MSSQL + 远端协议/GameIn”子门禁，但仍不等于真人 GUI 的自然战斗、掉落点击拾取、装备、切图重登或完整 1:1 资源验收。逐项摘要见 `docs/evidence/original-pve-vm112-20261014.json`。
 
-更新：2026-10-10。当前没有任何一条线通过“首个可玩”验收。历史运行记录已归档，当前结论只采用本轮可复核证据；定义见下方 E0–E5，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。执行总览见 [重整状态](REORGANIZATION_STATUS.md)，旧状态恢复位置见 [历史证据索引](HISTORICAL_EVIDENCE_INDEX.md)。
+历史基线（2026-10-10）：当时没有任何一条线通过“首个可玩”验收；历史运行记录已归档。当前结论以本文件顶部的最新回执为准；定义见下方 E0–E5，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。执行总览见 [重整状态](REORGANIZATION_STATUS.md)，旧状态恢复位置见 [历史证据索引](HISTORICAL_EVIDENCE_INDEX.md)。
 
 ## 2026-10-11 最新工程校准
 
