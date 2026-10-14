@@ -69,6 +69,28 @@
     "exit": 0,
     "resultSha256": "32EDB936F968ADAEBFB24639BB25E72FD057ABB47C10EBB7CA274AD9D6B04043"
   },
+  "map10FixtureAttempt": {
+    "map": 10,
+    "characterId": 100013,
+    "targetSelected": 50143,
+    "targetLife": 6150,
+    "naturalDeath": true,
+    "groundDrop": {
+      "dropId": 90000,
+      "itemId": 8008,
+      "count": 1
+    },
+    "clickPickup": true,
+    "inventoryMoveAck": {
+      "itemId": 8008,
+      "source": 0,
+      "target": 1
+    },
+    "reloginPersistence": true,
+    "aliveCount": "228->227",
+    "exit": 0,
+    "resultSha256": "C61AB07DCDFA31C54F84144FC59E6949DBD38CDA8CCA8314CAE8E3343DFDC9C5"
+  },
   "restoration": {
     "character": "100013 restored to level=1,map=10,base attributes 12/12/12/12",
     "progress": "modern_player_state restored to level=1,exp=0,max_level=1,exp_flag=16,level_up_point=0,hp_mp_flag=0",
@@ -76,5 +98,5 @@
     "inventory": "temporary combat item row 8008 removed; original equipment rows 11000/23000/27000 remain",
     "cleanup": "stage processes stopped by exact stage path; ports 16101,17101,18101,18102,18103 verified free"
   },
-  "scope": "This closes a real PVE server-authoritative combat/drop/pickup/relogin fixture gate. It does not claim level-1 first-player Map10 balance, human GUI acceptance, full map coverage, or commercial release readiness."
+  "scope": "This closes a real PVE server-authoritative combat/drop/pickup/relogin fixture gate on both Map2 and the target Map10. It does not claim level-1 first-player Map10 balance, human GUI acceptance, full map coverage, or commercial release readiness."
 }
