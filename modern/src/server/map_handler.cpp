@@ -5435,16 +5435,6 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                             return monster.object_id == main_target && !monster.is_dead;
                         });
                 }
-                // Kill quest progress is not yet coupled to the r18 vitals/
-                // experience transaction. Refuse combat before spending MP
-                // if this session carries any quest state.
-                {
-                    std::lock_guard<std::mutex> lk(players_mu_);
-                    const auto runtime = player_runtimes_.find(caster_id);
-                    supported_target = supported_target &&
-                        runtime != player_runtimes_.end() &&
-                        runtime->second.quest_log.quests.empty();
-                }
                 if (!supported_target || !caster_session->can_publish() ||
                     caster_session->record.mp != caster->combat.current_mp ||
                     caster_session->record.mp < simple.need_nearyuk) {

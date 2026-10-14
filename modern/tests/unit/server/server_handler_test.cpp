@@ -5287,7 +5287,7 @@ TEST(MapHandlerTest, RevisionedSkillSpendsMpBeforeMonsterAttackAndRejectsUnsafeT
     EXPECT_TRUE(reply.messages.empty());
 }
 
-TEST(MapHandlerTest, PreloadedQuestRejectsRevisionedSkillBeforeMpAndMonsterChange) {
+TEST(MapHandlerTest, PreloadedQuestAllowsRevisionedSkillAndAdvancesKillProgress) {
     MockDbAdapter db;
     db.seed_ready_vitals(123u, 125u, 245u, 20u);
     db.preloaded_quest_id = 1u;
@@ -5304,6 +5304,8 @@ TEST(MapHandlerTest, PreloadedQuestRejectsRevisionedSkillBeforeMpAndMonsterChang
     handler.load_skill_list(skill_path.string());
     std::filesystem::remove(skill_path, ec);
     ASSERT_NE(handler.find_skill(42u), nullptr);
+    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
+        "/data/PlayDH/Resource/CharacterExpPoint.bin");
     const auto source = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
@@ -5331,17 +5333,21 @@ TEST(MapHandlerTest, PreloadedQuestRejectsRevisionedSkillBeforeMpAndMonsterChang
     reply.messages.clear();
     const auto before = db.commit_count;
     handler.on_message(source, skill);
-    EXPECT_EQ(db.commit_count, before);
-    EXPECT_EQ(db.vitals_rows.at(123u)[2], 20);
-    EXPECT_EQ(handler.live_monster_count_for_test(), 6u);
-    EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
+    EXPECT_GT(db.commit_count, before);
+    EXPECT_EQ(db.vitals_rows.at(123u)[2], 125);
+    EXPECT_EQ(handler.live_monster_count_for_test(), 5u);
+    EXPECT_FALSE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
         return m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Skill) &&
             m.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartNack);
     }));
-    EXPECT_FALSE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
+    EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& m) {
         return m.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Skill) &&
-            m.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SkillObjectAdd);
+            m.header.protocol == static_cast<std::uint8_t>(mxh::proto::SkillProtocol::StartAck);
     }));
+    const auto progress = handler.quest_progress_for_test(123u, 1u);
+    ASSERT_TRUE(progress.has_value());
+    ASSERT_FALSE(progress->subs.empty());
+    EXPECT_EQ(progress->subs.front().count, 1u);
 }
 
 TEST(MapHandlerTest, LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend) {
