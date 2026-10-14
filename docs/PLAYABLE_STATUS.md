@@ -76,4 +76,14 @@
 ## 2026-10-14 当前提交战斗验收
 
 当前原版服务包在 PVE Map2 通过真实战斗、掉落、点击拾取、背包移动和重登持久化；Map10 已证明权威攻击与生命变化，但本次没有自然掉落，仍保持失败状态。专用 fixture 已删除，证据见 [`original-pve-f1fa-combat-20261014.json`](evidence/original-pve-f1fa-combat-20261014.json)。
+## 2026-10-15 当前校准
+
+本轮状态以以下提交和证据为准，旧段落仅作历史定位：
+
+- 原版工作树 `codex/reorg-original-20261009` 当前提交 `754ef94809e40bb3bb5f76df7429d14f39badf86`，此前 `f1fcd852` 已修复 CTest 客户端资源工作目录；完整 Release CTest 为 **12,574/12,574 通过、0 失败、14 显式跳过**，回执见 [`original-ctest-current-20261015.json`](evidence/original-ctest-current-20261015.json)。
+- 原版 VM112 隔离 stage `stage-20261015` 使用当前构建、PlayDH **5,132 文件 / 1,682,222,623 字节**和补齐的 `Resource/Map/95.hfl`。真实远端流程完成登录、建角、GameIn、Map10 的 228 个怪物和服务器权威技能事件；装备攻击范围为 29–35，Map10 目标防御 541，1 级角色每击 2–3 点且生命不变。这是合法的等级/地图前置门槛，未伪造伤害或掉落；证据见 [`original-pve-starter-equipment-regression-20261015.json`](evidence/original-pve-starter-equipment-regression-20261015.json)。现有高等级 fixture 已通过 Map10 战斗、自然掉落、点击拾取和重登持久化，首个玩家路径仍需按原始等级路线补齐。
+- Unity 工作树 `codex/reorg-unity-20261009` 当前提交 `ffac1084c415e31c9cd533dc1caf107ec9480248`；EditMode **279 总计 / 266 通过 / 0 失败 / 13 跳过**，商业 smoke **35/35 通过**，回执见 [`unity-commercial-regression-20261015.json`](../unity-integration/docs/evidence/unity-commercial-regression-20261015.json)。三组公开资源已经隔离接入并通过哈希/许可检查，但仍是 `releaseReady=false`。
+- 两线仍保持独立工作树、构建目录和资源目录；旧 stage、旧服务和原版 PlayDH 未被替换。当前未闭合门禁：原版缺失的 TTB/HFL 资源、首个玩家完整 GUI 战斗路线、全地图/经济/社交覆盖、Unity PVE MSSQL 与人工 GUI/最终美术验收，以及双线稳定性和清理回归。
+
+任何完成声明必须绑定当前提交、资源摘要、实际运行证据和人工验收；历史通过记录不自动继承。
 
