@@ -10,6 +10,12 @@
 
 这关闭了当前源码在 PVE 上的 Map10→Map12 路由、Dealer 发现、商店目录、余额拒绝、购买入包和重登持久化子门禁。Map10 仍没有原始 Dealer 行，不能把 Map12 的商店 NPC 解释为 Map10 1:1 资源完成；真人 GUI、全地图资源、完整经济/社交系统和商业发布门禁仍保持 PARTIAL。
 
+## 2026-10-15 当前源码阶段：Map10 战斗→掉落→拾取→重登闭环复核
+
+同一 VM112 默认端口和当前源码 stage 使用可回滚战斗夹具（level 53、装备 `11000/23000/27000`，临时移除任务行以满足当前权威战斗事务前置）完成 LoginAck、角色选角、GameIn、Map10 目标 `50143` 命中与生命变化、自然掉落 `item=8008`、点击拾取、背包 `MoveAck source=0 target=1`、GameOut 后重登持久化；怪物数量 `228→227`，退出码 0。结构化回执见 [`original-pve-default-current-source-combat-20261015.json`](evidence/original-pve-default-current-source-combat-20261015.json)，完整日志见同名 `-equipped-20261015.log`。
+
+测试后角色 `100017` 已恢复为 level 1、Map10、基础属性 12/12/12/12、生命 125、护盾 245、MP 125、无装备/物品，任务日志 1 行与子目标 8 行均恢复。无装备负对照只收到 Skill 广播而没有权威伤害，见 `original-pve-default-current-source-combat-20261015.log`；因此这次闭环不能升级为 1 级新玩家首战平衡或商业完成。当前源码提交为 `2c33c6adb895853fa676856f22f433f13031354a`，运行包仍绑定 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469` stage。
+
 ## 2026-10-15 原版 Map10 商店资源缺口回执（历史阻塞仍有效）
 
 在同一 VM112 原版 Map10 真实进入游戏并枚举 NPC 时，没有发现 canonical Dealer，因此 Map10 商店目录请求和购买动作没有发送，进程以退出码 2 结束。回执 [`original-pve-shop-current-20261015.json`](evidence/original-pve-shop-current-20261015.json) 与日志 [`original-pve-shop-current-20261015.log`](evidence/original-pve-shop-current-20261015.log) 保留了这一失败证据；没有发生余额或背包写入。Map12 商店链已在顶部当前源码回执中独立通过。
