@@ -42,3 +42,7 @@
 ## 下一轮关闭条件
 
 G0/G1 需完成隔离副本、忽略文件、派生资源和依赖去向的逐项清单及可恢复验证。G2 需按已保全的 WIP 范围整理后复查树与干净构建。G3–G9 分别按原版/Unity 候选提交和本轮日志重跑，并完成 PVE 三服/独立 DB 闭环、GUI 人工审查及原版对照。G10 需无未解释的资源、地图和 UI 缺口；G11 需干净机器、故障/回滚验证与 24 小时运行。每门禁单独记录 SHA、环境、命令、结果和证据路径。
+
+### 2026-10-15 增量回执
+
+G8 仍为 PARTIAL。`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 修复了预载任务状态导致 revisioned 战斗被拒绝的问题；VM112 受控 fixture 在任务行保留的前提下完成 Map10 GameIn 和两次权威击杀，CT930 数据库及旧 Map10 服务均已恢复。E2E 最终拾取/重登断言未完成，回执为 [`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)，不升级为完整玩法通过。

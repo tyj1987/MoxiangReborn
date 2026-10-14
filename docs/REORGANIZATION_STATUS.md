@@ -121,3 +121,9 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 当前提交 `3d30042b` 的服务包在 VM112 隔离环境执行了真实战斗 fixture。Map2 完成服务端权威命中、生命变化、自然掉落 `item=50009`、点击拾取、背包 `MoveAck` 和重登持久化，怪物数量 `128→126`，退出码 0。Map10 同样完成权威命中和生命变化，但本次验收窗口未观察到自然物品掉落，因此没有把 Map10 战斗闭环误报为通过。完整回执见 [`original-pve-f1fa-combat-20261014.json`](evidence/original-pve-f1fa-combat-20261014.json)。
 
 战斗测试账号、角色、状态、装备和物品已逐项删除，数据库回查账号行数为 0；隔离服务已停止，stage 恢复为 `a089ad6b`。当前关闭的是“当前提交 + PVE Map2 战斗/掉落/拾取/重登”子门禁，Map10 掉落、真人 GUI 和商业发布门禁仍开放。
+
+## 2026-10-15 任务状态战斗修复
+
+原版候选新增提交 `3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb`。它删除了 revisioned 技能对非空任务日志的错误前置拒绝，并以单测和 VM112 受控 MSSQL fixture 验证任务行保留时的 Map10 权威击杀。临时 fixture、服务任务和旧 Map10 已按原路径恢复；CT930 回读为 level 1、四属性 12、HP 125、装备 0。结构化回执：[`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)。
+
+本回执只关闭任务状态与 revisioned 战斗兼容性子门禁。由于 E2E 循环未完成最终拾取/重登断言，原版首个可玩版本、资源完整性、Unity 线和最终清理仍保持未闭合。
