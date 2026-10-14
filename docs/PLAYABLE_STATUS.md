@@ -73,3 +73,7 @@
 
 这只是 PVE 协议与初始实体门禁；真人 GUI 全链、权威战斗、自然掉落、点击拾取、装备、切图、重登持久化和完整原版资源仍未闭合，`releaseReady=false`。
 
+## 2026-10-14 当前提交战斗验收
+
+当前原版服务包在 PVE Map2 通过真实战斗、掉落、点击拾取、背包移动和重登持久化；Map10 已证明权威攻击与生命变化，但本次没有自然掉落，仍保持失败状态。专用 fixture 已删除，证据见 [`original-pve-f1fa-combat-20261014.json`](evidence/original-pve-f1fa-combat-20261014.json)。
+
