@@ -1,0 +1,30 @@
+{
+  "kind": "original-pve-current-shop-receipt",
+  "capturedUtc": "2026-10-14T20:40:25.2327020Z",
+  "sourceCommit": "c9f5464699af7b219dfdea8a97a323903905aab0",
+  "evidenceCommit": "cfd8afa82d62e5299a9085a6598ff2f8f38612f9",
+  "pveHost": "192.168.2.244",
+  "stage": "VM112 modern original",
+  "loginPort": 16001,
+  "agentPort": 17001,
+  "mapPort": 18001,
+  "account": "origpve15",
+  "playerId": 100017,
+  "map": 10,
+  "loginAck": true,
+  "gameInAck": true,
+  "canonicalDealerPresent": false,
+  "shopCatalogRequested": false,
+  "purchaseAttempted": false,
+  "exitCode": 2,
+  "failure": "Map10 has no canonical dealer NPC",
+  "logPath": "docs/evidence/original-pve-shop-current-20261015.log",
+  "logSha256": "45304b35821fbc43189fe8eba71aee44d8d90efd9762c5b6042f6157c41a9f5a",
+  "releaseReady": false,
+  "remainingGates": [
+    "restore canonical Map10 dealer NPC and verify catalog",
+    "buy item and relog persistence with controlled balance",
+    "full GUI and resource parity acceptance",
+    "remaining original resource blockers"
+  ]
+}

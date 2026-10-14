@@ -1,5 +1,11 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 原版商店门禁阻塞回执
+
+在同一 VM112 原版 Map10 真实进入游戏并枚举 NPC 时，没有发现 canonical Dealer，因此商店目录请求和购买动作没有发送，进程以退出码 2 结束。回执 [`original-pve-shop-current-20261015.json`](evidence/original-pve-shop-current-20261015.json) 与日志 [`original-pve-shop-current-20261015.log`](evidence/original-pve-shop-current-20261015.log) 保留了这一失败证据；没有发生余额或背包写入。
+
+该结果把商店链明确定位为 Map10 运行时 NPC/资源缺口：需要先恢复与原版一致的 Dealer，再验证目录、扣款、入包和重登持久化，不能把工程级商店单测当作 PVE 商业验收。
+
 ## 2026-10-15 原版当前提交任务开始与未完成回执
 
 在 VM112 当前原版 stage 使用隔离账号 `origpve15` 进入 Map10，收到 228 个怪物后从 canonical QuestScript 选择任务 1。客户端真实发送任务开始请求并收到 `Quest StartAck`，状态为 `Active - hunt monsters`；随后发送未满足目标的结束请求，收到 `EndNack`，状态恢复为 `Not complete`，退出码 0。结构化回执与完整日志见 [`original-pve-quest-current-20261015.json`](evidence/original-pve-quest-current-20261015.json) 和 [`original-pve-quest-current-20261015.log`](evidence/original-pve-quest-current-20261015.log)。
