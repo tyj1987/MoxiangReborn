@@ -1,0 +1,34 @@
+{
+  "schema": "moxiang-original-birth-route/v1",
+  "capturedAt": "2026-10-15",
+  "status": "static_contract_runtime_unverified",
+  "scope": "specific recovered legacy database versions mhgame and PCDefault_mhgame_20261009",
+  "evidence": {
+    "procedure": "dbo.MP_CHARACTER_CreateCharacter",
+    "procedureSha256Utf8": "ced21d16385d1029ba2fc43852bb639eddf0ef1a16490e6bfacf93e78f7e36bc",
+    "procedureReceiptSha256": "a550ecc9fa0c1a36ed58e46731398ee82c8c8e15691be4a451e78ebb9f9cdf11",
+    "explicitInsert": {
+      "characterMap": 17,
+      "characterLoginPoint": 2017,
+      "starterItemsInsertedByProcedure": true
+    },
+    "loginPoint": {
+      "source": "Resource/Server/LoginPoint.bin",
+      "sha256": "08f66bb7d4f7eb2b8fa61828c284ed8384a312a8d2809d12399bbfcdb3dc811e",
+      "decodedRow": "2017 lanzhou 17 1 18000 37200 30"
+    },
+    "sourceCallSite": {
+      "file": "reference/legacy-source/4dddd9a6/[Server]Agent/AgentDBMsgParser.cpp",
+      "sha256": "2d3cbf4cc23020c3e1864d922f3f4b3f9bffb5cb2eff7d74d9b1304fa68c4b29",
+      "note": "non-Japan call site passes map/login parameters, but recovered procedure hardcodes 17/2017"
+    }
+  },
+  "runtimeGate": {
+    "map17HflPresentInOriginalPlayDh": false,
+    "map17TtbPresent": true,
+    "map17MonsterPresent": true,
+    "initialPositionRule": "map login point with legacy jitter and optional saved InitPoint override",
+    "requiredBeforePlayableClaim": "recover exact 17.hfl and dependencies, bind Map17 service, create a new character, read back Map17/2017 and first GameIn position"
+  },
+  "interpretation": "This is a version-specific static database contract, not a runtime or GUI pass. Current VM112 Map10 default remains an explicit test deployment choice and must not be described as the canonical original birth route."
+}

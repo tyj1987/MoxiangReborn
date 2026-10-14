@@ -49,3 +49,15 @@
 - 已修复 `MapHandler` 对带任务状态的 revisioned 技能错误拒绝：`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 的单测覆盖 MP、怪物死亡和击杀任务进度。PVE 受控 fixture 实际观察到任务公告、两次权威击杀及角色/物品事件，随后恢复数据库基线。
 - E2E 战斗循环仍会在击杀后继续选择刷新目标，本轮没有进入最终拾取/重登断言；该客户端循环问题与 1 级首战数值/装备路线分开跟踪。回执：`docs/evidence/original-pve-questfix-combat-20261015.json`。
 - E2E 战斗探针已将战斗窗口限制为 `min(max(timeout,30)*3,600)` 秒，避免稀有掉落或缺失掉落时无限选择刷新目标；Release 客户端重新通过旧 Map10 登录/GameIn 烟测。完整回执中的 harness 字段记录该边界。
+
+### 2026-10-15 真实新角色首战复核
+
+使用全新 PVE 账号通过真实 LoginAck、空角色列表、CharacterMake、选角和 Map10 GameIn。角色创建正确持久化原始首发装备 `11000/23000/27000`，GameIn 读回 1 级、生命 `131/131`。当前测试默认把新角色送入 Map10；对原始目标 `50143`（生命 `6150`）连续攻击只产生 `2–4` 点护盾伤害，目标生命始终 `6150`，没有掉落或拾取事件。该结果证明角色创建与首发装备写入可用，但首战地图/等级前置尚未按原始规范闭合。测试账号、角色、装备、物品、状态和生命行已在 CT930 事务清理，复核账号/角色/identity 行均为 0。
+
+回执：[`original-pve-fresh-starter-combat-20261015.json`](evidence/original-pve-fresh-starter-combat-20261015.json)，日志：[`original-pve-fresh-starter-combat-20261015.log`](evidence/original-pve-fresh-starter-combat-20261015.log)。下一步只核对原始启动地图与等级路线；不通过降低原始怪物防御、伪造伤害或替代资源来“修复”1:1。
+
+### 2026-10-15 原始出生路线静态契约
+
+对恢复的特定历史数据库版本，`dbo.MP_CHARACTER_CreateCharacter` 的字节核验定义显式写入 `CHARACTER_MAP=17`、`character_loginpoint=2017`；对应 `LoginPoint.bin` 行为 Map17 兰州登录点。当前 VM112 的 Map10 是测试部署参数，不是已证明的原始出生路线。由于原版 PlayDH 当前缺少准确 `17.hfl`，Map17 新角色运行验收暂不能执行；不得把 Unity/占位 `17.hfl` 纳入原版 1:1。
+
+静态回执：[`original-birth-route-static-20261015.json`](evidence/original-birth-route-static-20261015.json)。

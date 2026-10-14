@@ -46,3 +46,7 @@ G0/G1 需完成隔离副本、忽略文件、派生资源和依赖去向的逐�
 ### 2026-10-15 增量回执
 
 G8 仍为 PARTIAL。`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 修复了预载任务状态导致 revisioned 战斗被拒绝的问题；VM112 受控 fixture 在任务行保留的前提下完成 Map10 GameIn 和两次权威击杀，CT930 数据库及旧 Map10 服务均已恢复。E2E 最终拾取/重登断言未完成，回执为 [`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)，不升级为完整玩法通过。
+
+| G9 | 真实全新账号建角与首发装备持久化 | PASS | 2026-10-15 | CharacterMake/GameIn 读回装备与生命；清理后账号/角色/identity 为 0 | Map10 1级首战仅护盾伤害，原始起始地图路线待核对 |
+
+| G10 | 原始出生路线静态契约 | PASS (静态) | 2026-10-15 | 恢复库过程明确 Map17/2017，LoginPoint 版本绑定已记录 | 准确 17.hfl 缺失，Map17 运行/GUI/首战未通过 |
