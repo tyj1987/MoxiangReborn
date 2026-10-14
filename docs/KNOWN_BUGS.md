@@ -48,3 +48,4 @@
 
 - 已修复 `MapHandler` 对带任务状态的 revisioned 技能错误拒绝：`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 的单测覆盖 MP、怪物死亡和击杀任务进度。PVE 受控 fixture 实际观察到任务公告、两次权威击杀及角色/物品事件，随后恢复数据库基线。
 - E2E 战斗循环仍会在击杀后继续选择刷新目标，本轮没有进入最终拾取/重登断言；该客户端循环问题与 1 级首战数值/装备路线分开跟踪。回执：`docs/evidence/original-pve-questfix-combat-20261015.json`。
+- E2E 战斗探针已将战斗窗口限制为 `min(max(timeout,30)*3,600)` 秒，避免稀有掉落或缺失掉落时无限选择刷新目标；Release 客户端重新通过旧 Map10 登录/GameIn 烟测。完整回执中的 harness 字段记录该边界。

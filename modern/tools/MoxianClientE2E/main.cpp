@@ -1186,8 +1186,13 @@ int run_e2e(const CliArgs& cli) {
             for (const auto& monster : game.monsters()) {
                 if (monster.current_life != 0) ++initial_alive;
             }
+            // A missing or rare drop must fail this probe in a bounded window;
+            // the previous 15x multiplier could leave a headless client alive
+            // for half an hour while repeatedly selecting refreshed targets.
+            const auto combat_window_s = std::min<std::int64_t>(
+                std::max<std::int64_t>(cli.timeout_s, 30) * 3, 600);
             const auto combat_deadline = std::chrono::steady_clock::now() +
-                                         std::chrono::seconds(cli.timeout_s * 15);
+                                         std::chrono::seconds(combat_window_s);
             std::uint32_t observed_target = 0;
             std::uint32_t initial_life = 0;
             bool observed_hit = false;

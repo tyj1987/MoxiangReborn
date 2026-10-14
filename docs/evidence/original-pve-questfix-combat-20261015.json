@@ -19,6 +19,16 @@
       ]
     }
   },
+  "clientHarness": {
+    "combatWindowSeconds": "min(max(timeout,30)*3,600)",
+    "reason": "prevents a rare or missing drop from leaving the headless probe running for an unbounded 15x timeout",
+    "releaseBuildSmoke": {
+      "path": "docs/evidence/original-pve-restore-check-20261015-timebound-client.log",
+      "sha256": "dd1c6f87dc10e66759cdf7b6f7898cad933bb3b93ac99a8d98e1b8384e369b42",
+      "bytes": 100053,
+      "exitCode": 0
+    }
+  },
   "pve": {
     "host": "192.168.2.244",
     "ports": {"login": 16001, "agent": 17001, "map": 18001},
