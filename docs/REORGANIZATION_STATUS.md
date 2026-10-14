@@ -26,6 +26,8 @@
 
 2026-10-14 原版 Release 全量 CTest 在并行模式首次暴露 `MapHandlerTest.LoadItemListPopulatesManagerFromBin` 的固定临时文件竞态；测试辅助函数随后改为使用单调时钟与原子序列生成唯一临时 BIN 路径。修复后 `ctest -C Release -j 8` **12574/12574 实际执行用例通过，16 项按既有 PVE/VHD/资源契约 Skip，退出码 0**；同组 77 个 `MapHandlerTest` 并行复跑全部通过。结构化证据为 [`docs/evidence/original-parallel-ctest-20261014.json`](evidence/original-parallel-ctest-20261014.json)，原始回执为 `modern/out/runs/original-ctest-release-fixed-20261014.log`。这关闭了本机并行测试稳定性缺口，不改变原版 44 个地图资源发布阻塞，也不替代 PVE、数据库和真人 GUI 验收。
 
+2026-10-14 PVE 只读资源源复核：VM112 挂载的 `PlayDH.iso`（SHA-256 `a0316bcf43b0d456a467efcc14b95061c433a32e6d9ee759c3ec92946f8cf577`）只含 `PLAYDH.TAR/PlayDH/Map.pak`；`Resource.iso`（SHA-256 `e04452c11d8315564e2dc25c826610b0949a6eaa0c24565a93df0ed6a93cd5d0`）含既有 TTB，但缺失的 10 个原版 TTB 与 26 个 HFL 均未出现，PVE `/datapool1`、`/mnt/datapool1`、`/datapool2`、`/backup-pool`、`/vmstore` 文件名扫描也未找到新的 HFL/TTB。审计回执为 `audit/2026-10-09-reorg/cleanup/pve-resource-source-audit-20261014.json`；没有把替代资源提升到原版 1:1 线。
+
 ## 工程与远端
 
 | 分线 | 已验证源码 | 本轮验证 | 当前边界 |
