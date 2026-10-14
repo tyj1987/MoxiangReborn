@@ -1,0 +1,13 @@
+{
+  "schema": "moxiang-original-pve-receipt/v1",
+  "lane": "original",
+  "sourceHead": "f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469",
+  "stage": "C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "exitCode": 2,
+  "classification": "expected_fixture_failure",
+  "cause": "MSSQL fixture had modern_player_state.money=0; catalog opened, BuyNack was returned for item 11040 priced at 16200.",
+  "catalogItems": 18,
+  "dealerNpc": 53,
+  "log": "original-pve-shop-current-source-map12-20261015.log",
+  "followup": "A bounded money fixture was applied, the purchase and relog path passed, then the fixture and purchased row were removed."
+}

@@ -1,0 +1,829 @@
+[e2e] --no-spawn: assuming servers are already up (login:16211, agent:17211, map:18211)
+[e2e] using explicit PlayDH root: E:\Workspaces\moxiang\worktrees\original-integration\modern\data\PlayDH
+[e2e] [1/5] Login: CLoginState connecting to 192.168.2.244:16211 ...
+[05:25:07.336] INFO  CLoginState.cpp:195  CLoginState connecting to 192.168.2.244:16211 as 'origpve15'
+[05:25:07.338] INFO  CLoginState.cpp:255  CLoginState::on_connect id=1 from 192.168.2.244
+[05:25:07.442] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=0 obj=1000 payload=0
+[05:25:07.442] INFO  CLoginState.cpp:303  CLoginState: got DistConnectSuccess
+[05:25:07.442] INFO  CLoginState.cpp:320  CLoginState: sent RequestLogin (38B legacy payload)
+[05:25:08.219] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=2 obj=0 payload=23
+[05:25:08.219] INFO  CLoginState.cpp:409  CLoginState: LoginAck agent=192.168.2.244:17211 user_idx=15 level=0
+[05:25:08.219] DEBUG CLoginState.cpp:243  CLoginState::TakeLoginResult -> user_idx=15 agent=192.168.2.244:17211
+[e2e] [1/5] OK: LoginAck received, user_idx=15 agent=192.168.2.244:17211
+[e2e] [2/5] CharSelect: CCharSelectState connecting to 192.168.2.244:17211 ...
+[05:25:08.222] DEBUG CCharSelectState.cpp:251  CCharSelectState: pulled LoginResult from engine transfer slot (agent=192.168.2.244:17211, user_idx=15)
+[05:25:08.222] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:17211 (user_idx=15)
+[05:25:08.222] INFO  CCharSelectState.cpp:358  CCharSelectState::on_connect id=1 from 192.168.2.244
+[05:25:08.275] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=8 obj=94305 payload=0
+[05:25:08.275] INFO  CCharSelectState.cpp:383  CCharSelectState: got AgentConnectSuccess
+[05:25:08.275] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[05:25:08.327] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[05:25:08.328] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=100017
+[e2e] [2/5] OK: CharacterListAck received, 1 valid slot(s)
+[05:25:08.328] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [3/5] SKIP: 1 valid slot(s) already exist, reusing
+[e2e] [4/5] CharSelect: re-fetching list after create ...
+[05:25:08.328] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:17211 (user_idx=15)
+[05:25:08.328] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[05:25:08.386] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[05:25:08.386] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=100017
+[e2e] [4/5] OK: created character present (chrid=100017, 1 valid slot(s))
+[05:25:08.386] INFO  CCharSelectState.cpp:601  CCharSelectState: sent CharacterSelectSyn chrid=100017
+[05:25:08.442] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=17 obj=100017 payload=1
+[05:25:08.442] INFO  CCharSelectState.cpp:781  CCharSelectState: CharacterSelectAck chrid=100017 map_num=10
+[05:25:08.442] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [5/5] InGame: sending GameInSyn through persistent AgentSession ...
+[05:25:08.442] INFO  CInGameState.cpp:1038  heap label=gamein_start_enter ws=10616832 peak_ws=10616832 private=2211840 virtual=2211840
+[05:25:08.442] INFO  CInGameState.cpp:1052  CInGameState effect catalog loading asynchronously
+[05:25:08.442] INFO  CInGameState.cpp:1055  heap label=gamein_after_effect_kickoff ws=10706944 peak_ws=10706944 private=2289664 virtual=2289664
+[05:25:08.492] INFO  CInGameState.cpp:1065  heap label=gamein_after_ui_loadmany ws=228962304 peak_ws=228962304 private=220663808 virtual=220663808
+[05:25:08.492] INFO  CInGameState.cpp:1067  heap label=gamein_pre_skilllist ws=228962304 peak_ws=228962304 private=220663808 virtual=220663808
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[05:25:09.332] INFO  CInGameState.cpp:1074  CInGameState skill list loaded skills=1817 errors=0
+[05:25:09.332] INFO  CInGameState.cpp:1085  heap label=gamein_post_skilllist ws=29638656 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.332] INFO  CInGameState.cpp:1092  CInGameState experience curve loaded levels=121
+[05:25:09.332] INFO  CInGameState.cpp:1099  heap label=gamein_post_expcurve ws=29646848 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.334] INFO  CInGameState.cpp:1101  heap label=gamein_post_applyactiveset ws=29650944 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.335] INFO  CInGameState.cpp:1105  heap label=gamein_post_refresh_bindings ws=29659136 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.335] INFO  CInGameState.cpp:1108  CInGameState using persistent AgentSession (player_id=100017, map=10)
+[05:25:09.335] INFO  CInGameState.cpp:1113  heap label=gamein_pre_send_gamein_syn ws=29659136 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.335] INFO  CInGameState.cpp:1641  CInGameState: sent GameInSyn player_id=100017 (empty payload)
+[05:25:09.335] INFO  CInGameState.cpp:1115  heap label=gamein_post_send_gamein_syn ws=29667328 peak_ws=234422272 private=20848640 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100017 payload=3775
+[05:25:09.446] INFO  CInGameState.cpp:1711  CInGameState: GameInAck player_id=100017 user_id=100017 name='E2E40226500' level=1 map=10 life=125/125 gender=1 face=1 hair=1 equip2=0 server_time=2026-10-15 5:00
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=Quest proto=0 obj=100017 payload=8
+[05:25:09.446] INFO  CInGameState.cpp:3260  CInGameState: quest id=1 state=1 status=Active - hunt monsters
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50000 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31707136 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50000 kind=105 life=5096 pos=(44652,7828) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50001 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31711232 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50001 kind=105 life=5096 pos=(42825,7656) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50002 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31711232 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50002 kind=105 life=5096 pos=(43920,5143) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50003 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31711232 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50003 kind=105 life=5096 pos=(41865,5389) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50004 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31711232 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50004 kind=105 life=5096 pos=(42813,6337) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50005 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31711232 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50005 kind=105 life=5096 pos=(46219,9601) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50006 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50006 kind=105 life=5096 pos=(46185,8855) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50007 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50007 kind=105 life=5096 pos=(39354,10042) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50008 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50008 kind=105 life=5096 pos=(39218,8677) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50009 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50009 kind=105 life=5096 pos=(39965,6637) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50010 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50010 kind=105 life=5096 pos=(37529,5904) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50011 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50011 kind=105 life=5096 pos=(37762,7681) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50012 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50012 kind=105 life=5096 pos=(35379,8185) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50013 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50013 kind=105 life=5096 pos=(34857,10102) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50014 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50014 kind=105 life=5096 pos=(38415,12871) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50015 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50015 kind=105 life=5096 pos=(35789,12072) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50016 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50016 kind=105 life=5096 pos=(32774,7982) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50017 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50017 kind=105 life=5096 pos=(30696,7139) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50018 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50018 kind=105 life=5096 pos=(32358,9757) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50019 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50019 kind=105 life=5096 pos=(44863,13710) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50020 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50020 kind=105 life=5096 pos=(43406,13682) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50021 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50021 kind=105 life=5096 pos=(44017,16770) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50022 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50022 kind=105 life=5096 pos=(44073,18350) name=���b�b
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50023 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50023 kind=73 life=5436 pos=(44179,13254) name=����
+[05:25:09.446] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50024 payload=64
+[05:25:09.446] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.446] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50024 kind=73 life=5436 pos=(44049,15174) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50025 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50025 kind=73 life=5436 pos=(42151,36856) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50026 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50026 kind=73 life=5436 pos=(44322,35456) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50027 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50027 kind=73 life=5436 pos=(44249,36444) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50028 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50028 kind=73 life=5436 pos=(42265,32947) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50029 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50029 kind=73 life=5436 pos=(40922,32910) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50030 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50030 kind=73 life=5436 pos=(36279,31950) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50031 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50031 kind=73 life=5436 pos=(37781,33040) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50032 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50032 kind=73 life=5436 pos=(37841,34016) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50033 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50033 kind=73 life=5436 pos=(41081,30550) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50034 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50034 kind=73 life=5436 pos=(39778,29890) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50035 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50035 kind=73 life=5436 pos=(42924,28154) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50036 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50036 kind=73 life=5436 pos=(39154,14625) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50037 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50037 kind=105 life=5096 pos=(39570,14183) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50038 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50038 kind=105 life=5096 pos=(39554,16590) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50039 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50039 kind=105 life=5096 pos=(36013,21735) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50040 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50040 kind=73 life=5436 pos=(35898,23600) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50041 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50041 kind=73 life=5436 pos=(36629,16378) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50042 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50042 kind=73 life=5436 pos=(36062,17164) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50043 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50043 kind=73 life=5436 pos=(34317,18825) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50044 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50044 kind=73 life=5436 pos=(33205,17005) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50045 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50045 kind=73 life=5436 pos=(32722,14522) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50046 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50046 kind=73 life=5436 pos=(31634,15182) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50047 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50047 kind=105 life=5096 pos=(29191,9484) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50048 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50048 kind=105 life=5096 pos=(28012,7954) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50049 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50049 kind=105 life=5096 pos=(26859,10119) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50050 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50050 kind=105 life=5096 pos=(23727,12266) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50051 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50051 kind=105 life=5096 pos=(25485,14455) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50052 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50052 kind=105 life=5096 pos=(26920,12750) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50053 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50053 kind=105 life=5096 pos=(25269,10840) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50054 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50054 kind=105 life=5096 pos=(40573,19686) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50055 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50055 kind=73 life=5436 pos=(40182,21457) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50056 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50056 kind=73 life=5436 pos=(41668,20581) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50057 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50057 kind=73 life=5436 pos=(39802,25518) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50058 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50058 kind=73 life=5436 pos=(40132,24001) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50059 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50059 kind=73 life=5436 pos=(38857,27730) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50060 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50060 kind=73 life=5436 pos=(42300,25652) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50061 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50061 kind=73 life=5436 pos=(20114,5422) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50062 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50062 kind=73 life=5436 pos=(19163,6985) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50063 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] INFO  CInGameState.cpp:1828  heap label=monster_add_post_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1829  CInGameState: MonsterAdd count=64
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50063 kind=73 life=5436 pos=(15122,5561) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50064 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50064 kind=73 life=5436 pos=(15905,7115) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50065 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50065 kind=73 life=5436 pos=(13440,5545) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50066 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50066 kind=73 life=5436 pos=(11935,4631) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50067 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50067 kind=73 life=5436 pos=(9531,4267) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50068 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50068 kind=73 life=5436 pos=(10791,5280) name=����
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50069 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50069 kind=105 life=5096 pos=(18769,5653) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50070 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50070 kind=105 life=5096 pos=(17855,7333) name=���b�b
+[05:25:09.447] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50071 payload=64
+[05:25:09.447] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.447] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50071 kind=105 life=5096 pos=(16068,5989) name=���b�b
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50072 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50072 kind=105 life=5096 pos=(10534,4749) name=���b�b
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50073 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50073 kind=105 life=5096 pos=(12440,5173) name=���b�b
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50074 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50074 kind=103 life=5788 pos=(8078,20009) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50075 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50075 kind=103 life=5788 pos=(7469,18618) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50076 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50076 kind=103 life=5788 pos=(10575,18423) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50077 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50077 kind=103 life=5788 pos=(9432,17423) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50078 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50078 kind=103 life=5788 pos=(10905,17327) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50079 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50079 kind=103 life=5788 pos=(9720,20081) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50080 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50080 kind=103 life=5788 pos=(7991,21730) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50081 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50081 kind=103 life=5788 pos=(9593,22677) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50082 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50082 kind=103 life=5788 pos=(10517,21633) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50083 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50083 kind=103 life=5788 pos=(11079,22829) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50084 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31715328 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50084 kind=103 life=5788 pos=(11756,19412) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50085 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50085 kind=103 life=5788 pos=(12362,20774) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50086 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50086 kind=103 life=5788 pos=(14618,20128) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50087 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50087 kind=103 life=5788 pos=(14917,18878) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50088 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50088 kind=103 life=5788 pos=(13371,24174) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50089 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50089 kind=103 life=5788 pos=(13731,22258) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50090 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50090 kind=103 life=5788 pos=(15679,24573) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50091 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50091 kind=103 life=5788 pos=(15653,23275) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50092 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50092 kind=103 life=5788 pos=(17092,24558) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50093 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50093 kind=103 life=5788 pos=(17363,21939) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50094 payload=64
+[05:25:09.448] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31752192 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.448] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50094 kind=103 life=5788 pos=(17451,20378) name=�T��
+[05:25:09.448] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50095 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50095 kind=103 life=5788 pos=(19398,21662) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50096 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50096 kind=103 life=5788 pos=(20798,25029) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50097 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50097 kind=103 life=5788 pos=(21138,22521) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50098 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50098 kind=103 life=5788 pos=(23030,25665) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50099 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50099 kind=103 life=5788 pos=(25348,25776) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50100 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50100 kind=103 life=5788 pos=(23833,28256) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50101 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50101 kind=103 life=5788 pos=(26611,28333) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50102 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50102 kind=103 life=5788 pos=(23098,30781) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50103 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50103 kind=103 life=5788 pos=(25348,30835) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50104 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50104 kind=103 life=5788 pos=(22595,36361) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50105 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50105 kind=103 life=5788 pos=(22822,34772) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50106 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50106 kind=103 life=5788 pos=(22874,38411) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50107 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50107 kind=103 life=5788 pos=(24415,38366) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50108 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50108 kind=103 life=5788 pos=(24220,40387) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50109 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50109 kind=103 life=5788 pos=(24977,41373) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50110 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50110 kind=103 life=5788 pos=(26591,42465) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50111 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50111 kind=103 life=5788 pos=(27937,40942) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50112 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50112 kind=103 life=5788 pos=(32203,40856) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50113 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50113 kind=103 life=5788 pos=(30609,41124) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50114 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50114 kind=103 life=5788 pos=(34367,40568) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50115 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50115 kind=103 life=5788 pos=(33934,41880) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50116 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50116 kind=103 life=5788 pos=(35048,42900) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50117 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50117 kind=103 life=5788 pos=(34732,43936) name=�T��
+[05:25:09.449] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50118 payload=64
+[05:25:09.449] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=31756288 peak_ws=234422272 private=22876160 virtual=225992704
+[05:25:09.449] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50118 kind=103 life=5788 pos=(35876,44097) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50119 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50119 kind=103 life=5788 pos=(37780,43462) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50120 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50120 kind=103 life=5788 pos=(38337,44841) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50121 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50121 kind=103 life=5788 pos=(39647,44536) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50122 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50122 kind=103 life=5788 pos=(39675,45960) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50123 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50123 kind=103 life=5788 pos=(41220,46699) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50124 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50124 kind=103 life=5788 pos=(41845,45006) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50125 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32141312 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50125 kind=103 life=5788 pos=(43256,44223) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50126 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50126 kind=103 life=5788 pos=(44381,43969) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50127 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] INFO  CInGameState.cpp:1828  heap label=monster_add_post_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1829  CInGameState: MonsterAdd count=128
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50127 kind=103 life=5788 pos=(44680,46696) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50128 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50128 kind=103 life=5788 pos=(42737,45142) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50129 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50129 kind=103 life=5788 pos=(43556,47408) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50130 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50130 kind=102 life=6150 pos=(37355,43958) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50131 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50131 kind=102 life=6150 pos=(35098,43720) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50132 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50132 kind=102 life=6150 pos=(33740,40575) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50133 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50133 kind=102 life=6150 pos=(32153,41173) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50134 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50134 kind=102 life=6150 pos=(29293,40797) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50135 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50135 kind=102 life=6150 pos=(27174,41789) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50136 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50136 kind=102 life=6150 pos=(27491,39086) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50137 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50137 kind=102 life=6150 pos=(25141,38788) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50138 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32145408 peak_ws=234422272 private=23269376 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50138 kind=102 life=6150 pos=(24499,41513) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50139 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32206848 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50139 kind=102 life=6150 pos=(23336,38395) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50140 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32206848 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50140 kind=102 life=6150 pos=(23734,31546) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50141 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32206848 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50141 kind=102 life=6150 pos=(25514,31734) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50142 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50142 kind=102 life=6150 pos=(22127,26258) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50143 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50143 kind=102 life=6150 pos=(24493,24659) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50144 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50144 kind=102 life=6150 pos=(21779,22971) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50145 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50145 kind=102 life=6150 pos=(16123,20822) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50146 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50146 kind=102 life=6150 pos=(17422,23461) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50147 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50147 kind=102 life=6150 pos=(14731,23604) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50148 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50148 kind=102 life=6150 pos=(11074,19902) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50149 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50149 kind=102 life=6150 pos=(11530,22107) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50150 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50150 kind=102 life=6150 pos=(8306,18639) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50151 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50151 kind=102 life=6150 pos=(14776,29304) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50152 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50152 kind=102 life=6150 pos=(14973,28186) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50153 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50153 kind=102 life=6150 pos=(18992,36238) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50154 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50154 kind=102 life=6150 pos=(17441,35661) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50155 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50155 kind=102 life=6150 pos=(18232,33165) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50156 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50156 kind=102 life=6150 pos=(16942,34528) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50157 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50157 kind=104 life=6523 pos=(18342,34837) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50158 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50158 kind=104 life=6523 pos=(19522,36232) name=�T��
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50159 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50159 kind=105 life=5096 pos=(18323,35812) name=���b�b
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50160 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50160 kind=105 life=5096 pos=(19135,34660) name=���b�b
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50161 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50161 kind=102 life=6150 pos=(18703,43054) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50162 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.476] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50162 kind=102 life=6150 pos=(18861,40299) name=���Q
+[05:25:09.476] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50163 payload=64
+[05:25:09.476] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50163 kind=104 life=6523 pos=(19101,42266) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50164 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50164 kind=104 life=6523 pos=(18301,39831) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50165 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50165 kind=104 life=6523 pos=(19590,41101) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50166 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50166 kind=105 life=5096 pos=(18438,42583) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50167 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50167 kind=105 life=5096 pos=(18621,39381) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50168 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50168 kind=102 life=6150 pos=(15216,38290) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50169 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50169 kind=102 life=6150 pos=(15393,38689) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50170 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50170 kind=102 life=6150 pos=(14990,42418) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50171 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50171 kind=102 life=6150 pos=(14130,41329) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50172 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50172 kind=102 life=6150 pos=(13325,45104) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50173 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50173 kind=102 life=6150 pos=(12347,43906) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50174 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50174 kind=104 life=6523 pos=(13801,42325) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50175 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50175 kind=104 life=6523 pos=(13162,44240) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50176 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50176 kind=104 life=6523 pos=(11984,42712) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50177 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50177 kind=105 life=5096 pos=(14091,42154) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50178 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50178 kind=105 life=5096 pos=(12406,42815) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50179 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50179 kind=102 life=6150 pos=(11615,34918) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50180 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50180 kind=102 life=6150 pos=(13030,35348) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50181 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50181 kind=105 life=5096 pos=(12055,36039) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50182 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50182 kind=105 life=5096 pos=(12564,34852) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50183 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50183 kind=105 life=5096 pos=(11091,35908) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50184 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50184 kind=102 life=6150 pos=(9750,27252) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50185 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50185 kind=102 life=6150 pos=(10930,28156) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50186 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50186 kind=102 life=6150 pos=(11579,26883) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50187 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50187 kind=104 life=6523 pos=(10436,27744) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50188 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50188 kind=104 life=6523 pos=(10737,26867) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50189 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50189 kind=104 life=6523 pos=(11668,27820) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50190 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50190 kind=105 life=5096 pos=(9917,26688) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50191 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] INFO  CInGameState.cpp:1828  heap label=monster_add_post_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1829  CInGameState: MonsterAdd count=192
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50191 kind=105 life=5096 pos=(12124,26845) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50192 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50192 kind=102 life=6150 pos=(7234,31057) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50193 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50193 kind=102 life=6150 pos=(8328,30834) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50194 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50194 kind=102 life=6150 pos=(9166,30157) name=���Q
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50195 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50195 kind=104 life=6523 pos=(8254,29906) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50196 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50196 kind=104 life=6523 pos=(6805,30671) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50197 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50197 kind=104 life=6523 pos=(6947,29211) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50198 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50198 kind=105 life=5096 pos=(7599,30609) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50199 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50199 kind=105 life=5096 pos=(7760,29345) name=���b�b
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50200 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50200 kind=104 life=6523 pos=(5330,33676) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50201 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50201 kind=104 life=6523 pos=(4621,32832) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50202 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50202 kind=104 life=6523 pos=(3524,32559) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50203 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50203 kind=104 life=6523 pos=(2259,33387) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50204 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50204 kind=104 life=6523 pos=(3051,34385) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50205 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50205 kind=104 life=6523 pos=(3465,35647) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50206 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50206 kind=104 life=6523 pos=(6860,37535) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50207 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50207 kind=104 life=6523 pos=(7691,38877) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50208 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50208 kind=104 life=6523 pos=(9007,39521) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50209 payload=64
+[05:25:09.477] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.477] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50209 kind=104 life=6523 pos=(5060,38340) name=�T��
+[05:25:09.477] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50210 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50210 kind=104 life=6523 pos=(5977,39047) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50211 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32219136 peak_ws=234422272 private=23339008 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50211 kind=104 life=6523 pos=(7963,37176) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50212 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50212 kind=102 life=6150 pos=(6125,37965) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50213 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50213 kind=102 life=6150 pos=(7410,38481) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50214 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50214 kind=102 life=6150 pos=(8574,39463) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50215 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50215 kind=102 life=6150 pos=(7340,44308) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50216 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50216 kind=102 life=6150 pos=(6646,45902) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50217 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50217 kind=102 life=6150 pos=(5907,43221) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50218 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50218 kind=102 life=6150 pos=(4158,44443) name=���Q
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50219 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50219 kind=104 life=6523 pos=(3842,43060) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50220 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50220 kind=104 life=6523 pos=(4774,44236) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50221 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50221 kind=104 life=6523 pos=(5337,43008) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50222 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50222 kind=104 life=6523 pos=(6946,43102) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50223 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50223 kind=104 life=6523 pos=(7994,43779) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50224 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50224 kind=104 life=6523 pos=(6137,46587) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50225 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50225 kind=104 life=6523 pos=(6928,45324) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50226 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50226 kind=104 life=6523 pos=(8376,44856) name=�T��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=37 obj=50227 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1819  heap label=monster_add_pre_insert ws=32239616 peak_ws=234422272 private=23359488 virtual=225992704
+[05:25:09.478] DEBUG CInGameState.cpp:1836  CInGameState: MonsterAdd object_id=50227 kind=219 life=435024 pos=(17839,7017) name=�a���]��
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=554 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=554 kind=50 pos=(22000,11700) name=�_�Ǫ���
+[05:25:09.478] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=572 payload=64
+[05:25:09.478] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=572 kind=54 pos=(3500,46900) name=�����W������
+[e2e] [5/5] OK: Map10 initial monster population=228
+[e2e] [5/5] OK: GameInAck received, player_id=100017 name='E2E40226500' level=1 map=10 life=125/125
+[e2e] [5/5] MapChange: requesting authoritative map=12 ...
+[05:25:09.552] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=49 obj=100017 payload=2
+[05:25:09.552] INFO  CInGameState.cpp:1964  CInGameState: ChangeMapAck map=12 -> MapChange
+[05:25:09.615] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100017 payload=3775
+[05:25:09.616] INFO  CInGameState.cpp:1711  CInGameState: GameInAck player_id=100017 user_id=100017 name='E2E40226500' level=1 map=12 life=125/125 gender=1 face=1 hair=1 equip2=0 server_time=2026-10-15 5:00
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=Quest proto=0 obj=100017 payload=8
+[05:25:09.616] INFO  CInGameState.cpp:3260  CInGameState: quest id=1 state=1 status=Active - hunt monsters
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=50 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=50 kind=42 pos=(30800,18500) name=ũ��������_����
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=51 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=51 kind=41 pos=(22400,26700) name=ũ��������_Ʈ��
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=52 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=52 kind=1 pos=(22521,22527) name=�層��
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=53 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=53 kind=1 pos=(23971,27331) name=������
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=54 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=54 kind=2 pos=(27595,24385) name=���ڰ�
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=55 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=55 kind=3 pos=(27727,25006) name=������
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=56 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=56 kind=4 pos=(22043,27888) name=����
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=57 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=57 kind=4 pos=(23737,35028) name=������
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=58 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=58 kind=5 pos=(23573,23151) name=������
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=92 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=92 kind=73 pos=(27500,27300) name=ũ������������
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=158 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=158 kind=66 pos=(30660,22700) name=0
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=168 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=168 kind=69 pos=(26600,20500) name=0
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=173 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=173 kind=70 pos=(26600,20500) name=0
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=259 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=259 kind=65 pos=(30660,22700) name=���
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=226 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=226 kind=68 pos=(26600,20500) name=���
+[05:25:09.616] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=39 obj=501 payload=64
+[05:25:09.616] INFO  CInGameState.cpp:1857  CInGameState: NpcAdd id=501 kind=25 pos=(21571,27440) name=�Ѿ��Ѫ�
+[e2e] [5/5] OK: MapChange target GameInAck map=12 monsters=228 npcs=18
+[05:25:09.652] DEBUG CInGameState.cpp:746  CInGameState::Release
+[05:25:09.652] INFO  CInGameState.cpp:1672  CInGameState: sent GameOutSyn player_id=100017
+[05:25:10.315] INFO  CInGameState.cpp:1038  heap label=gamein_start_enter ws=51585024 peak_ws=234422272 private=43118592 virtual=225992704
+[05:25:10.315] INFO  CInGameState.cpp:1052  CInGameState effect catalog loading asynchronously
+[05:25:10.315] INFO  CInGameState.cpp:1055  heap label=gamein_after_effect_kickoff ws=51585024 peak_ws=234422272 private=43118592 virtual=225992704
+[05:25:10.363] INFO  CInGameState.cpp:1065  heap label=gamein_after_ui_loadmany ws=268992512 peak_ws=268992512 private=260939776 virtual=260984832
+[05:25:10.363] INFO  CInGameState.cpp:1067  heap label=gamein_pre_skilllist ws=268992512 peak_ws=268992512 private=260939776 virtual=260984832
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[05:25:11.191] INFO  CInGameState.cpp:1074  CInGameState skill list loaded skills=1817 errors=0
+[05:25:11.191] INFO  CInGameState.cpp:1085  heap label=gamein_post_skilllist ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.191] INFO  CInGameState.cpp:1092  CInGameState experience curve loaded levels=121
+[05:25:11.191] INFO  CInGameState.cpp:1099  heap label=gamein_post_expcurve ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.193] INFO  CInGameState.cpp:1101  heap label=gamein_post_applyactiveset ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.194] INFO  CInGameState.cpp:1105  heap label=gamein_post_refresh_bindings ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.194] INFO  CInGameState.cpp:1108  CInGameState using persistent AgentSession (player_id=100017, map=12)
+[05:25:11.194] INFO  CInGameState.cpp:1113  heap label=gamein_pre_send_gamein_syn ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.194] INFO  CInGameState.cpp:1641  CInGameState: sent GameInSyn player_id=100017 (empty payload)
+[05:25:11.194] INFO  CInGameState.cpp:1115  heap label=gamein_post_send_gamein_syn ws=69758976 peak_ws=273932288 private=61562880 virtual=265940992
+[05:25:11.257] DEBUG CInGameState.cpp:1401  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100017 payload=3775
+[05:25:11.258] INFO  CInGameState.cpp:1711  CInGameState: GameInAck player_id=100017 user_id=100017 name='E2E40226500' level=1 map=12 life=125/125 gender=1 face=1 hair=1 equip2=0 server_time=2026-10-15 5:00
+[e2e] [5/5] OK: MapChange target route survives fresh GameIn map=12
+[05:25:11.286] DEBUG CInGameState.cpp:746  CInGameState::Release
+[05:25:11.286] INFO  CInGameState.cpp:1672  CInGameState: sent GameOutSyn player_id=100017
+[05:25:12.230] DEBUG CInGameState.cpp:746  CInGameState::Release
+[05:25:12.230] DEBUG CLoginState.cpp:119  CLoginState::Release (disconnecting login client)
+[e2e] Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)

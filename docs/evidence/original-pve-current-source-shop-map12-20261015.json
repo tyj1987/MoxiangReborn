@@ -1,0 +1,40 @@
+{
+  "schema": "moxiang-original-pve-receipt/v1",
+  "lane": "original",
+  "sourceHead": "f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469",
+  "stage": "C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "packageSha256": "972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5",
+  "database": "MoxiangOriginalTest_20261009",
+  "databaseHost": "192.168.2.238",
+  "ports": {
+    "login": 16211,
+    "agent": 17211,
+    "map10": 18211,
+    "map12": 18212,
+    "map2": 18213
+  },
+  "client": "modern/build/tools/MoxianClientE2E/mxh_client_e2e.exe",
+  "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --login-port 16211 --agent-port 17211 --map-port 18211 --map12-port 18212 --map-number 12 --account origpve15 --exercise-shop --timeout 30",
+  "results": {
+    "exitCode": 0,
+    "loginAck": true,
+    "characterSelectMap": 12,
+    "gameInAckMap": 12,
+    "dealerNpcIds": [52, 53],
+    "shopCatalogItems": 18,
+    "purchasedItem": 11040,
+    "inventoryBefore": 0,
+    "inventoryAfterBuy": 1,
+    "inventoryAfterRelog": 1,
+    "dealitemCatalogNpcs": 165,
+    "dealitemCatalogRows": 1162,
+    "dealitemParseErrors": 0
+  },
+  "fixtureCleanup": {
+    "characterMapRestored": 10,
+    "moneyRestored": 0,
+    "temporaryPurchasedRowDeleted": true,
+    "isolatedPortsReleased": true
+  },
+  "log": "original-pve-shop-current-source-map12-money-20261015.log"
+}

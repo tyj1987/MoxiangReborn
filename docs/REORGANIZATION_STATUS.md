@@ -1,5 +1,13 @@
 # 重整执行状态
 
+## 2026-10-15 当前源码阶段回执：原版商店链已在 PVE 闭合
+
+原版分支 `codex/reorg-original-20261009` 当前提交为 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469`。本轮将该提交构建为独立 VM112 stage `C:\Moxiang\original\stage-f264e8af-20261015`，包 SHA-256 为 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`；旧 stage 和 Unity 服务没有替换。
+
+在 CT930 `MoxiangOriginalTest_20261009` 上真实跑通 Map10→Map12、18 项商店目录、余额不足 `BuyNack`、余额充足 `BuyAck`、入包及重登持久化。临时数据库 fixture 已恢复，购买行已删除，隔离端口已释放。收据见 `docs/evidence/original-pve-current-source-shop-map12-20261015.json` 和 `docs/evidence/original-pve-current-source-mapchange-20261015.json`。
+
+旧顶部记录中绑定 `21fe3513` 的 `stage-20261015` 仅作为历史运行证据保留；本阶段结论以当前源码收据为准。Map10 原始 Dealer 资源仍缺失，不能宣称原版 1:1 商店完成。
+
 ## 2026-10-15 当前执行回执：资源准入与分线隔离
 
 本次原版资源准入回执绑定服务包提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`，GitLab 长期分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
