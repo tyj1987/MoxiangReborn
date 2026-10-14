@@ -1,5 +1,11 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 原版当前提交 Map10 战斗闭环回归
+
+在 VM112 当前原版 stage `C:\Moxiang\original\stage-20261015` 上，使用隔离测试账号 `origcombat15` 和临时等级 53 角色 `Combat161015`，当前 Release `MoxianClientE2E` 真实完成 LoginAck、角色列表/选角、Map10 GameInAck、服务端权威攻击、目标死亡、自然掉落、点击拾取、背包 `MoveAck` 以及断开后的重登持久化。Map10 怪物数量由 `228` 降至 `227`，目标 `50143` 初始生命 `6150`，掉落 `drop=90000,item=50015,count=1`，退出码 0。测试账号、角色、状态、生命、装备、物品、任务和技能临时行已删除；原有角色 `100017` 回读为 level=1、Map10、基础属性 12/12/12/12、生命 125、护盾 245、MP 125、dead=0、revision=1。完整日志和结构化回执见 [`original-pve-combat-current-20261015.log`](evidence/original-pve-combat-current-20261015.log) 与 [`original-pve-combat-current-20261015.json`](evidence/original-pve-combat-current-20261015.json)。
+
+这次回归关闭了当前原版服务包在真实 MSSQL PVE 上的 Map10 权威战斗→自然掉落→点击拾取→背包写入→重登回读子门禁；它仍不等于真人 GUI 验收、1 级新玩家首战平衡、完整原始资源、全地图/经济/社交覆盖或商业发布就绪。
+
 ## 2026-10-15 VM112 当前原版运行回执
 
 VM112 已恢复隔离的原版 modern 三服/多地图阶段：`16001/17001/18001`，以及 Map12/Map2 的 `18002/18003`；Unity 阶段独立使用 `26101/27101/28101`。真实 `MoxianClientE2E --no-spawn` 使用专用账号 `origpve15` 完成 LoginAck、角色列表、建角、重列、选角和 Map10 GameIn，收到 **228 个怪物** 与 NPC `554/572`，玩家生命 `125/125`，退出码 0。当前 stage manifest SHA-256 为 `f44982a74ebba1a11a25545129b9e2a6582b91ba802e610498295f0292e0a77d`，服务包源提交为 `21fe351340d5e0ec240d5aef2c0204ca6db49d5d`；日志 SHA-256 为 `76e0fc6eb7dcad7da3840266d0b563755d12ed302cacf2f000bf01d1a0551888`。结构化回执见 [`original-pve-headless-20261015.json`](evidence/original-pve-headless-20261015.json)。这是原版协议与 GameIn 工程通过，仍需真人 GUI、战斗/掉落/拾取持久化、完整原始资源和商业发布验收。
