@@ -24,6 +24,8 @@
 
 本次验证没有启动本机三服或数据库，也没有改变 canonical PlayDH、Unity WIP、PVE 数据或远端 refs。随后在同一 Release 构建目录运行全量 CTest：**12551/12551 实际执行用例通过，22 项按缺失 PVE/VHD/资源契约 Skip，另外的禁用项未运行，退出码 0**；日志为 `modern/build-commercial-check-20261010/ctest-r4.log`。该结果只证明本机代码/fixture 回归，不替代 PVE 资源、数据库和真实 GUI 验收。本机 release 资源基线的 45 个 HFL/TTB 阻塞仍有效。
 
+2026-10-14 原版 Release 全量 CTest 在并行模式首次暴露 `MapHandlerTest.LoadItemListPopulatesManagerFromBin` 的固定临时文件竞态；测试辅助函数随后改为使用单调时钟与原子序列生成唯一临时 BIN 路径。修复后 `ctest -C Release -j 8` **12574/12574 实际执行用例通过，16 项按既有 PVE/VHD/资源契约 Skip，退出码 0**；同组 77 个 `MapHandlerTest` 并行复跑全部通过。回执为 `modern/out/runs/original-ctest-release-fixed-20261014.log`。这关闭了本机并行测试稳定性缺口，不改变原版 44 个地图资源发布阻塞，也不替代 PVE、数据库和真人 GUI 验收。
+
 ## 工程与远端
 
 | 分线 | 已验证源码 | 本轮验证 | 当前边界 |

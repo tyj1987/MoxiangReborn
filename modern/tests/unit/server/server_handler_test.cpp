@@ -3022,7 +3022,12 @@ namespace {
 // to avoid a forward-declaration-to-anonymous-namespace mismatch (each anonymous
 // namespace in a TU has a unique generated name).
 std::filesystem::path write_temp_bin(const std::vector<std::uint8_t>& bytes) {
-    const auto path = std::filesystem::temp_directory_path() / "mxh_map_handler_load_test.bin";
+    static std::atomic<std::uint64_t> sequence{0};
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto serial = sequence.fetch_add(1, std::memory_order_relaxed);
+    const auto path = std::filesystem::temp_directory_path() /
+        ("mxh_map_handler_load_test_" + std::to_string(stamp) + "_" +
+         std::to_string(serial) + ".bin");
     std::ofstream ofs(path, std::ios::binary);
     ofs.write(reinterpret_cast<const char*>(bytes.data()),
                static_cast<std::streamsize>(bytes.size()));
