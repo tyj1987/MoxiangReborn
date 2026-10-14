@@ -42,14 +42,23 @@
       "fullClientFlow": false,
       "fullFlowReason": "The current E2E combat loop continued selecting refreshed targets after authoritative kills and did not reach its final pickup/relog assertion before the bounded run was stopped."
     },
+    "boundedRepeat": {
+      "path": "docs/evidence/original-pve-questfix-combat-attempt6-20261015.log",
+      "sha256": "0c74ddb01f318250954f3558e4c2f63dd615e0eb4a59f79097889e493ec8c00a",
+      "bytes": 341265,
+      "gameIn": true,
+      "authoritativeKillsObserved": 6,
+      "dropObserved": false,
+      "result": "The quest-enabled fixture remained playable through six authoritative kills; this bounded repeat did not observe a natural ground-drop event, so the complete pickup/relog gate remains open."
+    },
     "evidenceLog": {
       "path": "docs/evidence/original-pve-questfix-combat-attempt3-20261015.log",
       "sha256": "b201c1302231296df4f140d72b2080c074a9d9723dfc3a9b79a9c3724c904032",
       "bytes": 309602
     },
     "restoreCheck": {
-      "path": "docs/evidence/original-pve-restore-check-20261015-rerun.log",
-      "sha256": "597c70e2665726f762d357d7128dd5ecffd20feb2f4cbb5965f41e3aa5f94b7d",
+      "path": "docs/evidence/original-pve-restore-check-20261015-final.log",
+      "sha256": "160011732f188783349c925754f995ee799921e33009d9bc3cbb8afa43f15a01",
       "exitCode": 0,
       "result": "LoginAck, character list, GameInAck and 228 Map10 monsters passed after old Map10 service was restored"
     },
