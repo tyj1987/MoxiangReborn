@@ -1205,9 +1205,11 @@ int run_e2e(const CliArgs& cli) {
                     ? game.monsters().begin() : live_begin;
                 // Prefer the live target with the smallest effective vitality
                 // (life + shield), then use distance as a tie breaker. This
-                // keeps the GUI-equivalent target selection deterministic while
-                // allowing a fresh low-level character to exercise the real
-                // drop path against the least durable canonical spawn.
+                // keeps the GUI-equivalent target selection deterministic and
+                // makes the result meaningful for both starter and progression
+                // fixtures: if the canonical target is above the player's
+                // damage range, the gate must fail with that balance evidence
+                // instead of weakening the monster or synthesizing a kill.
                 const auto nearest = std::min_element(
                     selection_begin, game.monsters().end(),
                     [&game](const auto& lhs, const auto& rhs) {
