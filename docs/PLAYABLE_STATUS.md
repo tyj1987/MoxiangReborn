@@ -1,5 +1,11 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 原版当前提交任务开始与未完成回执
+
+在 VM112 当前原版 stage 使用隔离账号 `origpve15` 进入 Map10，收到 228 个怪物后从 canonical QuestScript 选择任务 1。客户端真实发送任务开始请求并收到 `Quest StartAck`，状态为 `Active - hunt monsters`；随后发送未满足目标的结束请求，收到 `EndNack`，状态恢复为 `Not complete`，退出码 0。结构化回执与完整日志见 [`original-pve-quest-current-20261015.json`](evidence/original-pve-quest-current-20261015.json) 和 [`original-pve-quest-current-20261015.log`](evidence/original-pve-quest-current-20261015.log)。
+
+这关闭了当前原版任务开始、状态同步和未完成结束恢复子门禁；任务目标完成/奖励领取、经济与商店、真人 GUI、完整原始资源及商业发布仍保持 PARTIAL。本回执没有把未完成任务误报为奖励完成。
+
 ## 2026-10-15 原版 Map10→Map12 切图持久化回归
 
 当前原版 VM112 stage 使用真实 MSSQL 账号 `origpve15` 完成 Map10 GameIn（228 个怪物）后发送权威 `ChangeMapSyn`，收到 Map12 `ChangeMapAck`，进入 Map12 后读到 228 个怪物和 2 个 NPC；断开并重新 GameIn 仍落在 Map12，退出码 0。测试结束后将该专用角色的持久化地图恢复为 Map10，并通过 CT930 非 SA 查询回读。证据见 [`original-pve-mapchange-current-20261015.json`](evidence/original-pve-mapchange-current-20261015.json) 和 [`original-pve-mapchange-current-20261015.log`](evidence/original-pve-mapchange-current-20261015.log)。

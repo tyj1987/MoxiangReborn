@@ -1,0 +1,32 @@
+{
+  "kind": "original-pve-current-quest-receipt",
+  "capturedUtc": "2026-10-14T20:37:14.7298061Z",
+  "sourceCommit": "c9f5464699af7b219dfdea8a97a323903905aab0",
+  "evidenceCommit": "cde7c57b3a9b659f4f70ba2ede4d9f1013811c78",
+  "pveHost": "192.168.2.244",
+  "stage": "VM112 modern original",
+  "loginPort": 16001,
+  "agentPort": 17001,
+  "mapPort": 18001,
+  "map12Port": 18002,
+  "account": "origpve15",
+  "playerId": 100017,
+  "map": 10,
+  "questId": 1,
+  "loginAck": true,
+  "gameInAck": true,
+  "initialMonsterCount": 228,
+  "questStartAck": true,
+  "questStatusAfterStart": "Active - hunt monsters",
+  "incompleteEndNackRecovery": true,
+  "questStatusAfterEnd": "Not complete",
+  "exitCode": 0,
+  "logPath": "docs/evidence/original-pve-quest-current-20261015.log",
+  "logSha256": "2bd68d849ee426de5b497c43d33111ffe79df563d1cf8f78bb476cb67772cd07",
+  "releaseReady": false,
+  "remainingGates": [
+    "quest objective completion and reward claim with a controlled fixture",
+    "full GUI and resource parity acceptance",
+    "remaining maps and original resource blockers"
+  ]
+}
