@@ -40,7 +40,12 @@ if(MSVC)
 endif()
 
 include(GoogleTest)
-gtest_add_tests(TARGET mxh_client_tests)
+# Client tests that exercise the shipped InterfaceScript and sprite atlas use
+# the source tree's `data/PlayDH` fixture.  Pin both enumerated and aggregate
+# invocations to the source root so the fixture-only resource fallback in
+# CInGameState::Init is deterministic when CTest runs from an out-of-tree
+# build directory.
+gtest_add_tests(TARGET mxh_client_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # Keep one aggregate entry in addition to the per-case entries above.  The
 # aggregate is the stable client regression gate: it executes the complete
@@ -48,3 +53,5 @@ gtest_add_tests(TARGET mxh_client_tests)
 # enumerate) and lets CI invoke the client suite by one predictable name.
 add_test(NAME mxh_client_all_tests
     COMMAND mxh_client_tests --gtest_brief=1)
+set_tests_properties(mxh_client_all_tests PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
