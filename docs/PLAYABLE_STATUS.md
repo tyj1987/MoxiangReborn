@@ -1,5 +1,9 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 VM112 当前原版运行回执
+
+VM112 已恢复隔离的原版 modern 三服/多地图阶段：`16001/17001/18001`，以及 Map12/Map2 的 `18002/18003`；Unity 阶段独立使用 `26101/27101/28101`。真实 `MoxianClientE2E --no-spawn` 使用专用账号 `origpve15` 完成 LoginAck、角色列表、建角、重列、选角和 Map10 GameIn，收到 **228 个怪物** 与 NPC `554/572`，玩家生命 `125/125`，退出码 0。当前 stage manifest SHA-256 为 `f44982a74ebba1a11a25545129b9e2a6582b91ba802e610498295f0292e0a77d`，服务包源提交为 `21fe351340d5e0ec240d5aef2c0204ca6db49d5d`；日志 SHA-256 为 `76e0fc6eb7dcad7da3840266d0b563755d12ed302cacf2f000bf01d1a0551888`。结构化回执见 [`original-pve-headless-20261015.json`](evidence/original-pve-headless-20261015.json)。这是原版协议与 GameIn 工程通过，仍需真人 GUI、战斗/掉落/拾取持久化、完整原始资源和商业发布验收。
+
 ## 2026-10-15 当前原版资源准入与 PVE 协议回执
 
 本次原版资源准入回执绑定服务包提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`；当前分支继续在 GitLab `codex/reorg-original-20261009` 上快进维护。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。

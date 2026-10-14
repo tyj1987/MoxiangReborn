@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-headless-map10",
+  "capturedAt": "2026-10-15T04:00:00+08:00",
+  "sourceHead": "21fe351340d5e0ec240d5aef2c0204ca6db49d5d",
+  "stage": {
+    "vm": 112,
+    "host": "192.168.2.244",
+    "root": "C:\\Moxiang\\original\\stage-20261015",
+    "manifestSha256": "f44982a74ebba1a11a25545129b9e2a6582b91ba802e610498295f0292e0a77d",
+    "database": "MoxiangOriginalTest_20261009",
+    "databaseHost": "192.168.2.238",
+    "ports": { "login": 16001, "agent": 17001, "map": 18001, "map12": 18002, "map2": 18003 }
+  },
+  "client": {
+    "tool": "MoxianClientE2E",
+    "sourceBuild": "Unity worktree modern/out/unity-server-x64",
+    "account": "origpve15",
+    "passwordRecorded": false,
+    "log": "docs/evidence/original-pve-headless-20261015.log",
+    "logSha256": "76e0fc6eb7dcad7da3840266d0b563755d12ed302cacf2f000bf01d1a0551888",
+    "hsel": false,
+    "remoteEndpoint": "192.168.2.244:16001"
+  },
+  "observed": {
+    "loginAck": true,
+    "characterListBeforeCreate": 0,
+    "characterCreated": true,
+    "characterRelisted": true,
+    "selectedCharacterId": 100017,
+    "gameInReached": true,
+    "map": 10,
+    "playerLife": "125/125",
+    "monsters": 228,
+    "npcIds": [554, 572],
+    "protocolSteps": 5,
+    "exitCode": 0
+  },
+  "acceptance": {
+    "status": "engineering-pass",
+    "visualAcceptance": false,
+    "commercialReleaseReady": false,
+    "notes": [
+      "This validates the isolated original resource line against VM112 and CT930 through LoginAck, character creation/relist and Map10 GameIn.",
+      "The original stage deliberately runs without the Unity HSEL flag; Unity and original protocol modes remain separated.",
+      "Combat, natural loot, pickup persistence, full map coverage and human GUI acceptance remain separate gates."
+    ]
+  }
+}
