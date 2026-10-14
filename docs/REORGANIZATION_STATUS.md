@@ -2,7 +2,7 @@
 
 ## 2026-10-15 当前执行回执：资源准入与分线隔离
 
-原版分支当前提交为 `69be72f5f3b9e20ffa8d593da91f6a7958bcd4ce`，GitLab 分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
+原版分支当前提交为 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`，GitLab 分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
 
 为保持两线严格分离，UnityNative 与原版缺失项同名的 10 个 TTB 已完成哈希、来源和 `releaseReady` 审计，全部拒绝进入原版 1:1 资源目录；详见 [`original-ttb-isolation-audit-20261015.json`](evidence/original-ttb-isolation-audit-20261015.json)。当前仍存在原始 TTB/HFL 缺口和 1 级 Map10 战斗前置问题，不能据此宣称商业完成。
 
@@ -66,7 +66,7 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 
 ## 资源与独有成果
 
-原版 canonical PlayDH 基线仍按5131文件、1,681,042,155字节核验；本轮已将来源核验通过的 `Resource/Map/3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 纳入独立恢复资源，并同步更新 canonical hash manifest。241份派生文件已移入独立overlay，原资源禁止回写。原版线当前剩余41个文件级地图发布阻塞（23 HFL、18 TTB），Map203 另有161个准确纹理依赖待恢复；Unity另有精确Effekseer279项和复合来源5135/0验证，其独立基线仍为45个阻塞。
+原版 canonical PlayDH 当前按 **5,135 文件、1,688,281,785 字节**核验；本轮已将来源核验通过的 `Resource/Map/3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 纳入独立恢复资源，并同步更新 canonical hash manifest。Map.pak 只读审计显示 3.hfl 与 198.hfl 也以相同字节嵌入，其他缺失 HFL/TTB 不在该包内，详见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。241份派生文件已移入独立overlay，原资源禁止回写。原版线当前剩余41个文件级地图发布阻塞（23 HFL、18 TTB），Map203 另有161个准确纹理依赖待恢复；Unity另有精确Effekseer279项和复合来源5135/0验证，其独立基线仍为45个阻塞。
 
 原树初始182修改、241删除、1499未跟踪和空暂存区已保全，没有整体提交或覆盖。29个初始refs、指定WIP和资产在私有PVE恢复验证；范围不包含所有ignored和全部DB。04:13 UTC主树去向表为1118项候选同路径同字节、558项待整合、20项新增量和243项原有删除；delta-v4的20文件/158772原字节已独立恢复，ZIP SHA `fc9bd1091e61fbb4afd9b1d1bd7e4f626e6977669ecadae7879666fe46959147`。Unity当时4746项Git WIP中4737项命中已验证私有包，另9项/457585字节在delta独立恢复（SHA `dc5d391ab4be52997210fbf66cd93ea2b9457b573cc9c17db30f6f74b37eddc3`）。后续构建与文档增量分别记录；字节恢复不等于已整合或验收。
 
