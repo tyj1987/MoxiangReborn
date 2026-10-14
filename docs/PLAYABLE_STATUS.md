@@ -2,6 +2,8 @@
 
 ## 2026-10-14 原版 PVE 隔离实例复核
 
+最新复核（绑定原版提交 `f1fa3211e3cd132d09166555b140f0f22d8f458b`）：在 VM112 已保全的 `stage-20261014` 上，通过受控 WinRM 会话启动隔离端口 `16101/17101/18101/18102/18103`，真实 Release `MoxianClientE2E` 以 `mxh_s1010` 完成 LoginAck、Agent、角色列表/重列、角色选择和 Map12 GameInAck，退出码 0；技能 1817、任务 238、物品 9887、NPC 106 均加载成功。结构化回执为 `docs/evidence/original-pve-current-stage-20261014.json`，日志 SHA-256 为 `86DCBC9B3A4E8D82B8BA5B26E996F7F0FA336F3AA63A010B9274017E6B1E73C9`。同次 Map10 门禁没有通过：角色 `100012` 在库中持久化于 Map12，因此没有把 Map12 的成功误报成 Map10 228 怪物闭环。当前 stage 源仍为 `a089ad6b`，尚未部署 `f1fa3211` 服务包；真人 GUI、Map10 fixture、战斗/掉落/拾取/装备/换图重登和完整资源准入仍是开放门禁。
+
 当前原版工作树提交为 `6a56df1c`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
 
 本轮将 Release 包 `original-vm112-release-20261014-r2.zip`（SHA-256 `af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999`）部署到 VM112 的独立 stage `C:\Moxiang\original\stage-20261014`，没有替换旧服务。该 stage 使用 PlayDH 资源 **5,132 文件、1,682,222,623 字节**；补入的 `Resource/Map/95.hfl` SHA-256 为 `fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746`。manifest SHA-256 为 `d73369562c67e7107211f00fd1f640fbbcb9be32c037fa7876ef6c5ce156e4e6`。

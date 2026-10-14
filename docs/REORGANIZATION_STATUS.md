@@ -2,6 +2,8 @@
 
 ## 2026-10-14 当前执行回执
 
+2026-10-14 当前原版 PVE 隔离复核已重新执行并绑定本分支提交 `f1fa3211e3cd132d09166555b140f0f22d8f458b`：在 VM112 `stage-20261014` 的 `16101/17101/18101/18102/18103` 上，真实 Release `MoxianClientE2E` 完成 LoginAck、Agent 连接、角色列表、角色重列、角色选择和 Map12 GameInAck，退出码 0；读取到 Skill 1817、Quest 238、Item 9887、NPC 106。回执为 [`original-pve-current-stage-20261014.json`](evidence/original-pve-current-stage-20261014.json)，原始日志为 `modern/out/runs/original-pve-current-stage-20261014.log`。本次 Map10 门禁未通过是因为所用角色 `100012` 在数据库中持久化于 Map12，不能把 Map12 通过误报为 Map10 228 怪物闭环；当前 PVE stage 仍来自 `a089ad6b`，尚未部署 `f1fa3211` 服务二进制，发布状态保持 `releaseReady=false`。
+
 原版线已完成一次不影响旧环境的 VM112 隔离复核：当前分支 `codex/reorg-original-20261009` 提交 `6a56df1c`，服务包基线为其父提交 `a089ad6b22e8dc4626a217108429d612554c6726`。Release CTest **12,574/12,574 通过**（17 项外部门禁 Skip）。`MoxianClientE2E` 现支持显式登录、Agent、Map 和 Map12 端口，远端 `--no-spawn` 已在 VM112 的 `16101/17101/18101` 完成 LoginAck→选角→Map10 GameInAck，收到 228 个怪物，退出码 0。
 
 本轮包 `original-vm112-release-20261014-r2.zip` SHA-256 为 `af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999`，stage `C:\Moxiang\original\stage-20261014` 使用 5,132 个 PlayDH 文件和 CT930 的 `MoxiangOriginalTest_20261009`。三服和 Map12/Map2 仅在隔离端口运行，结束后精确停止并确认端口释放；旧服务、Unity 服务和主工作树保留。详细哈希、数据库预检、命令和边界见 [原版 PVE 回执](evidence/original-pve-vm112-20261014.json)。
