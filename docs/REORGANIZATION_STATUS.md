@@ -10,6 +10,12 @@
 
 旧顶部记录中绑定 `21fe3513` 的 `stage-20261015` 仅作为历史运行证据保留；本阶段结论以当前源码收据为准。Map10 原始 Dealer 资源仍缺失，不能宣称原版 1:1 商店完成。
 
+## 2026-10-15 当前源码阶段回执：战斗掉落闭环
+
+同一默认 stage 使用可回滚的 level 53 角色和原始首发装备 `11000/23000/27000`，临时移除任务行后在 Map10 真实完成权威攻击、目标死亡、自然掉落 `item=8008`、点击拾取、背包移动和重登回读；怪物数量 `228→227`，退出码 0。测试后角色 `100017` 的 level、Map10、12/12/12/12 属性、生命/护盾/MP、装备、物品、任务日志和子目标均恢复，完整收据见 [`original-pve-default-current-source-combat-20261015.json`](evidence/original-pve-default-current-source-combat-20261015.json)。
+
+无装备负对照只产生技能广播而没有权威伤害；当前 MapHandler 对带任务状态的 revisioned 战斗事务仍会拒绝，因此该结果只关闭高等级夹具子门禁，不代表 1 级新玩家首战、任务耦合、真人 GUI 或商业发布完成。文档路线和当前阻塞已同步到 `ROADMAP.md`、`docs/KNOWN_BUGS.md` 和 `docs/VERIFICATION_MATRIX.md`。
+
 ## 2026-10-15 当前执行回执：资源准入与分线隔离
 
 本次原版资源准入回执绑定服务包提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`，GitLab 长期分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
