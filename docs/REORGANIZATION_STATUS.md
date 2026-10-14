@@ -2,7 +2,7 @@
 
 ## 2026-10-15 当前执行回执：资源准入与分线隔离
 
-原版分支当前提交为 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`，GitLab 分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
+原版分支当前提交为 `5278f0209dcdf381c72ff92376cfce25295fa007`，GitLab 分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
 
 为保持两线严格分离，UnityNative 与原版缺失项同名的 10 个 TTB 已完成哈希、来源和 `releaseReady` 审计，全部拒绝进入原版 1:1 资源目录；详见 [`original-ttb-isolation-audit-20261015.json`](evidence/original-ttb-isolation-audit-20261015.json)。当前仍存在原始 TTB/HFL 缺口和 1 级 Map10 战斗前置问题，不能据此宣称商业完成。
 
@@ -105,5 +105,3 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 当前提交 `3d30042b` 的服务包在 VM112 隔离环境执行了真实战斗 fixture。Map2 完成服务端权威命中、生命变化、自然掉落 `item=50009`、点击拾取、背包 `MoveAck` 和重登持久化，怪物数量 `128→126`，退出码 0。Map10 同样完成权威命中和生命变化，但本次验收窗口未观察到自然物品掉落，因此没有把 Map10 战斗闭环误报为通过。完整回执见 [`original-pve-f1fa-combat-20261014.json`](evidence/original-pve-f1fa-combat-20261014.json)。
 
 战斗测试账号、角色、状态、装备和物品已逐项删除，数据库回查账号行数为 0；隔离服务已停止，stage 恢复为 `a089ad6b`。当前关闭的是“当前提交 + PVE Map2 战斗/掉落/拾取/重登”子门禁，Map10 掉落、真人 GUI 和商业发布门禁仍开放。
-
-
