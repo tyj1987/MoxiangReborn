@@ -8,11 +8,11 @@
   "referenceOnly": false,
   "encoding": "server-size-prefixed-opaque-v1",
   "textEncoding": "Big5",
-  "source": "local canonical PlayDH distribution",
+  "source": "local canonical PlayDH distribution with verified original Map3/Map95/Map198/Map203 height fields",
   "hashManifest": "reference/manifests/playdh-current.sha256.json",
   "inventory": {
     "fileCount": 5135,
-    "byteCount": 1681141995,
+    "byteCount": 1688281785,
     "knownDerivedPaths": [
       "Log/",
       "modern/",
