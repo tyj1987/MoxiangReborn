@@ -2,7 +2,9 @@
 
 ## 2026-10-15 当前原版资源准入与 PVE 协议回执
 
-当前原版分支 `codex/reorg-original-20261009` 提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。
+当前原版分支 `codex/reorg-original-20261009` 提交 `d5ade8b620b3ae0eeece34ee9ed4e0b4c1c9a920`。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。
+
+资源格式回归脚本已适配当前 Resource Explorer 输出格式，并真实核验 7 个 PAK 的条目数、MonsterList/ItemList 元数据及两个代表性条目提取；结构化回执为 [`original-resource-format-verify-20261015.json`](evidence/original-resource-format-verify-20261015.json)。
 
 真实 `MoxianClientE2E --no-spawn` 已通过 LoginAck、AgentConnect、建角、选角、GameInAck 和 Map10 **228 个怪物**；退出码 0，日志回执为 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)，日志 SHA-256 为 `8ce7cdc1a4368efbfa49cee5d44b38c80c7ec42556b4aded944c6ff56cfda3ef`。测试账号密码只在进程内使用，没有写入证据。完成后仅按 stage 路径精确停止五个进程，五个隔离端口均已释放。
 
@@ -95,5 +97,3 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 - 两线仍保持独立工作树、构建目录和资源目录；旧 stage、旧服务和原版 PlayDH 未被替换。当前未闭合门禁：原版缺失的 TTB/HFL 资源、首个玩家完整 GUI 战斗路线、全地图/经济/社交覆盖、Unity PVE MSSQL 与人工 GUI/最终美术验收，以及双线稳定性和清理回归。
 
 任何完成声明必须绑定当前提交、资源摘要、实际运行证据和人工验收；历史通过记录不自动继承。
-
-
