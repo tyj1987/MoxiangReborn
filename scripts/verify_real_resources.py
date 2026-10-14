@@ -4,13 +4,29 @@ verify_real_resources.py
 直接调用编译好的 mxh_explorer.exe。
 """
 
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parents[1]
-EXPLORER = WORKSPACE / "modern" / "build" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe"
 RES = WORKSPACE / "modern" / "data" / "PlayDH"
+
+
+def find_explorer() -> Path:
+    override = os.environ.get("MXH_RESOURCE_EXPLORER", "").strip()
+    candidates = [Path(override)] if override else []
+    candidates += [
+        WORKSPACE / "modern" / "build" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe",
+        WORKSPACE / "modern" / "out" / "ctest-current-20261015" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe",
+        WORKSPACE / "modern" / "out" / "ctest-current-20261014" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe",
+        WORKSPACE / "modern" / "build-unity-x64" / "tools" / "MoxianResourceExplorer" / "mxh_explorer.exe",
+    ]
+    return next((path for path in candidates if path.is_file()), candidates[0])
+
+
+EXPLORER = find_explorer()
 
 
 def run(args, timeout=60):
@@ -79,12 +95,16 @@ for p in pak_files:
         all_ok = False
         continue
     expected = expected_counts.get(p, "?")
-    # Find count in "count=N" line
+    # Older explorers print count=N; current explorers print file_item_num=N.
     for line in out.splitlines():
-        if "count=" in line:
-            count = int(line.split("count=")[1].split()[0])
+        match = re.search(r"(?:count|file_item_num)=(\d+)", line)
+        if match:
+            count = int(match.group(1))
             check(count == expected, f"{p}: count={count} (expected {expected})")
             break
+    else:
+        check(False, f"{p}: archive count missing")
+        all_ok = False
 
 # --- Test 4: extract-pak to get a real file ---
 section("Test 4: Extract tile_201_wall04.dds from Map.pak")
@@ -101,6 +121,9 @@ if extracted.exists():
     check(size == 2856, f"file size = {size} (expected 2856)")
     check(magic == b'DDS ', f"magic = {magic!r} (expected DDS )")
     print(f"  DDS magic: {magic}")
+else:
+    all_ok = False
+    check(False, "Map.pak extraction produced tile_201_wall04.dds")
 
 # --- Test 5: Extract from Effect.pak ---
 section("Test 5: Extract titan_portal_eff.mod from Effect.pak")
@@ -111,6 +134,9 @@ extracted = extract_dir2 / "titan_portal_eff.mod"
 if extracted.exists():
     print(f"  Extracted {extracted.stat().st_size} bytes")
     print(f"  First 16 bytes hex: {extracted.read_bytes()[:16].hex()}")
+else:
+    all_ok = False
+    check(False, "Effect.pak extraction produced titan_portal_eff.mod")
 
 # --- Summary ---
 print()
