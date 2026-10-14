@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "surface": "Original PlayDH level-1 Map10 combat balance regression",
+  "capturedUtc": "2026-10-14T17:20:30Z",
+  "sourceCommit": "21fe351340d5e0ec240d5aef2c0204ca6db49d5d",
+  "package": {
+    "path": "modern/out/packages/original-vm112-current-20261015.zip",
+    "sha256": "efefdff8af4ecfe32684b779865c991ed255871756ea045a38253d244f093807"
+  },
+  "stage": {
+    "vm": 112,
+    "path": "C:\\Moxiang\\original\\stage-20261015",
+    "loginPort": 16111,
+    "agentPort": 17111,
+    "mapPorts": {"10": 18111, "12": 18112, "2": 18113},
+    "database": "MoxiangOriginalTest_20261009",
+    "resourceManifest": {"fileCount": 5132, "byteCount": 1682222623, "map95Restored": true}
+  },
+  "flow": {
+    "account": "original1510",
+    "passwordRecorded": false,
+    "character": {"name": "Original151015", "chrid": 100015, "level": 1, "map": 10},
+    "mapPopulation": 228,
+    "gameInEquipment": {"slot2": 23000},
+    "serverCombat": {
+      "target": 50143,
+      "targetLife": 6150,
+      "targetDefense": 541,
+      "playerAttackRange": "29-35",
+      "observedDamage": [2, 3],
+      "hit": 1,
+      "lifeChanged": false,
+      "dropOrPickup": false
+    },
+    "clientObserved": {
+      "loginAck": true,
+      "characterCreated": true,
+      "gameInAck": true,
+      "monsterAdds": 228,
+      "skillResults": true,
+      "combatGate": "not_reached"
+    }
+  },
+  "serviceCleanup": {"isolatedStageProcessesStopped": true, "oldStageUntouched": true},
+  "releaseReady": false,
+  "interpretation": "Starter equipment is now loaded into authoritative combat stats. A level-1 character is not intended to kill the Map10 level range under the current original balance; no damage, loot, or completion was synthesized. Keep the first-playable path on the valid starter map and use the existing higher-level Map10 fixture for the original combat/drop gate until progression and map routing are completed."
+}
