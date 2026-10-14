@@ -29,7 +29,7 @@
 | G7 | UI 实时绑定 | PARTIAL | r14固定canonical的名字/等级/HP/盾/内力/地图坐标完整可读，实际像素原色正确；独立parser25/adapter5通过。全部控件、原字体和多DPI尚未通过；极端样式坐标仍有后续布局边界。 |
 | G8 | 移动、战斗、掉落与换图 | PARTIAL | 原版当前提交 `c9f5464699af7b219dfdea8a97a323903905aab0` 已在 VM112 隔离 MSSQL Map10 真实通过权威攻击→死亡→自然掉落 `item=50015`→点击拾取→背包移动→断线重登回读，怪物 228→227；同一当前 stage 又通过 Map10→Map12 `ChangeMapAck`、Map12 228 怪物/2 NPC 和重登仍在 Map12，回执 `docs/evidence/original-pve-combat-current-20261015.json`、`docs/evidence/original-pve-mapchange-current-20261015.json`。任务 1 的开始 `Quest StartAck`、活动状态和未完成 `EndNack` 恢复也已通过，回执 `docs/evidence/original-pve-quest-current-20261015.json`；目标完成/奖励领取尚未验证。1级新玩家 Map10 首战平衡、真人 GUI、装备视觉、全地图覆盖未闭合。Unity自然战斗/拾取、装备、切图和位置持久化未闭合。 |
 | G9 | 特效与音频 | 未运行 | 本轮没有配套 Player、事件轨迹和原版对照证据。 |
-| G10 | 全部资源、地图与 UI | 未通过 | 资源依赖及来源仍有缺项；本轮 PVE Map10 没有 canonical Dealer，商店目录/购买/重登无法开始，回执 `docs/evidence/original-pve-shop-current-20261015.json`；未完成全地图/功能覆盖矩阵。 |
+| G10 | 全部资源、地图与 UI | 未通过 | 资源依赖及来源仍有缺项；本轮 PVE Map10 没有 canonical Dealer，商店目录/购买/重登无法开始，回执 `docs/evidence/original-pve-shop-current-20261015.json`。工作区发现的 16 份 `Dealitem.bin` 全部同一哈希且解码后 Map10 行数为 0，来源审计 `docs/evidence/original-dealitem-map10-provenance-audit-20261015.json`；未完成全地图/功能覆盖矩阵。 |
 | G11 | RC 稳定性 | 未运行 | 未做本轮干净机器、故障注入、更新/回滚和 24 小时 soak。 |
 
 ## 分线局部证据（不升级整体验收）

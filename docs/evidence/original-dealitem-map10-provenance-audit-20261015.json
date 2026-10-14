@@ -1,0 +1,99 @@
+{
+  "kind": "original-dealitem-map10-provenance-audit",
+  "capturedUtc": "2026-10-14T20:45:54.1952457Z",
+  "sourceCommit": "c9f5464699af7b219dfdea8a97a323903905aab0",
+  "canonicalPath": "modern/data/PlayDH/Resource/Dealitem.bin",
+  "canonicalSha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+  "format": {
+    "decodedType": 42,
+    "parser": "mxh::server::parse_dealitem_bytes",
+    "decodedRows": 1162,
+    "decodedBytes": 166925,
+    "header": "MhFileHeader + crc + decoded text"
+  },
+  "map10": {
+    "canonicalDealerPresent": false,
+    "npcEntries": 0,
+    "dealerRows": 0
+  },
+  "copies": [
+    {
+      "path": "artifacts\\playdh-historical-overlay\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "isolated\\unity\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "repo\\deploy\\client\\Data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "repo\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "repo\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "repo\\reference\\legacy-source\\4dddd9a6\\SWorking\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\codex-b1d0\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\codex-b1d0\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\original-integration\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\original-integration\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\unity-integration\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\unity-integration\\modern\\deploy\\server\\Distribute\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    },
+    {
+      "path": "worktrees\\unity-integration\\modern\\out\\client-vm112-stage\\Data\\PlayDH\\Resource\\Dealitem.bin",
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "bytes": 166939
+    }
+  ],
+  "decision": "blocked",
+  "reason": "All discovered local Dealitem.bin copies are byte-identical and contain no map10 rows; no exact original map10 dealer source is available locally. Do not synthesize or copy another map resource into original 1:1.",
+  "releaseReady": false
+}

@@ -4,7 +4,7 @@
 
 在同一 VM112 原版 Map10 真实进入游戏并枚举 NPC 时，没有发现 canonical Dealer，因此商店目录请求和购买动作没有发送，进程以退出码 2 结束。回执 [`original-pve-shop-current-20261015.json`](evidence/original-pve-shop-current-20261015.json) 与日志 [`original-pve-shop-current-20261015.log`](evidence/original-pve-shop-current-20261015.log) 保留了这一失败证据；没有发生余额或背包写入。
 
-该结果把商店链明确定位为 Map10 运行时 NPC/资源缺口：需要先恢复与原版一致的 Dealer，再验证目录、扣款、入包和重登持久化，不能把工程级商店单测当作 PVE 商业验收。
+该结果把商店链明确定位为 Map10 运行时 NPC/资源缺口：需要先恢复与原版一致的 Dealer，再验证目录、扣款、入包和重登持久化，不能把工程级商店单测当作 PVE 商业验收。对工作区内 16 份 `Dealitem.bin` 的字节和解码内容复核显示它们全部为同一 SHA-256，且没有任何 Map10 行；来源审计见 [`original-dealitem-map10-provenance-audit-20261015.json`](evidence/original-dealitem-map10-provenance-audit-20261015.json)。因此当前不能用 Map12 或原创 NPC 冒充原版 Map10 资源。
 
 ## 2026-10-15 原版当前提交任务开始与未完成回执
 
