@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-14",
+  "line": "original",
+  "sourceHead": "a089ad6b22e8dc4626a217108429d612554c6726",
+  "releaseCtest": {
+    "command": "ctest --test-dir modern/build-vs-rebuild -C Release --output-on-failure -j 8",
+    "total": 12574,
+    "passed": 12574,
+    "failed": 0,
+    "skipped": 17,
+    "realTimeSeconds": 72.89
+  },
+  "package": {
+    "path": "modern/out/packages/original-vm112-release-20261014-r2.zip",
+    "sha256": "af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999",
+    "manifestSha256": "d73369562c67e7107211f00fd1f640fbbcb9be32c037fa7876ef6c5ce156e4e6"
+  },
+  "pve": {
+    "host": "192.168.2.244",
+    "stage": "C:\\Moxiang\\original\\stage-20261014",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "ports": {
+      "login": 16101,
+      "agent": 17101,
+      "map10": 18101,
+      "map12": 18102,
+      "map2": 18103
+    },
+    "resourceFiles": 5132,
+    "resourceBytes": 1682222623,
+    "resource95HflSha256": "fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746",
+    "binarySha256": {
+      "login": "81355002596f3e93be809ba9150e6b10a9b406f031b20a08ae0f57a3f0b431da",
+      "agent": "03ea891dddf2c75f48af5f8e03d3d8c83b6bb87cc0060ff8b7aae149f4cbba16",
+      "map": "c42dcf2fa468fd8127d8c64b369c9dbf3f981158046dfbae6e6c5de442bdf646"
+    },
+    "dbSchemaExit": 0,
+    "dbReadQueryExit": 0,
+    "dbCharacterRowsBeforeE2e": 13
+  },
+  "remoteE2e": {
+    "command": "mxh_client_e2e --no-spawn --login-host 192.168.2.244 --agent-host 192.168.2.244 --login-port 16101 --agent-port 17101 --map-port 18101 --map12-port 18102 --map-number 10",
+    "exit": 0,
+    "loginAck": true,
+    "characterList": true,
+    "characterSelect": true,
+    "gameInAck": true,
+    "map10Monsters": 228,
+    "cleanup": "exact stage PIDs stopped; ports 16101,17101,18101,18102,18103 verified free"
+  },
+  "scope": "PVE server/protocol evidence; human GUI, natural combat/drop/pickup, equipment, map-change/relogin, full 1:1 assets and 24h stability remain open"
+}

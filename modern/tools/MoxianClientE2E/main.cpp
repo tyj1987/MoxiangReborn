@@ -32,11 +32,13 @@
 //
 // Usage:
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
-//                  [--map-number N]
+//                  [--login-host HOST] [--agent-host HOST] [--map-host HOST]
+//                  [--login-port N] [--agent-port N] [--map-port N]
+//                  [--map12-port N] [--map-number N]
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
-//                  [--no-spawn]  # assume servers are already running
+//                  [--no-spawn]  # assume servers are already running (remote-safe)
 //                  [--account NAME] [--password-env ENV_NAME]
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
@@ -136,6 +138,10 @@ struct CliArgs {
     std::string login_host = "127.0.0.1";
     std::string agent_host;  // empty = LoginAck agent_addr, else override
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
+    int login_port = 16001;
+    int agent_port = 17001;
+    int map_port = 18001;
+    int map12_port = 18002;
     bool dump_cli = false;
     int  timeout_s = 10;
     int  map_number = 10;
@@ -222,6 +228,10 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--login-host" && i + 1 < argc) a.login_host = argv[++i];
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
+        else if (s == "--login-port" && i + 1 < argc) a.login_port = std::atoi(argv[++i]);
+        else if (s == "--agent-port" && i + 1 < argc) a.agent_port = std::atoi(argv[++i]);
+        else if (s == "--map-port" && i + 1 < argc) a.map_port = std::atoi(argv[++i]);
+        else if (s == "--map12-port" && i + 1 < argc) a.map12_port = std::atoi(argv[++i]);
         else if (s == "--map-number" && i + 1 < argc) a.map_number = std::atoi(argv[++i]);
         else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
@@ -245,6 +255,19 @@ CliArgs parse_cli(int argc, char** argv) {
             std::exit(3);
         }
         a.password = value;
+    }
+    const int ports[] = {a.login_port, a.agent_port, a.map_port, a.map12_port};
+    for (const int port : ports) {
+        if (port < 1 || port > 65535) {
+            std::fprintf(stderr, "port must be in 1..65535\n");
+            std::exit(3);
+        }
+    }
+    if (a.login_port == a.agent_port || a.login_port == a.map_port ||
+        a.login_port == a.map12_port || a.agent_port == a.map_port ||
+        a.agent_port == a.map12_port || a.map_port == a.map12_port) {
+        std::fprintf(stderr, "login, agent, map and map12 ports must be distinct\n");
+        std::exit(3);
     }
     return a;
 }
@@ -506,11 +529,11 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->name = "login";
         procs.back()->exe  = cli.login_exe;
         std::vector<std::string> login_args{
-            "--port", "16001",
+            "--port", std::to_string(cli.login_port),
             "--backend", backend_flag,
             "--db", login_db,
             "--agent-addr", "127.0.0.1",
-            "--agent-port", "17001",
+            "--agent-port", std::to_string(cli.agent_port),
             "--legacy"};
         if (cli.use_hsel) login_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", login_args);
@@ -520,15 +543,15 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
         std::vector<std::string> agent_args{
-            "--port", "17001",
+            "--port", std::to_string(cli.agent_port),
             "--backend", backend_flag,
             "--db", agent_db,
             "--legacy",
-            "--map-server", "127.0.0.1:18001",
+            "--map-server", "127.0.0.1:" + std::to_string(cli.map_port),
             "--default-map", std::to_string(cli.map_number)};
         if (cli.exercise_mapchange) {
             agent_args.emplace_back("--map-server-map");
-            agent_args.emplace_back("12=127.0.0.1:18002");
+            agent_args.emplace_back("12=127.0.0.1:" + std::to_string(cli.map12_port));
         }
         if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", agent_args);
@@ -538,7 +561,7 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->name = "map";
         procs.back()->exe  = cli.map_exe;
         std::vector<std::string> map_args{
-            "--port", "18001",
+            "--port", std::to_string(cli.map_port),
             "--backend", backend_flag,
             "--map", std::to_string(cli.map_number),
             "--db", map_db,
@@ -557,7 +580,7 @@ int run_e2e(const CliArgs& cli) {
             procs.back()->name = "map12";
             procs.back()->exe = cli.map_exe;
             std::vector<std::string> map12_args{
-                "--port", "18002",
+                "--port", std::to_string(cli.map12_port),
                 "--backend", backend_flag,
                 "--map", "12",
                 "--db", map_db,
@@ -569,25 +592,27 @@ int run_e2e(const CliArgs& cli) {
         }
 
         // Wait for the three ports.
-        if (!wait_for_port(16001, cli.timeout_s)) {
-            LOG("LoginServer failed to listen on :16001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.login_port, cli.timeout_s)) {
+            LOG("LoginServer failed to listen on :%d within %ds", cli.login_port, cli.timeout_s);
             return 1;
         }
-        if (!wait_for_port(17001, cli.timeout_s)) {
-            LOG("AgentServer failed to listen on :17001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.agent_port, cli.timeout_s)) {
+            LOG("AgentServer failed to listen on :%d within %ds", cli.agent_port, cli.timeout_s);
             return 1;
         }
-        if (!wait_for_port(18001, cli.timeout_s)) {
-            LOG("MapServer failed to listen on :18001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.map_port, cli.timeout_s)) {
+            LOG("MapServer failed to listen on :%d within %ds", cli.map_port, cli.timeout_s);
             return 1;
         }
-        if (cli.exercise_mapchange && !wait_for_port(18002, cli.timeout_s)) {
-            LOG("MapServer[12] failed to listen on :18002 within %ds", cli.timeout_s);
+        if (cli.exercise_mapchange && !wait_for_port(cli.map12_port, cli.timeout_s)) {
+            LOG("MapServer[12] failed to listen on :%d within %ds", cli.map12_port, cli.timeout_s);
             return 1;
         }
-        LOG("all 3 servers listening (login:16001, agent:17001, map:18001)");
+        LOG("all 3 servers listening (login:%d, agent:%d, map:%d)",
+            cli.login_port, cli.agent_port, cli.map_port);
     } else {
-        LOG("--no-spawn: assuming servers are already up (login:16001, agent:17001, map:18001)");
+        LOG("--no-spawn: assuming servers are already up (login:%d, agent:%d, map:%d)",
+            cli.login_port, cli.agent_port, cli.map_port);
     }
 
     // ---- CEngine + state machine ----
@@ -619,10 +644,10 @@ int run_e2e(const CliArgs& cli) {
     }
 
     // ---- Step 1: Login ----
-    LOG("[1/5] Login: CLoginState connecting to %s:16001 ...",
-        cli.login_host.c_str());
+    LOG("[1/5] Login: CLoginState connecting to %s:%d ...",
+        cli.login_host.c_str(), cli.login_port);
     mxh::client::CLoginState login;
-    login.Start(&engine, cli.login_host.c_str(), 16001, cli.account, cli.password,
+    login.Start(&engine, cli.login_host.c_str(), cli.login_port, cli.account, cli.password,
                 cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
@@ -654,10 +679,11 @@ int run_e2e(const CliArgs& cli) {
     }
 
     // ---- Step 2: CharSelect ----
-    // LoginAck advertises Agent IP+port. Spawned local servers listen on
-    // 17001 (not the legacy 7001). Remote --no-spawn runs keep LoginAck IP
-    // unless --agent-host overrides it.
-    login_result.agent_port = 17001;
+    // LoginAck advertises Agent IP+port. Spawned local servers use the
+    // explicitly selected endpoint. Remote --no-spawn runs keep LoginAck IP
+    // unless --agent-host overrides it, while the port is selected here so
+    // isolated PVE instances can be tested without touching the legacy chain.
+    login_result.agent_port = static_cast<std::uint16_t>(cli.agent_port);
     if (!cli.agent_host.empty()) {
         login_result.agent_addr = cli.agent_host;
     }
@@ -1552,7 +1578,8 @@ int main(int argc, char** argv) {
             ? "(loginack)" : cli.agent_host.c_str());
         std::fprintf(stdout, "map_host=%s\n", cli.map_host.empty()
             ? "(agentsession)" : cli.map_host.c_str());
-        std::fprintf(stdout, "login_port=16001\nagent_port=17001\nmap_port=18001\n");
+        std::fprintf(stdout, "login_port=%d\nagent_port=%d\nmap_port=%d\nmap12_port=%d\n",
+            cli.login_port, cli.agent_port, cli.map_port, cli.map12_port);
         std::fprintf(stdout, "no_spawn=%s\n", cli.no_spawn ? "true" : "false");
         return 0;
     }
