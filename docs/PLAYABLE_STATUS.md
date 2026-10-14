@@ -1,5 +1,14 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 当前原版资源准入与 PVE 协议回执
+
+当前原版分支 `codex/reorg-original-20261009` 提交 `69be72f5f3b9e20ffa8d593da91f6a7958bcd4ce`。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致。
+
+真实 `MoxianClientE2E --no-spawn` 已通过 LoginAck、AgentConnect、建角、选角、GameInAck 和 Map10 **228 个怪物**；退出码 0，日志回执为 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)，日志 SHA-256 为 `8ce7cdc1a4368efbfa49cee5d44b38c80c7ec42556b4aded944c6ff56cfda3ef`。测试账号密码只在进程内使用，没有写入证据。完成后仅按 stage 路径精确停止五个进程，五个隔离端口均已释放。
+
+UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原版 1:1 线：它们全部是 `native-authored-development-only`、`releaseReady=false` 的派生数据；原版对应路径仍为空。边界回执为 [`original-ttb-isolation-audit-20261015.json`](evidence/original-ttb-isolation-audit-20261015.json)。这次 PVE 回执只关闭当前资源包的启动与协议/GameIn 子门禁；1 级 Map10 战斗平衡、自然战斗掉落/拾取、完整原始资源覆盖、真人 GUI 和商业发布仍未闭合。
+
+
 ## 2026-10-14 原版 PVE 隔离实例复核
 
 最新复核（绑定原版提交 `f1fa3211e3cd132d09166555b140f0f22d8f458b`）：在 VM112 已保全的 `stage-20261014` 上，通过受控 WinRM 会话启动隔离端口 `16101/17101/18101/18102/18103`，真实 Release `MoxianClientE2E` 以 `mxh_s1010` 完成 LoginAck、Agent、角色列表/重列、角色选择和 Map12 GameInAck，退出码 0；技能 1817、任务 238、物品 9887、NPC 106 均加载成功。结构化回执为 `docs/evidence/original-pve-current-stage-20261014.json`，日志 SHA-256 为 `86DCBC9B3A4E8D82B8BA5B26E996F7F0FA336F3AA63A010B9274017E6B1E73C9`。同次 Map10 门禁没有通过：角色 `100012` 在库中持久化于 Map12，因此没有把 Map12 的成功误报成 Map10 228 怪物闭环。当前 stage 源仍为 `a089ad6b`，尚未部署 `f1fa3211` 服务包；真人 GUI、Map10 fixture、战斗/掉落/拾取/装备/换图重登和完整资源准入仍是开放门禁。

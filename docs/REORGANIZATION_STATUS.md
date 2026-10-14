@@ -1,5 +1,12 @@
 # 重整执行状态
 
+## 2026-10-15 当前执行回执：资源准入与分线隔离
+
+原版分支当前提交为 `69be72f5f3b9e20ffa8d593da91f6a7958bcd4ce`，GitLab 分支为 `codex/reorg-original-20261009`。VM112 的 `stage-20261015` 已在独立端口用当前服务包完成远端资源清单校验和五服启动；PlayDH 5,135 文件、1,688,281,785 字节，资源 manifest SHA-256 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。真实 E2E 完成登录→建角→选角→Map10 GameIn，收到 228 个怪物并退出码 0；回执见 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)。隔离进程已按完整路径回收，旧原版服务、Unity 服务和数据库实例未被停止。
+
+为保持两线严格分离，UnityNative 与原版缺失项同名的 10 个 TTB 已完成哈希、来源和 `releaseReady` 审计，全部拒绝进入原版 1:1 资源目录；详见 [`original-ttb-isolation-audit-20261015.json`](evidence/original-ttb-isolation-audit-20261015.json)。当前仍存在原始 TTB/HFL 缺口和 1 级 Map10 战斗前置问题，不能据此宣称商业完成。
+
+
 ## 2026-10-14 当前执行回执
 
 2026-10-14 当前原版 PVE 隔离复核已重新执行并绑定本分支提交 `f1fa3211e3cd132d09166555b140f0f22d8f458b`：在 VM112 `stage-20261014` 的 `16101/17101/18101/18102/18103` 上，真实 Release `MoxianClientE2E` 完成 LoginAck、Agent 连接、角色列表、角色重列、角色选择和 Map12 GameInAck，退出码 0；读取到 Skill 1817、Quest 238、Item 9887、NPC 106。回执为 [`original-pve-current-stage-20261014.json`](evidence/original-pve-current-stage-20261014.json)，原始日志为 `modern/out/runs/original-pve-current-stage-20261014.log`。本次 Map10 门禁未通过是因为所用角色 `100012` 在数据库中持久化于 Map12，不能把 Map12 通过误报为 Map10 228 怪物闭环；当前 PVE stage 仍来自 `a089ad6b`，尚未部署 `f1fa3211` 服务二进制，发布状态保持 `releaseReady=false`。
