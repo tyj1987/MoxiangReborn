@@ -87,3 +87,9 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 全地图/功能、完整技能数值与视听对照、隔离副本独有内容、旧库业务恢复、Windows/Unity构建CI、干净恢复、双客户端、故障恢复、更新回滚及24小时稳定性尚未闭合。达到相应门槛后才提升长期分支、删旧分支和退役剩余副本。
 
 证据根：`E:\Workspaces\moxiang\audit\2026-10-09-reorg`；私有恢复根：PVE `/vmstore/ci-backups/moxiang-reorg/20261009/`。关键入口为`original-integration/numeric-r11/`、`unity-candidate-review/`、`broker-access/`、`pc-inventory/`与`isolated-review/`。旧活动文档和测试流水的精确恢复位置见 [HISTORICAL_EVIDENCE_INDEX.md](HISTORICAL_EVIDENCE_INDEX.md)。
+## 2026-10-14 当前提交 PVE 隔离回执
+
+当前原版提交 `3bf8192065635394893d2df0b7a847aada201d53` 已封装为干净服务包（SHA-256 `491110912a2e6007e888da9a3f0f9f5f6a602f381265f4410d1acd9df0560a9d`），在 VM112 `stage-20261014` 的隔离端口 `16101/17101/18101/18102/18103` 启动五个服务。真实 Release 客户端以专用测试账号完成 Map10 登录、建角、选角、GameInAck，并收到 **228 个怪物**；同一当前包以 `mxh_s1010` 完成 Map12 GameInAck。Map10/Map12 原始日志哈希分别为 `2a58b26f2266d175ada73f9cbf7df9ad9c815bdcb53ef3dfe8db3ca568b9e093`、`682518513405f723f9ba0eebec2a06f53971998b445e9fa9043aec97993e13c8`，结构化回执见 [`original-pve-f1fa-stage-20261014.json`](evidence/original-pve-f1fa-stage-20261014.json)。
+
+专用 Map10 账号和角色在验收后已删除；隔离进程、临时包、展开目录和备份已清理，旧 stage 已恢复到 `a089ad6b22e8dc4626a217108429d612554c6726`，默认端口与旧服务未触碰。该回执关闭“当前提交 + PVE MSSQL + Map10/Map12 GameIn”子门禁，仍不等于商业发布：真人 GUI 战斗、自然掉落/拾取/装备/切图重登、缺失原版资源、全地图玩法与稳定性门禁仍开放。
+

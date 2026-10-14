@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "kind": "original-pve-current-commit-protocol-receipt",
+  "capturedUtc": "2026-10-14T13:48:00Z",
+  "sourceCommit": "3bf8192065635394893d2df0b7a847aada201d53",
+  "sourceDirty": false,
+  "package": {
+    "archiveSha256": "491110912a2e6007e888da9a3f0f9f5f6a602f381265f4410d1acd9df0560a9d",
+    "stagePath": "C:\\Moxiang\\original\\stage-20261014",
+    "resourceProfile": "playdh-current",
+    "resourceManifestSha256": "6191a0ba256bedbfd85ecd30a0f682d8ca12cb7ad5e2a8cf4565e7ef18418ff5",
+    "serviceSha256": {
+      "login": "b4ebcd4c4b3a3c597d612806253058344669a9e8646de051dec3ac2a7a2d2266",
+      "agent": "32a3f1bb4e3e840b18cb80a61fca0aa27fb2a7b4d750b97a7412a7f78d636f29",
+      "map": "cb99e088bfece9368230d89e85e9f4b702a41c3bde68348885f0dad5377ab2ab",
+      "dbtool": "581878074a8ca8339fd18dd13702ec770d370f4e472c560556cf4895a94ddca3"
+    }
+  },
+  "pve": {
+    "host": "192.168.2.244",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "isolatedPorts": {
+      "login": 16101,
+      "agent": 17101,
+      "map10": 18101,
+      "map12": 18102,
+      "map2": 18103
+    },
+    "stageSourceBefore": "a089ad6b22e8dc4626a217108429d612554c6726",
+    "stageSourceAfterRestore": "a089ad6b22e8dc4626a217108429d612554c6726",
+    "databaseFixture": {
+      "account": "mxh_map10_2610",
+      "password": "process-only; not stored in evidence",
+      "createdForMap10": true,
+      "removedAfterRun": true,
+      "characterId": 100014
+    }
+  },
+  "client": {
+    "exeSha256": "3625a266cf1f322cc5e63c39f75d67f8947b5af3346b499b81dc41caf05eea0f",
+    "map10": {
+      "account": "mxh_map10_2610",
+      "exitCode": 0,
+      "loginAck": true,
+      "agentConnect": true,
+      "characterList": true,
+      "characterCreate": true,
+      "characterSelect": true,
+      "gameInAck": true,
+      "mapNumber": 10,
+      "monsterPopulation": 228,
+      "log": "modern/out/runs/original-pve-f1fa-map10-20261014.log",
+      "logSha256": "2a58b26f2266d175ada73f9cbf7df9ad9c815bdcb53ef3dfe8db3ca568b9e093"
+    },
+    "map12": {
+      "account": "mxh_s1010",
+      "exitCode": 0,
+      "loginAck": true,
+      "agentConnect": true,
+      "characterList": true,
+      "characterSelect": true,
+      "gameInAck": true,
+      "mapNumber": 12,
+      "log": "modern/out/runs/original-pve-f1fa-map12-20261014.log",
+      "logSha256": "682518513405f723f9ba0eebec2a06f53971998b445e9fa9043aec97993e13c8"
+    }
+  },
+  "cleanup": {
+    "isolatedPortsClosed": true,
+    "temporaryStageFilesRemoved": true,
+    "stageRestored": true,
+    "defaultPortsUntouched": true,
+    "releaseReady": false,
+    "remainingGates": [
+      "真人GUI全链路验收",
+      "战斗、自然掉落、点击拾取、装备、切图和重登持久化",
+      "原版缺失10个TTB与26个HFL资源",
+      "全部地图、玩法矩阵、故障恢复和稳定性门禁"
+    ]
+  }
+}
