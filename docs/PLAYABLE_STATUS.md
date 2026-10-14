@@ -2,7 +2,7 @@
 
 ## 2026-10-14 原版 PVE 隔离实例复核
 
-当前原版工作树提交为 `34066703`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
+当前原版工作树提交为 `6a56df1c`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
 
 本轮将 Release 包 `original-vm112-release-20261014-r2.zip`（SHA-256 `af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999`）部署到 VM112 的独立 stage `C:\Moxiang\original\stage-20261014`，没有替换旧服务。该 stage 使用 PlayDH 资源 **5,132 文件、1,682,222,623 字节**；补入的 `Resource/Map/95.hfl` SHA-256 为 `fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746`。manifest SHA-256 为 `d73369562c67e7107211f00fd1f640fbbcb9be32c037fa7876ef6c5ce156e4e6`。
 
