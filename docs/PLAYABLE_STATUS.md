@@ -4,6 +4,8 @@
 
 本次回执绑定原版提交 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469` 与隔离阶段 `C:\Moxiang\original\stage-f264e8af-20261015`，不再把旧 `stage-20261015` 的 `21fe3513` 二进制当作当前源码运行证据。新阶段通过 QGA 传输并校验包 SHA-256 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`，使用 `playdh-current` 的 5,135 个资源文件。
 
+随后已按精确进程路径停止旧原版 `stage-20261015`，保留其目录作为回滚证据；当前源码阶段已提升到 VM112 默认原版端口 `16001/17001/18001/18002/18003`，Unity 端口与进程未触碰。默认端口切换收据见 [`original-pve-default-current-source-20261015.json`](evidence/original-pve-default-current-source-20261015.json)。
+
 真实 MSSQL PVE 收据完成 Map10 GameIn（228 个怪物）→Map12 ChangeMapAck→Map12 GameIn（18 个 NPC，Dealer `52/53`）→目录 18 项→购买物品 `11040`→断开重登后库存仍为 1，退出码 0。购买前先用受控金钱 fixture 证明余额不足返回 `BuyNack`，再注入 100,000 金钱完成成功路径；地图、金钱与临时购买行随后恢复/删除，隔离端口 `16211/17211/18211/18212/18213` 全部释放。结构化收据见 [`original-pve-current-source-shop-map12-20261015.json`](evidence/original-pve-current-source-shop-map12-20261015.json)、[`original-pve-current-source-mapchange-20261015.json`](evidence/original-pve-current-source-mapchange-20261015.json)，失败分类收据见 [`original-pve-shop-current-source-map12-no-money-20261015.json`](evidence/original-pve-shop-current-source-map12-no-money-20261015.json)。
 
 这关闭了当前源码在 PVE 上的 Map10→Map12 路由、Dealer 发现、商店目录、余额拒绝、购买入包和重登持久化子门禁。Map10 仍没有原始 Dealer 行，不能把 Map12 的商店 NPC 解释为 Map10 1:1 资源完成；真人 GUI、全地图资源、完整经济/社交系统和商业发布门禁仍保持 PARTIAL。

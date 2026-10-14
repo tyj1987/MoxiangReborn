@@ -4,6 +4,8 @@
 
 原版分支 `codex/reorg-original-20261009` 当前提交为 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469`。本轮将该提交构建为独立 VM112 stage `C:\Moxiang\original\stage-f264e8af-20261015`，包 SHA-256 为 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`；旧 stage 和 Unity 服务没有替换。
 
+验证完成后，旧原版 `stage-20261015` 进程已按完整路径停止但目录保留，当前源码 stage 已接管 VM112 原版默认端口 `16001/17001/18001/18002/18003`；Unity `26101/27101/28101/28202/28303/28417` 未触碰。默认端口回归收据为 `docs/evidence/original-pve-default-current-source-20261015.json`。
+
 在 CT930 `MoxiangOriginalTest_20261009` 上真实跑通 Map10→Map12、18 项商店目录、余额不足 `BuyNack`、余额充足 `BuyAck`、入包及重登持久化。临时数据库 fixture 已恢复，购买行已删除，隔离端口已释放。收据见 `docs/evidence/original-pve-current-source-shop-map12-20261015.json` 和 `docs/evidence/original-pve-current-source-mapchange-20261015.json`。
 
 旧顶部记录中绑定 `21fe3513` 的 `stage-20261015` 仅作为历史运行证据保留；本阶段结论以当前源码收据为准。Map10 原始 Dealer 资源仍缺失，不能宣称原版 1:1 商店完成。
