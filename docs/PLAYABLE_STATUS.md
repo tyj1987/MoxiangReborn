@@ -2,13 +2,21 @@
 
 ## 2026-10-14 原版 PVE 隔离实例复核
 
-当前原版工作树提交为 `5d5249448f2d22bb56066df5e86a040d1775cac8`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
+当前原版工作树提交为 `34066703`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
 
 本轮将 Release 包 `original-vm112-release-20261014-r2.zip`（SHA-256 `af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999`）部署到 VM112 的独立 stage `C:\Moxiang\original\stage-20261014`，没有替换旧服务。该 stage 使用 PlayDH 资源 **5,132 文件、1,682,222,623 字节**；补入的 `Resource/Map/95.hfl` SHA-256 为 `fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746`。manifest SHA-256 为 `d73369562c67e7107211f00fd1f640fbbcb9be32c037fa7876ef6c5ce156e4e6`。
 
 隔离三服实际运行于 `16101/17101/18101`（另起 `18102/18103` 供 Map12/Map2 路由），程序哈希分别为 Login `81355002596f3e93be809ba9150e6b10a9b406f031b20a08ae0f57a3f0b431da`、Agent `03ea891dddf2c75f48af5f8e03d3d8c83b6bb87cc0060ff8b7aae149f4cbba16`、Map `c42dcf2fa468fd8127d8c64b369c9dbf3f981158046dfbae6e6c5de442bdf646`。远端 `MoxianClientE2E --no-spawn` 以真实 GUI 状态类完成 LoginAck、Agent CharacterList、角色重列、CharacterSelect、Map10 GameInAck 和 228 个怪物实例接收，退出码 0；MSSQL 使用 CT930 的 `MoxiangOriginalTest_20261009`，schema/query 只读检查退出码 0，预检读到 13 个角色行。测试结束后仅停止本轮 stage 的精确进程并确认五个隔离端口均无监听；旧 VM100/VM112 服务、Unity 服务和主工作区未触碰。
 
 这关闭了“原版 Release 工程 + PVE MSSQL + 远端协议/GameIn”子门禁，但仍不等于真人 GUI 的自然战斗、掉落点击拾取、装备、切图重登或完整 1:1 资源验收。逐项摘要见 `docs/evidence/original-pve-vm112-20261014.json`。
+
+## 2026-10-14 原版 PVE 真实战斗闭环
+
+本轮先以新建的 1 级角色在 Map10 执行真实战斗门禁，服务器确实收到攻击并扣减护盾，但目标防御 541、角色伤害仅 2–4，目标生命未变化，未产生掉落，退出码 2。该结果确认首个玩家路径存在等级/地图前置缺口，不能通过降低怪物强度或伪造伤害掩盖。
+
+随后在同一隔离 MSSQL 测试库为专用角色 `100013` 建立可回滚的合法高等级测试 fixture，切入原始 Map2，执行真实攻击、死亡、自然掉落、点击拾取、背包移动与重登。LoginAck、角色选择、GameInAck、目标死亡、地面掉落 `item=8008`、拾取、`MoveAck source=0 target=1` 和重登持久化全部通过，客户端退出码 0，怪物数量由 128 降至 126。测试结束后恢复角色、进度、生命值和临时物品行，五个隔离端口均无监听；没有停止旧服务或修改 canonical 资源。完整回执见 `docs/evidence/original-pve-combat-20261014.json`。
+
+这关闭了“原版服务端权威战斗→自然掉落→点击拾取→背包写入→重登回读”的 PVE fixture 子门禁；1 级新玩家在 Map10 的合理首战路线、真人 GUI、装备视觉、切图位置持久化、全地图和商业发布仍保持 PARTIAL。
 
 历史基线（2026-10-10）：当时没有任何一条线通过“首个可玩”验收；历史运行记录已归档。当前结论以本文件顶部的最新回执为准；定义见下方 E0–E5，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。执行总览见 [重整状态](REORGANIZATION_STATUS.md)，旧状态恢复位置见 [历史证据索引](HISTORICAL_EVIDENCE_INDEX.md)。
 
