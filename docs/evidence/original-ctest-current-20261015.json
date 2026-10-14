@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "utc": "2026-10-15T01:00:00Z",
+  "sourceCommit": "f1fcd8523f3bc097e21af727bc75a18f112d9950",
+  "buildDirectory": "modern/out/ctest-current-20261015",
+  "configuration": "Release",
+  "configure": "cmake -S modern -B modern/out/ctest-current-20261015 -G Ninja -DCMAKE_BUILD_TYPE=Release",
+  "command": "ctest --test-dir modern/out/ctest-current-20261015 -C Release --output-on-failure -j 4",
+  "total": 12574,
+  "passed": 12574,
+  "failed": 0,
+  "skipped": 14,
+  "exitCode": 0,
+  "log": "modern/out/runs/original-ctest-current-20261015-rerun.log",
+  "logSha256": "A8A36912AE57AFFF38CE36B5C609467A7DEE3E7DF56A368BB8B14D1B71413025",
+  "fixtureFix": "Client gtest enumerated and aggregate registrations now run from CMAKE_SOURCE_DIR so InterfaceScript/sprite fixtures resolve from modern/data/PlayDH in out-of-tree builds.",
+  "scope": "Local current-source regression only; PVE, MSSQL, GUI human acceptance, missing original assets, and commercial resource coverage remain separate gates."
+}
