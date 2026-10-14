@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "kind": "original-pve-current-mapchange-receipt",
+  "capturedUtc": "2026-10-14T20:34:03.2679299Z",
+  "sourceCommit": "c9f5464699af7b219dfdea8a97a323903905aab0",
+  "sourceDirty": false,
+  "pve": {
+    "host": "192.168.2.244",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "stage": "C:\\Moxiang\\original\\stage-20261015",
+    "ports": {
+      "login": 16001,
+      "agent": 17001,
+      "map10": 18001,
+      "map12": 18002
+    }
+  },
+  "account": {
+    "account": "origpve15",
+    "password": "process-only; not stored",
+    "playerId": 100017,
+    "baselineMap": 10,
+    "restoredMap": 10,
+    "restorationQuery": "CT930 non-SA SQL readback after run"
+  },
+  "run": {
+    "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --login-port 16001 --agent-port 17001 --map-port 18001 --map12-port 18002 --map-number 10 --account origpve15 --password supplied in process only --exercise-mapchange --timeout 60",
+    "loginAck": true,
+    "characterList": true,
+    "gameInMap10": true,
+    "map10Monsters": 228,
+    "changeMapAck": true,
+    "targetMap": 12,
+    "targetMapMonsters": 228,
+    "targetMapNpcs": 2,
+    "reloginMap12": true,
+    "exitCode": 0
+  },
+  "log": {
+    "path": "docs/evidence/original-pve-mapchange-current-20261015.log",
+    "sha256": "abac49a7076516d9c49ae611c183b4e23fa3ef44e2f5deb2b2a2b4a76cfbbca4"
+  },
+  "releaseReady": false,
+  "remainingGates": [
+    "真人GUI与完整地图视觉验收",
+    "原版缺失TTB/HFL及Map203纹理",
+    "全功能经济/社交覆盖",
+    "双路线商业稳定性"
+  ]
+}

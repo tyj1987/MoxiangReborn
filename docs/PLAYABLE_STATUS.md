@@ -1,5 +1,11 @@
 # 可玩状态与分线验收
 
+## 2026-10-15 原版 Map10→Map12 切图持久化回归
+
+当前原版 VM112 stage 使用真实 MSSQL 账号 `origpve15` 完成 Map10 GameIn（228 个怪物）后发送权威 `ChangeMapSyn`，收到 Map12 `ChangeMapAck`，进入 Map12 后读到 228 个怪物和 2 个 NPC；断开并重新 GameIn 仍落在 Map12，退出码 0。测试结束后将该专用角色的持久化地图恢复为 Map10，并通过 CT930 非 SA 查询回读。证据见 [`original-pve-mapchange-current-20261015.json`](evidence/original-pve-mapchange-current-20261015.json) 和 [`original-pve-mapchange-current-20261015.log`](evidence/original-pve-mapchange-current-20261015.log)。
+
+这关闭了当前原版 PVE 的 Map10→Map12 权威路由与重登位置持久化子门禁；完整地图覆盖、真人 GUI、缺失原始资源和商业发布门禁仍保持 PARTIAL。
+
 ## 2026-10-15 原版当前提交 Map10 战斗闭环回归
 
 在 VM112 当前原版 stage `C:\Moxiang\original\stage-20261015` 上，使用隔离测试账号 `origcombat15` 和临时等级 53 角色 `Combat161015`，当前 Release `MoxianClientE2E` 真实完成 LoginAck、角色列表/选角、Map10 GameInAck、服务端权威攻击、目标死亡、自然掉落、点击拾取、背包 `MoveAck` 以及断开后的重登持久化。Map10 怪物数量由 `228` 降至 `227`，目标 `50143` 初始生命 `6150`，掉落 `drop=90000,item=50015,count=1`，退出码 0。测试账号、角色、状态、生命、装备、物品、任务和技能临时行已删除；原有角色 `100017` 回读为 level=1、Map10、基础属性 12/12/12/12、生命 125、护盾 245、MP 125、dead=0、revision=1。完整日志和结构化回执见 [`original-pve-combat-current-20261015.log`](evidence/original-pve-combat-current-20261015.log) 与 [`original-pve-combat-current-20261015.json`](evidence/original-pve-combat-current-20261015.json)。
