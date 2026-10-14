@@ -95,6 +95,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -1019,10 +1020,41 @@ int run_e2e(const CliArgs& cli) {
                 LOG("[5/5] FAIL: Map10 has no canonical dealer NPC");
                 return 2;
             }
-            game.send_move(dealer->position_x, dealer->position_z,
-                           mxh::proto::MoveProtocol::OneTarget);
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            game.Process();
+            // MapServer enforces a 5,000-unit maximum client step.  A
+            // dealer can be farther away than one wire move from the
+            // spawn point, so walk in authoritative-sized segments before
+            // sending the interaction request.  The old one-jump probe
+            // silently received MoveCorrection and then reported a shop
+            // failure even though the catalog was present.
+            const auto move_into_npc_range = [&game](std::uint16_t target_x,
+                                                      std::uint16_t target_z) {
+                constexpr float kMaxStep = 4000.0f;
+                constexpr float kStopRange = 250.0f;
+                for (int step = 0; step < 32; ++step) {
+                    const float x = game.local_x();
+                    const float z = game.local_z();
+                    const float dx = static_cast<float>(target_x) - x;
+                    const float dz = static_cast<float>(target_z) - z;
+                    const float distance = std::sqrt(dx * dx + dz * dz);
+                    if (distance <= kStopRange) break;
+                    const float length = std::min(kMaxStep,
+                                                  distance - kStopRange);
+                    const auto next_x = static_cast<std::uint16_t>(
+                        std::clamp(x + dx * length / distance, 0.0f, 65535.0f));
+                    const auto next_z = static_cast<std::uint16_t>(
+                        std::clamp(z + dz * length / distance, 0.0f, 65535.0f));
+                    game.send_move(next_x, next_z,
+                                   mxh::proto::MoveProtocol::OneTarget);
+                    game.Process();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                game.send_move(target_x, target_z,
+                               mxh::proto::MoveProtocol::OneTarget);
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                game.Process();
+            };
+            move_into_npc_range(dealer->position_x, dealer->position_z);
             LOG("[5/5] Shop: requesting canonical NPC shop catalog npc=%u ...",
                 static_cast<unsigned>(dealer->npc_id));
             game.open_shop(dealer->npc_id);
