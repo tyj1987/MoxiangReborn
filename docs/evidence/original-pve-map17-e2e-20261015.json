@@ -17,6 +17,13 @@
     "map12": 18119,
     "map_number": 17
   },
+  "quest_probe_ports": {
+    "login": 16120,
+    "agent": 17120,
+    "map": 18120,
+    "map12": 18121,
+    "map_number": 17
+  },
   "accounts": ["m17probe20261015", "m17flow20261015"],
   "credentials": "not recorded",
   "client": "MoxianClientE2E Release --no-spawn",
