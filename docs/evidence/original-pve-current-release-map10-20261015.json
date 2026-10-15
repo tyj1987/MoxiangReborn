@@ -1,0 +1,48 @@
+{
+  "schema": "moxiang.evidence.original.pve.current-release.map10.v1",
+  "date": "2026-10-15",
+  "sourceHead": "3f355242bb337c467f15692598514fa5f4ada591",
+  "package": {
+    "path": "modern/out/packages/original-vm112-release-3f355242-20261015.zip",
+    "sha256": "16377823e4fa226caaf5e77e4ce8814e88afcc5da4fb06b66e592c0a34b65440"
+  },
+  "stage": "C:\\Moxiang\\original\\stage-3f355242-20261015",
+  "resourceManifestSha256": "b651cf0f0ce10476a420c7c64ba04b4b354685cdb3f80ecbcf523a64c95d4c30",
+  "resourceFileCount": 5136,
+  "resourceByteCount": 1689474757,
+  "map17HflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a",
+  "ports": {
+    "agent": 17001,
+    "map10": 18001,
+    "login": 16001,
+    "map2": 18003,
+    "map12": 18002
+  },
+  "remoteProcessHashes": {
+    "agent": "92d137979689e7923f4e1bc23dee5afc003cdd4d416af21f8e10f018ed200b17",
+    "login": "59f974723cb7e2ab9c19da6dea4d2a06e94350190e364e71312359e8eda0f4c7",
+    "map": "bb133ece7b51d9f16dfaaff05c7d36eac85c02c1dcefeba001de158538efccc9"
+  },
+  "clientE2e": {
+    "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --login-port 16001 --agent-port 17001 --map-port 18001 --map-number 10",
+    "account": "cur3f355",
+    "character": "Cur3fMap10",
+    "exitCode": 0,
+    "gameIn": "passed",
+    "monsters": 228,
+    "log": "modern/out/runs/original-pve-current-3f355242-map10-20261015.log",
+    "logBytes": 100724,
+    "logSha256": "e4425692750b5168875e6be6c4f65dd3a759c3780fb39341015561771411fe98"
+  },
+  "map17Switch": {
+    "status": "not-run",
+    "reason": "QEMU Guest Agent became unavailable before the stop/switch command executed; no further mutation attempted",
+    "lastKnownStack": "current stage Map10 stack remained the last verified listener set"
+  },
+  "result": "current-release-pve-map10-protocol-pass",
+  "limitations": [
+    "This is headless protocol evidence, not human GUI visual/audio acceptance.",
+    "Map17 current-stage switch and full combat/pickup/relog sequence remain open.",
+    "Exact original resources remain blocked by 23 HFL, 18 TTB, Map203 161 textures and Map17 9 textures."
+  ]
+}
