@@ -9,6 +9,8 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
 - 独立 Visual Studio Debug 构建通过。
 - 完整 CTest：12,577/12,577 通过，14 项因显式 PVE/MSSQL/历史资源前置条件跳过；见
   `docs/evidence/original-clean-build-ctest-20261015.json`。
+- Release 配置也已完成独立构建并通过同一完整 CTest（12,577/12,577，14 项显式跳过）；见
+  `docs/evidence/original-release-build-ctest-20261015.json`。
 - VM112 隔离 MSSQL Map17 事件序列已完成登录、建角、选角、GameIn、216 怪物、15 NPC、技能命中、自然掉落、点击拾取、背包移动和重登回读；测试行已清理，见
   `docs/evidence/original-pve-map17-combat-current-20261015.json`。
 

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "capturedUtc": "2026-10-15T00:00:00Z",
+  "sourceCodeBaseline": "b9a52b2784fb63784916972c02b43c54bccfb321",
+  "build": {
+    "directory": "modern/build-clean-debug-20261015",
+    "generator": "Visual Studio 17 2022",
+    "configuration": "Release",
+    "command": "cmake --build modern/build-clean-debug-20261015 --config Release --parallel 8",
+    "exitCode": 0,
+    "log": "modern/out/runs/original-release-build-clean-20261015.log",
+    "logSha256": "49316C9B3ECBD971B6937C9FAC8D294DABF60C6F94B7218174D7E747A2AFE2D7",
+    "artifacts": {
+      "clientBytes": 1346560,
+      "clientE2eBytes": 1946112,
+      "loginServerBytes": 1252352
+    }
+  },
+  "ctest": {
+    "command": "ctest -j 8 -C Release --test-dir modern/build-clean-debug-20261015 --output-on-failure",
+    "total": 12577,
+    "passed": 12577,
+    "failed": 0,
+    "skipped": 14,
+    "log": "modern/out/runs/original-full-ctest-release-clean-20261015.log",
+    "logSha256": "7F47C4CEF33E1DA86EAABB38A49109A25F5593CF11C41F5ECE24DCB7C5EF4B16",
+    "exitCode": 0
+  },
+  "releaseReady": false,
+  "limitations": [
+    "PVE MSSQL, current-stage deployment, human GUI and exact original resource gates remain separate.",
+    "The 14 skips are explicit PVE/MSSQL/legacy-resource prerequisites and are not counted as passes."
+  ]
+}
