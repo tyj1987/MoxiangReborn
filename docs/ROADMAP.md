@@ -23,7 +23,7 @@
 - `docs/evidence/original-pve-fresh-starter-combat-20261015.json`：全新账号建角和首发装备写入通过；Map10 1级首战仅护盾伤害，未完成掉落/拾取。
 - `docs/evidence/original-birth-route-static-20261015.json`：恢复库 Map17/2017 静态契约。
 - `docs/evidence/original-pve-map17-e2e-20261015.json`：VM112 隔离原版端口真实完成 Map17 登录、空角色列表、建角、重列、选角和 GameIn，探针数据已清理。
-- `docs/evidence/original-resource-admission-20261015.json`：当前原版在恢复 Map17 `17.hfl` 后仍有 22 个 HFL、18 个 TTB 和 Map203 的 161 个纹理依赖阻塞；Map17 另有 9 个已使用纹理待恢复。
+- `docs/evidence/original-resource-admission-20261015.json`：当前原版在恢复 Map17 `17.hfl` 后仍有 23 个 HFL、18 个 TTB 和 Map203 的 161 个纹理依赖阻塞；Map17 另有 9 个已使用纹理待恢复。
 - `docs/evidence/original-map-pak-resource-audit-20261015.json`：四个可解析 Map.pak 候选共检查 18 个缺失 HFL/TTB 名称，均无准确条目；MoyoI 包中的原始 HFL/TTB 不关闭当前文件级缺口。
 - `docs/evidence/original-client-endpoint-regression-20261015.json`：MoxianClientE2E 默认指向 VM112 `192.168.2.244`，本机 loopback 只能通过显式参数或本地 CMake/脚本入口选择。
 - `docs/evidence/original-map17-route-wrapper-20261015.json`：VM112 当前启动包装器已提供显式 `-EnableMap17 -Map17Port 18004` profile，可追加同源 Map17 服务而不接管默认五服；尚未把它误报为视觉资源完成。
