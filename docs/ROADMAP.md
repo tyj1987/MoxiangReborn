@@ -1,6 +1,6 @@
 # Moxiang 开发路线图
 
-本路线图绑定当前分支提交和可复现证据。`main` 优先完成 modern DX11 原版资源线；`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
+本路线图绑定当前分支提交和可复现证据。原版候选最近已验证代码基线为 `5b7d78be`，Unity 候选当前为 `3d68eb38`；`main` 仍不是现代客户端基线，`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
 
 ## 当前优先级
 
@@ -24,6 +24,8 @@
 - `docs/evidence/original-birth-route-static-20261015.json`：恢复库 Map17/2017 静态契约。
 - `docs/evidence/original-pve-map17-e2e-20261015.json`：VM112 隔离原版端口真实完成 Map17 登录、空角色列表、建角、重列、选角和 GameIn，探针数据已清理。
 - `docs/evidence/original-resource-admission-20261015.json`：当前原版在恢复 Map17 `17.hfl` 后仍有 22 个 HFL、18 个 TTB 和 Map203 的 161 个纹理依赖阻塞；Map17 另有 9 个已使用纹理待恢复。
+- `docs/evidence/original-map-pak-resource-audit-20261015.json`：四个可解析 Map.pak 候选共检查 18 个缺失 HFL/TTB 名称，均无准确条目；MoyoI 包中的原始 HFL/TTB 不关闭当前文件级缺口。
+- `docs/evidence/original-client-endpoint-regression-20261015.json`：MoxianClientE2E 默认指向 VM112 `192.168.2.244`，本机 loopback 只能通过显式参数或本地 CMake/脚本入口选择。
 
 ## 交付顺序
 

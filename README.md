@@ -8,13 +8,13 @@
 
 [ROADMAP.md](ROADMAP.md) → [重整状态](docs/REORGANIZATION_STATUS.md) → [原版状态](docs/PLAYABLE_STATUS.md) / [Unity 状态](docs/UNITY_REMASTER_STATUS.md) / [验收矩阵](docs/VERIFICATION_MATRIX.md)。历史 PASS 只用于定位，不能代替当前版本验收。
 
-GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。远端和分支统一尚未完成。
+GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。原版候选 `codex/reorg-original-20261009` 的最近已验证代码基线 `5b7d78be` 已在 GitLab/GitHub 双端一致；Unity 候选 `codex/reorg-unity-20261009` 在 GitLab 为 `3d68eb38`，GitHub 长期分支仍停在祖先 `b751df25`，大包镜像推送因远端断开暂未完成，不能宣称双端完全同步。
 
-当前原版候选位于 E:\Workspaces\moxiang\worktrees\original-integration，基于 runtime 89a11b36；旧 main 尚不是现代客户端基线。Unity 工作区的现有修改已保全，未整体合并。
+当前原版候选位于 E:\Workspaces\moxiang\worktrees\original-integration，最近已验证代码基线为 `5b7d78be`；旧 `main` 尚不是现代客户端基线。Unity 工作区位于 E:\Workspaces\moxiang\worktrees\unity-integration，当前提交为 `3d68eb38`，两线未整体合并。
 
 每线使用自己的工作树、构建输出、日志和运行配置。工具链为 Visual Studio C++、CMake、Python，Unity 沿用项目声明的 Editor 版本。启动说明以候选工作树的 docs/HUMAN_ACCEPTANCE.md 为准，必须明确连接 PVE，不隐式启动本机三服或数据库。
 
-原版使用 modern/data/PlayDH 的 playdh-current 原资源，按完整哈希清单核对。Unity 导入结果及重制美术独立存放，禁止回写。原资源缺失项不能用替代美术宣称 1:1。
+原版使用 modern/data/PlayDH 的 playdh-current 原资源，按完整哈希清单核对；Map17 准确 `17.hfl` 已恢复，但 9 个使用纹理仍缺失，原版还剩 22 个 HFL、18 个 TTB 文件级缺口。Unity 导入结果及重制美术独立存放，禁止回写。原资源缺失项不能用替代美术宣称 1:1。
 
 ## 技术参考
 
