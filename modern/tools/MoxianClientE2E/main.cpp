@@ -46,6 +46,10 @@
 //                  [--init-schema]    apply schema before spawning
 //                  [--use-hsel]       run the whole chain HSEL-encrypted
 //
+// The default LoginServer endpoint is VM112 (192.168.2.244).  Select a local
+// chain explicitly with --login-host 127.0.0.1; MXH_LOGIN_HOST is supported
+// for non-secret environment configuration and is overridden by the CLI.
+//
 // MSSQL single-command example (Phase P0; LocalDB):
 //   mxh_client_e2e --backend mssql_odbc --init-schema
 //   (defaults to host=(localdb)\MSSQLLocalDB, database=Moxiang)
