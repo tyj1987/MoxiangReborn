@@ -22,6 +22,7 @@
 
 - 原资源基线和派生叠加层已经分离；当前源清单精确性检查通过，不等于所有地图可玩。原版线已从原始 `Map.pak` 恢复并验证 `Resource/Map/3.hfl`、`Resource/Map/17.hfl`、`Resource/Map/95.hfl`、`Resource/Map/198.hfl`、`Resource/Map/203.hfl`；当前余量为 22 个 HFL、18 个 TTB。Map17 另有 9 个已使用纹理缺失，Map203 另有 161 个配套纹理依赖缺失。准确版本缺失必须保留阻塞，不能用替代美术宣称 1:1。
 - 当前原版线仍有 **40 个文件级 HFL/TTB 缺口（22 个 HFL、18 个 TTB）**；Map17 的 `17.hfl` 已恢复但 9 个使用纹理未恢复，已恢复的 Map3/17/95/198/203 不代表 Map10 或全地图缺口为零，Map44 仍缺少准确的 `Resource/Map/44.hfl`，Map203 另有 161 个配套纹理依赖缺失。原创武馆场景不能替代原始地形；全地图目标范围还需按原版配置核验，未证明任何缺项可降级。UnityNative 与原版同名的 10 个 TTB 已明确拒绝进入原版 1:1 线，见 `docs/evidence/original-ttb-isolation-audit-20261015.json`。Unity 重制线的独立基线仍按自身阻塞记录，不能由原版线的恢复自动继承。恢复文件的来源、哈希和验证见 `reference/manifests/95.hfl.provenance.json`、`reference/manifests/3-198-203.hfl.provenance.json` 及本轮审计记录。
+- 本轮对本机发现的五个 Map.pak 候选（含 D:/MX 与 D:/MoyoI）重新列包并抽取 Map17 HFL；9 个 `tile_17_mou_a_01..09` 均未作为准确纹理条目出现。结果见 `docs/evidence/original-map17-texture-source-search-20261015.json`；在找到准确来源前，Map17 不进入 1:1 视觉发布门禁。
 - BMHM/TTB/HFL/STM、天空和环境语义、角色动作、BEFF/BEFL/Effect.pak 触发、WAV/空间音效及全地图视觉音频对照尚未闭合。
 - `playdh-current` 的服务器资源编码与旧 `mhfileex-classic-rxmso` 配置不同；小型或非标准条目需要按实际配置验证，不能静默改用旧版解码。历史 Map10→Map12 和 Map101 地形缺失记录只作定位，不沿用其通过或数量结论。
 - 掉落表应使用经当前格式校验的入口；历史 `Resource/Server/MonsterDropItemList*.bin` 被识别为 AIGroup 的记录仍需作为防止错误回退的依据，不可仅因字节可读就启用。

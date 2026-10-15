@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-10-15",
+  "map": 17,
+  "requiredTextures": [
+    "tile_17_mou_a_01.dds",
+    "tile_17_mou_a_02.dds",
+    "tile_17_mou_a_03.dds",
+    "tile_17_mou_a_04.dds",
+    "tile_17_mou_a_05.dds",
+    "tile_17_mou_a_06.dds",
+    "tile_17_mou_a_07.dds",
+    "tile_17_mou_a_08.dds",
+    "tile_17_mou_a_09.dds"
+  ],
+  "result": "not_found_as_pack_entries",
+  "policy": "Do not admit renamed, substituted, or Unity-derived textures into the original 1:1 line.",
+  "candidates": [
+    {"path": "modern/data/PlayDH/Map.pak", "bytes": 584312358, "hflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a", "exactTextureEntries": false},
+    {"path": "D:/MX/client-legacy/Map.pak", "bytes": 584312358, "hflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a", "exactTextureEntries": false},
+    {"path": "D:/MoyoI/墨香源启/Map.pak", "bytes": 693761626, "hflSha256": "2cd9795b1d85715c4c68461b13347ab720c73793b12a41dc78d3cb07a415e5b8", "exactTextureEntries": false},
+    {"path": "D:/MoyoI/��ī��/Map.pak", "bytes": 637009180, "hflSha256": "2cd9795b1d85715c4c68461b13347ab720c73793b12a41dc78d3cb07a415e5b8", "exactTextureEntries": false},
+    {"path": "D:/MX/client/Package/3DData/Map.pak", "bytes": 1135536849, "hflSha256": null, "exactTextureEntries": false, "note": "Different package header/index; contains other tile_17 DDS names but no required mou_a names."}
+  ],
+  "verification": {
+    "tool": "modern/build-quest-x64/tools/MoxianResourceExplorer/Release/mxh_explorer.exe",
+    "commands": ["list <candidate>/Map.pak", "extract-pak <candidate>/Map.pak 17.hfl", "hfl 17.hfl"],
+    "dependencyAudit": "modern/tools/audit_map_dependencies.py 17",
+    "currentAuditMissingCount": 9
+  }
+}

@@ -33,3 +33,5 @@ A 保全与远端恢复 → B 双线干净构建 → C PVE 独立服务/数据�
 ### Map17 原始资源进展
 
 Map17 的准确原始 `17.hfl` 已从当前 `Map.pak` 恢复并纳入原版 canonical 资源；剩余门禁收窄为 9 个使用中的地形纹理及运行路线验证。下一步优先恢复这些纹理的准确公开/原包来源，再启动隔离 Map17 服务和新账号出生验收。
+
+本轮已复核本机五个 Map.pak 候选，9 个 `tile_17_mou_a_01..09` 仍没有准确包条目；来源搜索回执为 [`original-map17-texture-source-search-20261015.json`](evidence/original-map17-texture-source-search-20261015.json)。
