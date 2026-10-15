@@ -158,6 +158,6 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 ### 2026-10-15 Map17 隔离出生协议通过
 
-在 VM112 原版 stage `stage-f264e8af-20261015` 上，临时端口 `16117/17117/18117` 使用真实 Release `MoxianClientE2E --no-spawn` 完成 LoginAck、空角色列表、CharacterMake、重列、Map17 选角和 GameInAck；随后用 `16118/17118/18118/18119` 完成 Map17→Map12 的 ChangeMapAck、Map12 GameInAck 和新 GameIn 重登路由。玩家 `100018` 为 1 级、生命 `131/131`、Map17 首次进入成功，Map12 读回包含 216 个怪物和 31 个 NPC。两个探针账号、角色、状态、生命、装备、物品、任务和技能行均已清理为 0，临时端口已释放，`16001/17001/18001/18002/18003` 与 Unity `26101/27101/28101` 保持不变。结构化回执见 [`original-pve-map17-e2e-20261015.json`](evidence/original-pve-map17-e2e-20261015.json)。
+在 VM112 原版 stage `stage-f264e8af-20261015` 上，临时端口 `16117/17117/18117` 使用真实 Release `MoxianClientE2E --no-spawn` 完成 LoginAck、空角色列表、CharacterMake、重列、Map17 选角和 GameInAck；随后用 `16118/17118/18118/18119` 完成 Map17 任务 1 的 StartAck/未完成 EndNack、Map17→Map12 的 ChangeMapAck、Map12 GameInAck 和新 GameIn 重登路由。玩家 `100018` 为 1 级、生命 `131/131`、Map17 首次进入成功，Map12 读回包含 216 个怪物和 31 个 NPC。两个探针账号、角色、状态、生命、装备、物品、任务和技能行均已清理为 0，临时端口已释放，`16001/17001/18001/18002/18003` 与 Unity `26101/27101/28101` 保持不变。结构化回执见 [`original-pve-map17-e2e-20261015.json`](evidence/original-pve-map17-e2e-20261015.json)。
 
-这只关闭了 Map17 的登录、建角、选角、首次 GameIn 以及 Map17→Map12 路由子门禁；九个准确地形纹理、移动、任务、战斗、自然掉落、拾取、装备、完整重登持久化、真人 GUI 和视觉 1:1 仍未闭合。
+这只关闭了 Map17 的登录、建角、选角、首次 GameIn、任务开始/未完成拒绝以及 Map17→Map12 路由子门禁；九个准确地形纹理、移动、战斗、自然掉落、拾取、装备、完整重登持久化、真人 GUI 和视觉 1:1 仍未闭合。
