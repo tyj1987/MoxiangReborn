@@ -35,6 +35,7 @@ add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e
     --login-exe $<TARGET_FILE:mxh_login_server>
     --agent-exe $<TARGET_FILE:mxh_agent_server_CHINA>
     --map-exe $<TARGET_FILE:mxh_map_server_CHINA>
+    --login-host 127.0.0.1
 )
 set_tests_properties(MoxianClientE2E PROPERTIES
     TIMEOUT 60

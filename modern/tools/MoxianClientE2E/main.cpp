@@ -136,9 +136,14 @@ struct CliArgs {
     std::string account = "mxh_e2e";
     std::string password = "Pass1234";
     std::string password_env;
-    std::string login_host = "127.0.0.1";
+    // Remote PVE is the authoritative test environment.  Local loopback is
+    // still available, but must be selected explicitly with --login-host
+    // (or MXH_LOGIN_HOST) so a remote run can never silently fall back to a
+    // local three-server chain.
+    std::string login_host = "192.168.2.244";
     std::string agent_host;  // empty = LoginAck agent_addr, else override
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
+    bool login_host_explicit = false;
     int login_port = 16001;
     int agent_port = 17001;
     int map_port = 18001;
@@ -226,7 +231,10 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
         else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
         else if (s == "--password-env" && i + 1 < argc) a.password_env = argv[++i];
-        else if (s == "--login-host" && i + 1 < argc) a.login_host = argv[++i];
+        else if (s == "--login-host" && i + 1 < argc) {
+            a.login_host = argv[++i];
+            a.login_host_explicit = true;
+        }
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
         else if (s == "--login-port" && i + 1 < argc) a.login_port = std::atoi(argv[++i]);
@@ -246,6 +254,12 @@ CliArgs parse_cli(int argc, char** argv) {
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
+        }
+    }
+    if (!a.login_host_explicit) {
+        const char* host = std::getenv("MXH_LOGIN_HOST");
+        if (host != nullptr && *host != '\0') {
+            a.login_host = host;
         }
     }
     if (!a.password_env.empty()) {

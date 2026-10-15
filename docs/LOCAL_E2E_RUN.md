@@ -21,7 +21,7 @@ $login = Start-Process (Join-Path $build 'MoxianLoginServer/mxh_login_server.exe
 $agent = Start-Process (Join-Path $build 'MoxianAgentServer/mxh_agent_server_CHINA.exe') -ArgumentList '--port','17001','--backend','sqlite','--db',(Join-Path $runRoot 'game.db'),'--legacy','--map-server','127.0.0.1:18001' -PassThru
 $map = Start-Process (Join-Path $build 'MoxianMapServer/mxh_map_server_CHINA.exe') -ArgumentList '--port','18001','--backend','sqlite','--db',(Join-Path $runRoot 'game.db'),'--map','10','--legacy' -PassThru
 try {
-  & (Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe') --no-spawn --backend sqlite --db (Join-Path $runRoot 'game.db') --map-number 10 --timeout 30
+  & (Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe') --no-spawn --login-host 127.0.0.1 --backend sqlite --db (Join-Path $runRoot 'game.db') --map-number 10 --timeout 30
   if ($LASTEXITCODE -ne 0) { throw "E2E failed with exit code $LASTEXITCODE" }
 } finally {
   foreach ($p in @($login,$agent,$map)) { if ($p -and -not $p.HasExited) { Stop-Process -Id $p.Id -Force } }
@@ -38,7 +38,7 @@ Provide the connection string through a protected environment/secret store;
 never put credentials in a command line, tracked file, or log. Then run:
 
 ```powershell
-& (Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe') --no-spawn --backend mssql_odbc --init-schema --db $env:MXH_MSSQL_E2E --map-number 10 --timeout 30
+& (Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe') --no-spawn --login-host 192.168.2.244 --backend mssql_odbc --init-schema --db $env:MXH_MSSQL_E2E --map-number 10 --timeout 30
 ```
 
 `MXH_MSSQL_E2E` is operator-supplied and is not persisted by the client. If it
