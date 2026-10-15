@@ -27,5 +27,20 @@
     "commands": ["list <candidate>/Map.pak", "extract-pak <candidate>/Map.pak 17.hfl", "hfl 17.hfl"],
     "dependencyAudit": "modern/tools/audit_map_dependencies.py 17",
     "currentAuditMissingCount": 9
+  },
+  "falsePositiveReview": {
+    "candidate": "D:/MoyoI/墨香源启/Map.pak",
+    "rawByteMatches": "tile_17_mou_a_01..09 appear inside the embedded 17.hfl texture-name table",
+    "entryListMatches": 0,
+    "extractAttempt": {
+      "entry": "tile_17_mou_a_01.tga",
+      "result": "entry_not_found"
+    },
+    "controlEntry": {
+      "entry": "tile_17_nanju_01.dds",
+      "result": "extractable",
+      "bytes": 2856
+    },
+    "conclusion": "The raw strings are HFL dependency references, not texture payload entries; no exact mou_a texture was admitted."
   }
 }
