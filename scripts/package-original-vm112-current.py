@@ -86,6 +86,11 @@ def main() -> None:
         "deploy/resource-profiles.json": ROOT / "deploy/resource-profiles.json",
         "deploy/VM112_STAGE.md": ROOT / "deploy/VM112_STAGE.md",
         "reference/manifests/playdh-current.sha256.json": ROOT / "reference/manifests/playdh-current.sha256.json",
+        # The current canonical tree contains this recovered Map17 heightfield
+        # outside the four LFS packs.  Include it explicitly so a PVE stage
+        # cloned from an older resource tree can be brought to the exact
+        # current resource manifest without silently borrowing a stale file.
+        "modern/data/PlayDH/Resource/Map/17.hfl": RESOURCE_ROOT / "Resource/Map/17.hfl",
     }
     missing = [str(src) for src in mappings.values() if not src.is_file()]
     if missing:
