@@ -49,6 +49,10 @@ G8 仍为 PARTIAL。`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 修复了预载�
 
 | G9 | 真实全新账号建角与首发装备持久化 | PASS | 2026-10-15 | CharacterMake/GameIn 读回装备与生命；清理后账号/角色/identity 为 0 | Map10 1级首战仅护盾伤害，原始起始地图路线待核对 |
 
-| G10 | 原始出生路线静态契约 | PASS (静态) | 2026-10-15 | 恢复库过程明确 Map17/2017，LoginPoint 版本绑定已记录 | 准确 17.hfl 缺失，Map17 运行/GUI/首战未通过 |
-| G11 | Map17 原始 HFL 恢复 | PASS (资源) | 2026-10-15 | 从原版 Map.pak entry 240 提取，SHA-256 校验，HFL 解析通过 | 9 个使用纹理缺失；Map17 服务/建角/GameIn/视觉未通过 |
+| G10 | 原始出生路线静态契约 | PASS (静态) | 2026-10-15 | 恢复库过程明确 Map17/2017，LoginPoint 版本绑定已记录；隔离 PVE 建角/GameIn 已通过 | 移动、玩法、GUI 和持久化尚未闭合 |
+| G11 | Map17 原始 HFL 恢复 | PASS (资源) | 2026-10-15 | 从原版 Map.pak entry 240 提取，SHA-256 校验，HFL 解析通过；隔离服务真实加载并完成 GameIn | 9 个使用纹理缺失；视觉 1:1 尚未通过 |
 | G12 | Map17 纹理来源复核 | PASS (审计) | 2026-10-15 | 五个本机 Map.pak 候选重新列包，9 个 `tile_17_mou_a_01..09` 均未找到准确条目 | 仍需准确原包或合规公开来源；不得以重命名/替代纹理关闭原版门禁 |
+
+### 2026-10-15 Map17 隔离 PVE 协议增量
+
+`docs/evidence/original-pve-map17-e2e-20261015.json` 记录了 VM112 临时端口 `16117/17117/18117` 的真实 `MoxianClientE2E --no-spawn` 结果：LoginAck、空角色列表、CharacterMake、重列、Map17 CharacterSelect 和 Map17 GameInAck 全部通过，玩家生命 `131/131`。探针账号及角色相关行已清理为 0，临时端口已释放，原版和 Unity 默认服务端口保持监听。该证据只关闭 Map17 协议/出生子门禁，不升级 G8/G10 为完整玩法或视觉通过。
