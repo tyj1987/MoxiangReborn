@@ -27,6 +27,7 @@
 - `docs/evidence/original-map-pak-resource-audit-20261015.json`：四个可解析 Map.pak 候选共检查 18 个缺失 HFL/TTB 名称，均无准确条目；MoyoI 包中的原始 HFL/TTB 不关闭当前文件级缺口。
 - `docs/evidence/original-client-endpoint-regression-20261015.json`：MoxianClientE2E 默认指向 VM112 `192.168.2.244`，本机 loopback 只能通过显式参数或本地 CMake/脚本入口选择。
 - `docs/evidence/original-map17-route-wrapper-20261015.json`：VM112 当前启动包装器已提供显式 `-EnableMap17 -Map17Port 18004` profile，可追加同源 Map17 服务而不接管默认五服；尚未把它误报为视觉资源完成。
+- docs/evidence/original-map17-local-e2e-20261015.json：当前提交本地 SQLite/三服完成 Map17 登录、建角、重列、选角和 GameIn，观察到 192 个怪物实体；这是工程门禁，不替代 PVE MSSQL、GUI、战斗掉落拾取或持久化验收。
 
 ## 交付顺序
 
@@ -39,3 +40,4 @@ A 保全与远端恢复 → B 双线干净构建 → C PVE 独立服务/数据�
 Map17 的准确原始 `17.hfl` 已从当前 `Map.pak` 恢复并纳入原版 canonical 资源；隔离 PVE 已通过新账号登录、建角、选角和首次 GameIn。剩余门禁为 9 个使用中的地形纹理，以及移动、玩法和持久化验收。
 
 本轮已复核本机五个 Map.pak 候选，9 个 `tile_17_mou_a_01..09` 仍没有准确包条目；来源搜索回执为 [`original-map17-texture-source-search-20261015.json`](evidence/original-map17-texture-source-search-20261015.json)。
+
