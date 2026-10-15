@@ -1,6 +1,6 @@
 # Moxiang 开发路线图
 
-本路线图绑定当前分支提交和可复现证据。原版候选当前已验证提交为 `d0671f99`，Unity 候选当前为 `bde5048c`；`main` 仍不是现代客户端基线，`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
+本路线图绑定当前分支提交和可复现证据。原版候选当前已验证提交为 `f5bb07e1`，Unity 候选当前为 `e2c60212`；`main` 仍不是现代客户端基线，`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
 
 ## 当前优先级
 
@@ -29,6 +29,7 @@
 - `docs/evidence/original-map17-route-wrapper-20261015.json`：VM112 当前启动包装器已提供显式 `-EnableMap17 -Map17Port 18004` profile，可追加同源 Map17 服务而不接管默认五服；尚未把它误报为视觉资源完成。
 - docs/evidence/original-map17-local-e2e-20261015.json：当前提交本地 SQLite/三服完成 Map17 登录、建角、重列、选角和 GameIn，观察到 192 个怪物实体；这是工程门禁，不替代 PVE MSSQL、GUI、战斗掉落拾取或持久化验收。
 - docs/evidence/original-pve-map17-combat-current-20261015.json：隔离 VM112 MSSQL Map17 事件序列已完成登录、Map17 GameIn、216 怪物/15 NPC、权威技能命中、自然掉落 `50402`、点击拾取、背包移动和重登回读；测试账号与临时行已清理，默认五服未触碰。WinRM 原生 stderr 管道未捕获可靠进程退出码，因此保留为事件序列通过而非完整命令退出门禁。
+- docs/evidence/original-debug-targeted-tests-20261015.json：当前原版工作树对资源解析、效果运行时、技能/经验曲线、文件存储和本地 E2E 的 51 项 Debug CTest 全部通过；完整注册集仍受旧 NMake 构建目录缺失的 server/portal 可执行文件及 RenderDemo 缺失影响，不能宣称完整 ctest 通过。
 - docs/evidence/original-focused-regression-20261015.json：提交 d652b185 的服务端 handler 161/161 与客户端 CTest 2/2（E2E、DumpCli）通过；仅为当前源码回归，未替代 PVE/MSSQL/GUI/完整资源门禁。
 
 ## 交付顺序
