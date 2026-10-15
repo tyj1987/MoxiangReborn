@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-15T00:00:00Z",
+  "sourceCommit": "2246f1bf",
+  "purpose": "Prevent client E2E runs from silently using loopback when PVE is required",
+  "change": {
+    "defaultLoginHost": "192.168.2.244",
+    "environmentOverride": "MXH_LOGIN_HOST",
+    "cliOverride": "--login-host",
+    "localCmakeTest": "--login-host 127.0.0.1",
+    "localDocumentation": "docs/LOCAL_E2E_RUN.md now supplies an explicit endpoint"
+  },
+  "build": {
+    "command": "cmake --build modern/build-quest-x64 --config Release --target mxh_client_e2e --parallel 4",
+    "result": "passed",
+    "executable": "modern/build-quest-x64/tools/MoxianClientE2E/Release/mxh_client_e2e.exe"
+  },
+  "checks": [
+    {
+      "command": "mxh_client_e2e --dump-cli",
+      "result": "passed",
+      "observedLoginHost": "192.168.2.244"
+    },
+    {
+      "command": "MXH_LOGIN_HOST=10.0.0.8 mxh_client_e2e --dump-cli",
+      "result": "passed",
+      "observedLoginHost": "10.0.0.8"
+    },
+    {
+      "command": "mxh_client_e2e --dump-cli --login-host 127.0.0.1",
+      "result": "passed",
+      "observedLoginHost": "127.0.0.1"
+    },
+    {
+      "command": "ctest --test-dir modern/build-quest-x64 -C Release --output-on-failure -R MoxianClientE2EDumpCli",
+      "result": "passed",
+      "tests": "2/2"
+    }
+  ],
+  "interpretation": "PVE endpoint selection is explicit and loopback remains available only through an explicit local CLI/test configuration."
+}
