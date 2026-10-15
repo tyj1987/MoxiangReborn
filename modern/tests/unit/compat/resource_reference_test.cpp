@@ -77,6 +77,7 @@ struct Ref {
 
 // These are the immutable canonical PlayDH bytes used by the 1:1 build.
 const Ref refs[] = {
+    {L"Map/17.hfl", "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a", 1192972},
     {L"SkillList.bin",  "9b5d1fac408c610252e419f6c55b12e3bc38f9ed436fdebbdc01ec664da906b7", 769649},
     {L"MonsterList.bin", "fb7ee93e66ea9321577fe4a5031e98689d346b6fdbd5852e05d69ad7a952eebe", 142234},
     {L"ItemList.bin",   "07d25fb98ee7f02aae3b5950ab4472847742d989775078985576c7c94a3957bd", 1510488},
