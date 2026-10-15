@@ -1,6 +1,6 @@
 # Moxiang 开发路线图
 
-本路线图绑定当前分支提交和可复现证据。原版候选最近已验证代码基线为 `5b7d78be`，Unity 候选当前为 `3d68eb38`；`main` 仍不是现代客户端基线，`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
+本路线图绑定当前分支提交和可复现证据。原版候选当前已验证提交为 `d0671f99`，Unity 候选当前为 `bde5048c`；`main` 仍不是现代客户端基线，`codex/unity-client-remaster` 保持独立。服务端与数据库只在 PVE 验证，客户端在本机验证。
 
 ## 当前优先级
 
@@ -41,5 +41,6 @@ A 保全与远端恢复 → B 双线干净构建 → C PVE 独立服务/数据�
 Map17 的准确原始 `17.hfl` 已从当前 `Map.pak` 恢复并纳入原版 canonical 资源；隔离 PVE 已通过新账号登录、建角、选角和首次 GameIn。剩余门禁为 9 个使用中的地形纹理，以及移动、玩法和持久化验收。
 
 本轮已复核本机五个 Map.pak 候选，9 个 `tile_17_mou_a_01..09` 仍没有准确包条目；来源搜索回执为 [`original-map17-texture-source-search-20261015.json`](evidence/original-map17-texture-source-search-20261015.json)。
+
 
 

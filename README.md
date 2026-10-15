@@ -8,9 +8,9 @@
 
 [ROADMAP.md](ROADMAP.md) → [重整状态](docs/REORGANIZATION_STATUS.md) → [原版状态](docs/PLAYABLE_STATUS.md) / [Unity 状态](docs/UNITY_REMASTER_STATUS.md) / [验收矩阵](docs/VERIFICATION_MATRIX.md)。历史 PASS 只用于定位，不能代替当前版本验收。
 
-GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。原版候选 `codex/reorg-original-20261009` 的最近已验证代码基线 `5b7d78be` 已在 GitLab/GitHub 双端一致；Unity 候选 `codex/reorg-unity-20261009` 在 GitLab 为 `3d68eb38`，GitHub 长期分支仍停在祖先 `b751df25`，大包镜像推送因远端断开暂未完成，不能宣称双端完全同步。
+GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。原版候选 `codex/reorg-original-20261009` 的当前已验证代码基线 `d0671f99` 已在 GitLab/GitHub 双端一致；Unity 候选 `codex/reorg-unity-20261009` 在 GitLab 为 `3d68eb38`，GitHub 长期分支仍停在祖先 `b751df25`，大包镜像推送因远端断开暂未完成，不能宣称双端完全同步。
 
-当前原版候选位于 E:\Workspaces\moxiang\worktrees\original-integration，最近已验证代码基线为 `5b7d78be`；旧 `main` 尚不是现代客户端基线。Unity 工作区位于 E:\Workspaces\moxiang\worktrees\unity-integration，当前提交为 `3d68eb38`，两线未整体合并。
+当前原版候选位于 E:\Workspaces\moxiang\worktrees\original-integration，当前已验证代码基线为 `d0671f99`；旧 `main` 尚不是现代客户端基线。Unity 工作区位于 E:\Workspaces\moxiang\worktrees\unity-integration，当前提交为 `3d68eb38`，两线未整体合并。
 
 每线使用自己的工作树、构建输出、日志和运行配置。工具链为 Visual Studio C++、CMake、Python，Unity 沿用项目声明的 Editor 版本。启动说明以候选工作树的 docs/HUMAN_ACCEPTANCE.md 为准，必须明确连接 PVE，不隐式启动本机三服或数据库。
 
@@ -26,3 +26,4 @@ GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.c
 - [资源来源与许可](docs/ASSET_LICENSE_LEDGER.md)
 
 原始源码和配套资源是只读基准。感谢原《墨香》研发团队、资源格式分析社区及所用开源项目的贡献。
+
