@@ -8,6 +8,10 @@
     "environmentOverride": "MXH_LOGIN_HOST",
     "cliOverride": "--login-host",
     "localCmakeTest": "--login-host 127.0.0.1",
+    "localHarnesses": [
+      "scripts/commercial-smoke.ps1 --login-host 127.0.0.1",
+      "scripts/soak-24h.ps1 --no-spawn --login-host 127.0.0.1"
+    ],
     "localDocumentation": "docs/LOCAL_E2E_RUN.md now supplies an explicit endpoint"
   },
   "build": {

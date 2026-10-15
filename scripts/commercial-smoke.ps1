@@ -39,7 +39,7 @@ $e2eExe = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
 if ($SkipMssql) {
     Write-Host "MSSQL_E2E SKIPPED (explicit -SkipMssql; external prerequisite not satisfied)" -ForegroundColor Yellow
 } elseif (Test-Path -LiteralPath $e2eExe) {
-    & $e2eExe --backend mssql_odbc --init-schema
+    & $e2eExe --login-host 127.0.0.1 --backend mssql_odbc --init-schema
     if ($LASTEXITCODE -ne 0) {
         throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
     }
