@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "generatedUtc": "2026-10-15T06:00:00Z",
+  "sourceHead": "3f355242bb337c467f15692598514fa5f4ada591",
+  "packageSha256": "16377823e4fa226caaf5e77e4ce8814e88afcc5da4fb06b66e592c0a34b65440",
+  "remoteStage": "C:\\Moxiang\\original\\stage-3f355242-20261015",
+  "topology": {
+    "databaseHost": "192.168.2.238",
+    "login": "192.168.2.244:16001",
+    "agent": "192.168.2.244:17001",
+    "map17": "192.168.2.244:18004",
+    "defaultRestored": true,
+    "defaultPortsVerified": [16001, 17001, 18001, 18002, 18003],
+    "map17PortAfterTestClosed": true
+  },
+  "resources": {
+    "resourceProfile": "playdh-current",
+    "manifestSha256": "b651cf0f0ce10476a420c7c64ba04b4b354685cdb3f80ecbcf523a64c95d4c30",
+    "fileCount": 5136,
+    "byteCount": 1689474757,
+    "map17HflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a"
+  },
+  "run": {
+    "log": "modern/out/runs/original-pve-current-3f355242-map17-combat-20261015.log",
+    "logBytes": 155134,
+    "logSha256": "20f5462d9c457624e06c17d80645b0bcb8b27fb8e286472500de349b15be72a",
+    "exitCode": 0,
+    "credentialHandling": "test account password supplied to process only; not stored in repository",
+    "account": "cur3f355",
+    "characterId": 100018,
+    "sequence": [
+      "LoginAck",
+      "CharacterSelectAck map17",
+      "GameInAck map17",
+      "216 monsters and 15 NPCs observed",
+      "authoritative skill attacks/effects and target 50032 life reached zero",
+      "natural drop 90000 produced item 50108",
+      "pickup acknowledged and inventory snapshot updated",
+      "inventory MoveAck item 50108 source 0 target 1 db 700043",
+      "GameOutSyn and re-login preserved item 50108"
+    ],
+    "protocolGate": "Phase B.2.5 e2e: all 5 protocol steps passed"
+  },
+  "cleanup": {
+    "temporaryAccount": "cur3f355",
+    "temporaryCharacterId": 100018,
+    "postRunCounts": {
+      "account": 0,
+      "identity": 0,
+      "character": 0,
+      "state": 0,
+      "vitals": 0,
+      "equipment": 0,
+      "items": 0,
+      "skills": 0,
+      "questLog": 0,
+      "questSub": 0
+    }
+  },
+  "limitations": [
+    "GUI visual/audio acceptance was not claimed by this protocol run.",
+    "Exact original-resource admission remains blocked by the documented HFL/TTB/Map203 gaps."
+  ]
+}
