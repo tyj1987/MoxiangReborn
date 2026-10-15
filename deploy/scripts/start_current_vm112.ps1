@@ -8,6 +8,8 @@ param(
     [int]$MapPort = 18001,
     [int]$Map12Port = 18002,
     [int]$Map2Port = 18003,
+    [switch]$EnableMap17,
+    [ValidateRange(1, 65535)] [int]$Map17Port = 18004,
     [int]$MapNumber = 10,
     [string]$AdvertisedAgentAddress = '192.168.2.244'
 )
@@ -21,6 +23,9 @@ if ([string]$manifest.writerContract.databaseHost -ne '192.168.2.238' -or
     [string]$manifest.writerContract.database -ne 'MoxiangOriginalTest_20261009' -or
     [string]$manifest.writerContract.resourceProfile -ne 'playdh-current') { throw 'writer contract mismatch' }
 if ($AdvertisedAgentAddress -ne '192.168.2.244' -or $DatabaseHost -ne '192.168.2.238') { throw 'VM112 binding mismatch' }
+$allPorts = @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)
+if ($EnableMap17) { $allPorts += $Map17Port }
+if (@($allPorts | Group-Object | Where-Object Count -gt 1).Count -gt 0) { throw 'Login, Agent and Map ports must be distinct.' }
 $resourceRoot = Join-Path $stage 'modern\data\PlayDH'
 $serverResourceRoot = Join-Path $resourceRoot 'Resource\Server'
 $resourceManifestPath = Join-Path $stage 'reference\manifests\playdh-current.sha256.json'
@@ -39,11 +44,11 @@ $mapExe = Join-Path $bin 'MoxianMapServer\mxh_map_server_CHINA.exe'
 $agentExe = Join-Path $bin 'MoxianAgentServer\mxh_agent_server_CHINA.exe'
 $loginExe = Join-Path $bin 'MoxianLoginServer\mxh_login_server.exe'
 $state = Join-Path $stage 'run\pids-current.json'
-if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=@($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port);startsProcesses=$false} | ConvertTo-Json; return }
+if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=$allPorts;map17Enabled=[bool]$EnableMap17;startsProcesses=$false} | ConvertTo-Json; return }
 if (Test-Path $state) { throw 'current stage PID file already exists' }
 $cfg = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
 if ([string]::IsNullOrWhiteSpace($cfg) -or $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or $cfg -notmatch '(?i)(^|;)host=192\.168\.2\.238(;|$)' -or $cfg -notmatch '(?i)(^|;)database=MoxiangOriginalTest_20261009(;|$)') { throw 'protected database config missing or mismatched' }
-foreach ($port in @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
+foreach ($port in $allPorts) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
 $log = Join-Path $stage 'run\logs-current'; New-Item $log -ItemType Directory -Force | Out-Null
 $env:PATH = "$runtime;$env:PATH"
 $specs = @(
@@ -53,5 +58,10 @@ $specs = @(
     [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map',"12=192.168.2.244:$Map12Port",'--map-server-map',"2=192.168.2.244:$Map2Port",'--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')},
     [pscustomobject]@{name='login';exe=$loginExe;port=$LoginPort;args=@('--port',$LoginPort,'--bind-address','192.168.2.244','--agent-addr','192.168.2.244','--agent-port',$AgentPort,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')}
 )
+if ($EnableMap17) {
+    $specs = @($specs | Where-Object { $_.name -ne 'agent' }) +
+        [pscustomobject]@{name='map17';exe=$mapExe;port=$Map17Port;args=@('--port',$Map17Port,'--map',17,'--bind-address','192.168.2.244','--resource-root',$resourceRoot,'--server-resource-root',$serverResourceRoot,'--resource-profile','playdh-current','--backend','mssql_odbc','--db-env',$DatabaseConfigEnv)} +
+        [pscustomobject]@{name='agent';exe=$agentExe;port=$AgentPort;args=@('--port',$AgentPort,'--bind-address','192.168.2.244','--map-server',"192.168.2.244:$MapPort",'--map-server-map',"12=192.168.2.244:$Map12Port",'--map-server-map',"2=192.168.2.244:$Map2Port",'--map-server-map',"17=192.168.2.244:$Map17Port",'--default-map',$MapNumber,'--backend','mssql_odbc','--db-env',$DatabaseConfigEnv,'--legacy')}
+}
 $started=@(); $rows=@()
 try { foreach ($s in $specs) { $p=Start-Process -FilePath $s.exe -ArgumentList $s.args -WorkingDirectory (Split-Path $s.exe) -RedirectStandardOutput (Join-Path $log "$($s.name).out.log") -RedirectStandardError (Join-Path $log "$($s.name).err.log") -WindowStyle Hidden -PassThru; $started += $p; Start-Sleep -Milliseconds 500; if ($p.HasExited) { throw "$($s.name) exited: $($p.ExitCode)" }; $rows += [ordered]@{name=$s.name;pid=$p.Id;exe=$s.exe;port=$s.port;sha256=(Get-FileHash $s.exe -Algorithm SHA256).Hash.ToLowerInvariant();startUtc=(Get-Date).ToUniversalTime().ToString('o')}; $rows | ConvertTo-Json -Depth 4 | Set-Content $state -Encoding utf8 }; [ordered]@{stage=$stage;started=$rows;state=$state}|ConvertTo-Json -Depth 5 } catch { foreach($p in $started){Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue}; Remove-Item $state -Force -ErrorAction SilentlyContinue; throw }
