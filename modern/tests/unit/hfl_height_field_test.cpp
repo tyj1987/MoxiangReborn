@@ -50,6 +50,31 @@ TEST(HflHeightField, ParsesRealMap12Terrain) {
     EXPECT_GT(*high, 500.0f);
 }
 
+TEST(HflHeightField, ParsesRecoveredMap17LooseTerrain) {
+    const auto packPath = findMapPack();
+    if (packPath.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto path = packPath.parent_path() / "Resource" / "Map" / "17.hfl";
+    if (!std::filesystem::exists(path))
+        GTEST_SKIP() << "recovered Map17 HFL is not installed: " << path.string();
+    std::ifstream input(path, std::ios::binary);
+    ASSERT_TRUE(input);
+    std::vector<std::uint8_t> bytes;
+    for (char value = 0; input.get(value);)
+        bytes.push_back(static_cast<std::uint8_t>(static_cast<unsigned char>(value)));
+    ASSERT_EQ(bytes.size(), 1192972u);
+    mxh::compat::HflHeightField terrain;
+    std::string error;
+    ASSERT_TRUE(mxh::compat::parse_hfl(bytes, terrain, &error)) << error;
+    EXPECT_EQ(terrain.version, 1u);
+    EXPECT_EQ(terrain.desc.height_count_x, 513u);
+    EXPECT_EQ(terrain.desc.height_count_z, 513u);
+    EXPECT_EQ(terrain.desc.tile_count_x, 256u);
+    EXPECT_EQ(terrain.desc.tile_count_z, 256u);
+    EXPECT_EQ(terrain.textures.size(), 70u);
+    EXPECT_FLOAT_EQ(terrain.desc.width, 51200.0f);
+    EXPECT_FLOAT_EQ(terrain.desc.tile_size, 200.0f);
+}
+
 TEST(HflHeightField, RejectsTruncatedData) {
     const std::uint8_t data[8]{};
     mxh::compat::HflHeightField terrain;
