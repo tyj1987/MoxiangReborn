@@ -1,7 +1,7 @@
 # Moxiang 开发路线图
 
 更新：2026-10-15。当前原版候选绑定 `codex/reorg-original-20261009`；工程代码基线为
-`0ab64f0d9840e37d6a58393dc74805c8bee83031`。GitLab 为工程主源，GitHub 为镜像。
+`df8e4be16af68cb14ddea54b72506787ffda2532`。Release 包内二进制与资源绑定提交为 `3f355242bb337c467f15692598514fa5f4ada591`。GitLab 为工程主源，GitHub 为镜像。
 Unity 客户端保持独立工作树和独立构建/运行数据，不从本页的原版资源结论借用完成声明。
 
 ## 当前已闭合
