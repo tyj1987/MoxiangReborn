@@ -24,11 +24,13 @@
     }
   },
   "runtimeGate": {
-    "map17HflPresentInOriginalPlayDh": false,
+    "map17HflPresentInOriginalPlayDh": true,
     "map17TtbPresent": true,
     "map17MonsterPresent": true,
     "initialPositionRule": "map login point with legacy jitter and optional saved InitPoint override",
-    "requiredBeforePlayableClaim": "recover exact 17.hfl and dependencies, bind Map17 service, create a new character, read back Map17/2017 and first GameIn position"
+    "requiredBeforePlayableClaim": "resolve nine used textures, bind Map17 service, create a new character, read back Map17/2017 and first GameIn position",
+    "map17HflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a",
+    "map17HflTextureBlockers": 9
   },
-  "interpretation": "This is a version-specific static database contract, not a runtime or GUI pass. Current VM112 Map10 default remains an explicit test deployment choice and must not be described as the canonical original birth route."
+  "interpretation": "This is a version-specific static database and resource contract, not a runtime or GUI pass. Current VM112 Map10 default remains an explicit test deployment choice."
 }

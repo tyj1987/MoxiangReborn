@@ -20,8 +20,8 @@
 
 ## 资源、地图与音画
 
-- 原资源基线和派生叠加层已经分离；当前源清单精确性检查通过，不等于所有地图可玩。原版线已从 D:/MX `Map.pak` 恢复并验证 `Resource/Map/3.hfl`、`Resource/Map/95.hfl`、`Resource/Map/198.hfl`、`Resource/Map/203.hfl`，当前复合地图检查仍有 **41 个文件级发布阻塞：23 个 HFL、18 个 TTB**；Map203 已恢复高度场但另有 161 个配套纹理依赖缺失。准确版本缺失必须保留阻塞，不能用替代美术宣称 1:1。
-- 当前原版线仍有 **41 个文件级 HFL/TTB 缺口（23 个 HFL、18 个 TTB）**；已恢复的 Map3/95/198/203 不代表 Map10 或全地图缺口为零，Map44 仍缺少准确的 `Resource/Map/44.hfl`，Map203 另有 161 个配套纹理依赖缺失。原创武馆场景不能替代原始地形；全地图目标范围还需按原版配置核验，未证明任何缺项可降级。UnityNative 与原版同名的 10 个 TTB 已明确拒绝进入原版 1:1 线，见 `docs/evidence/original-ttb-isolation-audit-20261015.json`。Unity 重制线的独立基线仍按自身阻塞记录，不能由原版线的恢复自动继承。恢复文件的来源、哈希和验证见 `reference/manifests/95.hfl.provenance.json`、`reference/manifests/3-198-203.hfl.provenance.json` 及本轮审计记录。
+- 原资源基线和派生叠加层已经分离；当前源清单精确性检查通过，不等于所有地图可玩。原版线已从原始 `Map.pak` 恢复并验证 `Resource/Map/3.hfl`、`Resource/Map/17.hfl`、`Resource/Map/95.hfl`、`Resource/Map/198.hfl`、`Resource/Map/203.hfl`；当前余量为 22 个 HFL、18 个 TTB。Map17 另有 9 个已使用纹理缺失，Map203 另有 161 个配套纹理依赖缺失。准确版本缺失必须保留阻塞，不能用替代美术宣称 1:1。
+- 当前原版线仍有 **40 个文件级 HFL/TTB 缺口（22 个 HFL、18 个 TTB）**；Map17 的 `17.hfl` 已恢复但 9 个使用纹理未恢复，已恢复的 Map3/17/95/198/203 不代表 Map10 或全地图缺口为零，Map44 仍缺少准确的 `Resource/Map/44.hfl`，Map203 另有 161 个配套纹理依赖缺失。原创武馆场景不能替代原始地形；全地图目标范围还需按原版配置核验，未证明任何缺项可降级。UnityNative 与原版同名的 10 个 TTB 已明确拒绝进入原版 1:1 线，见 `docs/evidence/original-ttb-isolation-audit-20261015.json`。Unity 重制线的独立基线仍按自身阻塞记录，不能由原版线的恢复自动继承。恢复文件的来源、哈希和验证见 `reference/manifests/95.hfl.provenance.json`、`reference/manifests/3-198-203.hfl.provenance.json` 及本轮审计记录。
 - BMHM/TTB/HFL/STM、天空和环境语义、角色动作、BEFF/BEFL/Effect.pak 触发、WAV/空间音效及全地图视觉音频对照尚未闭合。
 - `playdh-current` 的服务器资源编码与旧 `mhfileex-classic-rxmso` 配置不同；小型或非标准条目需要按实际配置验证，不能静默改用旧版解码。历史 Map10→Map12 和 Map101 地形缺失记录只作定位，不沿用其通过或数量结论。
 - 掉落表应使用经当前格式校验的入口；历史 `Resource/Server/MonsterDropItemList*.bin` 被识别为 AIGroup 的记录仍需作为防止错误回退的依据，不可仅因字节可读就启用。
@@ -58,6 +58,12 @@
 
 ### 2026-10-15 原始出生路线静态契约
 
-对恢复的特定历史数据库版本，`dbo.MP_CHARACTER_CreateCharacter` 的字节核验定义显式写入 `CHARACTER_MAP=17`、`character_loginpoint=2017`；对应 `LoginPoint.bin` 行为 Map17 兰州登录点。当前 VM112 的 Map10 是测试部署参数，不是已证明的原始出生路线。由于原版 PlayDH 当前缺少准确 `17.hfl`，Map17 新角色运行验收暂不能执行；不得把 Unity/占位 `17.hfl` 纳入原版 1:1。
+对恢复的特定历史数据库版本，`dbo.MP_CHARACTER_CreateCharacter` 的字节核验定义显式写入 `CHARACTER_MAP=17`、`character_loginpoint=2017`；对应 `LoginPoint.bin` 行为 Map17 兰州登录点。当前 VM112 的 Map10 是测试部署参数，不是已证明的原始出生路线。准确 `17.hfl` 已从原版 `Map.pak` 恢复，但 9 个使用纹理仍缺失，Map17 新角色运行验收暂不能执行；不得把 Unity/占位纹理纳入原版 1:1。
 
 静态回执：[`original-birth-route-static-20261015.json`](evidence/original-birth-route-static-20261015.json)。
+
+### 2026-10-15 Map17 原始 HFL 真实恢复
+
+复核发现当前原版 `modern/data/PlayDH/Map.pak` 的第 240 项实际包含 `17.hfl`。已从该原版包提取并按 SHA-256 `727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a` 写入 `Resource/Map/17.hfl`，同步更新 canonical hash manifest。HFL 解析通过，使用的 42 个纹理中仍有 9 个缺失；只恢复了原始高度场，没有引入 Unity 派生或替代纹理。
+
+回执：[`original-map17-hfl-admission-20261015.json`](evidence/original-map17-hfl-admission-20261015.json)，来源清单：[`17.hfl.provenance.json`](../reference/manifests/17.hfl.provenance.json)。Map17 仍未达到可玩/视觉发布条件。

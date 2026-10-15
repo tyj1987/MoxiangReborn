@@ -50,3 +50,4 @@ G8 仍为 PARTIAL。`3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 修复了预载�
 | G9 | 真实全新账号建角与首发装备持久化 | PASS | 2026-10-15 | CharacterMake/GameIn 读回装备与生命；清理后账号/角色/identity 为 0 | Map10 1级首战仅护盾伤害，原始起始地图路线待核对 |
 
 | G10 | 原始出生路线静态契约 | PASS (静态) | 2026-10-15 | 恢复库过程明确 Map17/2017，LoginPoint 版本绑定已记录 | 准确 17.hfl 缺失，Map17 运行/GUI/首战未通过 |
+| G11 | Map17 原始 HFL 恢复 | PASS (资源) | 2026-10-15 | 从原版 Map.pak entry 240 提取，SHA-256 校验，HFL 解析通过 | 9 个使用纹理缺失；Map17 服务/建角/GameIn/视觉未通过 |

@@ -1,0 +1,36 @@
+{
+  "schema": "moxiang-original-resource-admission/v1",
+  "capturedAt": "2026-10-15",
+  "status": "admitted_exact_original_hfl_with_texture_blockers",
+  "logicalPath": "Resource/Map/17.hfl",
+  "bytes": 1192972,
+  "sha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a",
+  "source": {
+    "container": "modern/data/PlayDH/Map.pak",
+    "containerSha256": "b3b4c8e504877afa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+    "entryIndex": 240,
+    "entryOffset": 72298425,
+    "extractor": "modern/build-quest-x64/tools/MoxianResourceExplorer/Release/mxh_explorer.exe",
+    "provenance": "Map.pak entry is structurally valid HFL and byte-identical to the prior verified-original source candidate; no Unity-derived bytes were used"
+  },
+  "validation": {
+    "hflParser": "passed",
+    "usedTextureCount": 42,
+    "missingTextureCount": 9,
+    "missingTextures": [
+      "tile_17_mou_a_01.dds",
+      "tile_17_mou_a_02.dds",
+      "tile_17_mou_a_03.dds",
+      "tile_17_mou_a_04.dds",
+      "tile_17_mou_a_05.dds",
+      "tile_17_mou_a_06.dds",
+      "tile_17_mou_a_07.dds",
+      "tile_17_mou_a_08.dds",
+      "tile_17_mou_a_09.dds"
+    ],
+    "canonicalManifest": "reference/manifests/playdh-current.sha256.json",
+    "canonicalManifestSha256": "dd91c84a7df3eea7cb954b213d9628cfd6ac92886af50c344545ef6330cb901c"
+  },
+  "releaseReady": false,
+  "interpretation": "The exact Map17 height field is now admitted to the original line. The map remains blocked for playable/visual release until its nine used terrain textures and the rest of the Map17 runtime route are resolved; no substitute textures are admitted."
+}

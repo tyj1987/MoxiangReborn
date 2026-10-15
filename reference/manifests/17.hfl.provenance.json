@@ -1,0 +1,13 @@
+{
+  "schema": "moxiang-original-resource-provenance/v1",
+  "logicalPath": "Resource/Map/17.hfl",
+  "classification": "verified-original",
+  "bytes": 1192972,
+  "sha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a",
+  "sourceContainer": "modern/data/PlayDH/Map.pak",
+  "sourceContainerSha256": "b3b4c8e504877afa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+  "entryEvidence": "Map.pak entry 240 at byte offset 72298425",
+  "validation": "exact extraction, SHA-256 readback, HFL parser and used-texture dependency audit",
+  "releaseReady": false,
+  "note": "Keep the exact bytes in the original PlayDH tree; unresolved nine texture dependencies remain a separate gate."
+}
