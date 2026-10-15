@@ -1,0 +1,8 @@
+{
+  "schema": "moxiang.evidence.original.focused-regression.v1",
+  "date": "2026-10-15",
+  "sourceHead": "d652b185989dfdb5ead322a2f68ced701dd48686",
+  "serverHandlerTests": {"passed": 161, "failed": 0, "command": "modern/build-quest-x64/tests/unit/server/Release/mxh_server_handler_tests.exe"},
+  "clientE2ECTest": {"passed": 2, "failed": 0, "tests": ["MoxianClientE2E", "MoxianClientE2EDumpCli"], "command": "ctest --test-dir modern/build-quest-x64 -C Release --output-on-failure -R MoxianClientE2E(DumpCli)?$"},
+  "scope": "current-source local focused regression; PVE MSSQL, human GUI and complete resource/commercial gates remain separate"
+}
