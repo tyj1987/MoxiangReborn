@@ -1,0 +1,28 @@
+{
+  "schema": "moxiang.evidence.original.pve.map17.combat.v1",
+  "date": "2026-10-15",
+  "clientWorktreeHead": "12934c559399baca5ad1cded3b8acb63193679c3",
+  "serverStageSourceHead": "f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469",
+  "serverDatabase": "VM112 protected MSSQL / MoxiangOriginalTest_20261009",
+  "topology": {"login": "192.168.2.244:16117", "agent": "192.168.2.244:17117", "map17": "192.168.2.244:18117", "defaultPortsUntouched": true},
+  "clientBinarySha256": "CB293E4197C46CFB38E9E8B81AE891D26950B240E38608CFA3539DFEA5664C8A",
+  "sequence": {
+    "loginAck": true,
+    "characterSelectAck": {"chrid": 100018, "map": 17},
+    "gameInAck": {"playerId": 100018, "map": 17, "level": 15, "life": "201/201"},
+    "monstersObserved": 216,
+    "npcsObserved": 15,
+    "skillResultsObserved": 14,
+    "naturalDrop": {"groundId": 90000, "item": 50402, "count": 1},
+    "clickPickup": true,
+    "inventoryRefresh": true,
+    "inventoryMoveAck": {"item": 50402, "source": 33, "target": 34},
+    "reloginPersistence": true,
+    "finalClientReceiptLine": "Phase B.2.5 e2e: all 5 protocol steps passed"
+  },
+  "result": "gameplay-event-sequence-passed",
+  "processExitCode": "not-captured: WinRM native stderr redirection did not return a reliable process exit; event sequence and final receipt are present in the sealed log",
+  "cleanup": {"testAccount": "m17real15", "testCharacter": 100018, "databaseRowsAfterCleanup": {"account": 0, "character": 0, "state": 0, "vitals": 0, "equipment": 0, "items": 0, "identity": 0}, "isolatedPortsAfterCleanup": [], "temporaryRunRemoved": true, "defaultPortsStillListening": [16001,17001,18001,18002,18003]},
+  "logs": {"directory": "audit/2026-10-09-reorg/original-integration/map17-pve-attempt-20261015", "retryClientErrSha256": "8EDD5653487EBA9D65917A70B3D6978825BDD736D1147CCD3EEB1D6756194BE4"},
+  "limitations": ["Server stage is an ancestor deployment f264e8af, not a newly uploaded d067/12934 stage.", "This is automated headless state evidence and does not replace human GUI visual acceptance or the nine missing Map17 textures."]
+}
