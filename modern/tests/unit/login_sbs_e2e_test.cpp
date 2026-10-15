@@ -71,7 +71,9 @@ TEST(MoxianLoginSbsE2E, ServerBinariesAreDiscoverable) {
 TEST(MoxianLoginSbsE2E, StartsLoginServerAndAcceptsLoopbackProbe) {
     const auto sbs = sbs_exe_path();
     if (sbs.empty() || !exists(sbs)) GTEST_SKIP() << "modern side-by-side not built";
-    const auto tools_root = std::filesystem::path(sbs).parent_path().parent_path();
+    // The executable is emitted under tools/MoxianSideBySide/<config>;
+    // climb to the shared tools directory before passing it to the harness.
+    const auto tools_root = std::filesystem::path(sbs).parent_path().parent_path().parent_path();
     const auto capture = std::filesystem::temp_directory_path() /
                          "mxh_login_sbs_probe";
     std::filesystem::remove_all(capture);

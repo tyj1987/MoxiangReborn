@@ -29,8 +29,9 @@
 - `docs/evidence/original-map17-route-wrapper-20261015.json`：VM112 当前启动包装器已提供显式 `-EnableMap17 -Map17Port 18004` profile，可追加同源 Map17 服务而不接管默认五服；尚未把它误报为视觉资源完成。
 - docs/evidence/original-map17-local-e2e-20261015.json：当前提交本地 SQLite/三服完成 Map17 登录、建角、重列、选角和 GameIn，观察到 192 个怪物实体；这是工程门禁，不替代 PVE MSSQL、GUI、战斗掉落拾取或持久化验收。
 - docs/evidence/original-pve-map17-combat-current-20261015.json：隔离 VM112 MSSQL Map17 事件序列已完成登录、Map17 GameIn、216 怪物/15 NPC、权威技能命中、自然掉落 `50402`、点击拾取、背包移动和重登回读；测试账号与临时行已清理，默认五服未触碰。WinRM 原生 stderr 管道未捕获可靠进程退出码，因此保留为事件序列通过而非完整命令退出门禁。
-- docs/evidence/original-debug-targeted-tests-20261015.json：当前原版工作树对资源解析、效果运行时、技能/经验曲线、文件存储和本地 E2E 的 51 项 Debug CTest 全部通过；完整注册集仍受旧 NMake 构建目录缺失的 server/portal 可执行文件及 RenderDemo 缺失影响，不能宣称完整 ctest 通过。
-- docs/evidence/original-clean-build-attempt-20261015.json：使用现有 MSVC 成功配置独立 VS Debug 构建，但在生成全部测试目标时 E 盘空间耗尽；本轮新建的 8.33 GiB 可再生失败产物已核验并清除。
+- docs/evidence/original-debug-targeted-tests-20261015.json：历史 51 项 Debug CTest 回执，已由独立干净 VS 构建回归覆盖。
+- docs/evidence/original-clean-build-ctest-20261015.json：独立 VS Debug 构建及并行完整 CTest 12,577/12,577 通过，14 项因 PVE/MSSQL/历史资源前置条件跳过；完整测试门禁已关闭，资源、PVE、MSSQL、GUI 和商业许可门禁仍单独有效。
+- docs/evidence/original-clean-build-attempt-20261015.json：此前空间不足的失败尝试及 8.33 GiB 可再生产物清理回执，保留作历史过程证据。
 - docs/evidence/original-focused-regression-20261015.json：提交 d652b185 的服务端 handler 161/161 与客户端 CTest 2/2（E2E、DumpCli）通过；仅为当前源码回归，未替代 PVE/MSSQL/GUI/完整资源门禁。
 
 ## 交付顺序
