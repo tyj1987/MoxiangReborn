@@ -1,6 +1,8 @@
 ﻿[CmdletBinding()]
 param(
     [string]$BuildDir = '',
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration = 'Debug',
     [int]$TimeoutSeconds = 20,
     [ValidateRange(0, 65535)]
     [int]$MapNumber = 10,
@@ -18,6 +20,11 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
 $clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
+$clientWorkingDir = Join-Path $buildRoot 'tools\MoxianClient'
+if (-not (Test-Path -LiteralPath $clientExe -PathType Leaf)) {
+    $clientExe = Join-Path $buildRoot ("tools\MoxianClient\$Configuration\mxh_client.exe")
+    $clientWorkingDir = Split-Path -Parent $clientExe
+}
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 if (-not (Test-Path -LiteralPath $clientExe)) { throw "Missing GUI client: $clientExe" }
 
@@ -50,6 +57,9 @@ try {
     }
     & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
     $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+    if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+        $dbTool = Join-Path $buildRoot ("tools\MoxianDbTool\$Configuration\mxh_db_tool.exe")
+    }
     if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
         throw "Missing database tool required for isolated GUI smoke: $dbTool"
     }
@@ -109,7 +119,7 @@ try {
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
-        -WorkingDirectory (Join-Path $buildRoot 'tools\MoxianClient')
+        -WorkingDirectory $clientWorkingDir
     if (-not $client.WaitForExit($TimeoutSeconds * 1000)) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
         throw "GUI client did not reach GameIn within ${TimeoutSeconds}s; log=$stderr"
