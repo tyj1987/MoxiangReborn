@@ -11,12 +11,29 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <span>
 #include <vector>
 
 namespace mxh::compat::test {
 
 namespace {
+
+std::filesystem::path findMap17Ttb() {
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto candidate = first.path() / "PlayDH" / "Resource" / "Map" / "17.ttb";
+            if (std::filesystem::exists(candidate)) return candidate;
+        }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
+    }
+    return {};
+}
 
 // Helper: build a headered .ttb buffer (8-byte header + W*H*4 tiles).
 std::vector<std::uint8_t> make_headered_ttb(std::uint32_t w, std::uint32_t h,
@@ -125,6 +142,21 @@ TEST(TtbTileTableTest, ParseHeaderedLargeWidth) {
     EXPECT_EQ(t.height, 1u);
     ASSERT_EQ(t.tiles.size(), 1000u);
     EXPECT_EQ(t.tiles[999], 999u);
+}
+
+TEST(TtbTileTableTest, ParsesRecoveredMap17TileTable) {
+    const auto path = findMap17Ttb();
+    if (path.empty()) GTEST_SKIP() << "PlayDH Map17 TTB fixture is not installed";
+    std::ifstream input(path, std::ios::binary);
+    ASSERT_TRUE(input);
+    const std::vector<std::uint8_t> bytes(
+        (std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
+    ASSERT_EQ(bytes.size(), 2097160u);
+    const auto table = TtbTileTable::parse(bytes);
+    EXPECT_EQ(table.width, 1024u);
+    EXPECT_EQ(table.height, 1024u);
+    ASSERT_EQ(table.tiles.size(), 1024u * 1024u);
+    EXPECT_EQ(table.tiles.front(), 1u);
 }
 
 // ===========================================================================
