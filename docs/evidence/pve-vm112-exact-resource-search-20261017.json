@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-vm112-exact-resource-search",
+  "capturedAt": "2026-10-17",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "1ec514ff4859c574a1a57cb8c95ccb677c4526c7",
+  "vmId": 112,
+  "guestAgent": "qm guest exec/status succeeded",
+  "searchRoot": "C:/moxiang",
+  "exactMissingHfl": [
+    0,
+    4,
+    23,
+    24,
+    26,
+    27,
+    28,
+    32,
+    33,
+    34,
+    35,
+    37,
+    42,
+    44,
+    55,
+    61,
+    94,
+    96,
+    97,
+    99,
+    100,
+    114,
+    115,
+    116,
+    117,
+    200
+  ],
+  "exactMissingTtb": [
+    0,
+    3,
+    4,
+    23,
+    24,
+    32,
+    33,
+    34,
+    94,
+    198
+  ],
+  "candidates": [
+    {
+      "path": "C:/moxiang/original/stage-20261015/modern/data/PlayDH/Resource/Map/3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "classification": "known-canonical-duplicate",
+      "matchesCanonical": true
+    },
+    {
+      "path": "C:/moxiang/original/stage-3f355242-20261015/modern/data/PlayDH/Resource/Map/3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "classification": "known-canonical-duplicate",
+      "matchesCanonical": true
+    },
+    {
+      "path": "C:/moxiang/original/stage-f264e8af-20261015/modern/data/PlayDH/Resource/Map/3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "classification": "known-canonical-duplicate",
+      "matchesCanonical": true
+    }
+  ],
+  "result": "no-new-exact-source",
+  "decision": "No file copied, renamed, or admitted. VM112 contains only a duplicate of canonical 3.hfl among the explicit missing-name set; no missing HFL or TTB payload was recovered.",
+  "releaseReady": false,
+  "remainingExactBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 161
+  },
+  "next": "Keep original 1:1 resources byte-authenticated; continue source recovery and public-license admission separately."
+}
