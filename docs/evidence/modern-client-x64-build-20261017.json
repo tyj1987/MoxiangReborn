@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-16T20:28:00Z",
+  "sourceHead": "c198e4400ec4692d3053b540a7a89b9543e670ce",
+  "branch": "codex/reorg-original-20261009",
+  "scope": "supported x64 Release client and local SQLite E2E build",
+  "toolchain": {
+    "generator": "Visual Studio 17 2022",
+    "architecture": "x64",
+    "configuration": "Release",
+    "buildDirectory": "modern/out/build-client-x64-diagnose"
+  },
+  "artifacts": {
+    "client": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianClient/Release/mxh_client.exe",
+      "sha256": "1e0d2789f3e61a887f4e177bf7fa7231f42b78a8eadf75b41c0e4b0896629c1f"
+    },
+    "launcher": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianLauncher/Release/MoxianLauncher.exe",
+      "sha256": "4b95c30b89237acb25e38dfba81400fe896fe2a1a391078f6e3444e3630db056"
+    },
+    "loginServer": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianLoginServer/Release/mxh_login_server.exe",
+      "sha256": "120c795bd31dca618ae2ec13ed8aa4ebcf6c5256ad202b3916c772360df0f6bb"
+    },
+    "agentServer": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianAgentServer/Release/mxh_agent_server_CHINA.exe",
+      "sha256": "725cbc7732e6e938def43cba2f3ef684678578cbcc51b95da7f0f37524aec66f"
+    },
+    "mapServer": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianMapServer/Release/mxh_map_server_CHINA.exe",
+      "sha256": "ac2e25f310967c8a854f09c82cba24db887f874c5a9ac8024595a866f25726b4"
+    },
+    "clientE2E": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianClientE2E/Release/mxh_client_e2e.exe",
+      "sha256": "488a8a1c0d6873d3314324326b40737176afd22fd97ab7700ba66756d9116619"
+    },
+    "dbTool": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianDbTool/Release/mxh_db_tool.exe",
+      "sha256": "46d2610ff771caf2812dc362a506d52cbcca89692853b743dcd5177efac5f240"
+    },
+    "resourceExplorer": {
+      "path": "modern/out/build-client-x64-diagnose/tools/MoxianResourceExplorer/Release/mxh_explorer.exe",
+      "sha256": "4537f2e1563f075c39239844cb8edaca1deaf4bc0eec1ad5c945e53586633d4b"
+    }
+  },
+  "localE2E": {
+    "command": "ctest --test-dir modern/out/build-client-x64-diagnose -C Release --output-on-failure -R ^MoxianClientE2E$",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "scope": "isolated local SQLite and spawned three-server chain; does not replace PVE MSSQL or human GUI acceptance"
+  },
+  "pvePlanOnly": {
+    "command": "scripts/run-human-acceptance.ps1 -PlanOnly -BuildDirectory modern/out/build-client-x64-diagnose -LoginHost 192.168.2.244 -LoginPort 16001 -AgentPort 17001 -MapPort 18001",
+    "startsLocalServers": false,
+    "needsLocalDatabaseConfig": false,
+    "acceptanceStatus": "not_evaluated"
+  },
+  "status": "supported_x64_build_and_local_e2e_pass"
+}

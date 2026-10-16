@@ -168,3 +168,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 旧 `modern-targeted-tests-20261017.json` 记录的 `0xC0000374` 来自旧 Win32/NMake 构建路径；当前项目文档和构建入口要求 VS2022 x64，当前支持路径不再复现该崩溃。旧记录保留作历史诊断证据，不作为当前客户端门禁结论。
 
+同一 x64 Release 构建已补齐 `mxh_client`、Launcher、三服、数据库工具、资源浏览器和 E2E 工具；本地 SQLite 三服链 `MoxianClientE2E` **1/1 通过**。PVE 人工入口的 PlanOnly 检查确认只连接 `192.168.2.244:16001/17001/18001`，不会启动本机服务或数据库；完整人工 GUI 仍需操作者在实际桌面完成，回执见 [`modern-client-x64-build-20261017.json`](evidence/modern-client-x64-build-20261017.json)。
+
