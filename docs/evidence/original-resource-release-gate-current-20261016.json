@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "capturedAt": "2026-10-16",
   "sourceBranch": "codex/reorg-original-20261009",
-  "sourceHead": "931066ea6600ca58468fe9220b9e4cd050dbd0bc",
+  "sourceHead": "82a7101248ed878a0993e53e53b6512faa6ca8d0",
   "status": "blocked_exact_original_resources",
   "remainingResourceBlockers": {
     "hfl": 22,
