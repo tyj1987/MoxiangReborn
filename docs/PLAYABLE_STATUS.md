@@ -1,4 +1,6 @@
 # 可玩状态与分线验收
+2026-10-17 | 原版当前 `modern/build` 构建目录定向回归：资源引用与 E2E 目标共 6 项，5 通过、0 失败、1 个历史恢复 fixture 按预期跳过；`MoxianClientE2E` 和 dump CLI 均通过。证据见 [`docs/evidence/original-targeted-regression-20261017.json`](evidence/original-targeted-regression-20261017.json)。该回归不关闭 Map17/Map203 精确纹理及 HFL/TTB 原版资源缺口。
+
 
 2026-10-17 | 以当前原版提交 `90b190c82701385b4409169c542be2c3f9484659` 重新扫描 C:/Moxiang、C:/backup、C:/CodexData、D:/MX、D:/MoyoI、D:/03_Data、E:/Workspaces/moxiang 和 E:/Workspaces/artifacts：相关 HFL/TTB 文件 2020 个，Map17 `tile_17_mou_a_01..09.dds` 命中 0 个，Map203 的 161 个 `tile_201a-*` 纹理命中 0 个；18 个缺失 HFL/TTB 名称只对应已知占位或 UnityNative 派生副本。没有复制或准入任何候选，原版精确资源门禁仍为 HFL 22、TTB 18、Map17 9、Map203 161。证据见 [`docs/evidence/original-resource-candidate-scan-20261017.json`](evidence/original-resource-candidate-scan-20261017.json)。
 
