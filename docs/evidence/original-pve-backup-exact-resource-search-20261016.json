@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-backup-exact-resource-search",
+  "generatedUtc": "2026-10-16T05:13:00Z",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "f5d19987d250dd4a19e216d4a01291c1d12f6573",
+  "searchRoot": "/vmstore/ci-backups/moxiang-reorg/20261009",
+  "readOnly": true,
+  "targets": {
+    "hfl": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
+    "ttb": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"],
+    "map17Textures": [
+      "tile_17_mou_a_01.dds", "tile_17_mou_a_02.dds", "tile_17_mou_a_03.dds",
+      "tile_17_mou_a_04.dds", "tile_17_mou_a_05.dds", "tile_17_mou_a_06.dds",
+      "tile_17_mou_a_07.dds", "tile_17_mou_a_08.dds", "tile_17_mou_a_09.dds"
+    ]
+  },
+  "historicalHflCandidates": [
+    {"name": "0.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/0.hfl", "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762", "bytes": 137030},
+    {"name": "4.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/4.hfl", "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92", "bytes": 137030},
+    {"name": "23.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/23.hfl", "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894", "bytes": 137030},
+    {"name": "24.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/24.hfl", "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853", "bytes": 137030},
+    {"name": "32.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/32.hfl", "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1", "bytes": 137030},
+    {"name": "33.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/33.hfl", "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c", "bytes": 137030},
+    {"name": "34.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/34.hfl", "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c", "bytes": 137030},
+    {"name": "94.hfl", "path": "/vmstore/ci-backups/moxiang-reorg/20261009/recovery-restore-20261009/modern/data/PlayDH/Resource/Map/94.hfl", "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b", "bytes": 137030}
+  ],
+  "exactTtbMatches": [],
+  "exactMap17TextureMatches": [],
+  "decision": "REJECT_HISTORICAL_CANDIDATES",
+  "reason": "The eight HFL files match the already-audited historical candidate set and are not current PlayDH exact payloads; no target TTB or Map17 texture was found. No original resource was copied or promoted.",
+  "releaseReady": false
+}
