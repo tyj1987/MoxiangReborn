@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-16T20:14:04Z",
+  "sourceHead": "8fa33cee168b6151331bdc3638a6fc75e65d77ee",
+  "branch": "codex/reorg-original-20261009",
+  "scope": "modern original-line client x64 regression",
+  "toolchain": {
+    "generator": "Visual Studio 17 2022",
+    "architecture": "x64",
+    "configuration": "Release",
+    "buildDirectory": "modern/out/build-client-x64-diagnose",
+    "buildCommand": "cmake --build modern/out/build-client-x64-diagnose --config Release --target mxh_client_tests -- /m"
+  },
+  "executable": {
+    "path": "modern/out/build-client-x64-diagnose/tests/unit/client/Release/mxh_client_tests.exe",
+    "sha256": "74b3b683ad93ad632499643b98ab3233eb7d1a0ba7b90ed7ce4e3ab6391150c1"
+  },
+  "testCommand": "modern/out/build-client-x64-diagnose/tests/unit/client/Release/mxh_client_tests.exe --gtest_color=no",
+  "result": {
+    "total": 355,
+    "passed": 349,
+    "failed": 0,
+    "skipped": 6,
+    "exitCode": 0,
+    "skippedTests": [
+      "EffectRuntime.RunsDecodedRealEffectWithObjectContext",
+      "EffectRuntime.RunsAuthoritativeCombatEffectFromSkillList",
+      "EffectRuntime.OverlappingInstancesReceiveDistinctIds",
+      "EffectRuntime.StopObjectRemovesMatchingSourceAndTargetInstances",
+      "EffectRuntime.CapsBurstInstancesWithoutDroppingExistingTimelines",
+      "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease"
+    ]
+  },
+  "log": {
+    "path": "modern/out/runs/mxh-client-tests-x64-release-20261017.log",
+    "sha256": "46b55b1684367a8c7ec68a10d399b957f54fb9a88477d96ce2622f1fb44c67e2"
+  },
+  "interpretation": "The supported Visual Studio 2022 x64 Release client path passes. The earlier 0xC0000374 result was from the stale Win32/NMake build path and is retained only as historical evidence; it is not reproduced by this current supported build.",
+  "status": "pass_with_explicit_skips"
+}

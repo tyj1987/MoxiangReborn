@@ -164,5 +164,7 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 ## 2026-10-17 原版工程基线复核（当前整合线）
 
-当前 `codex/reorg-original-20261009` 工作树保持干净；协议、资源字节/哈希、怪物目录、掉落、技能、数据库 schema、游戏和渲染定向测试均通过（明确 Skip 单独记录）。`mxh_client_tests` 在 `CMainGameStateIds.StubsRegister` 可重复以 Windows `0xC0000374` heap corruption 退出，必须先定位后才能把客户端工程门禁升级为通过。证据见 [`modern-targeted-tests-20261017.json`](evidence/modern-targeted-tests-20261017.json)。
+当前 `codex/reorg-original-20261009` 工作树保持干净；在 Visual Studio 2022 x64 Release 支持路径重新构建并运行 `mxh_client_tests`，**355 项中 349 通过、0 失败、6 项明确跳过，退出码 0**。跳过项仅依赖外部 PlayDH、PVE 三服或显式 Map10 smoke 环境变量；没有把 Skip 计为通过。可执行文件、日志哈希与命令见 [`modern-client-x64-regression-20261017.json`](evidence/modern-client-x64-regression-20261017.json)。
+
+旧 `modern-targeted-tests-20261017.json` 记录的 `0xC0000374` 来自旧 Win32/NMake 构建路径；当前项目文档和构建入口要求 VS2022 x64，当前支持路径不再复现该崩溃。旧记录保留作历史诊断证据，不作为当前客户端门禁结论。
 
