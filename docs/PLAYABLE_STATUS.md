@@ -161,3 +161,8 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 在 VM112 原版 stage `stage-f264e8af-20261015` 上，临时端口 `16117/17117/18117` 使用真实 Release `MoxianClientE2E --no-spawn` 完成 LoginAck、空角色列表、CharacterMake、重列、Map17 选角和 GameInAck；随后用 `16118/17118/18118/18119` 完成 Map17 任务 1 的 StartAck/未完成 EndNack、Map17→Map12 的 ChangeMapAck、Map12 GameInAck 和新 GameIn 重登路由。玩家 `100018` 为 1 级、生命 `131/131`、Map17 首次进入成功，Map12 读回包含 216 个怪物和 31 个 NPC。两个探针账号、角色、状态、生命、装备、物品、任务和技能行均已清理为 0，临时端口已释放，`16001/17001/18001/18002/18003` 与 Unity `26101/27101/28101` 保持不变。结构化回执见 [`original-pve-map17-e2e-20261015.json`](evidence/original-pve-map17-e2e-20261015.json)。
 
 这只关闭了 Map17 的登录、建角、选角、首次 GameIn、任务开始/未完成拒绝以及 Map17→Map12 路由子门禁；九个准确地形纹理、移动、战斗、自然掉落、拾取、装备、完整重登持久化、真人 GUI 和视觉 1:1 仍未闭合。
+
+## 2026-10-17 原版工程基线复核（当前整合线）
+
+当前 `codex/reorg-original-20261009` 工作树保持干净；协议、资源字节/哈希、怪物目录、掉落、技能、数据库 schema、游戏和渲染定向测试均通过（明确 Skip 单独记录）。`mxh_client_tests` 在 `CMainGameStateIds.StubsRegister` 可重复以 Windows `0xC0000374` heap corruption 退出，必须先定位后才能把客户端工程门禁升级为通过。证据见 [`modern-targeted-tests-20261017.json`](evidence/modern-targeted-tests-20261017.json)。
+

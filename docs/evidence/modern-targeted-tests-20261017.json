@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-17T12:05:00Z",
+  "sourceHead": "eeabff34b2acd70efb7e74e0b1477883bb3c5e99",
+  "branch": "codex/reorg-original-20261009",
+  "scope": "modern original-line targeted unit/resource regression",
+  "tests": [
+    {
+      "name": "mxh_protocol_tests",
+      "total": 31,
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_monster_catalog_tests",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_resource_byte_level_tests",
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_resource_payload_sha256_tests",
+      "total": 3,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 1,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_resource_reference_tests",
+      "total": 4,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 1,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_item_drop_tests",
+      "total": 25,
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_skill_caster_tests",
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_db_tests",
+      "total": 39,
+      "passed": 35,
+      "failed": 0,
+      "skipped": 4,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_game_tests",
+      "total": 251,
+      "passed": 251,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_render_tests",
+      "total": 288,
+      "passed": 284,
+      "failed": 0,
+      "skipped": 4,
+      "exitCode": 0
+    },
+    {
+      "name": "mxh_client_tests",
+      "total": 355,
+      "passed": "not reported",
+      "failed": "process heap corruption",
+      "skipped": "not reported",
+      "exitCode": -1073740940,
+      "repro": "CMainGameStateIds.StubsRegister"
+    }
+  ],
+  "ctestFullRun": {
+    "status": "aborted",
+    "reason": "CTest generated 12574 cases with missing legacy executable registrations and was stopped after early targeted output; no full-run pass claim"
+  },
+  "blockers": [
+    "mxh_client_tests reproducibly terminates with Windows heap-corruption status 0xC0000374 in CMainGameStateIds.StubsRegister; isolate before release"
+  ]
+}
