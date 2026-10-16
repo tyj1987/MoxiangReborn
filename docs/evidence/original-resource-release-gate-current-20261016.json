@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-16",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "931066ea6600ca58468fe9220b9e4cd050dbd0bc",
+  "status": "blocked_exact_original_resources",
+  "remainingResourceBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 161
+  },
+  "evidence": [
+    "docs/KNOWN_BUGS.md: resource/map blocker section",
+    "docs/evidence/original-map17-hfl-admission-20261015.json",
+    "docs/evidence/original-map17-texture-source-search-20261015.json",
+    "docs/evidence/original-ttb-isolation-audit-20261015.json"
+  ],
+  "releaseReady": false,
+  "interpretation": "The exact Map17 height field is admitted, but its nine used textures and the remaining exact HFL/TTB and Map203 dependencies are unresolved. No Unity-derived or substitute resource closes this gate."
+}
