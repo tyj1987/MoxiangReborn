@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-resource-candidate-scan",
+  "capturedAt": "2026-10-17",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "90b190c82701385b4409169c542be2c3f9484659",
+  "scanRoots": [
+    "C:/Moxiang",
+    "C:/backup",
+    "C:/CodexData",
+    "D:/MX",
+    "D:/MoyoI",
+    "D:/03_Data",
+    "E:/Workspaces/moxiang",
+    "E:/Workspaces/artifacts"
+  ],
+  "fileNameScan": {
+    "commandShape": "rg --files -g tile_17_mou_a_*.dds -g tile_201a-*.dds -g *.hfl -g *.ttb <scanRoots>",
+    "relatedFilesSeen": 2020,
+    "map17ExactTextureMatches": 0,
+    "map203ExactTextureMatches": 0,
+    "targetHflTtbMatches": 106,
+    "targetHflTtbUniqueGroups": 18
+  },
+  "targetHflTtbClassification": {
+    "allMatchesAreKnownNonCanonicalCopies": true,
+    "hfl": {
+      "names": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
+      "sizeBytes": 137030,
+      "copiesPerName": 12,
+      "role": "historical-recovered-or-development-placeholder"
+    },
+    "ttb": {
+      "names": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"],
+      "sizeBytes": 2097160,
+      "copiesPerName": 1,
+      "role": "UnityNative-derived-overlay"
+    }
+  },
+  "decision": "No file was copied, renamed, or admitted. Exact original resource gate remains blocked until byte-authenticated source payloads are found.",
+  "remainingExactBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 161
+  },
+  "releaseReady": false
+}

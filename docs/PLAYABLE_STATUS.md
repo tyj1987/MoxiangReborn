@@ -1,5 +1,7 @@
 # 可玩状态与分线验收
 
+2026-10-17 | 以当前原版提交 `90b190c82701385b4409169c542be2c3f9484659` 重新扫描 C:/Moxiang、C:/backup、C:/CodexData、D:/MX、D:/MoyoI、D:/03_Data、E:/Workspaces/moxiang 和 E:/Workspaces/artifacts：相关 HFL/TTB 文件 2020 个，Map17 `tile_17_mou_a_01..09.dds` 命中 0 个，Map203 的 161 个 `tile_201a-*` 纹理命中 0 个；18 个缺失 HFL/TTB 名称只对应已知占位或 UnityNative 派生副本。没有复制或准入任何候选，原版精确资源门禁仍为 HFL 22、TTB 18、Map17 9、Map203 161。证据见 [`docs/evidence/original-resource-candidate-scan-20261017.json`](evidence/original-resource-candidate-scan-20261017.json)。
+
 ## 2026-10-15 当前源码阶段：Map10→Map12 与商店闭环
 
 本次回执绑定原版提交 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469` 与隔离阶段 `C:\Moxiang\original\stage-f264e8af-20261015`，不再把旧 `stage-20261015` 的 `21fe3513` 二进制当作当前源码运行证据。新阶段通过 QGA 传输并校验包 SHA-256 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`，使用 `playdh-current` 的 5,135 个资源文件。
