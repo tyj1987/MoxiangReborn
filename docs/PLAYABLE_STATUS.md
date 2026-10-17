@@ -1,6 +1,10 @@
 2026-10-17 | 当前原版提交 `0eb971250bf8b71d7be040d1333d3fb30be8fede` 已完成出生地图路由修复：注册 Map17 路由时建角写入 Map17，无对应路由时安全回退配置默认地图。`mxh_server_handler_tests` 162/162、商业 smoke 35/35 通过；MSSQL 与真人 GUI 仍显式跳过。证据见 [`original-canonical-birth-map-route-20261017.json`](evidence/original-canonical-birth-map-route-20261017.json)。资源缺口与 1 级首战门禁仍未关闭。
 
 # 可玩状态与分线验收
+2026-10-17 | 原版隔离 stage `C:\\Moxiang\\original\\stage-numericcopy-birth-20261017-fixed` 已用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成登录、Map17 建角/重登、任务开始与未完成回退、Map17→Map12 换图持久化、权威战斗→自然掉落→点击拾取→背包移动→重登、4 个 quick-slot 技能效果，以及 Map12 Dealer `53` 的 18 项商店目录、余额扣减、购买物品 `11040` 与重登库存回读。包 SHA-256 为 `7a144af16e79831bfc39c00f28ab3d2501cc9c609bca650ce3a424f6c490ce20`；资源清单 5,136 文件、1,689,474,757 字节。测试结束已恢复角色 Map17、余额 74，删除临时商店物品和技能 fixture。结构化回执见 [`original-pve-fixed-stage-playability-20261017.json`](evidence/original-pve-fixed-stage-playability-20261017.json)。
+
+上述是无头协议验收，不能替代真人 GUI 输入、视觉/音频对照、完整 1:1 资源、全地图经济社交覆盖或 24 小时稳定性。最新本地商业 smoke 为 35/35 通过，`MSSQL_E2E` 与 GUI 仍按显式外部门禁单独记录。
+
 2026-10-17 | 原版当前 `modern/build` 构建目录定向回归：资源引用与 E2E 目标共 6 项，5 通过、0 失败、1 个历史恢复 fixture 按预期跳过；`MoxianClientE2E` 和 dump CLI 均通过。证据见 [`docs/evidence/original-targeted-regression-20261017.json`](evidence/original-targeted-regression-20261017.json)。该回归不关闭 Map17/Map203 精确纹理及 HFL/TTB 原版资源缺口。
 
 

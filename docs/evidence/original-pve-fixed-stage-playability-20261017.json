@@ -1,0 +1,58 @@
+{
+  "schema": "moxiang.original.pve.playability.v2",
+  "generatedAt": "2026-10-17T10:31:00+08:00",
+  "scope": "VM112 isolated original-server stage with real MSSQL and recovered PlayDH resources; headless protocol acceptance only",
+  "source": {
+    "serverPackageHead": "b3bdceed2ded1c34106839a47f6364f1cd01e4a0",
+    "clientVerifierHead": "b1963f4fed852e4698a9acaca93eb1a1ffcb3292",
+    "packageSha256": "7a144af16e79831bfc39c00f28ab3d2501cc9c609bca650ce3a424f6c490ce20",
+    "stage": "C:\\Moxiang\\original\\stage-numericcopy-birth-20261017-fixed",
+    "resourceProfile": "playdh-current",
+    "resourceFiles": 5136,
+    "resourceBytes": 1689474757
+  },
+  "runtime": {
+    "vm": 112,
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalNumericCopy_20261009",
+    "ports": {
+      "login": 16217,
+      "agent": 17217,
+      "map10": 18217,
+      "map12": 18218,
+      "map2": 18219,
+      "map17": 18220
+    },
+    "defaultOriginalAndUnityServicesTouched": false
+  },
+  "gates": {
+    "loginCharacterMap17Relog": "PASS",
+    "questStartAndIncompleteEndRecovery": "PASS",
+    "map17ToMap12ChangeAndRelogPersistence": "PASS",
+    "authoritativeCombatDropPickupInventoryRelog": "PASS",
+    "quickSlotSkillsWithSeededIndependentRows": "PASS",
+    "shopCatalog18ItemsAndBuy11040": "PASS",
+    "shopPurchaseRelogInventoryPersistence": "PASS"
+  },
+  "shopReceipt": {
+    "dealerNpc": 53,
+    "catalogItems": 18,
+    "item": 11040,
+    "moneyFixture": "100000 isolated test balance",
+    "moneyAfterPurchase": 83800,
+    "inventoryCount": "0->1 then 1 after relog"
+  },
+  "cleanup": {
+    "character": "BirthFix17/100002",
+    "restoredMap": 17,
+    "restoredMoney": 74,
+    "removedTemporaryShopItem": 11040,
+    "removedSeededSkillRows": true,
+    "isolatedServices": "left available for final evidence collection; default services were not stopped"
+  },
+  "limitations": [
+    "This is headless protocol acceptance and does not close real GUI/human visual acceptance.",
+    "It does not prove full original resource byte parity beyond the admitted PlayDH manifest.",
+    "MSSQL_E2E and GUI were intentionally separate from the local commercial smoke command."
+  ]
+}
