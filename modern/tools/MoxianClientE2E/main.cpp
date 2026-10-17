@@ -938,6 +938,16 @@ int run_e2e(const CliArgs& cli) {
             }
             LOG("[5/5] OK: Map10 initial monster population=%zu", game.monsters().size());
         }
+        // GameInAck is sent before the server's initial CHARACTER_ADD/NpcAdd
+        // burst.  Drain that burst once before optional gates inspect the
+        // decoded entity lists; otherwise a fast client can report a missing
+        // dealer or empty NPC catalog even though the server sent it.
+        const auto entity_drain_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::milliseconds(750);
+        while (std::chrono::steady_clock::now() < entity_drain_deadline) {
+            game.Process();
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
         const auto& info = game.game_info();
         LOG("[5/5] OK: GameInAck received, player_id=%u name='%s' "
             "level=%u map=%u life=%u/%u",
