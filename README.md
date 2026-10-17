@@ -8,7 +8,7 @@
 
 [ROADMAP.md](ROADMAP.md) → [重整状态](docs/REORGANIZATION_STATUS.md) → [原版状态](docs/PLAYABLE_STATUS.md) / [Unity 状态](docs/UNITY_REMASTER_STATUS.md) / [验收矩阵](docs/VERIFICATION_MATRIX.md)。历史 PASS 只用于定位，不能代替当前版本验收。
 
-GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。原版候选 `codex/reorg-original-20261009` 的当前已验证代码基线 `f5bb07e1` 已在 GitLab/GitHub 双端一致；Unity 候选 `codex/reorg-unity-20261009` 当前为 `e2c60212`，GitHub 长期分支仍停在祖先，不能宣称双端完全同步。
+GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.com/52trz/moxiang-reborn)；[GitHub](https://github.com/tyj1987/MoxiangReborn) 为代码镜像。当前 GitLab 分支已绑定并可恢复：`main`=`660741fe`（原版）、`codex/reorg-original-20261009`=`660741fe`、`codex/unity-client-remaster`=`04d86bd7`、`codex/reorg-unity-20261009`=`04d86bd7`。GitHub 原版 `codex/reorg-original-20261009` 已同步到 `660741fe`；GitHub Unity 长期分支仍停在 `b751df25`，因远端推送连接重置尚未同步，不能宣称双端镜像完全一致。
 
 当前原版候选位于 E:\Workspaces\moxiang\worktrees\original-integration，当前已验证代码基线为 `f5bb07e1`；旧 `main` 尚不是现代客户端基线。Unity 工作区位于 E:\Workspaces\moxiang\worktrees\unity-integration，当前提交为 `e2c60212`，两线未整体合并。
 

@@ -2,7 +2,7 @@
 
 ## 当前状态校准（2026-10-17）
 
-当前原版整合线提交为 `0eb971250bf8b71d7be040d1333d3fb30be8fede`，工作树干净，GitLab 分支已同步。最新精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**、Map203 纹理 **161**；新增的未解析 `D:/MX/client/Package/3DData/Map.pak` 通过一次性字节扫描仍未命中 170 个目标文件名，没有任何候选被复制或准入。原版出生地图路由修复已在 `mxh_server_handler_tests` 162/162 和商业 smoke 35/35（MSSQL/GUI 显式跳过）中通过，证据见 `docs/evidence/original-canonical-birth-map-route-20261017.json`。当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
+当前原版整合线提交为 `660741fe88be816f581e9759dacbe3dce5700926`，工作树干净，GitLab `main` 与原版候选已同步。最新精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**、Map203 纹理 **161**；新增的未解析 `D:/MX/client/Package/3DData/Map.pak` 通过一次性字节扫描仍未命中 170 个目标文件名，没有任何候选被复制或准入。当前已在独立 VM112 NumericCopy stage 完成真实 MSSQL 登录、任务、换图、战斗掉落拾取、技能、商店购买和重登回读，证据见 `docs/evidence/original-pve-fixed-stage-playability-20261017.json`；本地商业 smoke 35/35 通过。当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
 
 更新：2026-10-15。当前原版候选绑定 `codex/reorg-original-20261009`；工程代码基线为
 `179aa2e650f6f754744cfe4cd5e84eb58b8ac4e0`。Release 包内二进制与资源绑定提交为 `3f355242bb337c467f15692598514fa5f4ada591`。GitLab 为工程主源，GitHub 为镜像。
@@ -21,6 +21,8 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
   `docs/evidence/original-pve-current-release-map10-20261015.json`。
 - 当前 Release 包在 VM112 独立 stage 完成 Map17 真实远端战斗闭环：登录、选角、GameIn、216 怪物、15 NPC、权威技能伤害、目标死亡、自然掉落、点击拾取、背包移动和重登回读；临时账号及相关数据库行已清理，见
   `docs/evidence/original-pve-current-release-map17-combat-20261015.json`。测试后已恢复默认 Map10 五端口服务状态。
+- 最新隔离 NumericCopy stage 已完成更完整的真实 MSSQL 子门禁：Map17 出生/重登、任务开始与未完成回退、Map17→Map12 持久化、战斗掉落拾取、quick-slot 技能、Map12 Dealer 商店购买和购买后重登库存回读；测试 fixture 已恢复，见
+  `docs/evidence/original-pve-fixed-stage-playability-20261017.json`。
 
 ## 仍未闭合
 
@@ -30,7 +32,7 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
 
 ## 下一条最快路径
 
-1. 在真实 GUI 中完成移动、NPC/任务、战斗、掉落、拾取、装备、切图、重登和数据库读回。
+1. 在真实 GUI 中完成移动、NPC/任务、战斗、掉落、拾取、装备、切图、重登和数据库读回；当前无头 MSSQL 子门禁已闭合，不能把它替代为 GUI 完成。
 2. 对每个缺失资源继续寻找准确原包；没有可验证来源时维持阻塞，不引入替代美术。
 3. 通过断线重连、服务重启、数据库失败恢复、更新回滚和 24 小时稳定性验收后，才评估 `main` 合并和最终冗余清理。
 
