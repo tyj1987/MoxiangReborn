@@ -1,0 +1,29 @@
+{
+  "schema": "moxiang.original.vm112.package.v1",
+  "generatedAt": "2026-10-17T08:48:00+08:00",
+  "sourceHead": "4edd6642a17c317b94044d9621b2beccfd32fa75",
+  "branch": "codex/reorg-original-20261009",
+  "build": {
+    "directory": "modern/build-clean-debug-20261015",
+    "configuration": "Release",
+    "targets": [
+      "mxh_login_server",
+      "mxh_agent_server_CHINA",
+      "mxh_map_server_CHINA",
+      "mxh_db_tool"
+    ],
+    "result": "PASS"
+  },
+  "package": {
+    "path": "artifacts/original-vm112-canonical-birth-20261017.zip",
+    "sha256": "afe09f6b8d9ea9fb3d64d01f4c5e8d16ff6a687ea01a292f111785643dd523e8",
+    "bytes": 4833435,
+    "files": 12,
+    "resources": 4,
+    "stage": "C:\\Moxiang\\original\\stage-canonical-birth-20261017",
+    "database": "MoxiangOriginalTest_20261009",
+    "transfer": "NOT_PERFORMED",
+    "reason": "PVE mutation requires the existing coordinated VM112 owner channel; no service or database was changed in this step."
+  },
+  "birthRouteChange": "Release binaries include canonical StartArea persistence fix from parent validation commit."
+}
