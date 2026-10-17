@@ -49,6 +49,7 @@
 #include <future>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 #include <thread>
@@ -374,6 +375,10 @@ public:
                                std::span<const mxh::db::Bind> params) override {
         if (sql.find("INSERT INTO character_info") != std::string_view::npos) {
             ++character_inserts;
+            if (params.size() > 10 &&
+                std::holds_alternative<std::int64_t>(params[10].value)) {
+                created_map_num = std::get<std::int64_t>(params[10].value);
+            }
             if (pause_character_insert) {
                 std::unique_lock<std::mutex> lock(pause_mu);
                 character_insert_waiting = true;
@@ -452,6 +457,7 @@ public:
     int equipment_inserts = 0;
     int progress_inserts = 0;
     int pending_vitals_inserts = 0;
+    std::optional<std::int64_t> created_map_num;
     std::atomic<int> begins{0};
     std::atomic<int> commits{0};
     std::atomic<int> rollbacks{0};
@@ -726,6 +732,26 @@ private:
     bool connected = true;
     bool fail_send = false;
 };
+
+TEST(AgentCharacterCreateTest, PersistsCanonicalBirthMapWhenRouteIsRegistered) {
+    CharacterCreateDb db;
+    ReplySpy reply;
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
+                                      false, {}, /*default_map_num=*/10);
+    MockTcpSender map17;
+    handler.set_map_server_for_map(17, &map17, mxh::net::make_connection_id(17017));
+
+    auto request = character_make_with_default_clothes();
+    ASSERT_GE(request.payload.size(), 26u);
+    request.payload[25] = 17;  // canonical StartArea from LoginPoint.bin
+    handler.on_message(mxh::net::make_connection_id(9017), request);
+
+    ASSERT_TRUE(db.created_map_num.has_value());
+    EXPECT_EQ(*db.created_map_num, 17);
+    ASSERT_FALSE(reply.messages.empty());
+    EXPECT_NE(reply.last_message.header.protocol,
+              static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterMakeNack));
+}
 
 class MapHandlerForwardingSender final : public mxh::net::ITcpSender {
 public:

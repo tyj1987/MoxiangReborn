@@ -1718,6 +1718,17 @@ void AgentHandler::handle_legacy_character_make(
         }
     }
 
+    // The legacy client submits its canonical birth area in StartArea.  Keep
+    // the configured default only as a test/deployment fallback: when the
+    // matching MapServer route is actually registered, persist that exact
+    // birth map so CharacterSelect/GameIn follow the original route instead
+    // of silently sending a new character to the default test map.
+    const auto birth_route = route_for_map_exact(start_area);
+    const bool birth_route_available = start_area != 0u &&
+        birth_route.client != nullptr && birth_route.connection.valid();
+    const auto initial_map_num = birth_route_available
+        ? static_cast<std::uint16_t>(start_area) : default_map_num_;
+
     // Insert into character_info.
     std::vector<mxh::db::Bind> ins_params = {
         mxh::db::bind(chrid),
@@ -1730,7 +1741,7 @@ void AgentHandler::handle_legacy_character_make(
         mxh::db::bind(static_cast<std::int64_t>(start_area)),
         mxh::db::bind(static_cast<double>(height)),
         mxh::db::bind(static_cast<double>(width)),
-        mxh::db::bind(static_cast<std::int64_t>(default_map_num_)),
+        mxh::db::bind(static_cast<std::int64_t>(initial_map_num)),
         mxh::db::bind(static_cast<std::int64_t>(standing_idx))
     };
     if (!db_.begin_transaction().ok()) {
