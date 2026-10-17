@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-map203-runtime-resource-gate",
+  "capturedAtUtc": "2026-10-17T03:58:35.252982+00:00",
+  "sourceHead": "647d43bb06633001b8f445bef09df26f65954faa",
+  "stage": "C:\\Moxiang\\original\\stage-map203-testdb-20261017",
+  "databaseHost": "192.168.2.238",
+  "database": "MoxiangOriginalTest_20261009",
+  "package": {
+    "sha256": "fa91cf475bd68f10cb6b280cb16c085f74130b0195091773da54eb9689d908b5",
+    "bytes": 6243344,
+    "transfer": "PASS",
+    "resourceFiles": 5297,
+    "resourceBytes": 1691253485,
+    "resourceManifest": "reference/manifests/playdh-current.sha256.json"
+  },
+  "preflight": {
+    "planOnly": "PASS",
+    "defaultPortsUntouched": true
+  },
+  "runtimeAttempt": {
+    "command": "start_current_vm112.ps1 -Start -DatabaseHost 192.168.2.238 -DatabaseName MoxiangOriginalTest_20261009 -LoginPort 16217 -AgentPort 17217 -MapPort 18203 -Map12Port 18212 -Map2Port 18213 -MapNumber 203",
+    "result": "BLOCKED",
+    "firstService": "map10 (map number 203)",
+    "exitCode": 1,
+    "stderr": "missing or invalid AIGroup data at Resource/Server/Monster_203.bin",
+    "defaultPortsUntouched": true,
+    "isolatedListenersAfterFailure": []
+  },
+  "exactClientTerrain": {
+    "map203HflUsedTextures": 161,
+    "missingTextures": 0,
+    "source": "original-map203-texture-admission-20261017.json"
+  },
+  "releaseDecision": "blocked_until_exact_original_server_ai_group_resource_is_recovered",
+  "limitations": [
+    "No development fallback or substitute server profile was used.",
+    "This receipt proves the updated stage and exact client terrain package transfer; it does not prove Map203 playability."
+  ]
+}

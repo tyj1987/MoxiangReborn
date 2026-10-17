@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-commercial-smoke",
+  "capturedAtUtc": "2026-10-17T03:58:35.252982+00:00",
+  "sourceHead": "647d43bb06633001b8f445bef09df26f65954faa",
+  "buildDir": "modern/build-clean-debug-20261015",
+  "command": "scripts/commercial-smoke.ps1 -BuildDir modern/build-clean-debug-20261015 -SkipMssql -SkipGui",
+  "total": 35,
+  "passed": 34,
+  "failed": 0,
+  "skipped": 1,
+  "skippedTests": [
+    "MxhResourcePayloadSha256.VerifyManifest_Deploy"
+  ],
+  "mssql": "skipped-explicit",
+  "gui": "skipped-explicit",
+  "result": "pass",
+  "limitations": [
+    "MSSQL_E2E was explicitly skipped",
+    "GUI client smoke was explicitly skipped",
+    "This receipt does not close exact original resource or full commercial acceptance"
+  ]
+}
