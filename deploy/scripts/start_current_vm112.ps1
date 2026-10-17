@@ -3,6 +3,7 @@ param(
     [switch]$Start,
     [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
     [string]$DatabaseHost = '',
+    [string]$DatabaseName = 'MoxiangOriginalTest_20261009',
     [int]$LoginPort = 16001,
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
@@ -20,7 +21,7 @@ if (-not (Test-Path $manifestPath -PathType Leaf)) { throw 'stage-manifest.json 
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 if ([int]$manifest.schema -ne 2 -or [string]$manifest.stage -notlike '*stage-*') { throw 'current stage manifest identity mismatch' }
 if ([string]$manifest.writerContract.databaseHost -ne '192.168.2.238' -or
-    [string]$manifest.writerContract.database -ne 'MoxiangOriginalTest_20261009' -or
+    [string]$manifest.writerContract.database -ne $DatabaseName -or
     [string]$manifest.writerContract.resourceProfile -ne 'playdh-current') { throw 'writer contract mismatch' }
 if ($AdvertisedAgentAddress -ne '192.168.2.244' -or $DatabaseHost -ne '192.168.2.238') { throw 'VM112 binding mismatch' }
 $allPorts = @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)
@@ -47,7 +48,12 @@ $state = Join-Path $stage 'run\pids-current.json'
 if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=$allPorts;map17Enabled=[bool]$EnableMap17;startsProcesses=$false} | ConvertTo-Json; return }
 if (Test-Path $state) { throw 'current stage PID file already exists' }
 $cfg = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
-if ([string]::IsNullOrWhiteSpace($cfg) -or $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or $cfg -notmatch '(?i)(^|;)host=192\.168\.2\.238(;|$)' -or $cfg -notmatch '(?i)(^|;)database=MoxiangOriginalTest_20261009(;|$)') { throw 'protected database config missing or mismatched' }
+if ([string]::IsNullOrWhiteSpace($cfg) -or
+    $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or
+    $cfg -notmatch '(?i)(^|;)host=192\.168\.2\.238(;|$)' -or
+    $cfg -notmatch ("(?i)(^|;)database=" + [regex]::Escape($DatabaseName) + '(;|$)')) {
+    throw 'protected database config missing or mismatched'
+}
 foreach ($port in $allPorts) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
 $log = Join-Path $stage 'run\logs-current'; New-Item $log -ItemType Directory -Force | Out-Null
 $env:PATH = "$runtime;$env:PATH"

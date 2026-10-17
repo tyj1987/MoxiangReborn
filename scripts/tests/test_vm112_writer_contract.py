@@ -46,6 +46,12 @@ class Vm112WriterContractTests(unittest.TestCase):
         self.assertLess(source.index("if (-not $Start)"),
                         source.index("assert_original_writer_contract.ps1"))
 
+    def test_current_wrapper_requires_explicit_database_contract(self):
+        source = (ROOT / "deploy/scripts/start_current_vm112.ps1").read_text(encoding="utf-8")
+        self.assertIn("[string]$DatabaseName = 'MoxiangOriginalTest_20261009'", source)
+        self.assertIn("$manifest.writerContract.database -ne $DatabaseName", source)
+        self.assertIn("[regex]::Escape($DatabaseName)", source)
+
     def test_guard_pins_new_nullable_attribute_writer_contract(self):
         source = GUARD.read_text(encoding="utf-8")
         self.assertIn("DB_NAME() = N'MoxiangOriginalR18Test_20261009'", source)
