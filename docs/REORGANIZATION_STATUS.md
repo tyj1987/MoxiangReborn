@@ -1,5 +1,9 @@
 # 重整执行状态
 
+## 当前状态校准（2026-10-17）
+
+原版整合线当前提交为 `5af3ba681d8429a143ee05a68d468251d1eb6990`。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9、Map203 纹理 161；`docs/evidence/original-map-pak-unparsed-name-scan-20261017.json` 记录了对未解析 1.1GB Map.pak 候选的 170 项目标名一次性扫描，命中 0 项。本文以下 2026-10-15 段落是历史执行记录，不覆盖当前数量和提交绑定。
+
 ## 2026-10-15 当前源码阶段回执：原版商店链已在 PVE 闭合
 
 原版分支 `codex/reorg-original-20261009` 当前提交为 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469`。本轮将该提交构建为独立 VM112 stage `C:\Moxiang\original\stage-f264e8af-20261015`，包 SHA-256 为 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`；旧 stage 和 Unity 服务没有替换。
