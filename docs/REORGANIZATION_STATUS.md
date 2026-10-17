@@ -2,7 +2,7 @@
 
 ## 当前状态校准（2026-10-17）
 
-原版整合线当前提交为 `0eb97125f9d8f1ef8e38f4a04a7c8b79d15c7a7`。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9、Map203 纹理 161；`docs/evidence/original-map-pak-unparsed-name-scan-20261017.json` 记录了对未解析 1.1GB Map.pak 候选的 170 项目标名一次性扫描，命中 0 项。本轮还修复了建角出生地图路由：仅在对应 MapServer 路由确实注册时持久化客户端提交的 StartArea，否则保留默认地图回退；针对性 1/1、服务处理器 162/162、商业 smoke 35/35 通过，证据见 `docs/evidence/original-canonical-birth-map-route-20261017.json`。本文以下 2026-10-15 段落是历史执行记录，不覆盖当前数量和提交绑定。
+原版整合线当前提交为 `0eb971250bf8b71d7be040d1333d3fb30be8fede`。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9、Map203 纹理 161；`docs/evidence/original-map-pak-unparsed-name-scan-20261017.json` 记录了对未解析 1.1GB Map.pak 候选的 170 项目标名一次性扫描，命中 0 项。本轮还修复了建角出生地图路由：仅在对应 MapServer 路由确实注册时持久化客户端提交的 StartArea，否则保留默认地图回退；针对性 1/1、服务处理器 162/162、商业 smoke 35/35 通过，证据见 `docs/evidence/original-canonical-birth-map-route-20261017.json`。本文以下 2026-10-15 段落是历史执行记录，不覆盖当前数量和提交绑定。
 
 ## 2026-10-15 当前源码阶段回执：原版商店链已在 PVE 闭合
 
@@ -131,4 +131,5 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 原版候选新增提交 `3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb`。它删除了 revisioned 技能对非空任务日志的错误前置拒绝，并以单测和 VM112 受控 MSSQL fixture 验证任务行保留时的 Map10 权威击杀。临时 fixture、服务任务和旧 Map10 已按原路径恢复；CT930 回读为 level 1、四属性 12、HP 125、装备 0。结构化回执：[`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)。
 
 本回执只关闭任务状态与 revisioned 战斗兼容性子门禁。由于 E2E 循环未完成最终拾取/重登断言，原版首个可玩版本、资源完整性、Unity 线和最终清理仍保持未闭合。
+
 
