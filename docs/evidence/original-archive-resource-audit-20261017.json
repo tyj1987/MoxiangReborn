@@ -1,0 +1,26 @@
+{
+  "schema": "moxiang.original.archive.resource.audit.v1",
+  "capturedAt": "2026-10-17T11:05:00+08:00",
+  "sourceHead": "89ef20f8c1ed9dc7cd2fd6021a77ef1ed8b88e37",
+  "archivesInspected": [
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/unity-candidate-review/unity-vm112-playdh-private-20261009.zip",
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/unity-candidate-review/playdh-candidate-before-rawbyte-restore-private.zip",
+    "E:/Workspaces/moxiang/artifacts/playdh-historical-overlay/SS3DRendererForMuk.rar",
+    "E:/Workspaces/moxiang/repo/modern/data/PlayDH/SS3DRendererForMuk.rar",
+    "D:/MX/_backup_2026_08_21/other/PlayDH_SS3DRendererForMuk.rar_SS3DRendererForMuk.rar"
+  ],
+  "privatePlayDhArchive": {
+    "mapPakEntry": {
+      "bytes": 584312358,
+      "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0"
+    },
+    "resourceMapEntries": "65 TTB entries; no HFL entries",
+    "missingExactNameMatches": [],
+    "scanTargets": [
+      "tile_17_mou_a_01.dds..tile_17_mou_a_09.dds",
+      "tile_201a-* target set (161 names)"
+    ]
+  },
+  "decision": "No new byte-authenticated HFL, TTB, Map17 texture, or Map203 texture source was found. No archive was extracted into the active resource tree and no candidate was admitted.",
+  "releaseReady": false
+}
