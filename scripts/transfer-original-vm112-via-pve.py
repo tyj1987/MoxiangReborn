@@ -105,7 +105,7 @@ def main() -> None:
             timeout=600,
         )
     result = json.loads(
-        guest(
+        guest.exec(
             f"$manifest=Get-Content '{stage}\\stage-manifest.json' -Raw | ConvertFrom-Json; $root='{stage}\\modern\\data\\PlayDH'; $files=@(Get-ChildItem -LiteralPath $root -File -Recurse); [ordered]@{{stage='{stage}';sourceHead=[string]$manifest.sourceHead;packageSha256=(Get-FileHash '{stage}\\package.zip' -Algorithm SHA256).Hash.ToLowerInvariant();resourceFiles=$files.Count;resourceBytes=[int64](($files | Measure-Object Length -Sum).Sum);resourceProfile=[string]$manifest.writerContract.resourceProfile}} | ConvertTo-Json -Compress"
         )
     )
