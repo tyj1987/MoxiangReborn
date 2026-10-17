@@ -42,8 +42,10 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
 - 干净构建与测试：`docs/evidence/original-clean-build-ctest-20261015.json`
 - 当前 PVE Release 包：`docs/evidence/original-release-pve-package-20261015.json`
 - 当前 Release PVE Map10：`docs/evidence/original-pve-current-release-map10-20261015.json`
-- 当前 Release PVE Map17 战斗：`docs/evidence/original-pve-current-release-map17-combat-20261015.json`\r\n- 当前 canonical birth-route Release 包及 VM112 隔离 stage：`docs/evidence/original-canonical-birth-release-package-20261017.json`、`docs/evidence/original-vm112-canonical-birth-stage-20261017.json`；stage 资源与 Map17 追加校验通过，但因默认原版服务已占用同一 writer contract，本轮未并发启动。
+- 当前 Release PVE Map17 战斗：`docs/evidence/original-pve-current-release-map17-combat-20261015.json`
+- 当前 canonical birth-route Release 包及 VM112 隔离 stage：`docs/evidence/original-canonical-birth-release-package-20261017.json`、`docs/evidence/original-vm112-canonical-birth-stage-20261017.json`；stage 资源与 Map17 追加校验通过，但因默认原版服务已占用同一 writer contract，本轮未并发启动。
 - 协议、数据库和资源格式说明仍以 `MoxianProtocolDoc.md`、`DATABASE_SCHEMA.md`、`RESOURCE_FORMATS.md` 为准。
+
 
 
 
