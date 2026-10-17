@@ -72,6 +72,7 @@ def main() -> None:
     parser.add_argument("--expected-sha256", required=True)
     parser.add_argument("--stage", required=True, help=r"guest path such as C:\Moxiang\original\stage-name")
     parser.add_argument("--resource-source-stage", help="existing guest stage whose PlayDH tree is copied into the new stage")
+    parser.add_argument("--verify-existing", action="store_true", help="verify an already transferred/extracted stage without changing it")
     args = parser.parse_args()
 
     package = args.package.resolve()
@@ -79,26 +80,28 @@ def main() -> None:
         raise ValueError("local package hash mismatch")
     guest = PveGuest(args.pve_host, args.vmid)
     stage = args.stage.rstrip("\\/")
-    guest.exec(
-        f"$stage='{stage}'; if(Test-Path -LiteralPath $stage){{throw 'stage already exists'}}; New-Item -ItemType Directory -Path $stage -Force | Out-Null"
-    )
     total = package.stat().st_size
-    sent = 0
-    with package.open("rb") as stream:
-        while chunk := stream.read(CHUNK_SIZE):
-            guest.exec(
-                f"$path='{stage}\\package.zip'; $src=[Console]::OpenStandardInput(); $dst=[IO.File]::Open($path,[IO.FileMode]::Append,[IO.FileAccess]::Write,[IO.FileShare]::None); try{{$src.CopyTo($dst)}} finally{{$dst.Dispose();$src.Dispose()}}",
-                chunk,
-            )
-            sent += len(chunk)
-            print(f"transferred {sent}/{total}", flush=True)
+    if not args.verify_existing:
+        guest.exec(
+            f"$stage='{stage}'; if(Test-Path -LiteralPath $stage){{throw 'stage already exists'}}; New-Item -ItemType Directory -Path $stage -Force | Out-Null"
+        )
+        sent = 0
+        with package.open("rb") as stream:
+            while chunk := stream.read(CHUNK_SIZE):
+                guest.exec(
+                    f"$path='{stage}\\package.zip'; $src=[Console]::OpenStandardInput(); $dst=[IO.File]::Open($path,[IO.FileMode]::Append,[IO.FileAccess]::Write,[IO.FileShare]::None); try{{$src.CopyTo($dst)}} finally{{$dst.Dispose();$src.Dispose()}}",
+                    chunk,
+                )
+                sent += len(chunk)
+                print(f"transferred {sent}/{total}", flush=True)
     remote_hash = guest.exec(f"(Get-FileHash -Algorithm SHA256 -LiteralPath '{stage}\\package.zip').Hash.ToLowerInvariant()")
     if remote_hash.lower() != args.expected_sha256.lower():
         raise RuntimeError(f"remote package hash mismatch: {remote_hash}")
-    guest.exec(
-        f"Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::ExtractToDirectory('{stage}\\package.zip','{stage}')"
-    )
-    if args.resource_source_stage:
+    if not args.verify_existing:
+        guest.exec(
+            f"Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::ExtractToDirectory('{stage}\\package.zip','{stage}')"
+        )
+    if args.resource_source_stage and not args.verify_existing:
         source = args.resource_source_stage.rstrip("\\/")
         guest.exec(
             f"$source='{source}\\modern\\data\\PlayDH'; $target='{stage}\\modern\\data\\PlayDH'; if(-not (Test-Path -LiteralPath $source -PathType Container)){{throw 'resource source stage missing'}}; New-Item -ItemType Directory -Path $target -Force | Out-Null; robocopy $source $target /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS; if($LASTEXITCODE -ge 8){{throw 'resource mirror failed'}}; Expand-Archive -LiteralPath '{stage}\\package.zip' -DestinationPath '{stage}' -Force",
