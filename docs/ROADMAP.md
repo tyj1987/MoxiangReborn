@@ -2,7 +2,7 @@
 
 ## 当前状态校准（2026-10-17）
 
-当前原版整合线提交为 `5af3ba681d8429a143ee05a68d468251d1eb6990`，工作树干净，GitLab 分支已同步。最新精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**、Map203 纹理 **161**；新增的未解析 `D:/MX/client/Package/3DData/Map.pak` 通过一次性字节扫描仍未命中 170 个目标文件名，没有任何候选被复制或准入。当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
+当前原版整合线提交为 `0eb97125f9d8f1ef8e38f4a04a7c8b79d15c7a7a`，工作树干净，GitLab 分支已同步。最新精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**、Map203 纹理 **161**；新增的未解析 `D:/MX/client/Package/3DData/Map.pak` 通过一次性字节扫描仍未命中 170 个目标文件名，没有任何候选被复制或准入。原版出生地图路由修复已在 `mxh_server_handler_tests` 162/162 和商业 smoke 35/35（MSSQL/GUI 显式跳过）中通过，证据见 `docs/evidence/original-canonical-birth-map-route-20261017.json`。当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
 
 更新：2026-10-15。当前原版候选绑定 `codex/reorg-original-20261009`；工程代码基线为
 `179aa2e650f6f754744cfe4cd5e84eb58b8ac4e0`。Release 包内二进制与资源绑定提交为 `3f355242bb337c467f15692598514fa5f4ada591`。GitLab 为工程主源，GitHub 为镜像。
@@ -44,3 +44,4 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
 - 当前 Release PVE Map10：`docs/evidence/original-pve-current-release-map10-20261015.json`
 - 当前 Release PVE Map17 战斗：`docs/evidence/original-pve-current-release-map17-combat-20261015.json`
 - 协议、数据库和资源格式说明仍以 `MoxianProtocolDoc.md`、`DATABASE_SCHEMA.md`、`RESOURCE_FORMATS.md` 为准。
+

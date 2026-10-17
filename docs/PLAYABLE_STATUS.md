@@ -1,3 +1,5 @@
+2026-10-17 | 当前原版提交 `0eb97125f9d8f1ef8e38f4a04a7c8b79d15c7a7` 已完成出生地图路由修复：注册 Map17 路由时建角写入 Map17，无对应路由时安全回退配置默认地图。`mxh_server_handler_tests` 162/162、商业 smoke 35/35 通过；MSSQL 与真人 GUI 仍显式跳过。证据见 [`original-canonical-birth-map-route-20261017.json`](evidence/original-canonical-birth-map-route-20261017.json)。资源缺口与 1 级首战门禁仍未关闭。
+
 # 可玩状态与分线验收
 2026-10-17 | 原版当前 `modern/build` 构建目录定向回归：资源引用与 E2E 目标共 6 项，5 通过、0 失败、1 个历史恢复 fixture 按预期跳过；`MoxianClientE2E` 和 dump CLI 均通过。证据见 [`docs/evidence/original-targeted-regression-20261017.json`](evidence/original-targeted-regression-20261017.json)。该回归不关闭 Map17/Map203 精确纹理及 HFL/TTB 原版资源缺口。
 
@@ -175,4 +177,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 同一 x64 Release 构建已补齐 `mxh_client`、Launcher、三服、数据库工具、资源浏览器和 E2E 工具；本地 SQLite 三服链 `MoxianClientE2E` **1/1 通过**。PVE 人工入口的 PlanOnly 检查确认只连接 `192.168.2.244:16001/17001/18001`，不会启动本机服务或数据库；完整人工 GUI 仍需操作者在实际桌面完成，回执见 [`modern-client-x64-build-20261017.json`](evidence/modern-client-x64-build-20261017.json)。
 
 同一 source-bound x64 Release 目录随后完成全目标编译和完整 CTest：**12,577/12,577 实际执行用例通过、0 失败、26 项明确 Skip，退出码 0**，总耗时 130.79 秒。Skip 仅对应 PVE/MSSQL、恢复运行时资源、真实特效资源和显式 Map10 smoke 门禁；回执与构建日志哈希见 [`modern-full-x64-release-20261017.json`](evidence/modern-full-x64-release-20261017.json)。
+
 
