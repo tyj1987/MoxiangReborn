@@ -1558,7 +1558,13 @@ int run_e2e(const CliArgs& cli) {
                         game.Process();
                         const auto dx = static_cast<float>(target->position_x) - game.local_x();
                         const auto dz = static_cast<float>(target->position_z) - game.local_z();
-                        if (dx * dx + dz * dz <= 500.0f * 500.0f) break;
+                        // Keep the target inside the same authoritative attack
+                        // range enforced by CInGameState before trying the
+                        // offensive quick slots.  A wider settle window can
+                        // make the client reject every damaging skill while
+                        // still allowing self-heal to run, producing a false
+                        // failure in the skill acceptance gate.
+                        if (dx * dx + dz * dz <= 180.0f * 180.0f) break;
                         std::this_thread::sleep_for(std::chrono::milliseconds(25));
                     }
                 }
