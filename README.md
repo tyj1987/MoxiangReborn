@@ -14,7 +14,7 @@ GitLab 工程主源为 [52trz/moxiang-reborn，项目 12](https://gitlab.52trz.c
 
 每线使用自己的工作树、构建输出、日志和运行配置。工具链为 Visual Studio C++、CMake、Python，Unity 沿用项目声明的 Editor 版本。启动说明以候选工作树的 docs/HUMAN_ACCEPTANCE.md 为准，必须明确连接 PVE，不隐式启动本机三服或数据库。
 
-原版使用 modern/data/PlayDH 的 playdh-current 原资源，按完整哈希清单核对；Map17 准确 `17.hfl` 已恢复，但 9 个使用纹理仍缺失，原版还剩 22 个 HFL、18 个 TTB 文件级缺口。Unity 导入结果及重制美术独立存放，禁止回写。原资源缺失项不能用替代美术宣称 1:1。
+原版使用 modern/data/PlayDH 的 playdh-current 原资源，按完整哈希清单核对；Map203 的 161 个准确地表纹理已从同源原始 `D:/MX/client/Package/3DData/Map.pak` 恢复并通过依赖审计。Map17 准确 `17.hfl` 已恢复，但 9 个使用纹理仍缺失，原版还剩 22 个 HFL、18 个 TTB 文件级缺口。Unity 导入结果及重制美术独立存放，禁止回写。原资源缺失项不能用替代美术宣称 1:1。
 
 ## 技术参考
 

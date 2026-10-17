@@ -2,7 +2,7 @@
 
 ## 当前状态校准（2026-10-17）
 
-原版整合线当前提交为 `b5778f738804d98b11c6200654239fca47105cd4`。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9、Map203 纹理 161；`docs/evidence/original-map-pak-unparsed-name-scan-20261017.json` 记录了对未解析 1.1GB Map.pak 候选的 170 项目标名一次性扫描，命中 0 项。本轮还修复了建角出生地图路由和 E2E 初始实体消息竞态；服务处理器 162/162、商业 smoke 35/35 通过。独立 VM112 NumericCopy stage 的真实 MSSQL 玩法回执见 `docs/evidence/original-pve-fixed-stage-playability-20261017.json`。本文以下历史段落不覆盖当前数量和提交绑定。
+原版整合线当前提交为 `cc83b66a49de1710292ad32a2616f983d7ca3cd6`。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9；Map203 的 161 个准确纹理已由同源原始包准入，依赖审计 0 缺失，回执见 `docs/evidence/original-map203-texture-admission-20261017.json`。本轮还修复了建角出生地图路由和 E2E 初始实体消息竞态；服务处理器 162/162、商业 smoke 35/35 通过。独立 VM112 NumericCopy stage 的真实 MSSQL 玩法回执见 `docs/evidence/original-pve-fixed-stage-playability-20261017.json`。本文以下历史段落不覆盖当前数量和提交绑定。
 
 ## 2026-10-15 当前源码阶段回执：原版商店链已在 PVE 闭合
 
