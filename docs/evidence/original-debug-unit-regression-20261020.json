@@ -1,0 +1,36 @@
+{
+  "schema": "moxiang.original.debug-unit-regression.v1",
+  "recordedAt": "2026-10-20T03:31:00+08:00",
+  "result": "PASS",
+  "sourceHead": "16bc860ffbd36665e3c3ad9ab5a44255c94a0aea",
+  "build": {
+    "generatorDirectory": "modern/out/build-client-x64-diagnose",
+    "configuration": "Debug",
+    "clientTarget": "mxh_client",
+    "testTargets": [
+      "mxh_server_handler_tests",
+      "mxh_original_item_obtain_codec_tests",
+      "mxh_resource_parse_all_bin_tests",
+      "mxh_wire_format_tests",
+      "mxh_byte_match_sweep_tests"
+    ]
+  },
+  "ctest": {
+    "filter": "MxhResourceParse|AgentCharacterCreateTest|OriginalItemObtain|WireFormatGolden|UserConnByte",
+    "passed": 481,
+    "failed": 0,
+    "notRun": 0,
+    "exitCode": 0
+  },
+  "coverage": [
+    "PlayDH and server binary resource parsing",
+    "canonical birth-map character creation route",
+    "original item obtain codec",
+    "wire-format golden packets",
+    "server handler and UserConn byte-level contracts"
+  ],
+  "limitations": [
+    "this is a Debug/unit regression gate, not a commercial release approval",
+    "PVE gameplay and human GUI acceptance remain separate evidence gates"
+  ]
+}
