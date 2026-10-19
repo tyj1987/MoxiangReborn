@@ -59,6 +59,8 @@ BEGIN
         [width]        FLOAT         NOT NULL DEFAULT 1.0,
         [level]        INT           NOT NULL DEFAULT 1,
         [map_num]      INT           NOT NULL DEFAULT 0,
+        [position_x]   FLOAT         NULL,
+        [position_z]   FLOAT         NULL,
         [standing_idx] INT           NOT NULL DEFAULT 0,
         [character_data] VARBINARY(MAX) NULL
     );
@@ -70,6 +72,12 @@ BEGIN
     ALTER TABLE [dbo].[character_info]
         ADD [character_data] VARBINARY(MAX) NULL;
 END
+GO
+
+IF COL_LENGTH(N'dbo.character_info', N'position_x') IS NULL
+    ALTER TABLE dbo.character_info ADD position_x FLOAT NULL;
+IF COL_LENGTH(N'dbo.character_info', N'position_z') IS NULL
+    ALTER TABLE dbo.character_info ADD position_z FLOAT NULL;
 GO
 
 -- Old characters retain NULL until their four attributes are imported from
@@ -297,5 +305,11 @@ PRINT 'Moxiang modern schema ready';
 IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 1)
 BEGIN
     INSERT INTO [dbo].[modern_schema_version] ([version]) VALUES (1);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 4)
+BEGIN
+    INSERT INTO [dbo].[modern_schema_version] ([version]) VALUES (4);
 END
 GO
