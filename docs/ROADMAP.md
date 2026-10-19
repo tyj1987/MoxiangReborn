@@ -1,3 +1,5 @@
+2026-10-20 | 当前原版提交 `9c6515080369161eacd6072755807a2c0f92bad3` 已在 VM112 隔离 stage 使用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成 Map17 1 级首发闭环：登录、建角、重列、GameIn（216 怪物）、权威命中/死亡、自然掉落 `item=8007`、点击拾取、背包移动和 GameOut 后重登库存回读，5/5 检查通过、退出码 0。端口为 `16417/17417/18420`，默认原版与 Unity 端口未触碰。回执见 [`original-pve-map17-starter-combat-20261020.json`](evidence/original-pve-map17-starter-combat-20261020.json)。该证据仍是无头协议门禁，不替代真人 GUI、视觉/音频 1:1、Map17 九个准确纹理、全地图覆盖或商业发布验收。
+
 # Moxiang 开发路线图
 
 ## 当前推进增量（2026-10-20）
@@ -53,8 +55,3 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
 - 当前 Release PVE Map17 战斗：`docs/evidence/original-pve-current-release-map17-combat-20261015.json`
 - 当前 canonical birth-route Release 包及 VM112 隔离 stage：`docs/evidence/original-canonical-birth-release-package-20261017.json`、`docs/evidence/original-vm112-canonical-birth-stage-20261017.json`；stage 资源与 Map17 追加校验通过，但因默认原版服务已占用同一 writer contract，本轮未并发启动。
 - 协议、数据库和资源格式说明仍以 `MoxianProtocolDoc.md`、`DATABASE_SCHEMA.md`、`RESOURCE_FORMATS.md` 为准。
-
-
-
-
-

@@ -1,3 +1,5 @@
+2026-10-20 | 当前原版提交 `9c6515080369161eacd6072755807a2c0f92bad3` 已在 VM112 隔离 stage 使用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成 Map17 1 级首发闭环：登录、建角、重列、GameIn（216 怪物）、权威命中/死亡、自然掉落 `item=8007`、点击拾取、背包移动和 GameOut 后重登库存回读，5/5 检查通过、退出码 0。端口为 `16417/17417/18420`，默认原版与 Unity 端口未触碰。回执见 [`original-pve-map17-starter-combat-20261020.json`](evidence/original-pve-map17-starter-combat-20261020.json)。该证据仍是无头协议门禁，不替代真人 GUI、视觉/音频 1:1、Map17 九个准确纹理、全地图覆盖或商业发布验收。
+
 # 当前缺陷与交付阻塞
 
 本页只列本轮仍未闭合的问题。验收状态见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)，实施顺序见 [ROADMAP](../ROADMAP.md)。历史原文的恢复位置见 [HISTORICAL_EVIDENCE_INDEX.md](HISTORICAL_EVIDENCE_INDEX.md)；旧截图、探针和通过记录不能代替当前版本验收。

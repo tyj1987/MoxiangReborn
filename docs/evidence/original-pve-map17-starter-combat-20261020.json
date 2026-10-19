@@ -1,0 +1,64 @@
+{
+  "schema": "moxiang.original.pve.map17-starter-combat.v1",
+  "recordedAt": "2026-10-20T02:48:47+08:00",
+  "result": "PASS",
+  "sourceHead": "9c6515080369161eacd6072755807a2c0f92bad3",
+  "packageSha256": "772a4624b443e114374fc0f3d6333c1c6536fb87431950f7f9556f58c0592225",
+  "environment": {
+    "host": "VM112",
+    "stage": "C:\\Moxiang\\original\\stage-local-map17-numeric-20261020",
+    "databaseHost": "192.168.2.238",
+    "databaseName": "MoxiangOriginalNumericCopy_20261009",
+    "ports": {
+      "login": 16417,
+      "agent": 17417,
+      "map": 18417,
+      "map12": 18418,
+      "map2": 18419,
+      "map17": 18420
+    },
+    "defaultPortsUntouched": true,
+    "unityPortsUntouched": true
+  },
+  "binarySha256": {
+    "map": "334d9f5a160fdc15c874a66012bb0c913443c31b64e07d24578442559d6a6614",
+    "login": "6e27b05a1769065bddb7cbdb44d0a2d8c5e3f405023b1ad51a6611e450fee114",
+    "agent": "8d17284db52ef4c751df5df44ec95767ba4fac1f367b6db8bb26a8bec979f0db"
+  },
+  "e2e": {
+    "client": "mxh_client_e2e",
+    "mode": "headless C++ E2E",
+    "mapNumber": 17,
+    "monsterCount": 216,
+    "targetInitial": 50030,
+    "targetLifeInitial": 53,
+    "combatTarget": 50034,
+    "monsterCountAfterCombat": 212,
+    "dropItem": 8007,
+    "steps": [
+      "LoginAck",
+      "CharacterListAck",
+      "CharacterMakeAck",
+      "CharacterListAck after create",
+      "GameInAck",
+      "authoritative hit and life change",
+      "natural drop",
+      "click pickup",
+      "inventory MoveAck source=0 target=1",
+      "GameOut and re-login inventory persistence"
+    ],
+    "passedChecks": 5,
+    "totalChecks": 5,
+    "exitCode": 0
+  },
+  "log": {
+    "path": "docs/evidence/original-pve-map17-starter-combat-20261020-retry.log",
+    "sha256": "6f97ca38b2ead792e358dd4c53cbf875f6baaaba67a10cfde557820982ff1edc"
+  },
+  "limitations": [
+    "headless protocol evidence; not human GUI acceptance",
+    "not visual/audio 1:1 acceptance",
+    "Map17 nine exact used textures remain missing",
+    "not a commercial release or 24-hour stability result"
+  ]
+}
