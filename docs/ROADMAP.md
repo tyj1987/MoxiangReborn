@@ -1,4 +1,4 @@
-2026-10-20 | 当前原版分支已完成当前阶段的 PVE Map17 首发、Map10 Debug 可视捕获和 481 项 Debug 回归绑定；下一阶段优先补齐原始出生地图真实 GUI 全链、掉落/拾取跨客户端一致性和准确资源缺口，再进入全地图覆盖。
+2026-10-20 | 当前原版分支 `a71568d1deeca3930e94f19bd674472f564d0c7e` 已完成当前阶段的 PVE Map17 首发、Map10 Debug 可视捕获和 481 项 Debug 回归绑定；本轮归档审计未找到可认证的准确 TTB 或 `Monster_203.bin`，八个 HFL 仅为已拒绝历史候选。下一阶段优先补齐原始出生地图真实 GUI 全链、掉落/拾取跨客户端一致性和准确资源缺口，再进入全地图覆盖。
 
 # Moxiang 开发路线图
 
@@ -10,7 +10,7 @@
 
 ## 当前状态校准（2026-10-17）
 
-当前原版资源与代码验证基线为 `647d43bb06633001b8f445bef09df26f65954faa`；最新部署与打包门禁提交为 `0329ee7a8b5edea9a7c91eeb4d0d1b87013d1e46`，Map203 启动前预检已在 VM112 独立 stage 复核并于缺失 `Monster_203.bin` 前置阻断；工作树干净，GitLab `main` 与原版候选已同步。Map203 所需 161 个准确纹理已从同源 `D:/MX/client/Package/3DData/Map.pak` 准入，128×128 DXT1，依赖审计 0 缺失；真实 Map203 服务启动仍被缺失的 `Resource/Server/Monster_203.bin` 阻断；逐地图启动前使用 `modern/tools/audit_map_server_resources.py` 检查该依赖，最新剩余精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**，以及 Map203 服务端 `Monster_203.bin` **1**。当前已在独立 VM112 NumericCopy stage 完成真实 MSSQL 登录、任务、换图、战斗掉落拾取、技能、商店购买和重登回读，证据见 `docs/evidence/original-pve-fixed-stage-playability-20261017.json`；本地商业 smoke 35/35 通过；更新资源包的 Map10 独立 PVE E2E 五步和 228 个怪物 GameIn 已通过，回执见 `docs/evidence/original-pve-map10-updated-resource-playability-20261019.json`。资源镜像门禁真实通过，传输后复核 requiredMapNumbers 与精确 AIGroup；当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
+当前原版资源与代码验证基线为 `a71568d1deeca3930e94f19bd674472f564d0c7e`；此前较早的 `647d43...` 与 `0329ee...` 仅保留为历史定位，不再作为当前完成声明。Map203 启动前预检已在 VM112 独立 stage 复核并于缺失 `Monster_203.bin` 前置阻断；工作树干净，GitLab 候选已同步。Map203 所需 161 个准确纹理已从同源 `D:/MX/client/Package/3DData/Map.pak` 准入，128×128 DXT1，依赖审计 0 缺失；真实 Map203 服务启动仍被缺失的 `Resource/Server/Monster_203.bin` 阻断；逐地图启动前使用 `modern/tools/audit_map_server_resources.py` 检查该依赖，最新剩余精确资源门禁为 HFL **22**、TTB **18**、Map17 使用纹理 **9**，以及 Map203 服务端 `Monster_203.bin` **1**。当前已在独立 VM112 NumericCopy stage 完成真实 MSSQL 登录、任务、换图、战斗掉落拾取、技能、商店购买和重登回读，证据见 `docs/evidence/original-pve-fixed-stage-playability-20261017.json`；本地商业 smoke 35/35 通过；更新资源包的 Map10 独立 PVE E2E 五步和 228 个怪物 GameIn 已通过，回执见 `docs/evidence/original-pve-map10-updated-resource-playability-20261019.json`。资源镜像门禁真实通过，传输后复核 requiredMapNumbers 与精确 AIGroup；本轮新增归档审计见 `docs/evidence/original-archive-resource-audit-20261020.json`。当前 Release/PVE 代码闭环证据不能替代缺失资源、真人 GUI、数据库故障恢复、回滚和 24 小时稳定性验收。
 
 更新：2026-10-15。当前原版候选绑定 `codex/reorg-original-20261009`；工程代码基线为
 `179aa2e650f6f754744cfe4cd5e84eb58b8ac4e0`。Release 包内二进制与资源绑定提交为 `3f355242bb337c467f15692598514fa5f4ada591`。GitLab 为工程主源，GitHub 为镜像。
