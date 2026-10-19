@@ -12,6 +12,7 @@ class Vm112TransferResourceGuardTests(unittest.TestCase):
         self.assertIn("$manifest.requiredMapNumbers", source)
         self.assertIn("required server AIGroup missing after resource mirror", source)
         self.assertIn("serverAiGroups=$ai", source)
+        self.assertIn("$required=@(); if($null -ne $manifest.requiredMapNumbers)", source)
         self.assertIn("timeout=1800", source)
 
 
