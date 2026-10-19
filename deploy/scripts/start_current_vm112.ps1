@@ -39,6 +39,15 @@ foreach ($entry in @($manifest.files)) {
     if (-not (Test-Path $path -PathType Leaf)) { throw "missing stage file: $($entry.path)" }
     if ((Get-Item $path).Length -ne [int64]$entry.bytes -or (Get-FileHash $path -Algorithm SHA256).Hash -ine [string]$entry.sha256) { throw "stage hash mismatch: $($entry.path)" }
 }
+$requiredMapNumbers = @($MapNumber, 12, 2)
+if ($EnableMap17) { $requiredMapNumbers += 17 }
+foreach ($requiredMap in $requiredMapNumbers) {
+    $mapSuffix = if ($requiredMap -lt 100) { ('{0:D2}' -f $requiredMap) } else { [string]$requiredMap }
+    $aiGroupPath = Join-Path $serverResourceRoot ("Monster_$mapSuffix.bin")
+    if (-not (Test-Path $aiGroupPath -PathType Leaf)) {
+        throw "missing server AIGroup resource for map ${requiredMap}: $aiGroupPath"
+    }
+}
 $bin = Join-Path $stage 'modern\build\tools'
 $runtime = Join-Path $stage 'runtime'
 $mapExe = Join-Path $bin 'MoxianMapServer\mxh_map_server_CHINA.exe'
@@ -71,3 +80,4 @@ if ($EnableMap17) {
 }
 $started=@(); $rows=@()
 try { foreach ($s in $specs) { $p=Start-Process -FilePath $s.exe -ArgumentList $s.args -WorkingDirectory (Split-Path $s.exe) -RedirectStandardOutput (Join-Path $log "$($s.name).out.log") -RedirectStandardError (Join-Path $log "$($s.name).err.log") -WindowStyle Hidden -PassThru; $started += $p; Start-Sleep -Milliseconds 500; if ($p.HasExited) { throw "$($s.name) exited: $($p.ExitCode)" }; $rows += [ordered]@{name=$s.name;pid=$p.Id;exe=$s.exe;port=$s.port;sha256=(Get-FileHash $s.exe -Algorithm SHA256).Hash.ToLowerInvariant();startUtc=(Get-Date).ToUniversalTime().ToString('o')}; $rows | ConvertTo-Json -Depth 4 | Set-Content $state -Encoding utf8 }; [ordered]@{stage=$stage;started=$rows;state=$state}|ConvertTo-Json -Depth 5 } catch { foreach($p in $started){Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue}; Remove-Item $state -Force -ErrorAction SilentlyContinue; throw }
+
