@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-monster203-source-scan",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "808da33e4e66cec148d97670c408d25d00e7cb65",
+  "target": "Resource/Server/Monster_203.bin",
+  "roots": [
+    "D:/MX",
+    "D:/MoyoI",
+    "D:/03_Data",
+    "C:/Moxiang",
+    "E:/Workspaces/moxiang",
+    "E:/Workspaces/artifacts"
+  ],
+  "filesystemExactFilenameHits": 0,
+  "archivesScanned": 545,
+  "zipArchiveExactFilenameHits": [],
+  "pakScan": {
+    "archivesScanned": 43,
+    "exactFilenameHits": 0
+  },
+  "knownNearMatch": {
+    "path": "D:/MX/server/Resource/Server/InsDGMonster_203.bin",
+    "bytes": 441,
+    "acceptedAsReplacement": false
+  },
+  "decision": "blocked_exact_source_not_found",
+  "limitations": [
+    "Archive scan inspected ZIP central directories and file paths; it did not infer equivalence from near-match names.",
+    "No substitute server profile was admitted."
+  ]
+}
