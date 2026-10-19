@@ -20,7 +20,7 @@
 
 ## 资源、地图与音画
 
-- Map203 客户端侧 161 个 `tile_201a-*` 已从同源原始包恢复并通过 0 缺失依赖审计，但真实 VM112 启动在 `Resource/Server/Monster_203.bin` 处失败；禁止以开发 fallback、空文件或其他地图的 AIGroup 替代。回执：`docs/evidence/original-map203-runtime-resource-gate-20261017.json`。
+- Map203 客户端侧 161 个 `tile_201a-*` 已从同源原始包恢复并通过 0 缺失依赖审计，但真实 VM112 启动在 `Resource/Server/Monster_203.bin` 处失败；禁止以开发 fallback、空文件或其他地图的 AIGroup 替代。回执：`docs/evidence/original-map203-runtime-resource-gate-20261017.json`；最新启动前预检回执：`docs/evidence/original-map203-runtime-resource-gate-20261019-r2.json`。
 - 原资源基线和派生叠加层已经分离；当前源清单精确性检查通过，不等于所有地图可玩。原版线已从原始 `Map.pak` 恢复并验证 `Resource/Map/3.hfl`、`Resource/Map/17.hfl`、`Resource/Map/95.hfl`、`Resource/Map/198.hfl`、`Resource/Map/203.hfl`；Map203 的 161 个准确地表纹理已从同源原始包准入并通过依赖审计。当前余量为 22 个 HFL、18 个 TTB，Map17 另有 9 个已使用纹理缺失。准确版本缺失必须保留阻塞，不能用替代美术宣称 1:1。
 - 当前原版线仍有 **40 个文件级 HFL/TTB 缺口（22 个 HFL、18 个 TTB）**；Map17 的 `17.hfl` 已恢复但 9 个使用纹理未恢复，已恢复的 Map3/17/95/198/203 不代表 Map10 或全地图缺口为零，Map44 仍缺少准确的 `Resource/Map/44.hfl`。原创武馆场景不能替代原始地形；全地图目标范围还需按原版配置核验，未证明任何缺项可降级。UnityNative 与原版同名的 10 个 TTB 已明确拒绝进入原版 1:1 线，见 `docs/evidence/original-ttb-isolation-audit-20261015.json`。Unity 重制线的独立基线仍按自身阻塞记录，不能由原版线的恢复自动继承。恢复文件的来源、哈希和验证见 `reference/manifests/95.hfl.provenance.json`、`reference/manifests/3-198-203.hfl.provenance.json`、`reference/manifests/original-map203-textures.provenance.json` 及本轮审计记录。
 - 本轮对本机发现的五个 Map.pak 候选（含 D:/MX 与 D:/MoyoI）重新列包并抽取 Map17 HFL；9 个 `tile_17_mou_a_01..09` 均未作为准确纹理条目出现。结果见 `docs/evidence/original-map17-texture-source-search-20261015.json`；在找到准确来源前，Map17 不进入 1:1 视觉发布门禁。
