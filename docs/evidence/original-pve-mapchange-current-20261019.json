@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-mapchange-e2e",
+  "capturedAtUtc": "2026-10-19T15:39:33Z",
+  "sourceHead": "fdd28b8d1acd00ccbe9a19ce418b55b16cc4f1bf",
+  "package": {
+    "sha256": "be5f8f2ff97c8fdab91e0518488bc6ff42488ed366dabd3e7954fcd10e94fccf",
+    "stageTransfer": "PASS",
+    "resourceFiles": 5297,
+    "resourceBytes": 1691253485,
+    "requiredMapNumbers": [10, 12, 2],
+    "serverAiGroupsVerified": true
+  },
+  "topology": {
+    "vmid": 112,
+    "loginPort": 16417,
+    "agentPort": 17417,
+    "mapPorts": {"10": 18410, "12": 18412, "2": 18402},
+    "database": "MoxiangOriginalTest_20261009",
+    "defaultPortsUntouched": true
+  },
+  "e2e": {
+    "tool": "mxh_client_e2e.exe",
+    "mode": "mssql_odbc",
+    "steps": {
+      "loginAck": "PASS",
+      "characterListAck": "PASS",
+      "characterCreate": "PASS",
+      "characterRelist": "PASS",
+      "map10GameIn": "PASS",
+      "map10MonsterPopulation": 228,
+      "mapChangeAckTo12": "PASS",
+      "map12FreshGameIn": "PASS",
+      "map12MonsterPopulation": 228
+    },
+    "persistence": {
+      "characterMapNumAfterLogout": 12,
+      "verifiedBy": "PVE db query on character_info"
+    }
+  },
+  "cleanup": {
+    "testAccountsRemoved": true,
+    "testCharacterRowsRemoved": true,
+    "orphanTestRowsRemoved": true,
+    "isolatedStageRemoved": true,
+    "isolatedPortsClosed": true,
+    "defaultPortsStillListening": [16001, 17001, 18001, 18002, 18003]
+  },
+  "interpretation": "A real MSSQL-backed VM112 run passed login, character creation, relist, Map10 GameIn, authoritative map change to Map12, and a fresh Map12 GameIn. This closes the original cross-map protocol gate; it does not close the remaining exact-resource or full GUI/commercial acceptance gates."
+}
