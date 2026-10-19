@@ -17,7 +17,7 @@
 
 ## PVE 服务与数据库
 
-原版打包入口为 `scripts/package-original-vm112-current.py`，安装包使用同源的 `deploy/scripts/start_current_vm112.ps1`；该打包器同时支持旧扁平构建目录和 VS `Release/` 子目录，并在清单中记录源码 SHA、dirty 状态、11 个部署文件、5 个监听端口和 4 个资源指针。当前 stage 固定为 `C:\Moxiang\original\stage-20261009`，端口为 Login/Agent/Map10/Map12/Map2 `16001/17001/18001/18002/18003`，数据库为 CT930 `192.168.2.238` 上的 `MoxiangOriginalTest_20261009`。2026-10-11 已生成候选包 `artifacts/original-vm112-r16b-20261011-r3.zip`，对应源码 `671dd94562363583070039aba95450d030358e87`，SHA-256 为 `56f5e4d316dccb692214ffb69692a4f6020cc6d8c0b5667499388141383ca020`，清单 `sourceDirty=false`；它尚未传输或部署到 VM112。Unity使用自己候选工作树的VM112打包和启动入口。启动包装器限定实际主机、stage目录、分线端口和独立数据库，并核对完整文件摘要、canonical资源清单、schema及writer contract。缺失或不匹配即拒绝启动。
+原版打包入口为 `scripts/package-original-vm112-current.py`，安装包使用同源的 `deploy/scripts/start_current_vm112.ps1`；该打包器同时支持旧扁平构建目录和 VS `Release/` 子目录，并在清单中记录源码 SHA、dirty 状态、部署文件、5 个监听端口和 4 个资源指针。打包时通过 `--map-number`（以及可选 `--enable-map17`）要求精确的 `Resource/Server/Monster_*.bin`，缺件会在生成包前失败；启动包装器仍在任何进程启动前复核同一门禁。当前 stage 固定为 `C:\Moxiang\original\stage-20261009`，端口为 Login/Agent/Map10/Map12/Map2 `16001/17001/18001/18002/18003`，数据库为 CT930 `192.168.2.238` 上的 `MoxiangOriginalTest_20261009`。2026-10-11 已生成候选包 `artifacts/original-vm112-r16b-20261011-r3.zip`，对应源码 `671dd94562363583070039aba95450d030358e87`，SHA-256 为 `56f5e4d316dccb692214ffb69692a4f6020cc6d8c0b5667499388141383ca020`，清单 `sourceDirty=false`；它尚未传输或部署到 VM112。Unity使用自己候选工作树的VM112打包和启动入口。启动包装器限定实际主机、stage目录、分线端口和独立数据库，并核对完整文件摘要、canonical资源清单、schema及writer contract。缺失或不匹配即拒绝启动。
 
 通用 `deploy/scripts/start_modern.ps1` 仅供PVE包装器使用；无参数默认只读status，实际start/restart/stop要求VM112主机名及地址。`start -DryRun`只检查启动计划，`restart/stop -DryRun`拒绝执行。它不授予维护权限，也不能替代部署包装器的完整契约验证。
 

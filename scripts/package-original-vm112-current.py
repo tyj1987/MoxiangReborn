@@ -61,12 +61,37 @@ def build_artifact(build: Path, relative: str) -> Path:
     raise FileNotFoundError(f"missing build artifact in flat or Release layout: {direct}")
 
 
+def server_ai_group_path(map_number: int) -> Path:
+    """Return the exact server AIGroup filename used by the map wrapper."""
+    suffix = f"{map_number:02d}" if map_number < 100 else str(map_number)
+    return RESOURCE_ROOT / "Resource" / "Server" / f"Monster_{suffix}.bin"
+
+
+def validate_server_ai_groups(map_number: int, enable_map17: bool) -> list[dict[str, object]]:
+    required = [map_number, 12, 2]
+    if enable_map17:
+        required.append(17)
+    rows: list[dict[str, object]] = []
+    missing: list[str] = []
+    for number in dict.fromkeys(required):
+        path = server_ai_group_path(number)
+        if not path.is_file():
+            missing.append(f"map {number}: {path}")
+            continue
+        rows.append({"map": number, "path": path.relative_to(ROOT).as_posix(), "bytes": path.stat().st_size, "sha256": sha256(path)})
+    if missing:
+        raise RuntimeError("missing exact server AIGroup resources: " + "; ".join(missing))
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--build-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--stage-path", default=r"C:\Moxiang\original\stage-20261009")
     parser.add_argument("--database", default="MoxiangOriginalTest_20261009")
+    parser.add_argument("--map-number", type=int, default=10, help="primary map used by the stage")
+    parser.add_argument("--enable-map17", action="store_true", help="require the optional Map17 server AIGroup")
     args = parser.parse_args()
     build = (ROOT / args.build_dir).resolve() if not args.build_dir.is_absolute() else args.build_dir
     output = (ROOT / args.output).resolve() if not args.output.is_absolute() else args.output
@@ -97,6 +122,7 @@ def main() -> None:
         raise FileNotFoundError("missing package inputs: " + ", ".join(missing))
 
     resources = resource_pointers()
+    server_ai_groups = validate_server_ai_groups(args.map_number, args.enable_map17)
     output.mkdir(parents=True)
     entries: list[dict[str, object]] = []
     for relative, source in mappings.items():
@@ -121,6 +147,8 @@ def main() -> None:
             "resourceProfile": "playdh-current",
             "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),
         },
+        "requiredMapNumbers": [row["map"] for row in server_ai_groups],
+        "serverAiGroupResources": server_ai_groups,
         "listenerPorts": {"login": 16001, "agent": 17001, "map10": 18001, "map12": 18002, "map2": 18003},
         "files": entries,
     }
