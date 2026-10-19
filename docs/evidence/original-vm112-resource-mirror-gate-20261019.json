@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-vm112-resource-mirror-gate",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "3bda2c757f89c9979f7aad30b756d291cb1c7aa0",
+  "package": {
+    "sha256": "36008e0d51659a7ff423fcc382dd7f73a9ecbad8b43920e0b00635a1528c8681",
+    "bytes": 4840678
+  },
+  "stage": "C:\\Moxiang\\original\\stage-transfer-guard2-20261019",
+  "sourceStage": "C:\\Moxiang\\original\\stage-map203-testdb-20261017",
+  "transfer": "PASS",
+  "resourceProfile": "playdh-current",
+  "resourceFiles": 5297,
+  "resourceBytes": 1691253485,
+  "requiredMapNumbers": [
+    10,
+    12,
+    2
+  ],
+  "serverAiGroups": [
+    {
+      "map": 10,
+      "bytes": 22766
+    },
+    {
+      "map": 12,
+      "bytes": 14
+    },
+    {
+      "map": 2,
+      "bytes": 9078
+    }
+  ],
+  "cleanup": {
+    "stageProcesses": 0,
+    "stageRemoved": true,
+    "defaultPortsTouched": false
+  },
+  "interpretation": "The package transfer now verifies exact server AIGroup files after mirroring the full PlayDH tree; this is a deployment integrity gate, not gameplay acceptance."
+}
