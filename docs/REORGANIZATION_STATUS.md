@@ -1,5 +1,9 @@
 # 重整执行状态
 
+## 当前状态校准（2026-10-20）
+
+原版候选已推进到提交 c9bf36b4b09195ad5356115f727d4d37302fe6e6，并同时推送到 GitLab 主源与 GitHub 镜像。VM112 隔离 stage 使用真实 MSSQL MoxiangOriginalNumericCopy_20261009 完成 canonical Map17 1 级首发闭环：登录、建角、重列、GameIn（216 怪物）、权威战斗、自然掉落 item=8007、点击拾取、背包移动和 GameOut 后重登库存回读，5/5、退出码 0；默认原版端口 16001/17001/18001/18002/18003 与 Unity 端口 26101/27101/28101 保持运行，隔离六端口已释放。测试账号、角色和相关数据库行已清理为 0，临时 stage 与本轮生成包已删除。证据见 docs/evidence/original-pve-map17-starter-combat-20261020.json。该回执仍是无头协议门禁，不关闭真人 GUI、Map17 九个准确纹理、全量 1:1 资源、Unity 同等玩法、故障恢复或 24 小时稳定性门禁。
+
 ## 当前状态校准（2026-10-19）
 
 原版资源与代码验证基线为 `dda3a2ea442796f6477b6dd5eb85a381e992ccc2`；最新部署与打包门禁已在该提交绑定，启动前资源预检已在 VM112 独立 stage 复核并于缺失 `Monster_203.bin` 前置阻断。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9，Map203 服务端 `Monster_203.bin` 1；Map203 的 161 个准确纹理已由同源原始包准入，依赖审计 0 缺失；但真实服务启动又确认 `Resource/Server/Monster_203.bin` 缺失，运行门禁仍阻塞，回执见 `docs/evidence/original-map203-runtime-resource-gate-20261017.json` 与最新启动前预检回执 `docs/evidence/original-map203-runtime-resource-gate-20261019-r2.json`；精确来源扫描见 `docs/evidence/original-monster203-source-scan-20261019.json`。当前提交还完成了 VM112 真实 MSSQL Map10→Map12 切图、Map12 新会话和地图号持久化，回执见 `docs/evidence/original-pve-mapchange-current-20261019.json`；资源镜像回执见 `docs/evidence/original-vm112-resource-mirror-gate-20261019.json`。本文以下历史段落不覆盖当前数量和提交绑定。
@@ -131,5 +135,3 @@ Unity84本轮有一项执行范围偏差：旧helper在PC误跑含SQLite的处�
 原版候选新增提交 `3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb`。它删除了 revisioned 技能对非空任务日志的错误前置拒绝，并以单测和 VM112 受控 MSSQL fixture 验证任务行保留时的 Map10 权威击杀。临时 fixture、服务任务和旧 Map10 已按原路径恢复；CT930 回读为 level 1、四属性 12、HP 125、装备 0。结构化回执：[`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)。
 
 本回执只关闭任务状态与 revisioned 战斗兼容性子门禁。由于 E2E 循环未完成最终拾取/重登断言，原版首个可玩版本、资源完整性、Unity 线和最终清理仍保持未闭合。
-
-
