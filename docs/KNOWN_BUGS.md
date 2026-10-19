@@ -1,4 +1,4 @@
-2026-10-20 | 当前原版提交 `9c6515080369161eacd6072755807a2c0f92bad3` 已在 VM112 隔离 stage 使用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成 Map17 1 级首发闭环：登录、建角、重列、GameIn（216 怪物）、权威命中/死亡、自然掉落 `item=8007`、点击拾取、背包移动和 GameOut 后重登库存回读，5/5 检查通过、退出码 0。端口为 `16417/17417/18420`，默认原版与 Unity 端口未触碰。回执见 [`original-pve-map17-starter-combat-20261020.json`](evidence/original-pve-map17-starter-combat-20261020.json)。该证据仍是无头协议门禁，不替代真人 GUI、视觉/音频 1:1、Map17 九个准确纹理、全地图覆盖或商业发布验收。
+2026-10-20 | 当前原版分支已绑定三类新证据：VM112 真实 MSSQL Map17 1 级首发闭环、默认 PVE Map10 Debug 客户端可视窗口捕获，以及 481 项资源/协议/服务器回归全通过。新增回执见 [`original-gui-map10-capture-20261020.json`](evidence/original-gui-map10-capture-20261020.json) 和 [`original-debug-unit-regression-20261020.json`](evidence/original-debug-unit-regression-20261020.json)。这些结果仍不替代真人 GUI 全链、视觉/音频 1:1、Map17 九个准确纹理、全地图覆盖或商业发布验收。
 
 # 当前缺陷与交付阻塞
 
@@ -73,3 +73,4 @@
 复核发现当前原版 `modern/data/PlayDH/Map.pak` 的第 240 项实际包含 `17.hfl`。已从该原版包提取并按 SHA-256 `727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a` 写入 `Resource/Map/17.hfl`，同步更新 canonical hash manifest。HFL 解析通过，使用的 42 个纹理中仍有 9 个缺失；只恢复了原始高度场，没有引入 Unity 派生或替代纹理。
 
 回执：[`original-map17-hfl-admission-20261015.json`](evidence/original-map17-hfl-admission-20261015.json)，来源清单：[`17.hfl.provenance.json`](../reference/manifests/17.hfl.provenance.json)。Map17 仍未达到可玩/视觉发布条件。
+

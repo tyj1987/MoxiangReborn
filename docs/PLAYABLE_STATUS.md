@@ -1,4 +1,4 @@
-2026-10-20 | 当前原版提交 `9c6515080369161eacd6072755807a2c0f92bad3` 已在 VM112 隔离 stage 使用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成 Map17 1 级首发闭环：登录、建角、重列、GameIn（216 怪物）、权威命中/死亡、自然掉落 `item=8007`、点击拾取、背包移动和 GameOut 后重登库存回读，5/5 检查通过、退出码 0。端口为 `16417/17417/18420`，默认原版与 Unity 端口未触碰。回执见 [`original-pve-map17-starter-combat-20261020.json`](evidence/original-pve-map17-starter-combat-20261020.json)。该证据仍是无头协议门禁，不替代真人 GUI、视觉/音频 1:1、Map17 九个准确纹理、全地图覆盖或商业发布验收。
+2026-10-20 | 当前原版分支已绑定 VM112 Map17 真实 MSSQL 首发闭环、默认 PVE Map10 Debug 可视捕获和 481 项 Debug 回归全通过。可视与回归回执分别见 [`original-gui-map10-capture-20261020.json`](evidence/original-gui-map10-capture-20261020.json)、[`original-debug-unit-regression-20261020.json`](evidence/original-debug-unit-regression-20261020.json)。当前状态仍不等于真人 GUI 全链或商业发布。
 
 2026-10-20 | 当前原版提交 `15d5fcef208f338a9e86fe60b28affbef72db093` 的 Release `mxh_client_e2e` 在本机隔离 SQLite 三服链路完成真实 Map17 首发路线：1 级角色带原始首发装备 `11000/23000/27000`，收到 216 个怪物，完成权威攻击、目标死亡、自然掉落 `item=50108`、点击拾取、背包移动和 GameOut 后重登库存回读，退出码 0。回执见 [`original-local-map17-starter-combat-20261020.json`](evidence/original-local-map17-starter-combat-20261020.json)。这是当前源码的本机 headless 子门禁，不替代 VM112 MSSQL、真人 GUI、Map17 九个准确纹理、完整 1:1 资源或商业发布验收。
 
@@ -192,3 +192,4 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 同一 x64 Release 构建已补齐 `mxh_client`、Launcher、三服、数据库工具、资源浏览器和 E2E 工具；本地 SQLite 三服链 `MoxianClientE2E` **1/1 通过**。PVE 人工入口的 PlanOnly 检查确认只连接 `192.168.2.244:16001/17001/18001`，不会启动本机服务或数据库；完整人工 GUI 仍需操作者在实际桌面完成，回执见 [`modern-client-x64-build-20261017.json`](evidence/modern-client-x64-build-20261017.json)。
 
 同一 source-bound x64 Release 目录随后完成全目标编译和完整 CTest：**12,577/12,577 实际执行用例通过、0 失败、26 项明确 Skip，退出码 0**，总耗时 130.79 秒。Skip 仅对应 PVE/MSSQL、恢复运行时资源、真实特效资源和显式 Map10 smoke 门禁；回执与构建日志哈希见 [`modern-full-x64-release-20261017.json`](evidence/modern-full-x64-release-20261017.json)。
+
