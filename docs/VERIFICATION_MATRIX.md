@@ -1,6 +1,6 @@
 # 验收矩阵
 
-更新：2026-10-09。只记录本轮状态；旧矩阵及 XML 结果已归档，不能继承其中 PASS。总览见 [可玩状态](PLAYABLE_STATUS.md)、[Unity 重制状态](UNITY_REMASTER_STATUS.md) 与 [重整执行状态](REORGANIZATION_STATUS.md)。
+更新：2026-10-20。只记录本轮状态；旧矩阵及 XML 结果已归档，不能继承其中 PASS。总览见 [可玩状态](PLAYABLE_STATUS.md)、[Unity 重制状态](UNITY_REMASTER_STATUS.md) 与 [重整执行状态](REORGANIZATION_STATUS.md)。
 
 ## 证据等级
 
@@ -27,7 +27,7 @@
 | G5 | 角色与加载流程 | PARTIAL | 原版GUI建角100003及PVE非SA四属性12读回；owned item无行。Unity当前Player正常选UnityTrail01入Map10并原地复活，UI生命0→37/125；未完成持有装备DBID和完整业务链。 |
 | G6 | Map10 世界呈现 | PARTIAL | 原版r14地形、蓝衣长武器角色与怪物可见，死亡后仍站立。Unity当前Player只清楚显示全图地形，角色/怪物不可辨认。两线姿态、遮挡和完整画面尚未验收。 |
 | G7 | UI 实时绑定 | PARTIAL | r14固定canonical的名字/等级/HP/盾/内力/地图坐标完整可读，实际像素原色正确；独立parser25/adapter5通过。全部控件、原字体和多DPI尚未通过；极端样式坐标仍有后续布局边界。 |
-| G8 | 移动、战斗、掉落与换图 | PARTIAL | 当前源码默认 stage 又以可回滚 level 53 + 原始首发装备 fixture 在 VM112 隔离 MSSQL Map10 通过权威攻击→死亡→自然掉落 `item=8008`→点击拾取→背包移动→断线重登回读，怪物 228→227；回执 `docs/evidence/original-pve-default-current-source-combat-20261015.json`。此前 Map10→Map12 `ChangeMapAck`、Map12 GameIn/NPC 和重登位置、任务 1 开始/未完成结束也已通过，见 `original-pve-mapchange-current-20261015.json`、`original-pve-quest-current-20261015.json`。高等级夹具临时移除任务行；无装备负对照不产生伤害，故 1级新玩家 Map10 首战、任务完成/奖励、真人 GUI、装备视觉、全地图覆盖仍未闭合。Unity自然战斗/拾取、装备、切图和位置持久化未闭合。 |
+| G8 | 移动、战斗、掉落与换图 | PARTIAL | 当前本机隔离 SQLite 三服链路已用 1 级原始首发装备在 canonical Map17 完成权威攻击→死亡→自然掉落 `item=50108`→点击拾取→背包移动→重登回读，回执 `docs/evidence/original-local-map17-starter-combat-20261020.json`；同一提交的 VM112 MSSQL Map10 高等级 fixture 仍通过，Map10 1 级首战仍因目标防御/生命不适配而失败。Map17 九个准确纹理、VM112 对当前二进制的复核、真人 GUI、任务奖励和全地图覆盖仍未闭合。Unity自然战斗/拾取、装备、切图和位置持久化未闭合。 |
 | G9 | 特效与音频 | 未运行 | 本轮没有配套 Player、事件轨迹和原版对照证据。 |
 | G10 | 全部资源、地图与 UI | 未通过 | 资源依赖及来源仍有缺项；本轮 PVE Map10 没有 canonical Dealer，商店目录/购买/重登无法开始，回执 `docs/evidence/original-pve-shop-current-20261015.json`。工作区发现的 16 份 `Dealitem.bin` 全部同一哈希且解码后 Map10 行数为 0，来源审计 `docs/evidence/original-dealitem-map10-provenance-audit-20261015.json`；未完成全地图/功能覆盖矩阵。 |
 | G11 | RC 稳定性 | 未运行 | 未做本轮干净机器、故障注入、更新/回滚和 24 小时 soak。 |
