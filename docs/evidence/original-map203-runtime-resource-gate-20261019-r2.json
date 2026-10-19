@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-map203-runtime-resource-gate",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "16f09967681f3f3c1e944348f2ecd7e8e101dd82",
+  "stage": "C:\\Moxiang\\original\\stage-map203-preflight-20261019",
+  "databaseHost": "192.168.2.238",
+  "database": "MoxiangOriginalTest_20261009",
+  "package": {
+    "sha256": "032d2ebd56be4e49c7ea9eaa6f5d7ef064ac679550045af6a4649fe7bd5ad284",
+    "bytes": 6243514,
+    "transfer": "PASS",
+    "resourceFiles": 5297,
+    "resourceBytes": 1691253485,
+    "resourceManifest": "reference/manifests/playdh-current.sha256.json"
+  },
+  "preflight": {
+    "planOnly": "PASS",
+    "command": "start_current_vm112.ps1 -Start -DatabaseHost 192.168.2.238 -DatabaseName MoxiangOriginalTest_20261009 -LoginPort 16317 -AgentPort 17317 -MapPort 18303 -Map12Port 18312 -Map2Port 18313 -MapNumber 203 -AdvertisedAgentAddress 192.168.2.244",
+    "result": "BLOCKED_BEFORE_START_PROCESS",
+    "exitCode": 1,
+    "stderr": "missing server AIGroup resource for map 203: C:\\Moxiang\\original\\stage-map203-preflight-20261019\\modern\\data\\PlayDH\\Resource\\Server\\Monster_203.bin",
+    "isolatedListenersAfterFailure": [],
+    "defaultPortsUntouched": true,
+    "stageProcessesAfterFailure": []
+  },
+  "exactClientTerrain": {
+    "map203HflUsedTextures": 161,
+    "missingTextures": 0,
+    "source": "original-map203-texture-admission-20261017.json"
+  },
+  "releaseDecision": "blocked_until_exact_original_server_ai_group_resource_is_recovered",
+  "limitations": [
+    "The preflight guard proves deterministic early rejection and does not prove Map203 playability.",
+    "No fallback or substitute server profile was used."
+  ]
+}
