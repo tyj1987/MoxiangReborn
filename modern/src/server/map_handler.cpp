@@ -49,6 +49,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <ctime>
 #include <fstream>
@@ -204,6 +205,8 @@ struct CharData {
     std::uint16_t level = 1;
     std::uint16_t map_num = 12;
     float height = 1.0f, width = 1.0f;
+    float position_x = 0.0f, position_z = 0.0f;
+    bool has_saved_position = false;
 };
 
 std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
@@ -213,8 +216,17 @@ std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t ch
     std::vector<mxh::db::Bind> params = { mxh::db::bind(static_cast<std::int64_t>(chrid)) };
     auto r = db.query(
         "SELECT charname, sex_type, face_type, hair_type, height, width, "
-        "level, map_num FROM character_info WHERE chrid = ?",
+        "level, map_num, position_x, position_z FROM character_info WHERE chrid = ?",
         params, rs);
+    if (!r.ok()) {
+        // Older isolated fixtures may predate the position migration. Keep
+        // their read path compatible; production schema migration adds the
+        // nullable columns before the modern MapServer starts.
+        r = db.query(
+            "SELECT charname, sex_type, face_type, hair_type, height, width, "
+            "level, map_num FROM character_info WHERE chrid = ?",
+            params, rs);
+    }
     if (!r.ok()) return std::nullopt;
     if (!rs.empty()) {
         cd.name      = get_str(rs, 0, "charname", "Player");
@@ -225,6 +237,13 @@ std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t ch
         cd.width     = static_cast<float>(get_double(rs, 0, "width", 1.0));
         cd.level     = static_cast<std::uint16_t>(get_int(rs, 0, "level", 1));
         cd.map_num   = static_cast<std::uint16_t>(get_int(rs, 0, "map_num", 12));
+        const auto saved_x = get_double(rs, 0, "position_x", -1.0);
+        const auto saved_z = get_double(rs, 0, "position_z", -1.0);
+        if (saved_x >= 0.0 && saved_z >= 0.0 && saved_x <= 65535.0 && saved_z <= 65535.0) {
+            cd.position_x = static_cast<float>(saved_x);
+            cd.position_z = static_cast<float>(saved_z);
+            cd.has_saved_position = true;
+        }
     }
     mxh::db::ResultSet state;
     r = db.query("SELECT level,exp,money,max_level,exp_flag,level_up_point,hp_mp_flag "
@@ -612,6 +631,23 @@ void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t mon
         std::cerr << "[Map] persist_player_money(" << player_id
                   << ", " << money << ") DB error: "
                   << r.error_message << "\n";
+    }
+}
+
+void MapHandler::persist_player_position(std::uint32_t player_id,
+                                          float position_x,
+                                          float position_z) {
+    if (player_id == 0u || !std::isfinite(position_x) || !std::isfinite(position_z) ||
+        position_x < 0.0f || position_z < 0.0f ||
+        position_x > 65535.0f || position_z > 65535.0f) return;
+    const auto result = db_.execute(
+        "UPDATE character_info SET position_x=?, position_z=? WHERE chrid=?",
+        {mxh::db::bind(static_cast<double>(position_x)),
+         mxh::db::bind(static_cast<double>(position_z)),
+         mxh::db::bind(static_cast<std::int64_t>(player_id))});
+    if (!result.ok()) {
+        std::cerr << "[Map] persist_player_position(" << player_id
+                  << ") DB error: " << result.error_message << "\n";
     }
 }
 
@@ -1662,7 +1698,20 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
                 runtime->second.vitals_session &&
                 runtime->second.vitals_session->can_publish();
         }
-        if (may_persist) persist_player_items(pid);
+        if (may_persist) {
+            persist_player_items(pid);
+            float position_x = 0.0f;
+            float position_z = 0.0f;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                if (const auto it = connected_players_.find(pid);
+                    it != connected_players_.end()) {
+                    position_x = it->second.pos_x;
+                    position_z = it->second.pos_z;
+                }
+            }
+            persist_player_position(pid, position_x, position_z);
+        }
     }
     removed_pids.clear();
     {
@@ -1794,6 +1843,17 @@ void MapHandler::handle_userconn(mxh::net::ConnectionId id,
                 persist_player_items(player_id);
                 persist_player_money(player_id, money);
                 persist_quest_log(player_id);
+                float position_x = 0.0f;
+                float position_z = 0.0f;
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    if (const auto it = connected_players_.find(player_id);
+                        it != connected_players_.end()) {
+                        position_x = it->second.pos_x;
+                        position_z = it->second.pos_z;
+                    }
+                }
+                persist_player_position(player_id, position_x, position_z);
             }
             std::vector<std::uint32_t> remaining_pids;
             {
@@ -1861,6 +1921,10 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     // the central tower static mesh and is only the old error fallback.
     pi.pos_x = map_num_ == 12 ? 27189.0f : 25000.0f;
     pi.pos_z = map_num_ == 12 ? 27361.0f : 25000.0f;
+    if (cd.has_saved_position && cd.map_num == map_num_) {
+        pi.pos_x = cd.position_x;
+        pi.pos_z = cd.position_z;
+    }
     std::memset(pi.name, 0, sizeof(pi.name));
     auto name_bytes = cd.name.c_str();
     std::size_t name_len = std::strlen(name_bytes);
@@ -2482,6 +2546,20 @@ void MapHandler::handle_move(mxh::net::ConnectionId id,
                       << (rejected_dead ? "dead-player move" : "excessive move jump")
                       << " from player=" << sender_pid << "\n";
             return;
+        }
+        if (proto == mxh::proto::MoveProtocol::Stop ||
+            proto == mxh::proto::MoveProtocol::Warp) {
+            float position_x = 0.0f;
+            float position_z = 0.0f;
+            {
+                std::lock_guard<std::mutex> lock(players_mu_);
+                if (const auto it = connected_players_.find(sender_pid);
+                    it != connected_players_.end()) {
+                    position_x = it->second.pos_x;
+                    position_z = it->second.pos_z;
+                }
+            }
+            persist_player_position(sender_pid, position_x, position_z);
         }
         // Echo the move back to the sender (side-by-side move
         // scenario + modern smoke need this without a fully initialized

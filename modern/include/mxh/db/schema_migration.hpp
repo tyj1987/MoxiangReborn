@@ -4,7 +4,7 @@
 
 namespace mxh::db {
 
-inline constexpr int kModernSchemaVersion = 3;
+inline constexpr int kModernSchemaVersion = 4;
 
 // Applies every idempotent migration required by Login/Agent/Map. The caller
 // must connect the adapter first. No accounts or gameplay rows are seeded.

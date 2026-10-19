@@ -1,0 +1,24 @@
+{
+  "schema": "moxiang.original.position.persistence.evidence.v1",
+  "capturedAt": "2026-10-20T23:58:00+08:00",
+  "sourceHeadBeforeCommit": "a71568d1deeca3930e94f19bd674472f564d0c7e",
+  "implementation": {
+    "schemaVersion": 4,
+    "columns": ["character_info.position_x", "character_info.position_z"],
+    "writeTriggers": ["MoveProtocol.Stop", "MoveProtocol.Warp", "GameOutSyn", "map-client disconnect"],
+    "mapTransfer": "Agent map transfer clears saved coordinates before forwarding GameInSyn",
+    "readRule": "restore only when saved map_num equals the MapServer map; otherwise use the canonical map spawn"
+  },
+  "tests": {
+    "schemaMigration": {"selected": 5, "passed": 5, "failed": 0},
+    "positionRoundTrip": {"name": "MapHandlerTest.StopMovePersistsAndRestoresCharacterPosition", "passed": true, "sqlite": true},
+    "mapHandlerRegression": {"selected": 77, "passed": 77, "failed": 0}
+  },
+  "acceptance": {
+    "localSqlite": true,
+    "vm112Mssql": false,
+    "humanGui": false,
+    "releaseReady": false
+  },
+  "decision": "The authoritative local persistence path is implemented and regression-tested. VM112 MSSQL and real GUI revalidation remain open gates."
+}

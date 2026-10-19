@@ -1252,9 +1252,16 @@ void AgentHandler::handle_legacy_character_list(
     std::vector<mxh::db::Bind> params = {mxh::db::bind(std::to_string(user_id))};
     auto result = db_.query(
         "SELECT chrid, charname, sex_type, hair_type, face_type, body_type, "
-        "start_area, height, width, level, map_num, standing_idx "
+        "start_area, height, width, level, map_num, position_x, position_z, standing_idx "
         "FROM character_info WHERE userid = ?",
         params, rs);
+    if (!result.ok()) {
+        result = db_.query(
+            "SELECT chrid, charname, sex_type, hair_type, face_type, body_type, "
+            "start_area, height, width, level, map_num, standing_idx "
+            "FROM character_info WHERE userid = ?",
+            params, rs);
+    }
 
     int char_count = 0;
     if (result.ok()) {
@@ -2291,7 +2298,7 @@ void AgentHandler::handle_legacy_change_map_syn(
     const std::array<mxh::db::Bind, 2> map_params = {
         mxh::db::bind(static_cast<std::int64_t>(target_map)),
         mxh::db::bind(static_cast<std::int64_t>(char_id))};
-    if (!db_.execute("UPDATE character_info SET map_num=? WHERE chrid=?",
+    if (!db_.execute("UPDATE character_info SET map_num=?, position_x=NULL, position_z=NULL WHERE chrid=?",
                      map_params).ok()) {
         {
             std::lock_guard<std::mutex> lk(user_mu_);

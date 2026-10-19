@@ -26,7 +26,7 @@ TEST(SchemaMigration, CreatesVersionedSharedSchemaWithoutAccounts) {
 
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
-    EXPECT_EQ(columns.rows.size(), 18u);
+    EXPECT_EQ(columns.rows.size(), 20u);
 }
 
 TEST(SchemaMigration, IsIdempotent) {
@@ -40,7 +40,7 @@ TEST(SchemaMigration, IsIdempotent) {
     // The migration ledger keeps one row per applied release.  Idempotence
     // means the ledger does not grow on the second call and its maximum
     // remains the current schema version.
-    ASSERT_EQ(versions.rows.size(), 3u);
+    ASSERT_EQ(versions.rows.size(), 4u);
     EXPECT_EQ(std::get<std::int64_t>(versions.rows.back()[0]),
               mxh::db::kModernSchemaVersion);
 }
@@ -54,7 +54,7 @@ TEST(SchemaMigration, UpgradesLegacyCharacterTableInPlace) {
 
     mxh::db::ResultSet columns;
     ASSERT_TRUE(db.query("PRAGMA table_info(character_info)", {}, columns).ok());
-    EXPECT_EQ(columns.rows.size(), 18u);
+    EXPECT_EQ(columns.rows.size(), 20u);
 }
 
 TEST(SchemaMigration, LegacyAttributesStayNullWithoutDefaultsOrBackfill) {

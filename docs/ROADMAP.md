@@ -31,6 +31,7 @@ Unity 客户端保持独立工作树和独立构建/运行数据，不从本页�
   `docs/evidence/original-pve-current-release-map17-combat-20261015.json`。测试后已恢复默认 Map10 五端口服务状态。
 - 最新隔离 NumericCopy stage 已完成更完整的真实 MSSQL 子门禁：Map17 出生/重登、任务开始与未完成回退、Map17→Map12 持久化、战斗掉落拾取、quick-slot 技能、Map12 Dealer 商店购买和购买后重登库存回读；测试 fixture 已恢复，见
   `docs/evidence/original-pve-fixed-stage-playability-20261017.json`。
+- `character_info.position_x/position_z` 已进入 SQLite/MSSQL schema 4；MapServer 在 Stop/Warp、GameOut 和断线时保存权威坐标，换图时清空旧地图坐标，重登按当前地图恢复。SQLite 迁移和 `StopMovePersistsAndRestoresCharacterPosition` 回归通过；VM112 真实 GUI 仍待复验。
 
 ## 仍未闭合
 

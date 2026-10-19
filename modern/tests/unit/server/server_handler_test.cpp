@@ -3805,6 +3805,59 @@ TEST(MapHandlerTest, MoveUpdatesAuthoritativePlayerPosition) {
     EXPECT_FLOAT_EQ(snapshot->pos_x, 321.0f);
     EXPECT_FLOAT_EQ(snapshot->pos_z, 654.0f);
 }
+
+TEST(MapHandlerTest, StopMovePersistsAndRestoresCharacterPosition) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db->connect(cfg).ok());
+    ASSERT_TRUE(db->execute(
+        "CREATE TABLE character_info (chrid INTEGER PRIMARY KEY,charname TEXT,"
+        "sex_type INTEGER,face_type INTEGER,hair_type INTEGER,height REAL,width REAL,"
+        "level INTEGER,map_num INTEGER,position_x REAL NULL,position_z REAL NULL)").ok());
+    ASSERT_TRUE(db->execute(
+        "INSERT INTO character_info VALUES(123,'PersistedHero',0,1,1,1,1,1,7,NULL,NULL)").ok());
+    ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
+    ASSERT_TRUE(seed_fixture_runtime_state(*db, 123u));
+    ReplySpy reply;
+    const auto connection = mxh::net::make_connection_id(55);
+    {
+        mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
+        mxh::net::Message game_in;
+        game_in.header.object_id = 123u;
+        game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+        handler.on_message(connection, game_in);
+
+        mxh::net::Message stop;
+        stop.header.object_id = 123u;
+        stop.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
+        stop.header.protocol = static_cast<std::uint8_t>(mxh::proto::MoveProtocol::Stop);
+        stop.payload.resize(4u);
+        const std::uint16_t x = 32100u;
+        const std::uint16_t z = 32200u;
+        std::memcpy(stop.payload.data(), &x, sizeof(x));
+        std::memcpy(stop.payload.data() + 2u, &z, sizeof(z));
+        handler.on_message(connection, stop);
+    }
+    mxh::db::ResultSet saved;
+    ASSERT_TRUE(db->query("SELECT position_x,position_z FROM character_info WHERE chrid=123", saved).ok());
+    ASSERT_EQ(saved.rows.size(), 1u);
+    EXPECT_DOUBLE_EQ(std::get<double>(saved.rows[0][0]), 32100.0);
+    EXPECT_DOUBLE_EQ(std::get<double>(saved.rows[0][1]), 32200.0);
+
+    mxh::server::MapHandler restored(*db, 7, make_reply_spy(reply));
+    mxh::net::Message relog;
+    relog.header.object_id = 123u;
+    relog.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    relog.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    restored.on_message(mxh::net::make_connection_id(56), relog);
+    const auto snapshot = restored.player_runtime_snapshot(123u);
+    ASSERT_TRUE(snapshot.has_value());
+    EXPECT_FLOAT_EQ(snapshot->pos_x, 32100.0f);
+    EXPECT_FLOAT_EQ(snapshot->pos_z, 32200.0f);
+}
+
 TEST(MapHandlerTest, ActorVitalsAreAuthoritativeForStateObservation) {
     MockDbAdapter db;
     ReplySpy reply;

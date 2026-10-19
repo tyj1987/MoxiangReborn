@@ -609,6 +609,8 @@ private:
     // wire reply (the wire reply has already been sent before the
     // write is attempted; the next BuySyn will overwrite the row).
     void persist_player_money(std::uint32_t player_id, std::uint32_t money);
+    void persist_player_position(std::uint32_t player_id, float position_x,
+                                 float position_z);
     bool load_player_items(std::uint32_t player_id, Player& player);
     bool persist_player_items(std::uint32_t player_id);
 

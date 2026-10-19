@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS character_info (
     width REAL NOT NULL DEFAULT 1.0,
     level INTEGER NOT NULL DEFAULT 1,
     map_num INTEGER NOT NULL DEFAULT 12,
+    position_x REAL NULL,
+    position_z REAL NULL,
     standing_idx INTEGER NOT NULL DEFAULT 0,
     character_data BLOB
 );
@@ -222,18 +224,21 @@ CREATE TABLE IF NOT EXISTS log_chat (
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (1);
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (2);
 INSERT OR IGNORE INTO modern_schema_version(version) VALUES (3);
+INSERT OR IGNORE INTO modern_schema_version(version) VALUES (4);
 )SQL";
 
-constexpr std::array<std::string_view, 38> kMssqlSchema = {
+constexpr std::array<std::string_view, 41> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NULL CREATE TABLE dbo.modern_schema_version (version INT NOT NULL PRIMARY KEY, applied_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL CREATE TABLE dbo.chr_log_info (id NVARCHAR(50) NOT NULL PRIMARY KEY, pw NVARCHAR(160) NOT NULL, userlevel INT NOT NULL DEFAULT 0, registerdate NVARCHAR(32) NULL, lastlogindate NVARCHAR(32) NULL, lastloginip NVARCHAR(64) NULL, usepoint BIGINT NOT NULL DEFAULT 0)",
     "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL",
-    "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL CREATE TABLE dbo.character_info (charname NVARCHAR(50) NOT NULL PRIMARY KEY, chrid BIGINT NOT NULL UNIQUE, userid NVARCHAR(50) NOT NULL, sex_type TINYINT NOT NULL DEFAULT 0, hair_type TINYINT NOT NULL DEFAULT 0, face_type TINYINT NOT NULL DEFAULT 0, body_type TINYINT NOT NULL DEFAULT 0, start_area INT NOT NULL DEFAULT 12, height FLOAT NOT NULL DEFAULT 1.0, width FLOAT NOT NULL DEFAULT 1.0, level INT NOT NULL DEFAULT 1, map_num INT NOT NULL DEFAULT 12, standing_idx INT NOT NULL DEFAULT 0, character_data VARBINARY(MAX) NULL)",
+    "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL CREATE TABLE dbo.character_info (charname NVARCHAR(50) NOT NULL PRIMARY KEY, chrid BIGINT NOT NULL UNIQUE, userid NVARCHAR(50) NOT NULL, sex_type TINYINT NOT NULL DEFAULT 0, hair_type TINYINT NOT NULL DEFAULT 0, face_type TINYINT NOT NULL DEFAULT 0, body_type TINYINT NOT NULL DEFAULT 0, start_area INT NOT NULL DEFAULT 12, height FLOAT NOT NULL DEFAULT 1.0, width FLOAT NOT NULL DEFAULT 1.0, level INT NOT NULL DEFAULT 1, map_num INT NOT NULL DEFAULT 12, position_x FLOAT NULL, position_z FLOAT NULL, standing_idx INT NOT NULL DEFAULT 0, character_data VARBINARY(MAX) NULL)",
     "IF COL_LENGTH(N'dbo.character_info', N'character_data') IS NULL ALTER TABLE dbo.character_info ADD character_data VARBINARY(MAX) NULL",
     "IF COL_LENGTH(N'dbo.character_info', N'base_gengol') IS NULL ALTER TABLE dbo.character_info ADD base_gengol INT NULL CONSTRAINT ck_character_info_base_gengol CHECK (base_gengol >= 0 AND base_gengol <= 65535)",
     "IF COL_LENGTH(N'dbo.character_info', N'base_minchub') IS NULL ALTER TABLE dbo.character_info ADD base_minchub INT NULL CONSTRAINT ck_character_info_base_minchub CHECK (base_minchub >= 0 AND base_minchub <= 65535)",
     "IF COL_LENGTH(N'dbo.character_info', N'base_cheryuk') IS NULL ALTER TABLE dbo.character_info ADD base_cheryuk INT NULL CONSTRAINT ck_character_info_base_cheryuk CHECK (base_cheryuk >= 0 AND base_cheryuk <= 65535)",
     "IF COL_LENGTH(N'dbo.character_info', N'base_simmek') IS NULL ALTER TABLE dbo.character_info ADD base_simmek INT NULL CONSTRAINT ck_character_info_base_simmek CHECK (base_simmek >= 0 AND base_simmek <= 65535)",
+    "IF COL_LENGTH(N'dbo.character_info', N'position_x') IS NULL ALTER TABLE dbo.character_info ADD position_x FLOAT NULL",
+    "IF COL_LENGTH(N'dbo.character_info', N'position_z') IS NULL ALTER TABLE dbo.character_info ADD position_z FLOAT NULL",
     "IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id=OBJECT_ID(N'dbo.character_info') AND name=N'userid' AND TYPE_NAME(user_type_id)<>N'nvarchar') ALTER TABLE dbo.character_info ALTER COLUMN userid NVARCHAR(50) NOT NULL",
     "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name=N'ux_character_info_charname' AND object_id=OBJECT_ID(N'dbo.character_info')) CREATE UNIQUE NONCLUSTERED INDEX ux_character_info_charname ON dbo.character_info(charname)",
     "IF OBJECT_ID(N'dbo.modern_player_state', N'U') IS NULL CREATE TABLE dbo.modern_player_state (player_id BIGINT NOT NULL PRIMARY KEY, money BIGINT NOT NULL DEFAULT 0, level INT NOT NULL DEFAULT 1, exp BIGINT NOT NULL DEFAULT 0, party_id BIGINT NOT NULL DEFAULT 0, guild_id BIGINT NOT NULL DEFAULT 0, updated_at NVARCHAR(32) NOT NULL)",
@@ -262,7 +267,8 @@ constexpr std::array<std::string_view, 38> kMssqlSchema = {
     "IF OBJECT_ID(N'dbo.log_chat', N'U') IS NULL CREATE TABLE dbo.log_chat (logid BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY, chrname NVARCHAR(64) NOT NULL, channel NVARCHAR(32) NOT NULL, message NVARCHAR(512) NOT NULL, logtime DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME())",
     "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=1) INSERT INTO dbo.modern_schema_version(version) VALUES (1)",
     "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=2) INSERT INTO dbo.modern_schema_version(version) VALUES (2)",
-    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=3) INSERT INTO dbo.modern_schema_version(version) VALUES (3)"
+    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=3) INSERT INTO dbo.modern_schema_version(version) VALUES (3)",
+    "IF NOT EXISTS (SELECT 1 FROM dbo.modern_schema_version WHERE version=4) INSERT INTO dbo.modern_schema_version(version) VALUES (4)"
 };
 
 DbResult not_supported(const std::string& backend) {
@@ -279,7 +285,7 @@ DbResult add_missing_sqlite_character_columns(IDbAdapter& db) {
             if (const auto* name = std::get_if<std::string>(&row[1])) columns.insert(*name);
         }
     }
-    constexpr std::array<std::pair<std::string_view, std::string_view>, 14> additions = {{
+    constexpr std::array<std::pair<std::string_view, std::string_view>, 16> additions = {{
         {"base_gengol", "ALTER TABLE character_info ADD COLUMN base_gengol INTEGER NULL CHECK (base_gengol BETWEEN 0 AND 65535)"},
         {"base_minchub", "ALTER TABLE character_info ADD COLUMN base_minchub INTEGER NULL CHECK (base_minchub BETWEEN 0 AND 65535)"},
         {"base_cheryuk", "ALTER TABLE character_info ADD COLUMN base_cheryuk INTEGER NULL CHECK (base_cheryuk BETWEEN 0 AND 65535)"},
@@ -293,6 +299,8 @@ DbResult add_missing_sqlite_character_columns(IDbAdapter& db) {
         {"width", "ALTER TABLE character_info ADD COLUMN width REAL NOT NULL DEFAULT 1.0"},
         {"level", "ALTER TABLE character_info ADD COLUMN level INTEGER NOT NULL DEFAULT 1"},
         {"map_num", "ALTER TABLE character_info ADD COLUMN map_num INTEGER NOT NULL DEFAULT 12"},
+        {"position_x", "ALTER TABLE character_info ADD COLUMN position_x REAL NULL"},
+        {"position_z", "ALTER TABLE character_info ADD COLUMN position_z REAL NULL"},
         {"standing_idx", "ALTER TABLE character_info ADD COLUMN standing_idx INTEGER NOT NULL DEFAULT 0"}
     }};
     for (const auto& [name, sql] : additions) {
