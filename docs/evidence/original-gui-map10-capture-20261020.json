@@ -2,7 +2,7 @@
   "schema": "moxiang.original.gui.map10-capture.v1",
   "recordedAt": "2026-10-20T03:17:45+08:00",
   "result": "PASS",
-  "sourceHead": "be69ef6bbcf96ef20a4391fc6a9aee4efac61811",
+  "sourceHead": "16bc860ffbd36665e3c3ad9ab5a44255c94a0aea",
   "environment": {
     "client": "mxh_client Debug with MXH_DEV_AUTOMATION",
     "binarySha256": "9da72d2b33bb179d866e581c808622ccd78fd5515dbdeeb1ae3ad6064b0a5910",
