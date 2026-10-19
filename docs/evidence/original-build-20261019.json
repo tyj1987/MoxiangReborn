@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-build",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "ab4645149e826a69d30dc75872ce1a76c12f3a7c",
+  "buildDir": "modern/build-clean-debug-20261015",
+  "command": "cmake --build modern/build-clean-debug-20261015 --config Debug --parallel 4",
+  "result": "PASS",
+  "compiler": "MSBuild 17.14.40",
+  "notes": [
+    "All configured Debug targets completed, including client, login/agent/map servers, and unit test executables.",
+    "This is a local build receipt; it is not a PVE deployment or GUI acceptance receipt."
+  ]
+}
