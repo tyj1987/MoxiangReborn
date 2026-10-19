@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-package-ai-group-gate",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "0329ee7a8b5edea9a7c91eeb4d0d1b87013d1e46",
+  "script": "scripts/package-original-vm112-current.py",
+  "map10": {
+    "command": "--map-number 10",
+    "result": "PASS",
+    "requiredMaps": [
+      10,
+      12,
+      2
+    ]
+  },
+  "map203": {
+    "command": "--map-number 203",
+    "result": "REJECTED_BEFORE_PACKAGE_CREATION",
+    "error": "missing exact server AIGroup resources: map 203: modern/data/PlayDH/Resource/Server/Monster_203.bin"
+  },
+  "tests": {
+    "command": "python -m unittest scripts/tests/test_original_package_resource_gate.py scripts/tests/test_vm112_map_resource_guard.py scripts/tests/test_vm112_writer_contract.py scripts/tests/test_map_server_resource_audit.py",
+    "passed": 11,
+    "failed": 0
+  },
+  "decision": "package_generation_now_shares_the_same_exact_server_resource_gate_as_vm112_startup"
+}
