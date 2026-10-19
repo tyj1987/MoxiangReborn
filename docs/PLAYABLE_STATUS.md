@@ -1,5 +1,5 @@
 2026-10-19 | Map203 资源包在独立 VM112 stage 上完成更新后的 Map10 真实回归：当前 E2E 五步全通过，GameIn 收到 228 个怪物，测试账号/角色行和隔离进程均清理，默认端口未触碰。回执见 [`original-pve-map10-updated-resource-playability-20261019.json`](evidence/original-pve-map10-updated-resource-playability-20261019.json)。
-2026-10-17 | Map203 更新资源包已通过 VM112 隔离 stage 传输：包 SHA-256 `fa91cf475bd68f10cb6b280cb16c085f74130b0195091773da54eb9689d908b5`，资源 5,297 文件 / 1,691,253,485 字节，预检通过；真实启动在 `Monster_203.bin` 缺失处按保护逻辑阻断，默认端口未触碰。回执见 [`original-map203-runtime-resource-gate-20261017.json`](evidence/original-map203-runtime-resource-gate-20261017.json)。
+2026-10-17 | Map203 更新资源包已通过 VM112 隔离 stage 传输：包 SHA-256 `fa91cf475bd68f10cb6b280cb16c085f74130b0195091773da54eb9689d908b5`，资源 5,297 文件 / 1,691,253,485 字节，预检通过；真实启动在 `Monster_203.bin` 缺失处按保护逻辑阻断，新增只读检查 `modern/tools/audit_map_server_resources.py 203` 同样返回缺失，默认端口未触碰。回执见 [`original-map203-runtime-resource-gate-20261017.json`](evidence/original-map203-runtime-resource-gate-20261017.json)。
 2026-10-17 | 当前原版提交 `0eb971250bf8b71d7be040d1333d3fb30be8fede` 已完成出生地图路由修复：注册 Map17 路由时建角写入 Map17，无对应路由时安全回退配置默认地图。`mxh_server_handler_tests` 162/162、商业 smoke 35/35 通过；MSSQL 与真人 GUI 仍显式跳过。证据见 [`original-canonical-birth-map-route-20261017.json`](evidence/original-canonical-birth-map-route-20261017.json)。资源缺口与 1 级首战门禁仍未关闭。
 
 # 可玩状态与分线验收
@@ -185,6 +185,7 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 同一 x64 Release 构建已补齐 `mxh_client`、Launcher、三服、数据库工具、资源浏览器和 E2E 工具；本地 SQLite 三服链 `MoxianClientE2E` **1/1 通过**。PVE 人工入口的 PlanOnly 检查确认只连接 `192.168.2.244:16001/17001/18001`，不会启动本机服务或数据库；完整人工 GUI 仍需操作者在实际桌面完成，回执见 [`modern-client-x64-build-20261017.json`](evidence/modern-client-x64-build-20261017.json)。
 
 同一 source-bound x64 Release 目录随后完成全目标编译和完整 CTest：**12,577/12,577 实际执行用例通过、0 失败、26 项明确 Skip，退出码 0**，总耗时 130.79 秒。Skip 仅对应 PVE/MSSQL、恢复运行时资源、真实特效资源和显式 Map10 smoke 门禁；回执与构建日志哈希见 [`modern-full-x64-release-20261017.json`](evidence/modern-full-x64-release-20261017.json)。
+
 
 
 
