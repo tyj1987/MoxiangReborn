@@ -1,0 +1,46 @@
+{
+  "schema": "moxiang.original.gui.map10-capture.v1",
+  "recordedAt": "2026-10-20T03:17:45+08:00",
+  "result": "PASS",
+  "sourceHead": "be69ef6bbcf96ef20a4391fc6a9aee4efac61811",
+  "environment": {
+    "client": "mxh_client Debug with MXH_DEV_AUTOMATION",
+    "binarySha256": "9da72d2b33bb179d866e581c808622ccd78fd5515dbdeeb1ae3ad6064b0a5910",
+    "login": "192.168.2.244:16001",
+    "map": "192.168.2.244:18001",
+    "resourceProfile": "playdh-current",
+    "resourceRoot": "modern/data/PlayDH",
+    "window": "1024x768",
+    "database": "PVE default test database; temporary account removed after capture"
+  },
+  "capture": {
+    "mapNumber": 10,
+    "character": "GuiMap",
+    "finalFrame": {
+      "path": "docs/evidence/original-gui-map10-capture-20261020.png",
+      "sha256": "2cc518bd41aad588b628de3babdd281f6be6064706e90185cd0999c90bffc617",
+      "bytes": 1670525,
+      "dimensions": "1024x768",
+      "format": "PNG RGBA (converted from TGA capture)"
+    },
+    "stateFrames": {
+      "connect": "81ad5ef1300ca88e2ec0dd0693821095cbf23ce6cb04bdb7a7e8f7961ffc678b6",
+      "login": "64b3742665d2a4a99315d1e477384003eb89c7fbd0991f149bf1b378f981a5d3",
+      "charselect": "04d97d3489869cc4e34ba5150328c7bc3740495f8f81a2a512a0dce27fa4a226",
+      "charmake": "f74e6e87e7b5e3faa4a99913c4a05a77637f359483a61eefa211e780d0ca736d",
+      "gameloading": "e32ba18d9f5cf261142d6d1173c376639bbc1b7ca6ba0f52ede3e13cd978221b"
+    }
+  },
+  "verified": [
+    "client launched with automation-enabled Debug binary",
+    "remote login and character creation reached Map10",
+    "Map10 scene rendered with player, terrain, HUD, minimap, hotbar and inventory UI",
+    "temporary account and character rows removed from the PVE test database"
+  ],
+  "limitations": [
+    "automated visible-window capture; human GUI acceptance is still open",
+    "combat, natural drop, click pickup and relog persistence are covered by the separate PVE Map17 headless evidence",
+    "this capture is not a 1:1 visual/audio approval or commercial release gate",
+    "exact original assets and remaining visual/audio/resource gates remain open"
+  ]
+}
