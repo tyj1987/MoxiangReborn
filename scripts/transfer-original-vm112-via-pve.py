@@ -105,11 +105,13 @@ def main() -> None:
         source = args.resource_source_stage.rstrip("\\/")
         guest.exec(
             f"$source='{source}\\modern\\data\\PlayDH'; $target='{stage}\\modern\\data\\PlayDH'; if(-not (Test-Path -LiteralPath $source -PathType Container)){{throw 'resource source stage missing'}}; New-Item -ItemType Directory -Path $target -Force | Out-Null; robocopy $source $target /MIR /COPY:DAT /DCOPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS; if($LASTEXITCODE -ge 8){{throw 'resource mirror failed'}}; Expand-Archive -LiteralPath '{stage}\\package.zip' -DestinationPath '{stage}' -Force",
-            timeout=600,
+            # A full PlayDH mirror is ~1.7 GiB and can exceed ten minutes on
+            # a busy guest even when the copy itself is making progress.
+            timeout=1800,
         )
     result = json.loads(
         guest.exec(
-            f"$manifest=Get-Content '{stage}\\stage-manifest.json' -Raw | ConvertFrom-Json; $root='{stage}\\modern\\data\\PlayDH'; $files=@(Get-ChildItem -LiteralPath $root -File -Recurse); $required=@($manifest.requiredMapNumbers); $ai=@(); foreach($map in $required){{ $suffix=if([int]$map -lt 100){{('{0:D2}' -f [int]$map)}}else{{[string]$map}}; $path=Join-Path $root ('Resource\\Server\\Monster_'+$suffix+'.bin'); if(-not (Test-Path -LiteralPath $path -PathType Leaf)){{throw 'required server AIGroup missing after resource mirror: '+$path}}; $ai += [ordered]@{{map=[int]$map;path=$path;bytes=(Get-Item -LiteralPath $path).Length}} }}; [ordered]@{{stage='{stage}';sourceHead=[string]$manifest.sourceHead;packageSha256=(Get-FileHash '{stage}\\package.zip' -Algorithm SHA256).Hash.ToLowerInvariant();resourceFiles=$files.Count;resourceBytes=[int64](($files | Measure-Object Length -Sum).Sum);resourceProfile=[string]$manifest.writerContract.resourceProfile;requiredMapNumbers=$required;serverAiGroups=$ai}} | ConvertTo-Json -Compress"
+            f"$manifest=Get-Content '{stage}\\stage-manifest.json' -Raw | ConvertFrom-Json; $root='{stage}\\modern\\data\\PlayDH'; $files=@(Get-ChildItem -LiteralPath $root -File -Recurse); $required=@($manifest.requiredMapNumbers); $ai=@(); foreach($map in $required){{ $suffix=if([int]$map -lt 100){{('{{0:D2}}' -f [int]$map)}}else{{[string]$map}}; $path=Join-Path $root ('Resource\\Server\\Monster_'+$suffix+'.bin'); if(-not (Test-Path -LiteralPath $path -PathType Leaf)){{throw 'required server AIGroup missing after resource mirror: '+$path}}; $ai += [ordered]@{{map=[int]$map;path=$path;bytes=(Get-Item -LiteralPath $path).Length}} }}; [ordered]@{{stage='{stage}';sourceHead=[string]$manifest.sourceHead;packageSha256=(Get-FileHash '{stage}\\package.zip' -Algorithm SHA256).Hash.ToLowerInvariant();resourceFiles=$files.Count;resourceBytes=[int64](($files | Measure-Object Length -Sum).Sum);resourceProfile=[string]$manifest.writerContract.resourceProfile;requiredMapNumbers=$required;serverAiGroups=$ai}} | ConvertTo-Json -Compress"
         )
     )
     result.update({"transfer": "PASS", "packageBytes": total})
