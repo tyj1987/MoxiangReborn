@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-combat-fixture-complete-20261020",
+  "capturedAt": "2026-10-20T06:09:24.1705904Z",
+  "sourceHead": "d6dbbe92513a846933abb8e0f582b2e81e7684f8",
+  "endpoint": {
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "backend": "mssql_odbc",
+    "noSpawn": true,
+    "hsel": true,
+    "database": "MoxiangOriginalTest_20261009"
+  },
+  "fixture": {
+    "playerId": 100017,
+    "account": "origpve15",
+    "temporaryLevel": 53,
+    "temporaryBaseStats": {
+      "gengol": 2000,
+      "minchub": 12,
+      "cheryuk": 2000,
+      "simmek": 12
+    },
+    "temporaryVitals": {
+      "hp": 20271,
+      "shield": 245,
+      "mp": 125,
+      "dead": 0,
+      "initialized": 1,
+      "revision": 1
+    },
+    "temporaryEquipment": [
+      11000,
+      23000,
+      27000
+    ],
+    "progressionExpFlag": 16,
+    "baselineSnapshotSha256": "d60ef4a47e916d4ab53c301f276a5b14f0ca47f2a620404d759936bde89a7ae8"
+  },
+  "client": {
+    "path": "modern/build/tools/MoxianClientE2E/mxh_client_e2e.exe",
+    "bytes": 4484096,
+    "sha256": "86DE2FD4EA02A84A4736CE09F4586A6952701006512C06FD80BC3C193DA89C55"
+  },
+  "run": {
+    "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --login-port 16001 --agent-port 17001 --map-port 18001 --map-number 10 --account origpve15 --password supplied in process only --use-hsel --exercise-combat --timeout 240",
+    "exitCode": 0,
+    "logPath": "modern/out/runs/original-pve-combat-fixture-expflag-240-20261020/e2e.log",
+    "logBytes": 337453,
+    "logSha256": "3EE0DD01AA024F0F7DAE5074DC68C563EA7DF8D4943B7B6B459B80D0DD5D2C86",
+    "loginAck": true,
+    "characterList": true,
+    "characterSelect": true,
+    "map10GameInAck": true,
+    "monsterPopulation": 228,
+    "authoritativeCombat": true,
+    "observedTarget": 50099,
+    "observedNaturalDrop": {
+      "dropId": 90000,
+      "itemId": 8008,
+      "count": 1
+    },
+    "pickup": true,
+    "inventoryMoveAck": {
+      "itemId": 8008,
+      "source": 0,
+      "target": 1
+    },
+    "reloginPersistence": true,
+    "protocolSummary": "all 5 protocol steps passed"
+  },
+  "restoration": {
+    "restored": true,
+    "postRestoreNormalizedMatch": true,
+    "baselineNormalizedSha256": "eb11908ebecf05aa8bbefa04ef3d80a63eb396cad798086ec9dffdf816634468",
+    "restoredNormalizedSha256": "eb11908ebecf05aa8bbefa04ef3d80a63eb396cad798086ec9dffdf816634468",
+    "trackedTables": [
+      "character_info",
+      "modern_player_state",
+      "modern_player_vitals",
+      "modern_player_skill",
+      "modern_character_equipment",
+      "modern_player_item",
+      "modern_player_quest_log",
+      "modern_player_quest_sub",
+      "modern_item_grant"
+    ]
+  },
+  "diagnosis": {
+    "priorMapNackCause": "temporary fixture had exp_flag=0; Map10 correctly rejected unnormalized progression",
+    "correctiveAction": "reapplied isolated fixture with exp_flag=16, reran full combat gate",
+    "canonicalResourcesModified": false,
+    "releaseReady": false,
+    "remaining": "This closes one isolated Map10 headless combat/drop/pickup/persistence gate; real GUI, exact 1:1 resource coverage, full feature matrix and commercial acceptance remain open"
+  }
+}

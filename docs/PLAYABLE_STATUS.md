@@ -210,3 +210,9 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 同一 source-bound x64 Release 目录随后完成全目标编译和完整 CTest：**12,577/12,577 实际执行用例通过、0 失败、26 项明确 Skip，退出码 0**，总耗时 130.79 秒。Skip 仅对应 PVE/MSSQL、恢复运行时资源、真实特效资源和显式 Map10 smoke 门禁；回执与构建日志哈希见 [`modern-full-x64-release-20261017.json`](evidence/modern-full-x64-release-20261017.json)。
 
+
+## 2026-10-20 Map10 战斗、掉落、拾取与重登持久化复测
+
+本次结果绑定原版提交 `d6dbbe92513a846933abb8e0f582b2e81e7684f8` 和 VM112 `192.168.2.244:16001/17001/18001`。在 CT930 隔离库 `MoxiangOriginalTest_20261009` 中，仅对角色 `100017` 写入临时等级 53、装备和已归一化 `exp_flag=16` 夹具；真实 `MoxianClientE2E --no-spawn --use-hsel --exercise-combat --timeout 240` 退出码 0，完成 LoginAck、角色列表/选角、Map10 GameIn（228 个怪物）、服务端权威攻击、目标 `50099` 死亡、自然掉落 `drop=90000/item=8008/count=1`、点击拾取、背包 MoveAck（0→1）和 GameOut 后重新 GameIn 的物品持久化。完整日志与哈希见 [`original-pve-combat-fixture-complete-20261020.json`](evidence/original-pve-combat-fixture-complete-20261020.json)。
+
+复测前一次 GameInNack 已定位为临时夹具 `exp_flag=0`，服务端拒绝未归一化进度属于预期保护行为；修正夹具后没有修改 PlayDH 或原始资源。测试结束已恢复角色、生命、进度、装备、物品、任务和技能相关表；归一化快照哈希 `eb11908ebec05aa8bbefa04ef3d80a63eb396cad798086ec9dffdf816634468` 与恢复后完全一致。该证据关闭的是隔离 headless Map10 战斗子门禁，不关闭真人 GUI、原资源 1:1 缺口、全地图/经济/社交覆盖、Unity 独立验收或商业发布门禁；`releaseReady=false` 保持不变。
