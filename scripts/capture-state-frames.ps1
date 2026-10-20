@@ -43,6 +43,8 @@ param(
 
     [int]$TimeoutSeconds = 60,
 
+    [switch]$FollowCamera,
+
     [string]$CharacterName = '',
 
     [string]$CharacterNamePrefix = 'HA',
@@ -115,6 +117,9 @@ $arguments = @(
     '--width', "$Width",
     '--height', "$Height"
 )
+if ($FollowCamera) {
+    $arguments += '--follow-camera'
+}
 
 $client = $null
 try {
