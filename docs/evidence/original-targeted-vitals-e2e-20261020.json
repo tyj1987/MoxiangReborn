@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-targeted-vitals-e2e-20261020",
+  "capturedAt": "2026-10-20T06:16:41.6672880Z",
+  "sourceHead": "153414eee832a3028ac2aabcaf6b0a2dfb8a1389",
+  "buildDir": "modern/out/build-client-x64-diagnose",
+  "command": "ctest --test-dir modern/out/build-client-x64-diagnose -C Release --output-on-failure -R MoxianClientE2E|OriginalVitals",
+  "exitCode": 0,
+  "passed": 13,
+  "failed": 0,
+  "notRun": 0,
+  "logPath": "modern/out/runs/original-targeted-vitals-e2e-20261020/ctest.log",
+  "logBytes": 2891,
+  "logSha256": "F58540A80B1E7BC943677AB8F98AE7E4792F3BF74A04D86998E71C3191FE7F81"
+}
