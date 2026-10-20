@@ -33,7 +33,9 @@ param(
 
     [int]$MapPort = 18001,
 
-    [string]$LoginHost = '127.0.0.1',
+    # Human/PVE acceptance must use the running VM112 services.  Local
+    # SQLite smoke remains available through gui-client-smoke.ps1.
+    [string]$LoginHost = '192.168.2.244',
 
     [int]$Width = 800,
 
@@ -50,6 +52,17 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+
+if ($LoginHost -ieq 'localhost' -or $LoginHost -ieq 'localhost.localdomain') {
+    throw 'Remote state-frame acceptance refuses loopback; use gui-client-smoke.ps1 for local SQLite smoke.'
+}
+$parsedAddress = $null
+if ([System.Net.IPAddress]::TryParse($LoginHost, [ref]$parsedAddress) -and
+    ([System.Net.IPAddress]::IsLoopback($parsedAddress) -or
+     $parsedAddress.Equals([System.Net.IPAddress]::Any) -or
+     $parsedAddress.Equals([System.Net.IPAddress]::IPv6Any))) {
+    throw 'Remote state-frame acceptance refuses loopback or wildcard login hosts.'
+}
 
 if ([string]::IsNullOrWhiteSpace($ClientExe)) {
     $ClientExe = Join-Path $repoRoot 'modern\build\tools\MoxianClient\mxh_client.exe'
