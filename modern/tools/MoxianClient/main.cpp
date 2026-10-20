@@ -3550,6 +3550,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             const float dx = static_cast<float>(monster.position_x) - info.position_x;
                             const float dz = static_cast<float>(monster.position_z) - info.position_z;
                             const float distance = dx * dx + dz * dz;
+                            if (g_terrain) {
+                                const auto projected = mxh::client::project_world_point(
+                                    g_terrain->viewProj(), g_terrain->mapCenter(),
+                                    [terrain = g_terrain.get()](float x, float z) {
+                                        return terrain->heightAt(x, z);
+                                    }, monster.position_x, monster.position_z, 120.0f);
+                                if (!projected) continue;
+                            }
                             if (distance < nearest_distance) {
                                 nearest_distance = distance;
                                 nearest = &monster;
