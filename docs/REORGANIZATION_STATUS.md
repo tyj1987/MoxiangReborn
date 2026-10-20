@@ -2,7 +2,7 @@
 
 ## 当前状态校准（2026-10-20，位置持久化门禁）
 
-原版分支当前提交为 `3929291a8e446b831c3b05deb22512ed161fb9d6`，GitLab 主源已同步。VM112 隔离 stage `C:\Moxiang\original\stage-position-eb7509a5-20261020` 使用真实 MSSQL `MoxiangOriginalTest_20261009` 完成 Map10 坐标持久化 E2E：初始 `(25000,25000)`，移动至 `(25800,25400)`，GameOut 后重登和数据库回读一致，Map10 GameIn 收到 228 个怪物，退出码 0。服务端 stage 资源清单 5,297 文件 / 1,691,253,485 字节，schema 4 写入契约和 vitals 约束检查通过。隔离服务已在验收后按精确 PID/可执行路径停止，默认原版与 Unity 服务未触碰。回执见 `docs/evidence/original-pve-position-persistence-20261020.json`。
+原版分支当前提交为 `3929291a8e446b831c3b05deb22512ed161fb9d6`，GitLab 主源与 GitHub 镜像均已同步到后续文档提交 `17d9d3e366293c25bb7ad3c025500bdb016b8e79`。VM112 隔离 stage `C:\Moxiang\original\stage-position-eb7509a5-20261020` 使用真实 MSSQL `MoxiangOriginalTest_20261009` 完成 Map10 坐标持久化 E2E：初始 `(25000,25000)`，移动至 `(25800,25400)`，GameOut 后重登和数据库回读一致，Map10 GameIn 收到 228 个怪物，退出码 0。服务端 stage 资源清单 5,297 文件 / 1,691,253,485 字节，schema 4 写入契约和 vitals 约束检查通过。隔离服务已在验收后按精确 PID/可执行路径停止，默认原版与 Unity 服务未触碰。回执见 `docs/evidence/original-pve-position-persistence-20261020.json`。
 
 该结果关闭的是服务端坐标持久化子门禁，仍不关闭真人 GUI 全链、HFL/TTB/Map17 准确资源缺口、Map203 `Monster_203.bin`、全地图/音频/视觉对照、故障恢复、回滚及 24 小时稳定性门禁。
 
