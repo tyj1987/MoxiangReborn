@@ -35,8 +35,15 @@
     "powershellSyntax": "passed"
   },
   "pveExecution": {
-    "status": "not_run",
-    "reason": "No usable origpve15 password is available in the local secure environment; no credential was guessed or written.",
+    "status": "failed_before_gameplay",
+    "endpoint": "VM112 192.168.2.244:16001/17001/18001",
+    "temporaryFixture": "guicombat21 / chrid 100018",
+    "result": "Login, CharacterSelect and GameLoading completed; GameIn returned map-server-unavailable before combat.",
+    "log": {
+      "path": "modern/out/runs/pve-gui-combat-20261020-r4/logs/client.err.log",
+      "sha256": "a36a236f29add3c97a0472c8582177e80d741975aa614cca5ffe98195cafa523"
+    },
+    "cleanup": "Temporary account, character, player state, vitals, items and skills were removed from the isolated test database; character query returned zero rows.",
     "requiredNextEvidence": "VM112 real GUI log with GUI_SMOKE_COMBAT_TARGET_DEAD, GUI_SMOKE_COMBAT_DROP_SEEN, and GUI_SMOKE_COMBAT_PICKUP_CONFIRMED"
   },
   "releaseReady": false
