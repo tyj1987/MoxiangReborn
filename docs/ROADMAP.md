@@ -1,8 +1,12 @@
-2026-10-20 | 当前原版分支 `a71568d1deeca3930e94f19bd674472f564d0c7e` 已完成当前阶段的 PVE Map17 首发、Map10 Debug 可视捕获和 481 项 Debug 回归绑定；本轮归档审计未找到可认证的准确 TTB 或 `Monster_203.bin`，八个 HFL 仅为已拒绝历史候选。下一阶段优先补齐原始出生地图真实 GUI 全链、掉落/拾取跨客户端一致性和准确资源缺口，再进入全地图覆盖。
+2026-10-20 | 当前原版分支 `3929291a8e446b831c3b05deb22512ed161fb9d6` 已在 VM112 隔离 MSSQL stage 真实通过角色坐标持久化：Map10 登录/建角后移动 `(25000,25000)→(25800,25400)`，GameOut、重登和数据库回读均保持目标坐标；Map10 GameIn 收到 228 个怪物，退出码 0。回执见 `docs/evidence/original-pve-position-persistence-20261020.json`。本轮归档审计未找到可认证的准确 TTB 或 `Monster_203.bin`，八个 HFL 仅为已拒绝历史候选。下一阶段优先补齐原始出生地图真实 GUI 全链、掉落/拾取跨客户端一致性和准确资源缺口，再进入全地图覆盖。
 
 # Moxiang 开发路线图
 
 ## 当前推进增量（2026-10-20）
+
+`character_info.position_x/position_z` 已纳入 schema 4，并由 MapServer 在 Stop/Warp、GameOut 和断线时保存；换图清空旧地图坐标，重登按当前地图恢复。SQLite 迁移、服务端回归和 VM112 MSSQL 真实 E2E 均通过。该闭环仍是协议/数据库子门禁，不替代真人 GUI、完整 1:1 资源、故障恢复或稳定性验收。
+
+证据：[`original-pve-position-persistence-20261020.json`](docs/evidence/original-pve-position-persistence-20261020.json)。
 
 已在当前原版提交 `15d5fcef208f338a9e86fe60b28affbef72db093` 重新构建 Release 客户端 E2E，并以 canonical Map17 出生路线完成本机 1 级首发战斗→自然掉落→拾取→背包移动→重登回读；这条路线作为下一轮真实 GUI 与 VM112 MSSQL 验收的优先候选。Map10 仍保留为独立兼容回归，不因 Map17 通过而宣称其 1 级首战已平衡。
 

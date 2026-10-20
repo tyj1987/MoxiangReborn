@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "line": "original-modern-dx11",
+  "sourceHead": "3929291a8e446b831c3b05deb22512ed161fb9d6",
+  "clientExecutable": "modern/out/build-client-x64-diagnose/tools/MoxianClientE2E/Release/mxh_client_e2e.exe",
+  "clientSha256": "e2c616f6a296a3ad0408249849a02e828117f329eab03788f5804061288add04",
+  "log": "modern/out/runs/original-position-e2e-20261020.log",
+  "logSha256": "c64133b5d7a02efd6323e0c1bfad8618ae4934af4401012510fe3727d8803261",
+  "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --agent-host 192.168.2.244 --map-host 192.168.2.244 --login-port 16061 --agent-port 17061 --map-port 18061 --map12-port 18062 --map-number 10 --account origpve15 --password-env MXH_TEST_PASSWORD --exercise-position --timeout 60",
+  "pve": {
+    "vmid": 112,
+    "stage": "C:/Moxiang/original/stage-position-eb7509a5-20261020",
+    "stageManifestSourceHead": "227659918fbf984ead413c162df5d78ccdfdbe4b",
+    "ports": {
+      "login": 16061,
+      "agent": 17061,
+      "map10": 18061,
+      "map12": 18062,
+      "map2": 18063
+    },
+    "database": "MoxiangOriginalTest_20261009",
+    "databaseHost": "192.168.2.238"
+  },
+  "observed": {
+    "loginAck": true,
+    "map10MonsterCount": 228,
+    "initialPosition": [
+      25000,
+      25000
+    ],
+    "targetPosition": [
+      25800,
+      25400
+    ],
+    "authoritativeMoveSettled": true,
+    "gameOutSent": true,
+    "reloginGameInAck": true,
+    "reloginPosition": [
+      25800,
+      25400
+    ],
+    "databasePosition": [
+      25800,
+      25400
+    ],
+    "exitCode": 0
+  },
+  "localTests": {
+    "MoxianClientE2E": {
+      "selected": 2,
+      "passed": 2,
+      "failed": 0
+    },
+    "SchemaMigration": {
+      "selected": 5,
+      "passed": 5,
+      "failed": 0
+    },
+    "writerContractPowerShell": {
+      "selected": 6,
+      "passed": 6,
+      "failed": 0
+    }
+  },
+  "cleanup": {
+    "stageServicesStopped": true,
+    "method": "taskkill after exact stage executable-path check",
+    "portsVerifiedFree": [
+      16061,
+      17061,
+      18061,
+      18062,
+      18063
+    ],
+    "defaultOriginalAndUnityServicesTouched": false,
+    "databaseFixtureCleanup": "test account retained for subsequent GUI follow-up; no schema or shared service cleanup performed"
+  },
+  "releaseReady": false,
+  "remainingGates": [
+    "full original resource coverage (TTB/HFL/Monster_203 exact sources)",
+    "GUI full commercial flow and visual/audio acceptance",
+    "complete map/feature matrix",
+    "24h stability and recovery"
+  ]
+}
