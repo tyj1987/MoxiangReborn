@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-gui-combat-drop-pickup-20261020",
+  "capturedAt": "2026-10-20T11:42:51.5832368Z",
+  "sourceHead": "d129b9e23295101492621b9df92a2c3cf04e083c",
+  "endpoint": {
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "backend": "mssql_odbc",
+    "resourceRoot": "modern/data/PlayDH",
+    "vm": "112"
+  },
+  "client": {
+    "path": "modern/out/build-gui-combat-20261020/tools/MoxianClient/Debug/mxh_client.exe",
+    "bytes": 5869568,
+    "sha256": "B254B944F0E7BD4581A8DBD798D7F668D98C1206FA9C4087C9060AAAC697D72E"
+  },
+  "run": {
+    "command": "mxh_client --auto-login --auto-create --character-name GoldHero20 --login-host 192.168.2.244 --login-port 16001 --map-port 18001 --resource-root modern/data/PlayDH",
+    "logPath": "modern/out/runs/pve-guigold-combat-20261020/client.err.log",
+    "logBytes": 3564493,
+    "logSha256": "C6147BBC6F852196098B56B90DB15E73C37F6727EBAD943E5F5B7D657B26CC96",
+    "loginAck": true,
+    "characterCreate": true,
+    "map10GameInAck": true,
+    "monsterPopulation": 228,
+    "guiTargetDeath": true,
+    "observedTarget": 50143,
+    "naturalDrop": {
+      "dropId": 90001,
+      "itemId": 8002,
+      "count": 1
+    },
+    "pickupConfirmed": true,
+    "inventoryBefore": 0,
+    "inventoryAfter": 1,
+    "serverAuthoritative": true
+  },
+  "cleanup": {
+    "temporaryAccountRemoved": true,
+    "temporaryCharacterId": 100018,
+    "characterRows": 0,
+    "stateRows": 0,
+    "vitalsRows": 0,
+    "itemRows": 0,
+    "equipmentRows": 0,
+    "skillRows": 0,
+    "itemGrantRows": 0,
+    "accountRows": 0,
+    "defaultServicesPreserved": true
+  },
+  "diagnosis": {
+    "cadenceFix": "test-driver click cadence reduced to every second rendered frame",
+    "noDropHandling": "bounded retry selects another live monster after legitimate no-item result",
+    "productionCombatOrDropRatesModified": false,
+    "releaseReady": false,
+    "remaining": "Exact missing original Map17/HFL resources, full feature matrix, Unity independent PVE/GUI/art acceptance and commercial stability gates remain open"
+  }
+}

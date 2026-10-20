@@ -226,3 +226,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 2026-10-20 | 原版隔离 GUI 栈复测已完成真实建角与 Map10 GameIn：VM112 临时端口 `36011/37011/38011`、真实 MSSQL、PlayDH 当前资源下，Login、建角、选角、GameIn 和 228 个怪物均通过；旧建角失败根因是遗留 `100018` 的 3 条装备行，已清理后建角成功。GUI 战斗点击也确实发送 Skill StartSyn 并获得权威 2–4 点伤害，但 5096 HP 目标在有界运行内未死亡，未产生掉落/拾取通过。临时账号、角色、装备、状态、生命和端口已清理；回执见 [`original-pve-gui-map10-create-combat-20261020.json`](evidence/original-pve-gui-map10-create-combat-20261020.json)。
 
+2026-10-20 | 原版真实 GUI 战斗闭环已在提交 `d129b9e23295101492621b9df92a2c3cf04e083c` 复测通过：VM112 默认原版服务 `16001/17001/18001`、PlayDH、真实 MSSQL 和窗口客户端完成登录、建角、Map10 GameIn（228 个怪物），通过现有 GUI 投影坐标点选发动权威攻击，目标 `50143` 死亡并自然生成 `drop=90001/item=8002/count=1`，随后 GUI 点击拾取，背包数量 `0→1`。夹具只调整测试账号等级/属性，未改生产掉落或战斗数值；测试账号、角色、物品、装备、状态及账号行已验证清零，默认服务保持运行。回执见 [`original-pve-gui-combat-drop-pickup-20261020.json`](evidence/original-pve-gui-combat-drop-pickup-20261020.json)。这只关闭原版首个 GUI 战斗/自然掉落/拾取子门禁，`releaseReady=false` 仍保持，完整资源、地图/经济/社交覆盖、Unity 独立验收与商业稳定性仍未闭合。
+
