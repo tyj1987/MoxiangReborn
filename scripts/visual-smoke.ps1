@@ -24,13 +24,18 @@ param(
     [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
     [string]$LoginHost = '127.0.0.1',
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
     [string]$DbCfg = '',
     [string]$SqlHost = '192.168.2.203',
     [string]$SqlDatabase = 'Moxiang',
     [string]$SqlUser = 'sa',
     [string]$SqlPassword = '',
     [string]$SqlOdbcDriver = 'SQL Server',
-    [switch]$SkipServerStart
+    [switch]$SkipServerStart,
+    [switch]$SkipRegister,
+    [switch]$ExistingCharacter
 )
 
 $ErrorActionPreference = 'Stop'
@@ -84,7 +89,9 @@ try {
     # Remote LoginHost talks to VM 100, whose DSN is live MSSQL — do not
     # register into a throwaway local sqlite file the servers never read.
     $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
-    if (Test-Path -LiteralPath $dbTool) {
+    if ($SkipRegister) {
+        Write-Host "[visual-smoke] account registration skipped by explicit -SkipRegister" -ForegroundColor Yellow
+    } elseif (Test-Path -LiteralPath $dbTool) {
         if ([string]::IsNullOrWhiteSpace($DbCfg)) {
             if ($remoteLogin) {
                 if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
@@ -129,8 +136,9 @@ try {
     # 状态 5-6: 不带 --exit-after-gamein，停留一段时间，让外部触发 HUD 切换
     $arguments = @(
         '--login-host', $LoginHost,
-        '--login-port', '16001',
-        '--map-port', '18001',
+        '--login-port', [string]$LoginPort,
+        '--agent-port', [string]$AgentPort,
+        '--map-port', [string]$MapPort,
         '--username', $Username,
         '--password', $Password,
         '--auto-login',
@@ -142,6 +150,7 @@ try {
         '--exit-after-gamein',
         '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
+    if ($remoteLogin) { $arguments += '--use-hsel' }
 
     Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=20" -ForegroundColor Cyan
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
@@ -158,7 +167,9 @@ try {
     Write-Host "[visual-smoke] MoxianClient exit code = $exitCode"
 
     # 验证基础 5 状态（login / charselect / charmake / gamein）
-    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir
+    $frameVerifyArgs = @($stateFramesDir)
+    if ($ExistingCharacter) { $frameVerifyArgs += '--permissive' }
+    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') @frameVerifyArgs
     if ($LASTEXITCODE -ne 0) {
         throw "5-state frames verification failed"
     }
@@ -187,7 +198,11 @@ try {
     # 当前阶段先标 SKIP，等 M-R4 完成真实 cDialog 树后回来填
 
     Write-Host ""
-    Write-Host "VISUAL_SMOKE_PARTIAL PASS (5/6 states captured)" -ForegroundColor Green
+    if ($ExistingCharacter) {
+        Write-Host "VISUAL_SMOKE_PARTIAL PASS (4/5 states captured; charmake skipped for existing character)" -ForegroundColor Green
+    } else {
+        Write-Host "VISUAL_SMOKE_PARTIAL PASS (5/6 states captured)" -ForegroundColor Green
+    }
     Write-Host "Output: $runRoot"
     Write-Host "TODO: hud-only + inventory states require M-R4 dialog tree or SendInput injection"
 } finally {
