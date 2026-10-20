@@ -1,7 +1,7 @@
 {
   "date": "2026-10-20",
   "branch": "codex/reorg-original-20261009",
-  "sourceHead": "c3221029",
+  "sourceHead": "16f3abbc",
   "purpose": "Add a bounded real GUI input exercise for original combat, natural drop, and click pickup.",
   "implementation": {
     "client": "modern/tools/MoxianClient/main.cpp",
