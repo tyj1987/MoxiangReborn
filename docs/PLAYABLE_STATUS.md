@@ -1,3 +1,5 @@
+2026-10-20 | 当前原版提交 `3929291a8e446b831c3b05deb22512ed161fb9d6` 已在 VM112 隔离 MSSQL stage 完成坐标持久化子门禁：Map10 初始 `(25000,25000)` 移动到 `(25800,25400)`，GameOut 后重登与数据库回读一致，Map10 GameIn 228 个怪物，退出码 0。服务 schema 4、写入契约和 vitals 约束均通过；隔离端口已释放。回执见 [`original-pve-position-persistence-20261020.json`](evidence/original-pve-position-persistence-20261020.json)。这不是真人 GUI 全链或商业发布结论。
+
 2026-10-20 | 当前原版分支已绑定 VM112 Map17 真实 MSSQL 首发闭环、默认 PVE Map10 Debug 可视捕获和 481 项 Debug 回归全通过。可视与回归回执分别见 [`original-gui-map10-capture-20261020.json`](evidence/original-gui-map10-capture-20261020.json)、[`original-debug-unit-regression-20261020.json`](evidence/original-debug-unit-regression-20261020.json)。当前状态仍不等于真人 GUI 全链或商业发布。
 
 2026-10-20 | 当前原版提交 `15d5fcef208f338a9e86fe60b28affbef72db093` 的 Release `mxh_client_e2e` 在本机隔离 SQLite 三服链路完成真实 Map17 首发路线：1 级角色带原始首发装备 `11000/23000/27000`，收到 216 个怪物，完成权威攻击、目标死亡、自然掉落 `item=50108`、点击拾取、背包移动和 GameOut 后重登库存回读，退出码 0。回执见 [`original-local-map17-starter-combat-20261020.json`](evidence/original-local-map17-starter-combat-20261020.json)。这是当前源码的本机 headless 子门禁，不替代 VM112 MSSQL、真人 GUI、Map17 九个准确纹理、完整 1:1 资源或商业发布验收。
