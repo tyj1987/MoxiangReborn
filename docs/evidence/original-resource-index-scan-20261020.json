@@ -1,0 +1,620 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-20",
+  "scope": "read-only exact basename scan without following junctions",
+  "roots": [
+    "C:\\moxiang",
+    "E:\\Workspaces\\moxiang",
+    "E:\\Workspaces\\artifacts",
+    "D:\\MX",
+    "D:\\MoyoI",
+    "D:\\03_Data"
+  ],
+  "records": [
+    {
+      "name": "0.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\0.hfl",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"
+        }
+      ]
+    },
+    {
+      "name": "4.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\4.hfl",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"
+        }
+      ]
+    },
+    {
+      "name": "23.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\23.hfl",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"
+        }
+      ]
+    },
+    {
+      "name": "24.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\24.hfl",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"
+        }
+      ]
+    },
+    {
+      "name": "32.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\32.hfl",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"
+        }
+      ]
+    },
+    {
+      "name": "33.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\33.hfl",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"
+        }
+      ]
+    },
+    {
+      "name": "34.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\34.hfl",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"
+        }
+      ]
+    },
+    {
+      "name": "94.hfl",
+      "classification": "known-generated-placeholder",
+      "matches": [
+        {
+          "path": "C:\\moxiang\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\historical-playdh-recovery-44fe\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\artifacts\\playdh-historical-overlay\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\isolated\\legacy-quarantine\\moxiang-retired-wip-20260924\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\repo\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\unity\\source-overlays\\unity-remaster-v1\\historical-recovered\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\moxiang-C06652EFC803\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\snapshot-A8742535F783\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        },
+        {
+          "path": "D:\\03_Data\\ROG-Migration-Audit\\20260923-033102\\wip\\unity-B71CED96C3FF\\files\\unity\\source-overlays\\unity-remaster-v1\\development-placeholders\\PlayDH\\Resource\\Map\\94.hfl",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"
+        }
+      ]
+    },
+    {
+      "name": "0.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\0.ttb",
+          "bytes": 2097160,
+          "sha256": "cb1dfbe9cc74919e8dc8a0b93b65761d2da22d52ab3f29a38c2026369510871a"
+        }
+      ]
+    },
+    {
+      "name": "3.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\3.ttb",
+          "bytes": 2097160,
+          "sha256": "02fd3b8910cdbed4bfc2edaeb99fd856a32a51dd221cb8a64aee0c6d67e95dfa"
+        }
+      ]
+    },
+    {
+      "name": "4.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\4.ttb",
+          "bytes": 2097160,
+          "sha256": "b061facf5f50447b924df57e6fc3fcaf5449b886f0e13aef530663c67f882b3e"
+        }
+      ]
+    },
+    {
+      "name": "23.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\23.ttb",
+          "bytes": 2097160,
+          "sha256": "fcf1910f628255cf5832379746fef8015c40142b4a4edaaa5d0a6dfcdf0e93ff"
+        }
+      ]
+    },
+    {
+      "name": "24.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\24.ttb",
+          "bytes": 2097160,
+          "sha256": "cef4bef1cbe39bb6161cab9f080cc7c3232788173ac0c2852bfde3c25b301ea9"
+        }
+      ]
+    },
+    {
+      "name": "32.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\32.ttb",
+          "bytes": 2097160,
+          "sha256": "aaf6bdff16e50874f06a917bdfd29e2a1033f9add1fbba277ef7137c19a1a849"
+        }
+      ]
+    },
+    {
+      "name": "33.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\33.ttb",
+          "bytes": 2097160,
+          "sha256": "10451294727950feb2d55602cf96f8187189ebe3a383caf853f58a71d58815e5"
+        }
+      ]
+    },
+    {
+      "name": "34.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\34.ttb",
+          "bytes": 2097160,
+          "sha256": "d33e717c6fe0cbc4e8507af11cb1c88a396f4936c76e558c91912a586b16902e"
+        }
+      ]
+    },
+    {
+      "name": "94.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\94.ttb",
+          "bytes": 2097160,
+          "sha256": "bb0b2066913a58e595f841c68fc20def12656aeb066598e4d48ac370196b5199"
+        }
+      ]
+    },
+    {
+      "name": "198.ttb",
+      "classification": "derived-or-development-only",
+      "matches": [
+        {
+          "path": "E:\\Workspaces\\moxiang\\worktrees\\unity-integration\\modern\\data\\UnityNative\\Resource\\Map\\198.ttb",
+          "bytes": 2097160,
+          "sha256": "8fdfb9cc67dac036ca90d859b4edfa35f8aa38ce910406746f116a1b14c7454d"
+        }
+      ]
+    },
+    {
+      "name": "tile_17_mou_a_01.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_02.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_03.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_04.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_05.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_06.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_07.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_08.dds",
+      "classification": "not-found",
+      "matches": []
+    },
+    {
+      "name": "tile_17_mou_a_09.dds",
+      "classification": "not-found",
+      "matches": []
+    }
+  ],
+  "decision": "No newly admissible exact PlayDH source was found; known placeholders and UnityNative/development overlays remain rejected.",
+  "releaseReady": false
+}

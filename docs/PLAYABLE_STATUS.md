@@ -1,4 +1,5 @@
 2026-10-20 | 已只读审计 GitLab 的全部现用分支和历史资源路径：缺失 HFL 没有新的精确字节来源，缺失 TTB 只有 UnityNative 派生覆盖，`Monster_203.bin` 仍只有不等价的 `InsDGMonster_203.bin` 近似文件；没有复制或准入任何候选。回执见 [`original-remote-ref-resource-history-audit-20261020.json`](evidence/original-remote-ref-resource-history-audit-20261020.json)，原版 1:1 资源门禁保持 `releaseReady=false`。
+2026-10-20 | 重新对 C:\moxiang、E:\Workspaces\moxiang、E:\Workspaces\artifacts、D:\MX、D:\MoyoI、D:\03_Data 做了不跟随 Junction 的精确文件名扫描：8 个缺失 HFL 只命中已知 137030 字节生成占位，10 个缺失 TTB 只命中 UnityNative 派生覆盖，Map17 的 9 个 `tile_17_mou_a_*.dds` 仍无物理命中；未复制或准入任何候选。见 [`original-resource-index-scan-20261020.json`](evidence/original-resource-index-scan-20261020.json)，原版 1:1 门禁仍为 `releaseReady=false`。
 
 2026-10-20 | 原版当前提交 `c812703d` 的远端 GUI 视觉烟测已在本机真实 DX11 客户端完成：使用 VM112 `192.168.2.244:16001/17001/18001`、现有角色 `origpve15` 和 `playdh-current`，Login、CharacterSelect、Map10 GameIn、原版 BGM `1667/1670`、SFX manifest、玩家与 228 个怪物均有帧和日志证据，客户端退出码 0；状态帧校验 4/5 通过，`charmake` 因现有角色路径按设计跳过。回执见 [`original-pve-gui-visual-smoke-20261020.json`](evidence/original-pve-gui-visual-smoke-20261020.json)。这关闭的是远端 GUI 进入地图子门禁，不等于完整真人 GUI、战斗/掉落点击拾取、准确原版资源或商业发布；`releaseReady=false` 保持不变。
 
