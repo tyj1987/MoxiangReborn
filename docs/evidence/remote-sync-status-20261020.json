@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "moxiang-remote-sync-status",
+  "capturedAt": "2026-10-20T14:48:00+08:00",
+  "gitlab": {
+    "project": "https://gitlab.52trz.com/52trz/moxiang-reborn",
+    "originalBranch": {
+      "ref": "codex/reorg-original-20261009",
+      "sha": "9a4dfbecd4c618ca02f27901f32b4d1f668f3ca9"
+    },
+    "unityBranch": {
+      "ref": "codex/reorg-unity-20261009",
+      "sha": "7facaa4ae7d18ce9b9672a540de90343b6a6847c"
+    },
+    "recoverable": true
+  },
+  "githubMirror": {
+    "project": "https://github.com/tyj1987/MoxiangReborn",
+    "originalBranch": {
+      "ref": "codex/reorg-original-20261009",
+      "sha": "9a4dfbecd4c618ca02f27901f32b4d1f668f3ca9"
+    },
+    "unityLongLivedBranch": {
+      "ref": "codex/unity-client-remaster",
+      "remoteSha": "b751df254df429b292db7b237fd165b2e924113e",
+      "currentGitlabSha": "7facaa4ae7d18ce9b9672a540de90343b6a6847c",
+      "status": "behind"
+    },
+    "reorgUnityBranch": {
+      "ref": "codex/reorg-unity-20261009",
+      "status": "absent"
+    },
+    "attempts": [
+      {
+        "operation": "fast-forward push to codex/unity-client-remaster",
+        "result": "transport-reset",
+        "detail": "GitHub HTTP RPC connection reset while sending approximately 321 MB pack; remote SHA unchanged; no force-push performed"
+      }
+    ],
+    "recoverable": "partial; GitLab is authoritative and complete for both current lines"
+  },
+  "decision": "Do not claim two-site Unity mirror complete until GitHub accepts the fast-forward; preserve GitLab as engineering source and retry in bounded chunks later."
+}
