@@ -616,5 +616,27 @@
     }
   ],
   "decision": "No newly admissible exact PlayDH source was found; known placeholders and UnityNative/development overlays remain rejected.",
-  "releaseReady": false
+  "releaseReady": false,
+  "remotePveAudit": {
+    "capturedAt": "2026-10-20T11:58:54.7120538Z",
+    "scope": "read-only targeted filename search on VM100 and VM112 without copying or modifying resources",
+    "vm100": {
+      "exactMissingMap17Textures": 0,
+      "exactMonster203": 0,
+      "available": {
+        "map17Ttb": "C:\\Moxiang\\data\\PlayDH\\Resource\\Map\\17.ttb",
+        "insDgMonster203": "C:\\Moxiang\\data\\PlayDH\\Resource\\Server\\InsDGMonster_203.bin"
+      }
+    },
+    "vm112": {
+      "exactMissingMap17Textures": 0,
+      "exactMonster203": 0,
+      "available": {
+        "map17Hfl": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\data\\PlayDH\\Resource\\Map\\17.hfl",
+        "map17Ttb": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\data\\PlayDH\\Resource\\Map\\17.ttb",
+        "insDgMonster203": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\data\\PlayDH\\Resource\\Server\\InsDGMonster_203.bin"
+      }
+    },
+    "decision": "No exact missing source recovered from either PVE VM; do not admit substitutions into original line"
+  }
 }
