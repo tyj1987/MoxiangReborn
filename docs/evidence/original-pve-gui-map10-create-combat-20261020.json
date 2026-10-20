@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "scope": "original modern GUI smoke against an isolated VM112 service stack",
-  "sourceHead": "1d6585b92d01c3bcff25d09ccddcb496ba7a2398",
+  "sourceHead": "60ef56ba240cbf205ae380ac71c94b6d2a25e7a2",
   "pve": {
     "vm": 112,
     "database": "MoxiangOriginalTest_20261009",
