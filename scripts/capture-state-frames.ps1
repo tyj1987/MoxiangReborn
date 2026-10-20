@@ -61,6 +61,11 @@ if (-not (Test-Path -LiteralPath $ClientExe -PathType Leaf)) {
 if (-not (Test-Path -LiteralPath $FramesDir)) {
     New-Item -ItemType Directory -Force -Path $FramesDir | Out-Null
 }
+# The client runs with its own binary directory as the working directory.  A
+# relative frames path would therefore be created below the client checkout,
+# while this harness later validates the caller's relative path.  Resolve it
+# once so capture, validation and the evidence manifest use the same location.
+$FramesDir = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $FramesDir).Path)
 
 if ([string]::IsNullOrWhiteSpace($CharacterName)) {
     $CharacterName = $CharacterNamePrefix + '_' + (Get-Date -Format 'MMdd_HHmmss')
