@@ -1,3 +1,5 @@
+2026-10-20 | 原版地图资源审计新增占位族保护：当前提交 `d40e7364` 会拒绝结构合法但实际引用 `tile_10-*` 的误命名 HFL。Map10 审计通过，Map17 明确保留 9 个准确纹理缺口，Map203 0 缺失通过；回执见 [`original-map-placeholder-guard-20261020.json`](evidence/original-map-placeholder-guard-20261020.json)。
+
 2026-10-20 | GitLab 历史分支 `codex/sync-moxiang-20261001` 的 8 个缺失 HFL 候选已逐个解析：均为 `16x16`/`256x256`/`37` 纹理表并引用 `tile_10-*`，属于已知 Map10 占位族；该分支没有准确 TTB 或 `Monster_203.bin`。未复制、未合并，原版 1:1 资源门禁保持不变。回执见 [`original-remote-resource-candidate-audit-20261020.json`](evidence/original-remote-resource-candidate-audit-20261020.json)。
 
 2026-10-20 | Follow-camera 远端采集已修正为同时开启实体渲染；当前提交 `ff3b76d8` 在 VM112 Map10 日志确认玩家 `woman.chx`、Map10 怪物 `L105.chx`、原版动画、BGM `1667/1670`、SFX manifest 和 228 个怪物，状态帧/地形帧通过。实体像素校验仍因旧固定中心裁剪失败，保持 PARTIAL；回执见 [`original-pve-gui-state-frames-20261020-r3.json`](evidence/original-pve-gui-state-frames-20261020-r3.json)。
