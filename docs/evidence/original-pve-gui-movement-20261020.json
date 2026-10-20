@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-gui-movement-20261020",
+  "capturedAt": "2026-10-20T11:54:21.0084728Z",
+  "sourceHead": "e5beb5c5c9b72ed6434e98642c61dccfe1fcedbe",
+  "endpoint": {
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "backend": "mssql_odbc",
+    "vm": "112",
+    "resourceRoot": "modern/data/PlayDH"
+  },
+  "client": {
+    "path": "modern/out/build-gui-combat-20261020/tools/MoxianClient/Debug/mxh_client.exe",
+    "bytes": 5871104,
+    "sha256": "8350F31E2A75E1585CEF0CA4A153F52EB0A3E708C5D67195E7704AC5FBE21ECD"
+  },
+  "run": {
+    "command": "mxh_client --auto-login --auto-create --character-name MoveHero20 --login-host 192.168.2.244 --login-port 16001 --map-port 18001 --resource-root modern/data/PlayDH",
+    "logPath": "modern/out/runs/pve-guimove-20261020/client.err.log",
+    "logBytes": 1873112,
+    "logSha256": "3E4966A9615F382BBCE03EDA10078081B00C196D5CBF9AE8E26F2E4B271AFF67",
+    "loginAck": true,
+    "map10GameInAck": true,
+    "monsterPopulation": 228,
+    "movementInput": "W press/release through CInGameState::OnKeyEvent",
+    "initialPosition": {
+      "x": 24474,
+      "z": 24733
+    },
+    "authoritativePosition": {
+      "x": 24474,
+      "z": 24832
+    },
+    "positionChanged": true,
+    "guiSmokePass": true
+  },
+  "cleanup": {
+    "temporaryAccountRemoved": true,
+    "temporaryCharacterId": 100018,
+    "characterRows": 0,
+    "stateRows": 0,
+    "vitalsRows": 0,
+    "itemRows": 0,
+    "defaultServicesPreserved": true
+  },
+  "diagnosis": {
+    "productionMovementChanged": false,
+    "releaseReady": false,
+    "remaining": "Combat pickup persistence, exact missing original resources, full feature matrix, Unity independent PVE/GUI/art acceptance and commercial stability gates remain open"
+  }
+}

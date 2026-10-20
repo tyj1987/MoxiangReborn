@@ -228,3 +228,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 2026-10-20 | 原版真实 GUI 战斗闭环已在提交 `d129b9e23295101492621b9df92a2c3cf04e083c` 复测通过：VM112 默认原版服务 `16001/17001/18001`、PlayDH、真实 MSSQL 和窗口客户端完成登录、建角、Map10 GameIn（228 个怪物），通过现有 GUI 投影坐标点选发动权威攻击，目标 `50143` 死亡并自然生成 `drop=90001/item=8002/count=1`，随后 GUI 点击拾取，背包数量 `0→1`。夹具只调整测试账号等级/属性，未改生产掉落或战斗数值；测试账号、角色、物品、装备、状态及账号行已验证清零，默认服务保持运行。回执见 [`original-pve-gui-combat-drop-pickup-20261020.json`](evidence/original-pve-gui-combat-drop-pickup-20261020.json)。这只关闭原版首个 GUI 战斗/自然掉落/拾取子门禁，`releaseReady=false` 仍保持，完整资源、地图/经济/社交覆盖、Unity 独立验收与商业稳定性仍未闭合。
 
+2026-10-20 | 原版真实 GUI 移动子门禁已在提交 `e5beb5c5c9b72ed6434e98642c61dccfe1fcedbe` 通过：VM112 原版默认服务与 PlayDH 下，临时 1 级角色进入 Map10 后由窗口夹具真实调用 `CInGameState::OnKeyEvent` 按住/释放 W，位置从 `(24474,24733)` 收到服务端权威回执变为 `(24474,24832)`，随后正常 `GUI_SMOKE_PASS`。临时账号、角色、状态和物品行已清零，默认三服保持运行；回执见 [`original-pve-gui-movement-20261020.json`](evidence/original-pve-gui-movement-20261020.json)。这只关闭移动子门禁，战斗后的装备/切图/重登 GUI 路径、完整资源与商业稳定性仍未闭合。
+
