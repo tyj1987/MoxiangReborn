@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-20",
+  "scope": "read-only Dealitem.bin source comparison using the canonical MHFile transform",
+  "records": [
+    {
+      "path": "D:\\MX\\client\\Resource\\Dealitem.bin",
+      "bytes": 165020,
+      "sha256": "428fb6f17b933cbeb4cc4163eb1cdc98932b04d2d5d05e393220022d53058a7c",
+      "header": {
+        "version": 165020,
+        "type": 276161,
+        "fileSize": 756897737
+      },
+      "status": "reject-invalid-header-size",
+      "rowsSeen": 0,
+      "map10Rows": 0
+    },
+    {
+      "path": "D:\\MX\\server\\Resource\\Dealitem.bin",
+      "bytes": 163026,
+      "sha256": "4c3490884aed2f5ea4331f0fa081779364b80b50124ca1aa96b24783918c494a",
+      "header": {
+        "version": 163026,
+        "type": 571679,
+        "fileSize": 1432714055
+      },
+      "status": "reject-invalid-header-size",
+      "rowsSeen": 0,
+      "map10Rows": 0
+    },
+    {
+      "path": "D:\\MoyoI\\墨香源启\\Resource\\Dealitem.bin",
+      "bytes": 155262,
+      "sha256": "bdb4f4ab7b23d6e2c17049cd41a3c9a5ee84ba39d4169b7a5de16771409de485",
+      "header": {
+        "version": 20385417,
+        "type": 42,
+        "fileSize": 155244
+      },
+      "status": "reject-no-parseable-catalog",
+      "rowsSeen": 5305,
+      "uniqueNpcIndexes": 0,
+      "map10Rows": 0,
+      "mapCounts": {}
+    },
+    {
+      "path": "D:\\MoyoI\\��ī��\\Resource\\Dealitem.bin",
+      "bytes": 152958,
+      "sha256": "1bd7318f5f7f195deab97777e60b07a32c11477fbaaefa432aa4788db469160f",
+      "header": {
+        "version": 20401541,
+        "type": 18468,
+        "fileSize": 152942
+      },
+      "status": "reject-no-parseable-catalog",
+      "rowsSeen": 5275,
+      "uniqueNpcIndexes": 0,
+      "map10Rows": 0,
+      "mapCounts": {}
+    },
+    {
+      "path": "E:\\Workspaces\\moxiang\\worktrees\\original-integration\\modern\\data\\PlayDH\\Resource\\Dealitem.bin",
+      "bytes": 166939,
+      "sha256": "5d5e8023d0071da3e1da0161c75cc98ffcd9c0540b782422f3fb426a8ba04a2a",
+      "header": {
+        "version": 20207275,
+        "type": 42,
+        "fileSize": 166925
+      },
+      "status": "accepted-canonical",
+      "rowsSeen": 1162,
+      "uniqueNpcIndexes": 165,
+      "map10Rows": 0,
+      "mapCounts": {
+        "1": 119,
+        "2": 7,
+        "4": 7,
+        "6": 84,
+        "7": 119,
+        "8": 21,
+        "12": 105,
+        "13": 21,
+        "14": 7,
+        "15": 7,
+        "17": 98,
+        "19": 21,
+        "20": 21,
+        "9": 7,
+        "21": 7,
+        "70": 7,
+        "22": 7,
+        "23": 35,
+        "24": 7,
+        "25": 7,
+        "26": 7,
+        "27": 28,
+        "28": 7,
+        "29": 7,
+        "30": 7,
+        "31": 7,
+        "32": 7,
+        "33": 35,
+        "34": 7,
+        "35": 7,
+        "50": 35,
+        "37": 7,
+        "38": 7,
+        "39": 7,
+        "40": 21,
+        "51": 42,
+        "52": 7,
+        "53": 7,
+        "54": 35,
+        "55": 7,
+        "56": 7,
+        "57": 7,
+        "58": 7,
+        "59": 7,
+        "60": 21,
+        "61": 7,
+        "62": 7,
+        "63": 7,
+        "64": 7,
+        "18": 7,
+        "66": 21,
+        "67": 7,
+        "75": 14,
+        "74": 7,
+        "105": 21
+      }
+    }
+  ],
+  "decision": "No alternate Dealitem.bin produced a parseable Map10 dealer catalog; canonical PlayDH remains the only admitted source and Map10 dealer is unresolved.",
+  "releaseReady": false
+}
