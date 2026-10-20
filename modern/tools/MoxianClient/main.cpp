@@ -3481,6 +3481,13 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     unsigned smoke_combat_frames = 0;
     unsigned smoke_combat_dead_wait_frames = 0;
     unsigned smoke_combat_attempts = 0;
+    const bool smoke_movement = std::getenv("MXH_GUI_SMOKE_MOVEMENT") != nullptr;
+    bool smoke_movement_started = false;
+    bool smoke_movement_released = false;
+    bool smoke_movement_observed = false;
+    unsigned smoke_movement_start_frame = 0;
+    std::uint16_t smoke_movement_initial_x = 0;
+    std::uint16_t smoke_movement_initial_z = 0;
     MSG msg{};
     while (mxh::client::g_running) {
         bool quit_requested = false;
@@ -3503,6 +3510,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         }
         if (options.exit_after_gamein && !options.follow_camera &&
             (!smoke_combat || smoke_combat_pickup_confirmed) &&
+            (!smoke_movement || smoke_movement_observed) &&
             (!smoke_open_inventory ||
              (smoke_inventory_opened && smoke_inventory_settle_frames >= 5u)) &&
             mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
@@ -3531,12 +3539,42 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
-            if (smoke_combat && mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
+            if ((smoke_combat || smoke_movement) &&
+                mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
                 if (auto* combat_game = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(mxh::client::GameStateId::GameIn));
                     combat_game && combat_game->is_in_game()) {
                     ++smoke_combat_frames;
                     const auto& info = combat_game->game_info();
+                    if (smoke_movement && !smoke_movement_started &&
+                        smoke_combat_frames >= 20u) {
+                        smoke_movement_started = true;
+                        smoke_movement_start_frame = smoke_combat_frames;
+                        smoke_movement_initial_x = info.position_x;
+                        smoke_movement_initial_z = info.position_z;
+                        combat_game->OnKeyEvent(true, 0x57u); // W
+                        MLOG_INFO("mxh_client: GUI_SMOKE_MOVEMENT_START x=%u z=%u",
+                                  static_cast<unsigned>(info.position_x),
+                                  static_cast<unsigned>(info.position_z));
+                    }
+                    if (smoke_movement_started && !smoke_movement_released &&
+                        smoke_combat_frames >= smoke_movement_start_frame + 20u) {
+                        combat_game->OnKeyEvent(false, 0x57u); // W
+                        smoke_movement_released = true;
+                        MLOG_INFO("mxh_client: GUI_SMOKE_MOVEMENT_RELEASE x=%u z=%u",
+                                  static_cast<unsigned>(info.position_x),
+                                  static_cast<unsigned>(info.position_z));
+                    }
+                    if (smoke_movement_released && !smoke_movement_observed &&
+                        (info.position_x != smoke_movement_initial_x ||
+                         info.position_z != smoke_movement_initial_z)) {
+                        smoke_movement_observed = true;
+                        MLOG_INFO("mxh_client: GUI_SMOKE_MOVEMENT_CONFIRMED x=%u z=%u initial_x=%u initial_z=%u",
+                                  static_cast<unsigned>(info.position_x),
+                                  static_cast<unsigned>(info.position_z),
+                                  static_cast<unsigned>(smoke_movement_initial_x),
+                                  static_cast<unsigned>(smoke_movement_initial_z));
+                    }
                     const auto inventory_count = [&](std::uint16_t item_id) {
                         std::uint64_t total = 0;
                         for (const auto& item : info.items.Inventory) {
@@ -4178,7 +4216,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                 }
             } else if (cur_state == mxh::client::GameStateId::GameIn &&
                        options.exit_after_gamein &&
-                       (!smoke_combat || smoke_combat_pickup_confirmed)) {
+                       (!smoke_combat || smoke_combat_pickup_confirmed) &&
+                       (!smoke_movement || smoke_movement_observed)) {
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state));
                     game_in && game_in->is_in_game() &&

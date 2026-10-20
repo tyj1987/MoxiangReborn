@@ -13,7 +13,8 @@ param(
     [switch]$ExerciseInventory,
     [switch]$ExerciseSkills,
     [switch]$RotateAppearance,
-    [switch]$ExerciseCombat
+    [switch]$ExerciseCombat,
+    [switch]$ExerciseMovement
 )
 
 $ErrorActionPreference = 'Stop'
@@ -45,7 +46,7 @@ $effectiveTimeoutSeconds = if ($ExerciseCombat -and $TimeoutSeconds -lt 180) {
     # MonsterList drop profile legitimately awards no item on many deaths.
     180
 } else {
-    $TimeoutSeconds
+    if ($ExerciseMovement -and $TimeoutSeconds -lt 60) { 60 } else { $TimeoutSeconds }
 }
 $previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
 $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
@@ -54,6 +55,7 @@ $previousGuiSmokeOpenInventory = $env:MXH_GUI_SMOKE_OPEN_INVENTORY
 $previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
 $previousGuiSmokeRotateAppearance = $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE
 $previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
+$previousGuiSmokeMovement = $env:MXH_GUI_SMOKE_MOVEMENT
 
 try {
     if ($AuditMapDependencies) {
@@ -127,6 +129,7 @@ try {
     if ($ExerciseSkills) { $env:MXH_GUI_SMOKE_SKILLS = '1' }
     if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
     if ($ExerciseCombat) { $env:MXH_GUI_SMOKE_COMBAT = '1' }
+    if ($ExerciseMovement) { $env:MXH_GUI_SMOKE_MOVEMENT = '1' }
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
@@ -208,6 +211,9 @@ try {
                 throw "GUI smoke combat exercise missing marker '$marker'; log=$stderr"
             }
         }
+    }
+    if ($ExerciseMovement -and $log -notmatch 'GUI_SMOKE_MOVEMENT_CONFIRMED') {
+        throw "GUI smoke movement exercise did not receive an authoritative position change; log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
@@ -293,6 +299,9 @@ finally {
     if ($null -eq $previousGuiSmokeCombat) {
         Remove-Item Env:MXH_GUI_SMOKE_COMBAT -ErrorAction SilentlyContinue
     } else { $env:MXH_GUI_SMOKE_COMBAT = $previousGuiSmokeCombat }
+    if ($null -eq $previousGuiSmokeMovement) {
+        Remove-Item Env:MXH_GUI_SMOKE_MOVEMENT -ErrorAction SilentlyContinue
+    } else { $env:MXH_GUI_SMOKE_MOVEMENT = $previousGuiSmokeMovement }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }
