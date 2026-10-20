@@ -22,6 +22,7 @@ $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 if ([int]$manifest.schema -ne 2 -or [string]$manifest.stage -notlike '*stage-*') { throw 'current stage manifest identity mismatch' }
 if ([string]$manifest.writerContract.databaseHost -ne '192.168.2.238' -or
     [string]$manifest.writerContract.database -ne $DatabaseName -or
+    [int]$manifest.writerContract.schemaVersion -ne 4 -or
     [string]$manifest.writerContract.resourceProfile -ne 'playdh-current') { throw 'writer contract mismatch' }
 if ($AdvertisedAgentAddress -ne '192.168.2.244' -or $DatabaseHost -ne '192.168.2.238') { throw 'VM112 binding mismatch' }
 $allPorts = @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)
@@ -63,6 +64,12 @@ if ([string]::IsNullOrWhiteSpace($cfg) -or
     $cfg -notmatch ("(?i)(^|;)database=" + [regex]::Escape($DatabaseName) + '(;|$)')) {
     throw 'protected database config missing or mismatched'
 }
+$dbTool = Join-Path $bin 'MoxianDbTool\mxh_db_tool.exe'
+$contractGuard = Join-Path $stage 'deploy\scripts\assert_original_writer_contract.ps1'
+if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $contractGuard -PathType Leaf)) { throw 'writer contract guard inputs missing' }
+& $contractGuard -DbToolPath $dbTool -DatabaseName $DatabaseName -DatabaseConfigEnv $DatabaseConfigEnv
+if ($LASTEXITCODE -ne 0) { throw 'writer contract guard failed' }
 foreach ($port in $allPorts) { if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count) { throw "port already listening: $port" } }
 $log = Join-Path $stage 'run\logs-current'; New-Item $log -ItemType Directory -Force | Out-Null
 $env:PATH = "$runtime;$env:PATH"

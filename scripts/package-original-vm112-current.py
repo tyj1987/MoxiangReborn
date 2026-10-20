@@ -143,7 +143,7 @@ def main() -> None:
             "id": "original-vm112-modern-mssql-v1",
             "databaseHost": "192.168.2.238",
             "database": args.database,
-            "schemaVersion": 1,
+            "schemaVersion": 4,
             "resourceProfile": "playdh-current",
             "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),
         },

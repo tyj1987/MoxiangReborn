@@ -53,7 +53,7 @@ if ($null -eq $writerContract -or
     [string]$writerContract.stageBuild -ne 'china-x86-debug-20261009' -or
     [string]$writerContract.databaseHost -ne '192.168.2.238' -or
     [string]$writerContract.database -ne 'MoxiangOriginalR18Test_20261009' -or
-    [int]$writerContract.schemaVersion -ne 3 -or
+    [int]$writerContract.schemaVersion -ne 4 -or
     [string]$writerContract.vitalsContract -ne 'original-vitals-cas-v2' -or
     [string]$writerContract.progressionContract -ne 'original-exp-points-v3' -or
     [int]$manifest.listenerPorts.login -ne $LoginPort -or

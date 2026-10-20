@@ -54,8 +54,8 @@ class Vm112WriterContractTests(unittest.TestCase):
 
     def test_guard_pins_new_nullable_attribute_writer_contract(self):
         source = GUARD.read_text(encoding="utf-8")
-        self.assertIn("DB_NAME() = N'MoxiangOriginalR18Test_20261009'", source)
-        self.assertIn("MAX(version) FROM dbo.modern_schema_version) = 3", source)
+        self.assertIn("DB_NAME() = N'$DatabaseName'", source)
+        self.assertIn("MAX(version) FROM dbo.modern_schema_version) = 4", source)
         self.assertIn("sys.check_constraints", source)
         for name in ("gengol", "minchub", "cheryuk", "simmek"):
             self.assertIn(f"ck_character_info_base_{name}", source)
@@ -79,8 +79,8 @@ class Vm112WriterContractTests(unittest.TestCase):
                       "original-exp-points-v3", "36001", "37001", "38001"):
             self.assertIn(value, wrapper)
             self.assertIn(value, package)
-        self.assertIn("[int]$writerContract.schemaVersion -ne 3", wrapper)
-        self.assertIn('"schemaVersion": 3', package)
+        self.assertIn("[int]$writerContract.schemaVersion -ne 4", wrapper)
+        self.assertIn('"schemaVersion": 4', package)
         self.assertNotIn("original-vm112-modern-mssql-v1", wrapper)
 
 

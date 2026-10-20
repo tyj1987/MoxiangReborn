@@ -107,7 +107,7 @@ def main():
             "stageBuild": "china-x86-debug-20261009",
             "databaseHost": "192.168.2.238",
             "database": "MoxiangOriginalR18Test_20261009",
-            "schemaVersion": 3,
+            "schemaVersion": 4,
             "vitalsContract": "original-vitals-cas-v2",
             "progressionContract": "original-exp-points-v3",
             "numericAttributes": "base-4-int-nullable-checked-v1",

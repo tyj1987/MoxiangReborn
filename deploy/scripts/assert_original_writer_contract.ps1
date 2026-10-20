@@ -2,6 +2,8 @@
 param(
     [Parameter(Mandatory = $true)] [string]$DbToolPath,
     [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
+    [string]$DatabaseName = 'MoxiangOriginalR18Test_20261009',
+    [ValidatePattern('^[A-Za-z_][A-Za-z0-9_]*$')]
     [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG'
 )
 
@@ -15,9 +17,9 @@ if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($Database
 
 # This query is read-only. Missing tables, wrong database, older schema or
 # missing columns all fail closed before any server process can be created.
-$contractSql = @'
+$contractSql = @"
 SELECT CASE WHEN
-    DB_NAME() = N'MoxiangOriginalR18Test_20261009'
+    DB_NAME() = N'$DatabaseName'
     AND OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NOT NULL
     AND (SELECT MAX(version) FROM dbo.modern_schema_version) = 4
     AND COL_LENGTH(N'dbo.chr_log_info', N'id') IS NOT NULL
@@ -152,7 +154,7 @@ SELECT CASE WHEN
           )
     )
 THEN 1 ELSE 0 END AS contract_ok
-'@
+"@
 
 $output = @(& $DbToolPath query --db-env $DatabaseConfigEnv $contractSql 2>$null)
 if ($LASTEXITCODE -ne 0 -or $output.Count -ne 3 -or
