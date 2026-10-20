@@ -19,13 +19,15 @@ $contractSql = @'
 SELECT CASE WHEN
     DB_NAME() = N'MoxiangOriginalR18Test_20261009'
     AND OBJECT_ID(N'dbo.modern_schema_version', N'U') IS NOT NULL
-    AND (SELECT MAX(version) FROM dbo.modern_schema_version) = 3
+    AND (SELECT MAX(version) FROM dbo.modern_schema_version) = 4
     AND COL_LENGTH(N'dbo.chr_log_info', N'id') IS NOT NULL
     AND COL_LENGTH(N'dbo.chr_log_info', N'pw') IS NOT NULL
     AND COL_LENGTH(N'dbo.chr_log_info', N'userlevel') IS NOT NULL
     AND COL_LENGTH(N'dbo.character_info', N'chrid') IS NOT NULL
     AND COL_LENGTH(N'dbo.character_info', N'userid') IS NOT NULL
     AND COL_LENGTH(N'dbo.character_info', N'charname') IS NOT NULL
+    AND COL_LENGTH(N'dbo.character_info', N'position_x') IS NOT NULL
+    AND COL_LENGTH(N'dbo.character_info', N'position_z') IS NOT NULL
     AND COL_LENGTH(N'dbo.modern_player_state', N'player_id') IS NOT NULL
     AND COL_LENGTH(N'dbo.modern_player_state', N'money') IS NOT NULL
     AND COL_LENGTH(N'dbo.modern_player_state', N'exp') IS NOT NULL
