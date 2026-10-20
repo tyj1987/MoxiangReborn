@@ -3479,6 +3479,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::uint16_t smoke_combat_item = 0;
     std::uint64_t smoke_combat_item_before = 0;
     unsigned smoke_combat_frames = 0;
+    unsigned smoke_combat_dead_wait_frames = 0;
+    unsigned smoke_combat_attempts = 0;
     MSG msg{};
     while (mxh::client::g_running) {
         bool quit_requested = false;
@@ -3578,11 +3580,39 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     if (target_it != combat_game->monsters().end() &&
                         !smoke_combat_target_dead && target_it->current_life == 0) {
                         smoke_combat_target_dead = true;
+                        smoke_combat_dead_wait_frames = 0;
+                        ++smoke_combat_attempts;
                         MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_TARGET_DEAD target=%u",
                                   smoke_combat_target);
                     }
+                    // A real MonsterList profile can legitimately award money
+                    // or no item.  Keep the GUI gate probabilistic and bounded
+                    // by moving to another live monster after the server has
+                    // had time to deliver a possible drop.  This only changes
+                    // the test driver's target selection; gameplay drop rates
+                    // and server combat remain untouched.
+                    if (smoke_combat_target_dead && !smoke_combat_drop_seen &&
+                        combat_game->ground_drops().empty()) {
+                        ++smoke_combat_dead_wait_frames;
+                        if (smoke_combat_dead_wait_frames >= 10u &&
+                            smoke_combat_attempts < 8u) {
+                            MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_NO_DROP_RETRY target=%u attempt=%u",
+                                      smoke_combat_target, smoke_combat_attempts);
+                            smoke_combat_target = 0;
+                            smoke_combat_target_dead = false;
+                            smoke_combat_dead_wait_frames = 0;
+                        }
+                    }
                     if (!smoke_combat_target_dead && target_it != combat_game->monsters().end() &&
-                        smoke_combat_frames % 24u == 1u && g_terrain) {
+                        // The presentation smoke path must issue real GUI
+                        // clicks often enough to finish a bounded high-level
+                        // fixture.  On the DX11 client one frame can take a
+                        // few hundred milliseconds while the full original
+                        // resource scene is resident; a 24-frame cadence
+                        // stretches a ten-hit kill into minutes.  This is
+                        // test-driver timing only and does not alter the
+                        // gameplay input or server combat rate.
+                        smoke_combat_frames % 2u == 1u && g_terrain) {
                         const auto projected = mxh::client::project_world_point(
                             g_terrain->viewProj(), g_terrain->mapCenter(),
                             [terrain = g_terrain.get()](float x, float z) {
@@ -3616,7 +3646,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                             [terrain = g_terrain.get()](float x, float z) {
                                 return terrain->heightAt(x, z);
                             }, drop.position_x, drop.position_z, 80.0f);
-                        if (projected && smoke_combat_frames % 18u == 3u) {
+                        if (projected && smoke_combat_frames % 2u == 0u) {
                             combat_game->OnMouseButton(true, true,
                                 static_cast<std::int32_t>(projected->x),
                                 static_cast<std::int32_t>(projected->y));
