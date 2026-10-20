@@ -1,7 +1,7 @@
 {
   "schema": "moxiang.original-client-targeted-tests.v1",
   "generatedAt": "2026-10-20T21:56:20+08:00",
-  "sourceHead": "42014e7a5f6d5ea0736c2b2bb3c6c44dfaef72f5",
+  "sourceHead": "4abc2dc8f7897da85e80186b3a47960061b9b51b",
   "branch": "codex/reorg-original-20261009",
   "build": {
     "bytes": 6970880,
@@ -12,18 +12,36 @@
     "sha256": "a4fe230f507eaf6b554bd92707896a83ba2e256fa113430a14eeadc8d179306b"
   },
   "test": {
-    "testsRun": 21,
-    "testsPassed": 21,
+    "testsRun": 61,
+    "testsPassed": 61,
     "log": "modern/out/original-targeted-client-tests-20261020.log",
-    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.*",
+    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.* plus ClientUiRuntime.* and EffectRuntime.*",
     "suites": {
       "ProtocolBurst": "passed",
       "CMainGameStateIds": "passed",
       "CInGameState": "passed",
-      "MonsterLifeAuthority": "passed"
+      "MonsterLifeAuthority": "passed",
+      "ClientUiRuntime": "passed",
+      "EffectRuntime": "passed"
     },
     "exitCode": 0,
-    "testsFailed": 0
+    "testsFailed": 0,
+    "additionalRuns": [
+      {
+        "exitCode": 0,
+        "durationMs": 69,
+        "testsPassed": 32,
+        "testsRun": 32,
+        "filter": "ClientUiRuntime.*"
+      },
+      {
+        "exitCode": 0,
+        "durationMs": 12529,
+        "testsPassed": 8,
+        "testsRun": 8,
+        "filter": "EffectRuntime.*"
+      }
+    ]
   },
   "change": {
     "file": "modern/src/client/CInGameState.cpp",
