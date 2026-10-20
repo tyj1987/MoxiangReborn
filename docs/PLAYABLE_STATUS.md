@@ -1,3 +1,5 @@
+2026-10-20 | 已只读审计 GitLab 的全部现用分支和历史资源路径：缺失 HFL 没有新的精确字节来源，缺失 TTB 只有 UnityNative 派生覆盖，`Monster_203.bin` 仍只有不等价的 `InsDGMonster_203.bin` 近似文件；没有复制或准入任何候选。回执见 [`original-remote-ref-resource-history-audit-20261020.json`](evidence/original-remote-ref-resource-history-audit-20261020.json)，原版 1:1 资源门禁保持 `releaseReady=false`。
+
 2026-10-20 | 原版当前提交 `c812703d` 的远端 GUI 视觉烟测已在本机真实 DX11 客户端完成：使用 VM112 `192.168.2.244:16001/17001/18001`、现有角色 `origpve15` 和 `playdh-current`，Login、CharacterSelect、Map10 GameIn、原版 BGM `1667/1670`、SFX manifest、玩家与 228 个怪物均有帧和日志证据，客户端退出码 0；状态帧校验 4/5 通过，`charmake` 因现有角色路径按设计跳过。回执见 [`original-pve-gui-visual-smoke-20261020.json`](evidence/original-pve-gui-visual-smoke-20261020.json)。这关闭的是远端 GUI 进入地图子门禁，不等于完整真人 GUI、战斗/掉落点击拾取、准确原版资源或商业发布；`releaseReady=false` 保持不变。
 
 2026-10-20 | Unity 分线当前提交 `80dbc7da` 的完整 EditMode 回归为 291 项（278 通过、0 失败、13 显式跳过）；私有 Map17 URP 图形诊断在 DX11 PlayMode 真实帧中 1/1 通过，角色和 6 个怪物实际渲染。回执分别为 Unity 工作树 `docs/evidence/unity-editmode-current-20261020.json`、`docs/evidence/unity-map17-active-urp-preview-20261020.json`。这是重制线隔离证据，不提升原版资源门禁，也不替代 Unity 真人 Player/PVE/许可终审。
