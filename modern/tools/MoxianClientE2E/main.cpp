@@ -38,6 +38,7 @@
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
+//                  [--exercise-position] # movement/GameOut/relog position gate
 //                  [--no-spawn]  # assume servers are already running (remote-safe)
 //                  [--account NAME] [--password-env ENV_NAME]
 //                  [--timeout N] # per-step timeout in seconds (default 10)
@@ -161,6 +162,7 @@ struct CliArgs {
     bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
+    bool exercise_position = false; // opt-in movement/GameOut/relog position gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -254,6 +256,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--exercise-quest") a.exercise_quest = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
+        else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
@@ -1611,6 +1614,71 @@ int run_e2e(const CliArgs& cli) {
             }
             LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu runtime_effect_events=%zu audio_skill_cues=%zu",
                 casts, life_changes, runtime_effect_events, audio_skill_cues);
+        }
+
+        if (cli.exercise_position) {
+            const auto start_x = game.local_x();
+            const auto start_z = game.local_z();
+            const auto target_x = static_cast<std::uint16_t>(
+                std::min<std::uint32_t>(65535u, static_cast<std::uint32_t>(start_x) + 800u));
+            const auto target_z = static_cast<std::uint16_t>(
+                std::min<std::uint32_t>(65535u, static_cast<std::uint32_t>(start_z) + 400u));
+            LOG("[5/5] Position: moving (%u,%u)->(%u,%u) before GameOut",
+                static_cast<unsigned>(start_x), static_cast<unsigned>(start_z),
+                static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+            game.send_move(target_x, target_z, mxh::proto::MoveProtocol::OneTarget);
+            const auto move_deadline = std::chrono::steady_clock::now() +
+                                       std::chrono::seconds(cli.timeout_s);
+            while (std::chrono::steady_clock::now() < move_deadline) {
+                game.Process();
+                const auto dx = std::abs(static_cast<int>(game.local_x()) -
+                                         static_cast<int>(target_x));
+                const auto dz = std::abs(static_cast<int>(game.local_z()) -
+                                         static_cast<int>(target_z));
+                if (dx <= 32 && dz <= 32) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            const auto moved_dx = std::abs(static_cast<int>(game.local_x()) -
+                                           static_cast<int>(target_x));
+            const auto moved_dz = std::abs(static_cast<int>(game.local_z()) -
+                                           static_cast<int>(target_z));
+            if (moved_dx > 32 || moved_dz > 32) {
+                LOG("[5/5] FAIL: authoritative move did not settle actual=(%u,%u) target=(%u,%u)",
+                    static_cast<unsigned>(game.local_x()), static_cast<unsigned>(game.local_z()),
+                    static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+                return 2;
+            }
+            game.Release();
+            mxh::client::CInGameState relog_position;
+            relog_position.Start(&engine, created_chrid,
+                                 static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog_position.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog_position.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog_position.is_in_game()) {
+                LOG("[5/5] FAIL: position re-login GameInAck timed out");
+                return 2;
+            }
+            const auto persisted_dx = std::abs(static_cast<int>(relog_position.local_x()) -
+                                               static_cast<int>(target_x));
+            const auto persisted_dz = std::abs(static_cast<int>(relog_position.local_z()) -
+                                               static_cast<int>(target_z));
+            if (persisted_dx > 32 || persisted_dz > 32) {
+                LOG("[5/5] FAIL: position did not persist actual=(%u,%u) target=(%u,%u)",
+                    static_cast<unsigned>(relog_position.local_x()),
+                    static_cast<unsigned>(relog_position.local_z()),
+                    static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+                relog_position.Release();
+                return 2;
+            }
+            LOG("[5/5] OK: position persisted after GameOut/relog (%u,%u)",
+                static_cast<unsigned>(relog_position.local_x()),
+                static_cast<unsigned>(relog_position.local_z()));
+            relog_position.Release();
         }
     }
     // Clean shutdown — release states and the persistent AgentSession, then
