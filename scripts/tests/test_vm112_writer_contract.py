@@ -65,7 +65,7 @@ class Vm112WriterContractTests(unittest.TestCase):
         self.assertIn("ck.is_not_trusted = 0", source)
         self.assertIn("pkc.name = N'player_id'", source)
         self.assertIn("keys.key_ordinal > 0", source)
-        self.assertIn("N'(player_id>0and((initialized=0", source)
+        self.assertIn("ck.name = N'ck_modern_player_vitals_state'", source)
         for condition in ("TYPE_NAME(c.user_type_id) = N'int'", "c.is_nullable = 1",
                           "c.default_object_id = 0", "ck.is_disabled = 0",
                           "ck.is_not_trusted = 0", "N'<=65535'"):

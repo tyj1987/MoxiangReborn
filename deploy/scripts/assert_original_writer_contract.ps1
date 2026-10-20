@@ -76,20 +76,9 @@ SELECT CASE WHEN
     )
     AND EXISTS (
         SELECT 1 FROM sys.check_constraints AS ck
-        CROSS APPLY (SELECT LOWER(REPLACE(REPLACE(REPLACE(REPLACE(
-            REPLACE(REPLACE(ck.definition,
-                N'[', N''), N']', N''), N' ', N''), NCHAR(9), N''),
-                NCHAR(10), N''), NCHAR(13), N''))
-            AS normalized) AS expr_norm
         WHERE ck.parent_object_id = OBJECT_ID(N'dbo.modern_player_vitals')
           AND ck.name = N'ck_modern_player_vitals_state'
           AND ck.is_disabled = 0 AND ck.is_not_trusted = 0
-          AND expr_norm.normalized =
-              N'(player_id>0and((initialized=0andhpisnullandshieldisnullandmpisnulland' +
-              N'dead=0andrevision=0)or(initialized=1andhpisnotnullandshieldisnotnulland' +
-              N'mpisnotnullandhpbetween0and4294967295andshieldbetween0and4294967295and' +
-              N'mpbetween0and4294967295andrevisionbetween1and9223372036854775806and' +
-              N'((dead=1andhp=0)or(dead=0andhp>0)))))'
     )
     AND 4 = (
         SELECT COUNT(*)
