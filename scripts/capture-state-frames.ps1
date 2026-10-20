@@ -90,11 +90,13 @@ if ([string]::IsNullOrWhiteSpace($CharacterName)) {
 $prevPassword = $env:MXH_GUI_SMOKE_PASSWORD
 $prevExit      = $env:MXH_GUI_SMOKE_EXIT
 $prevFramesDir = $env:MXH_STATE_FRAMES_DIR
+$prevRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 
 # The client reads the password from the env var named by --password-env.
 $env:MXH_GUI_SMOKE_PASSWORD = $Password
 $env:MXH_GUI_SMOKE_EXIT = '1'
 $env:MXH_STATE_FRAMES_DIR = $FramesDir
+if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
 
 $clientOutLog = Join-Path $FramesDir 'client.out.log'
 $clientErrLog = Join-Path $FramesDir 'client.err.log'
@@ -152,6 +154,7 @@ finally {
     if ($null -eq $prevPassword) { Remove-Item Env:MXH_GUI_SMOKE_PASSWORD -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_PASSWORD = $prevPassword }
     if ($null -eq $prevExit)      { Remove-Item Env:MXH_GUI_SMOKE_EXIT      -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_EXIT      = $prevExit }
     if ($null -eq $prevFramesDir) { Remove-Item Env:MXH_STATE_FRAMES_DIR    -ErrorAction SilentlyContinue } else { $env:MXH_STATE_FRAMES_DIR    = $prevFramesDir }
+    if ($null -eq $prevRenderEntities) { Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = $prevRenderEntities }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }
