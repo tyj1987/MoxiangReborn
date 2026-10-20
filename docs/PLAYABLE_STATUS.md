@@ -224,3 +224,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 复测前一次 GameInNack 已定位为临时夹具 `exp_flag=0`，服务端拒绝未归一化进度属于预期保护行为；修正夹具后没有修改 PlayDH 或原始资源。测试结束已恢复角色、生命、进度、装备、物品、任务和技能相关表；归一化快照哈希 `eb11908ebec05aa8bbefa04ef3d80a63eb396cad798086ec9dffdf816634468` 与恢复后完全一致。该证据关闭的是隔离 headless Map10 战斗子门禁，不关闭真人 GUI、原资源 1:1 缺口、全地图/经济/社交覆盖、Unity 独立验收或商业发布门禁；`releaseReady=false` 保持不变。
 2026-10-20 | 原版 GUI 验收新增受控 `-ExerciseCombat` 路径：客户端通过现有窗口点选/点击处理选择最近活怪、按投影坐标重复攻击，观察权威死亡、自然掉落，再以投影坐标点击拾取并核对背包数量；默认运行不启用。新客户端构建成功，输入/掉落相关 CTest 105/105 通过。VM112 已用隔离临时账号执行到真实 GameLoading，但 GameIn 返回地图服务器不可用，未产生战斗通过；临时账号、角色和状态已清理，因此真人战斗/掉落/拾取门禁保持未关闭。回执见 [`original-gui-combat-smoke-automation-20261020.json`](evidence/original-gui-combat-smoke-automation-20261020.json)。
 
+2026-10-20 | 原版隔离 GUI 栈复测已完成真实建角与 Map10 GameIn：VM112 临时端口 `36011/37011/38011`、真实 MSSQL、PlayDH 当前资源下，Login、建角、选角、GameIn 和 228 个怪物均通过；旧建角失败根因是遗留 `100018` 的 3 条装备行，已清理后建角成功。GUI 战斗点击也确实发送 Skill StartSyn 并获得权威 2–4 点伤害，但 5096 HP 目标在有界运行内未死亡，未产生掉落/拾取通过。临时账号、角色、装备、状态、生命和端口已清理；回执见 [`original-pve-gui-map10-create-combat-20261020.json`](evidence/original-pve-gui-map10-create-combat-20261020.json)。
+

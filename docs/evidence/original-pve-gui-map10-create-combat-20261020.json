@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "scope": "original modern GUI smoke against an isolated VM112 service stack",
+  "sourceHead": "1d6585b92d01c3bcff25d09ccddcb496ba7a2398",
+  "pve": {
+    "vm": 112,
+    "database": "MoxiangOriginalTest_20261009",
+    "isolatedPorts": {"login": 36011, "agent": 37011, "map": 38011},
+    "services": "release binaries rebuilt from current original worktree; PlayDH current resources"
+  },
+  "fixture": {
+    "account": "probeacct",
+    "characterId": 100018,
+    "character": "ProbeHero20",
+    "temporary": true,
+    "cleanupVerified": {
+      "characterInfo": 0,
+      "equipment": 0,
+      "state": 0,
+      "vitals": 0,
+      "account": 0,
+      "identity": 0
+    }
+  },
+  "gui": {
+    "login": "passed",
+    "characterCreate": "passed",
+    "characterSelect": "passed",
+    "map10GameIn": "passed",
+    "monsterAdds": 228,
+    "combatInputPath": "same CInGameState::OnMouseButton path",
+    "skillStartSyn": "passed",
+    "authoritativeDamage": "passed",
+    "targetDeath": "not reached within run",
+    "dropPickup": "not reached",
+    "reason": "Map10 target had 5096 HP and received 2-4 damage per novice attack; the bounded GUI run timed out before death."
+  },
+  "logs": {
+    "clientErr": "modern/out/runs/pve-combat-probe-20261020/client.err.log",
+    "clientErrSha256": "8506bb9595993ea5e95e1ebe5ae8d8104861dc26cb77ca90c34ed1996949a94a",
+    "agentOutSha256": "c162f66741f8635ddc81fdfc6108c53b639cbc1b19abc51df1a9b387c25d1429",
+    "mapOutSha256": "10f47c82a656ac96b0c68cd3988123333915cf4fa83c239342e812db5a640e97"
+  },
+  "status": "gamein_pass_combat_bounded_timeout",
+  "releaseReady": false,
+  "nextGate": "Use a bounded combat fixture or a low-HP test monster while preserving the production damage path, then require TARGET_DEAD, DROP_SEEN and PICKUP_CONFIRMED."
+}
