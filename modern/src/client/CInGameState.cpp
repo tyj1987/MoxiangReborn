@@ -697,6 +697,9 @@ CInGameState::~CInGameState() = default;
 void CInGameState::Init(void* pInitParam) {
     MLOG_DEBUG("CInGameState::Init (waiting for Start() from host)");
     setInitialized(true);
+    // Map10 can deliver hundreds of monsters during scene bootstrap; reserve
+    // the initial snapshot capacity so the burst does not reallocate it.
+    monsters_.reserve(256);
 
     // Runtime resources are owned by the explicitly selected profile on the
     // engine.  Do not search the current directory or consume an environment
@@ -1393,12 +1396,19 @@ void CInGameState::on_message(mxh::net::ConnectionId id,
     using mxh::proto::Category;
     const auto cat   = static_cast<Category>(msg.header.category);
     const auto proto = msg.header.protocol;
-    MLOG_DEBUG("CInGameState::on_message id=%llu cat=%s proto=%d obj=%u payload=%zu",
-               static_cast<unsigned long long>(id.value),
-               mxh::proto::category_name(cat),
-               static_cast<int>(proto),
-               static_cast<unsigned>(msg.header.object_id),
-               msg.payload.size());
+    // MonsterAdd is a high-volume scene bootstrap packet (Map10 can carry
+    // hundreds in one burst). Keep the normal protocol trace useful without
+    // turning a single burst into an unbounded synchronous log stream.
+    if (!(cat == Category::UserConn &&
+          proto == static_cast<std::uint8_t>(
+              mxh::proto::UserConnProtocol::MonsterAdd))) {
+        MLOG_DEBUG("CInGameState::on_message id=%llu cat=%s proto=%d obj=%u payload=%zu",
+                   static_cast<unsigned long long>(id.value),
+                   mxh::proto::category_name(cat),
+                   static_cast<int>(proto),
+                   static_cast<unsigned>(msg.header.object_id),
+                   msg.payload.size());
+    }
 
     switch (cat) {
         case Category::UserConn:
@@ -1816,7 +1826,6 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                           msg.payload.size());
                 break;
             }
-            MLOG_HEAP("monster_add_pre_insert");
             const auto existing = std::find_if(
                 monsters_.begin(), monsters_.end(),
                 [&](const MonsterAddInfo& monster) {
@@ -1828,12 +1837,6 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
                 MLOG_HEAP("monster_add_post_insert");
                 MLOG_DEBUG("CInGameState: MonsterAdd count=%zu", monsters_.size());
             }
-            MLOG_DEBUG("CInGameState: MonsterAdd object_id=%u kind=%u life=%u pos=(%u,%u) name=%.16s",
-                       static_cast<unsigned>(info->object_id),
-                       static_cast<unsigned>(info->monster_kind),
-                       static_cast<unsigned>(info->current_life),
-                       static_cast<unsigned>(info->position_x),
-                       static_cast<unsigned>(info->position_z), info->name);
             break;
         }
         case UserConnProtocol::NpcAdd: {

@@ -1,0 +1,41 @@
+{
+  "schema": "moxiang.original-client-targeted-tests.v1",
+  "generatedAt": "2026-10-20T21:56:20+08:00",
+  "sourceHead": "42014e7a5f6d5ea0736c2b2bb3c6c44dfaef72f5",
+  "branch": "codex/reorg-original-20261009",
+  "build": {
+    "bytes": 6970880,
+    "compiler": "MSVC 14.44.35207 (C:\\BuildTools)",
+    "target": "mxh_client_tests",
+    "directory": "modern/build/gameplay-client-isolated",
+    "executable": "modern/build/gameplay-client-isolated/tests/unit/client/mxh_client_tests.exe",
+    "sha256": "a4fe230f507eaf6b554bd92707896a83ba2e256fa113430a14eeadc8d179306b"
+  },
+  "test": {
+    "testsRun": 21,
+    "testsPassed": 21,
+    "log": "modern/out/original-targeted-client-tests-20261020.log",
+    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.*",
+    "suites": {
+      "ProtocolBurst": "passed",
+      "CMainGameStateIds": "passed",
+      "CInGameState": "passed",
+      "MonsterLifeAuthority": "passed"
+    },
+    "exitCode": 0,
+    "testsFailed": 0
+  },
+  "change": {
+    "file": "modern/src/client/CInGameState.cpp",
+    "fixes": [
+      "pre-reserve 256 monster snapshots for burst scene bootstrap",
+      "suppress synchronous per-packet MonsterAdd trace",
+      "remove per-monster heap probe and verbose payload log"
+    ],
+    "regression": "ProtocolBurst.GameInAckThenImmediateMonsterAddProducesNoCrash passes on rebuilt binary"
+  },
+  "limitations": [
+    "This is a targeted gate, not an unfiltered full-suite claim.",
+    "PlayDH resource root is intentionally absent in unit tests and is reported by the test log."
+  ]
+}
