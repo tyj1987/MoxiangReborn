@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-remote-resource-candidate-audit",
+  "capturedAt": "2026-10-20T12:30:00+08:00",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "a2c352a406112745bc1fb047ab88bc4a74f6c44c",
+  "candidateRemoteBranch": "gitlab/codex/sync-moxiang-20261001",
+  "candidateRemoteHead": "99b3a72f6fe5093c07495a311d007f6e5a51ea75",
+  "scope": "read-only audit of remote GitLab resource candidate; no checkout or active tree modified",
+  "hflCandidates": [
+    {
+      "name": "0.hfl",
+      "bytes": 137030,
+      "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "4.hfl",
+      "bytes": 137030,
+      "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "23.hfl",
+      "bytes": 137030,
+      "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "24.hfl",
+      "bytes": 137030,
+      "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "32.hfl",
+      "bytes": 137030,
+      "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "33.hfl",
+      "bytes": 137030,
+      "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "34.hfl",
+      "bytes": 137030,
+      "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    },
+    {
+      "name": "94.hfl",
+      "bytes": 137030,
+      "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+      "parsedHeader": "version=1 heights=16x16 tiles=256x256 textures=37",
+      "usedTextureFamily": "tile_10-*",
+      "decision": "REJECT_KNOWN_MAP10_PLACEHOLDER"
+    }
+  ],
+  "ttbCandidates": {
+    "exactMissingNames": [
+      "0.ttb",
+      "3.ttb",
+      "4.ttb",
+      "23.ttb",
+      "24.ttb",
+      "32.ttb",
+      "33.ttb",
+      "34.ttb",
+      "94.ttb",
+      "198.ttb"
+    ],
+    "foundOnCandidateBranch": false,
+    "decision": "NO_EXACT_MATCH_FOUND"
+  },
+  "monster203": {
+    "exactName": "Monster_203.bin",
+    "foundOnCandidateBranch": false,
+    "nearMatch": "InsDGMonster_203.bin",
+    "decision": "NO_EXACT_MATCH_FOUND"
+  },
+  "decision": "Reject the remote branch HFL files as a known Map10 placeholder family; keep the branch for historical recovery only and do not merge or copy these files into the original 1:1 resource line.",
+  "releaseReady": false
+}
