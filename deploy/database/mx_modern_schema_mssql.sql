@@ -301,6 +301,22 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID(N'dbo.modern_player_vitals', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.check_constraints
+       WHERE parent_object_id = OBJECT_ID(N'dbo.modern_player_vitals')
+         AND name = N'ck_modern_player_vitals_state'
+   )
+BEGIN
+    ALTER TABLE [dbo].[modern_player_vitals] WITH CHECK ADD CONSTRAINT [ck_modern_player_vitals_state]
+        CHECK ([player_id] > 0 AND (([initialized] = 0 AND [hp] IS NULL AND [shield] IS NULL AND [mp] IS NULL AND [dead] = 0 AND [revision] = 0)
+            OR ([initialized] = 1 AND [hp] IS NOT NULL AND [shield] IS NOT NULL AND [mp] IS NOT NULL
+                AND [hp] BETWEEN 0 AND 4294967295 AND [shield] BETWEEN 0 AND 4294967295 AND [mp] BETWEEN 0 AND 4294967295
+                AND [revision] BETWEEN 1 AND 9223372036854775806
+                AND (([dead] = 1 AND [hp] = 0) OR ([dead] = 0 AND [hp] > 0))));
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
 IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 1)
 BEGIN
