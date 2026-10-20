@@ -1,3 +1,5 @@
+2026-10-20 | 当前提交 `94440a70bbd24841ba5bac82eab84d98ebd25a5a` 重新运行原版针对性回归：schema migration、MapHandler 路由/GameIn、权威移动与坐标持久化、战斗/死亡、自然掉落/拾取、背包/装备、商店、任务、revisioned 技能/生命值以及客户端 E2E/Dump CLI 共 86/86 通过；VM112 writer contract 6/6、工程治理检查通过。证据见 [`original-targeted-regression-20261020.json`](evidence/original-targeted-regression-20261020.json)。这些是宿主工程和契约门禁，不替代 VM112 MSSQL 业务写入、真人 GUI 全链、准确原版资源或稳定性验收。
+
 2026-10-20 | 当前原版提交 `3929291a8e446b831c3b05deb22512ed161fb9d6` 已在 VM112 隔离 MSSQL stage 完成坐标持久化子门禁：Map10 初始 `(25000,25000)` 移动到 `(25800,25400)`，GameOut 后重登与数据库回读一致，Map10 GameIn 228 个怪物，退出码 0。服务 schema 4、写入契约和 vitals 约束均通过；隔离端口已释放。回执见 [`original-pve-position-persistence-20261020.json`](evidence/original-pve-position-persistence-20261020.json)。这不是真人 GUI 全链或商业发布结论。
 
 2026-10-20 | 当前 Debug 客户端通过修正后的远端采集脚本连接 VM112 默认原版服务，完成真实 Login/CharacterSelect/GameIn GUI 路线并捕获 `state-connect/login/charselect/gameloading/gamein` 与 Map10 地形帧；日志确认原版 BGM `1667/1670`、SFX manifest、玩家 `woman.chx`、228 个怪物和 `GUI_SMOKE_PASS`。状态帧宽松校验与地形帧校验通过；现有实体像素脚本因固定中心裁剪未通过，不能把它写成完整视觉验收。回执见 [`original-pve-gui-state-frames-20261020.json`](evidence/original-pve-gui-state-frames-20261020.json)。

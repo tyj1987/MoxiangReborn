@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-targeted-regression",
+  "capturedAt": "2026-10-20T12:03:41.097480+08:00",
+  "sourceHead": "94440a70bbd24841ba5bac82eab84d98ebd25a5a",
+  "worktree": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "command": "ctest --test-dir modern/out/build-client-x64-diagnose -C Release --output-on-failure -R \"MoxianClientE2E|SchemaMigration|MapHandler\"",
+  "result": {
+    "testsRun": 86,
+    "passed": 86,
+    "failed": 0,
+    "notRun": 0,
+    "exitCode": 0
+  },
+  "coverage": [
+    "schema migration",
+    "MapHandler routing and GameIn",
+    "authoritative movement and position persistence",
+    "combat and death",
+    "natural drops and pickup",
+    "inventory/equipment",
+    "shop money and purchase",
+    "quest persistence/reward",
+    "revisioned skill/vitals",
+    "client E2E and dump CLI"
+  ],
+  "writerContract": {
+    "command": "python scripts/tests/test_vm112_writer_contract.py",
+    "testsRun": 6,
+    "passed": 6,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "governance": {
+    "command": "python scripts/check-project-governance.py",
+    "result": "PASS"
+  },
+  "binary": null,
+  "limitations": [
+    "宿主测试不替代 VM112 MSSQL 业务写入",
+    "不替代真人 GUI 全链、原版视觉音频对照、准确资源缺口或稳定性验收"
+  ]
+}
