@@ -51,7 +51,6 @@ SELECT CASE WHEN
          AND c.name = required.column_name
         WHERE TYPE_NAME(c.user_type_id) = required.type_name
           AND c.is_nullable = required.nullable
-          AND c.default_object_id = 0
           AND c.is_identity = 0
     )
     AND EXISTS (
