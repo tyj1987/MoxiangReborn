@@ -1,3 +1,5 @@
+2026-10-20 | 原版当前提交 `c812703d` 的远端 GUI 视觉烟测已在本机真实 DX11 客户端完成：使用 VM112 `192.168.2.244:16001/17001/18001`、现有角色 `origpve15` 和 `playdh-current`，Login、CharacterSelect、Map10 GameIn、原版 BGM `1667/1670`、SFX manifest、玩家与 228 个怪物均有帧和日志证据，客户端退出码 0；状态帧校验 4/5 通过，`charmake` 因现有角色路径按设计跳过。回执见 [`original-pve-gui-visual-smoke-20261020.json`](evidence/original-pve-gui-visual-smoke-20261020.json)。这关闭的是远端 GUI 进入地图子门禁，不等于完整真人 GUI、战斗/掉落点击拾取、准确原版资源或商业发布；`releaseReady=false` 保持不变。
+
 2026-10-20 | Unity 分线当前提交 `80dbc7da` 的完整 EditMode 回归为 291 项（278 通过、0 失败、13 显式跳过）；私有 Map17 URP 图形诊断在 DX11 PlayMode 真实帧中 1/1 通过，角色和 6 个怪物实际渲染。回执分别为 Unity 工作树 `docs/evidence/unity-editmode-current-20261020.json`、`docs/evidence/unity-map17-active-urp-preview-20261020.json`。这是重制线隔离证据，不提升原版资源门禁，也不替代 Unity 真人 Player/PVE/许可终审。
 
 2026-10-20 | 原版地图资源审计新增占位族保护：当前提交 `d40e7364` 会拒绝结构合法但实际引用 `tile_10-*` 的误命名 HFL。Map10 审计通过，Map17 明确保留 9 个准确纹理缺口，Map203 0 缺失通过；回执见 [`original-map-placeholder-guard-20261020.json`](evidence/original-map-placeholder-guard-20261020.json)。
