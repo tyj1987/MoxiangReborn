@@ -71,6 +71,27 @@ def parse_pack_names(text: str) -> set[str]:
     return names
 
 
+def known_map10_placeholder(map_number: int, hfl_output: str,
+                            required: set[str]) -> bool:
+    """Reject the historical synthetic HFL family when it is misnamed.
+
+    The old recovery branches contain map-specific filenames whose bytes were
+    generated from the Map10 template.  They are structurally valid HFL files,
+    so a dependency-only check would otherwise accept them whenever the
+    Map10 textures are present.  Keep the guard deliberately narrow: only the
+    known 16x16/256x256/37-entry shape with an entirely ``tile_10-*`` used set
+    is rejected, and Map10 itself remains valid.
+    """
+    if map_number == 10 or not required:
+        return False
+    header = hfl_output.casefold()
+    if "heights=16x16" not in header or "tiles=256x256" not in header:
+        return False
+    if "textures=37" not in header:
+        return False
+    return all(re.fullmatch(r"tile_10-[0-9]+\.dds", name) for name in required)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("map_number", type=int, help="shipped map number, e.g. 10 or 101")
@@ -123,6 +144,7 @@ def main() -> int:
             hfl_output = run(explorer, "hfl", str(hfl_path))
 
     required = parse_hfl_names(hfl_output)
+    placeholder_hfl = known_map10_placeholder(args.map_number, hfl_output, required)
     available = parse_pack_names(pack_output)
     # FilesystemFileStorage checks loose files before every pack.  Include
     # root-level loose texture names in the dependency set so a recovered
@@ -142,6 +164,7 @@ def main() -> int:
         "loose_root_entry_count": len(loose_names),
         "missing_texture_count": len(missing),
         "missing": missing,
+        "known_map10_placeholder": placeholder_hfl,
     }
     if args.json:
         text = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
@@ -153,6 +176,7 @@ def main() -> int:
             f"pak_entry_count={len(available)}",
             f"loose_root_entry_count={len(loose_names)}",
             f"missing_texture_count={len(missing)}",
+            f"known_map10_placeholder={str(placeholder_hfl).lower()}",
         ]
         result.extend(f"missing={name}" for name in missing)
         text = "\n".join(result) + "\n"
@@ -160,7 +184,13 @@ def main() -> int:
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(text, encoding="utf-8")
-    return 1 if missing else 0
+    if placeholder_hfl:
+        print(
+            f"FAIL: map {args.map_number} HFL matches the known Map10 placeholder family; "
+            "an exact map resource is required",
+            file=sys.stderr,
+        )
+    return 1 if missing or placeholder_hfl else 0
 
 
 if __name__ == "__main__":
