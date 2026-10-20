@@ -57,5 +57,14 @@
     "productionCombatOrDropRatesModified": false,
     "releaseReady": false,
     "remaining": "Exact missing original Map17/HFL resources, full feature matrix, Unity independent PVE/GUI/art acceptance and commercial stability gates remain open"
+  },
+  "focusedTests": {
+    "command": "ctest --test-dir modern/out/build-gui-combat-20261020 -C Debug -R \"InGame|WorldScreen|Map10Smoke\" --output-on-failure",
+    "total": 144,
+    "passed": 143,
+    "failed": 0,
+    "skipped": 1,
+    "skip": "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+    "result": "passed"
   }
 }
