@@ -39,6 +39,14 @@ $characterName = 'GUI' + $runId.Substring(0, 10)
 $frame = Join-Path $runRoot "map${MapNumber}.tga"
 $dataRoot = Join-Path $runRoot 'data'
 $client = $null
+$effectiveTimeoutSeconds = if ($ExerciseCombat -and $TimeoutSeconds -lt 180) {
+    # Full original-resource DX11 rendering can take hundreds of milliseconds
+    # per frame.  The combat gate may need several real kills because the
+    # MonsterList drop profile legitimately awards no item on many deaths.
+    180
+} else {
+    $TimeoutSeconds
+}
 $previousGuiSmokePassword = $env:MXH_GUI_SMOKE_PASSWORD
 $previousGuiSmokeExit = $env:MXH_GUI_SMOKE_EXIT
 $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
@@ -123,9 +131,9 @@ try {
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
         -WorkingDirectory $clientWorkingDir
-    if (-not $client.WaitForExit($TimeoutSeconds * 1000)) {
+    if (-not $client.WaitForExit($effectiveTimeoutSeconds * 1000)) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
-        throw "GUI client did not reach GameIn within ${TimeoutSeconds}s; log=$stderr"
+        throw "GUI client did not finish within ${effectiveTimeoutSeconds}s; log=$stderr"
     }
     $client.WaitForExit()
     $client.Refresh()
