@@ -24,6 +24,7 @@
 #include <string_view>
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <vector>
 #include <unordered_map>
 
@@ -3469,6 +3470,15 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     bool smoke_appearance_rotated = false;
     unsigned smoke_inventory_settle_frames = 0;
     unsigned follow_settle_frames = 0;
+    const bool smoke_combat = std::getenv("MXH_GUI_SMOKE_COMBAT") != nullptr;
+    bool smoke_combat_target_dead = false;
+    bool smoke_combat_drop_seen = false;
+    bool smoke_combat_pickup_confirmed = false;
+    std::uint32_t smoke_combat_target = 0;
+    std::uint32_t smoke_combat_drop = 0;
+    std::uint16_t smoke_combat_item = 0;
+    std::uint64_t smoke_combat_item_before = 0;
+    unsigned smoke_combat_frames = 0;
     MSG msg{};
     while (mxh::client::g_running) {
         bool quit_requested = false;
@@ -3490,6 +3500,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             ++smoke_inventory_settle_frames;
         }
         if (options.exit_after_gamein && !options.follow_camera &&
+            (!smoke_combat || smoke_combat_pickup_confirmed) &&
             (!smoke_open_inventory ||
              (smoke_inventory_opened && smoke_inventory_settle_frames >= 5u)) &&
             mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
@@ -3518,6 +3529,112 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             }
             // Idle: drive CMainGame + render a frame.
             mainGame.Process();
+            if (smoke_combat && mainGame.GetCurStateNum() == mxh::client::GameStateId::GameIn) {
+                if (auto* combat_game = dynamic_cast<mxh::client::CInGameState*>(
+                        mainGame.GetGameState(mxh::client::GameStateId::GameIn));
+                    combat_game && combat_game->is_in_game()) {
+                    ++smoke_combat_frames;
+                    const auto& info = combat_game->game_info();
+                    const auto inventory_count = [&](std::uint16_t item_id) {
+                        std::uint64_t total = 0;
+                        for (const auto& item : info.items.Inventory) {
+                            if (item.wIconIdx == item_id) total += item.ItemParam;
+                        }
+                        return total;
+                    };
+                    if (smoke_combat_target == 0) {
+                        const mxh::client::MonsterAddInfo* nearest = nullptr;
+                        float nearest_distance = std::numeric_limits<float>::max();
+                        for (const auto& monster : combat_game->monsters()) {
+                            if (monster.current_life == 0) continue;
+                            const float dx = static_cast<float>(monster.position_x) - info.position_x;
+                            const float dz = static_cast<float>(monster.position_z) - info.position_z;
+                            const float distance = dx * dx + dz * dz;
+                            if (distance < nearest_distance) {
+                                nearest_distance = distance;
+                                nearest = &monster;
+                            }
+                        }
+                        if (nearest) {
+                            smoke_combat_target = nearest->object_id;
+                            smoke_combat_item_before = 0;
+                            MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_TARGET=%u distance=%.0f",
+                                      smoke_combat_target, std::sqrt(nearest_distance));
+                        }
+                    }
+                    const auto target_it = std::find_if(
+                        combat_game->monsters().begin(), combat_game->monsters().end(),
+                        [smoke_combat_target](const auto& monster) {
+                            return monster.object_id == smoke_combat_target;
+                        });
+                    if (target_it != combat_game->monsters().end() &&
+                        !smoke_combat_target_dead && target_it->current_life == 0) {
+                        smoke_combat_target_dead = true;
+                        MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_TARGET_DEAD target=%u",
+                                  smoke_combat_target);
+                    }
+                    if (!smoke_combat_target_dead && target_it != combat_game->monsters().end() &&
+                        smoke_combat_frames % 24u == 1u && g_terrain) {
+                        const auto projected = mxh::client::project_world_point(
+                            g_terrain->viewProj(), g_terrain->mapCenter(),
+                            [terrain = g_terrain.get()](float x, float z) {
+                                return terrain->heightAt(x, z);
+                            }, target_it->position_x, target_it->position_z, 120.0f);
+                        if (projected) {
+                            combat_game->OnMouseButton(true, true,
+                                static_cast<std::int32_t>(projected->x),
+                                static_cast<std::int32_t>(projected->y));
+                            combat_game->OnMouseButton(true, false,
+                                static_cast<std::int32_t>(projected->x),
+                                static_cast<std::int32_t>(projected->y));
+                            MLOG_DEBUG("mxh_client: GUI_SMOKE_COMBAT_CLICK target=%u x=%.0f y=%.0f",
+                                       smoke_combat_target, projected->x, projected->y);
+                        }
+                    }
+                    if (smoke_combat_target_dead && !combat_game->ground_drops().empty() &&
+                        g_terrain) {
+                        const auto& drop = combat_game->ground_drops().front();
+                        if (!smoke_combat_drop_seen) {
+                            smoke_combat_drop_seen = true;
+                            smoke_combat_drop = drop.object_id;
+                            smoke_combat_item = drop.item_id;
+                            smoke_combat_item_before = inventory_count(smoke_combat_item);
+                            MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_DROP_SEEN drop=%u item=%u count=%u",
+                                      smoke_combat_drop, static_cast<unsigned>(smoke_combat_item),
+                                      static_cast<unsigned>(drop.count));
+                        }
+                        const auto projected = mxh::client::project_world_point(
+                            g_terrain->viewProj(), g_terrain->mapCenter(),
+                            [terrain = g_terrain.get()](float x, float z) {
+                                return terrain->heightAt(x, z);
+                            }, drop.position_x, drop.position_z, 80.0f);
+                        if (projected && smoke_combat_frames % 18u == 3u) {
+                            combat_game->OnMouseButton(true, true,
+                                static_cast<std::int32_t>(projected->x),
+                                static_cast<std::int32_t>(projected->y));
+                            combat_game->OnMouseButton(true, false,
+                                static_cast<std::int32_t>(projected->x),
+                                static_cast<std::int32_t>(projected->y));
+                        }
+                    }
+                    if (smoke_combat_drop_seen && !smoke_combat_pickup_confirmed &&
+                        smoke_combat_drop != 0 && combat_game->ground_drops().empty() &&
+                        combat_game->pending_pickup_drop() == 0 &&
+                        inventory_count(smoke_combat_item) > smoke_combat_item_before) {
+                        smoke_combat_pickup_confirmed = true;
+                        MLOG_INFO("mxh_client: GUI_SMOKE_COMBAT_PICKUP_CONFIRMED drop=%u item=%u before=%llu after=%llu",
+                                  smoke_combat_drop, static_cast<unsigned>(smoke_combat_item),
+                                  static_cast<unsigned long long>(smoke_combat_item_before),
+                                  static_cast<unsigned long long>(inventory_count(smoke_combat_item)));
+                    }
+                    if (smoke_combat_frames > 1800u && !smoke_combat_pickup_confirmed) {
+                        MLOG_ERROR("mxh_client: GUI_SMOKE_COMBAT_TIMEOUT target_dead=%d drop_seen=%d",
+                                   smoke_combat_target_dead ? 1 : 0,
+                                   smoke_combat_drop_seen ? 1 : 0);
+                        mxh::client::g_running = false;
+                    }
+                }
+            }
             if (!smoke_appearance_rotated &&
                 std::getenv("MXH_GUI_SMOKE_ROTATE_APPEARANCE") != nullptr &&
                 mainGame.GetCurStateNum() == mxh::client::GameStateId::CharMake) {
@@ -3589,6 +3706,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             if (auto* smoke_game = dynamic_cast<mxh::client::CInGameState*>(
                     mainGame.GetGameState(mxh::client::GameStateId::GameIn));
                 smoke_game && !options.follow_camera &&
+                (!smoke_combat || smoke_combat_pickup_confirmed) &&
                 (!smoke_open_inventory || smoke_inventory_opened) &&
                 (!smoke_open_inventory || smoke_inventory_settle_frames >= 5u) &&
                 smoke_game->smoke_exit_ready()) {
@@ -4021,7 +4139,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     (void)cm->SubmitCharacter(params);
                 }
             } else if (cur_state == mxh::client::GameStateId::GameIn &&
-                       options.exit_after_gamein) {
+                       options.exit_after_gamein &&
+                       (!smoke_combat || smoke_combat_pickup_confirmed)) {
                 if (auto* game_in = dynamic_cast<mxh::client::CInGameState*>(
                         mainGame.GetGameState(cur_state));
                     game_in && game_in->is_in_game() &&

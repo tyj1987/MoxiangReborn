@@ -12,7 +12,8 @@ param(
     [switch]$AuditNpcDependencies,
     [switch]$ExerciseInventory,
     [switch]$ExerciseSkills,
-    [switch]$RotateAppearance
+    [switch]$RotateAppearance,
+    [switch]$ExerciseCombat
 )
 
 $ErrorActionPreference = 'Stop'
@@ -44,6 +45,7 @@ $previousGuiSmokeRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 $previousGuiSmokeOpenInventory = $env:MXH_GUI_SMOKE_OPEN_INVENTORY
 $previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
 $previousGuiSmokeRotateAppearance = $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE
+$previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
 
 try {
     if ($AuditMapDependencies) {
@@ -116,6 +118,7 @@ try {
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
     if ($ExerciseSkills) { $env:MXH_GUI_SMOKE_SKILLS = '1' }
     if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
+    if ($ExerciseCombat) { $env:MXH_GUI_SMOKE_COMBAT = '1' }
     if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
@@ -190,6 +193,13 @@ try {
     }
     if ($RotateAppearance -and $log -notmatch "GameInAck .*gender=1 face=0 hair=0 equip2=23010") {
         throw "GUI smoke created appearance was not persisted into GameInAck; log=$stderr"
+    }
+    if ($ExerciseCombat) {
+        foreach ($marker in @('GUI_SMOKE_COMBAT_TARGET_DEAD', 'GUI_SMOKE_COMBAT_DROP_SEEN', 'GUI_SMOKE_COMBAT_PICKUP_CONFIRMED')) {
+            if ($log -notmatch [regex]::Escape($marker)) {
+                throw "GUI smoke combat exercise missing marker '$marker'; log=$stderr"
+            }
+        }
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
@@ -272,6 +282,9 @@ finally {
     if ($null -eq $previousGuiSmokeRotateAppearance) {
         Remove-Item Env:MXH_GUI_SMOKE_ROTATE_APPEARANCE -ErrorAction SilentlyContinue
     } else { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = $previousGuiSmokeRotateAppearance }
+    if ($null -eq $previousGuiSmokeCombat) {
+        Remove-Item Env:MXH_GUI_SMOKE_COMBAT -ErrorAction SilentlyContinue
+    } else { $env:MXH_GUI_SMOKE_COMBAT = $previousGuiSmokeCombat }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }
