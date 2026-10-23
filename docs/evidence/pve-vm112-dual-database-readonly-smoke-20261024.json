@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-vm112-dual-database-readonly-smoke",
+  "capturedAtUtc": "2026-10-23T18:21:28Z",
+  "vmId": 112,
+  "sqlHost": "192.168.2.238",
+  "sqlPort": 1433,
+  "readOnly": true,
+  "writesPerformed": false,
+  "original": {
+    "database": "MoxiangOriginalTest_20261009",
+    "result": "passed",
+    "tableCount": 21,
+    "schemaVersion": 4,
+    "stageSourceHead": "3f355242bb337c467f15692598514fa5f4ada591",
+    "stageManifestSchemaVersion": 1,
+    "testedSourceSchemaVersion": 4,
+    "receipt": "pve-vm112-original-sql-readonly-20261024.jsonl",
+    "receiptSha256": "7511D87C3758915009CFDC798607345C2EA66151684ABD78F17FDCA4D648E17F"
+  },
+  "unity": {
+    "database": "MoxiangUnityTest_20261009",
+    "result": "passed",
+    "tableCount": 22,
+    "schemaVersion": 1,
+    "stageSourceHead": "699d1ddf91fd7749cdcf45f5a5398e17e2a709e5",
+    "currentUnitySourceSchemaVersion": 1,
+    "receipt": "pve-vm112-unity-sql-readonly-20261024.jsonl",
+    "receiptSha256": "399291F4A08BDEB700D20DEEBE82651E3CDAAE96A3D35211DC05DE1B9113C9F0"
+  },
+  "acceptance": "connectivity-and-schema-read-only-only",
+  "persistenceVerified": false,
+  "deploymentReady": false
+}

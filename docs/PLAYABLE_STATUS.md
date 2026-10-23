@@ -1,6 +1,6 @@
 2026-10-24 | 原版当前代码基线 `41b4022b` 在 MSVC 19.44 / VS 2022 Developer PowerShell 下重建成功；全量 CTest 共 **12,579 项：12,565 通过、0 失败、14 跳过**，耗时 87.46 秒。两项客户端 E2E 均命中各自验收正则并计为通过；14 个跳过项为数据库、受保护资源和历史二进制/加密样本门禁，未计入通过。回执与逐项跳过清单见 [`original-full-ctest-20261024-current-head.json`](evidence/original-full-ctest-20261024-current-head.json)。
 
-2026-10-24 | PVE 只读复查：VM112 的 QGA 正常，原版 5 个与 Unity 6 个服务进程均在独立目录运行，监听端口各自对应实例。原版部署源码仍为 `3f355242`、writer contract schema 1；Unity stage 记录源码为 `699d1ddf`，因此当前 PVE 部署没有绑定本机最新验收源码。CT105 的 SQL Server 服务为 active/enabled；本次 SQL 只读探测因候选配置路径不存在而在连接前停止，未执行 SQL 查询或数据库写入。不得据此宣称数据库验收通过。完整进程、PID、文件哈希、stage manifest 和 nonce 回执见 [`pve-vm112-current-service-identity-20261024.json`](evidence/pve-vm112-current-service-identity-20261024.json) 及相邻 JSONL 原始回执。
+2026-10-24 | PVE 双线只读数据库烟测：VM112 的 QGA 正常，原版 5 个与 Unity 6 个服务进程仍在独立目录运行；当前 stage 源码分别为 `3f355242` 与 `699d1ddf`，均早于本机已验收候选。CT105 SQL Server active/enabled。两条 ODBC 查询均通过且只读：`MoxiangOriginalTest_20261009` 有 21 张表、schema 4；`MoxiangUnityTest_20261009` 有 22 张表、schema 1；两库均存在 `modern_player_state` 与 `modern_schema_version`。原版 stage manifest 却声明 schema 1，而当前原版源码要求 schema 4，部署元数据不一致；Unity schema 1 与当前 Unity 初始化版本一致。此结果只证明连通性和可读 schema，不证明业务写入/持久化，也不构成当前源码部署验收。未执行写入或迁移；下一步须在隔离副本核对 writer contract、恢复与真实业务读写。回执及哈希见 [`pve-vm112-dual-database-readonly-smoke-20261024.json`](evidence/pve-vm112-dual-database-readonly-smoke-20261024.json)、两份原始 JSONL 和 [`pve-vm112-current-service-identity-20261024.json`](evidence/pve-vm112-current-service-identity-20261024.json)。
 
 2026-10-23 | 原版资源/登录隔离门禁在当前提交 `be72f1f9` 重跑：`MoxianLoginSbsE2E`、`MxhResourceByteLevel`、`MxhResourceReference` 共 23 项，21 项通过、0 失败、2 项显式跳过；跳过项均记录了缺少完整 Release 夹具或恢复归档的原因。回执见 [`original-resource-reference-gate-20261023.json`](evidence/original-resource-reference-gate-20261023.json)。
 
@@ -250,4 +250,3 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 2026-10-24 | 原版 modern 当前构建目录完整 CTest 重跑：`12574/12574` 通过、0 失败、14 项显式跳过，退出码 0，实耗 123.94s。跳过项仍集中在真实 MSSQL、部署/参考资源和受保护运行时门禁，不能升级为完整商业可玩验收；回执见 [`original-full-ctest-20261024-rerun.json`](evidence/original-full-ctest-20261024-rerun.json)。
 
 2026-10-24 | 原版 PlayDH 资源覆盖重新审计：当前运行资源根目录 600/600 文件经 modern 解析器通过（`.pak` 7/7，`.bin` 499/501，另 2 个明确为派生解包 payload，BMHM 81/81，BSAD 11/11）；该结果只证明现存文件可解析，不证明 HFL/TTB/Map17/Map203 缺失源资源已恢复。报告 `modern/out/runs/resource-coverage-current-20261024.txt`，结构化回执见 [`original-resource-coverage-20261024.json`](evidence/original-resource-coverage-20261024.json)。
-
