@@ -1,0 +1,829 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-21T00:15:00+08:00",
+  "sourceHead": "d0898e56226dbaa43326b1551c54fc0712dfb319",
+  "scope": "read-only internal-name scan of retained Map.pak and monster.pak archives; no extraction or admission",
+  "exactMissingNames": [
+    "tile_17_mou_a_01.dds",
+    "tile_17_mou_a_02.dds",
+    "tile_17_mou_a_03.dds",
+    "tile_17_mou_a_04.dds",
+    "tile_17_mou_a_05.dds",
+    "tile_17_mou_a_06.dds",
+    "tile_17_mou_a_07.dds",
+    "tile_17_mou_a_08.dds",
+    "tile_17_mou_a_09.dds",
+    "Monster_203.bin"
+  ],
+  "archiveRows": [
+    {
+      "path": "E:\\Workspaces\\moxiang\\worktrees\\original-integration\\modern\\data\\PlayDH\\Map.pak",
+      "exists": true,
+      "headerEntries": 4192,
+      "candidateEntryCount": 56,
+      "candidateEntries": [
+        {
+          "name": "tile_110_mou04_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_18.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_17.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_16.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_15.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_14.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_13.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_12.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_11.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_10.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "17.hfl",
+          "bytes": 1192972
+        },
+        {
+          "name": "tile_17_nanju_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_03.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_04.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_05.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_06.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_07.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_03.dds",
+          "bytes": 2856
+        }
+      ],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MX\\client\\Package\\3DData\\Map.pak",
+      "exists": true,
+      "headerEntries": 0,
+      "candidateEntryCount": 0,
+      "candidateEntries": [],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MoyoI\\墨香源启\\Map.pak",
+      "exists": true,
+      "headerEntries": 4560,
+      "candidateEntryCount": 56,
+      "candidateEntries": [
+        {
+          "name": "tile_17_nanju_b_03.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_07.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_06.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_05.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_04.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_03.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_18.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_17.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_16.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_15.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_14.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_13.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_12.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_11.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_10.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "17.hfl",
+          "bytes": 1192972
+        }
+      ],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MoyoI\\��ī��\\Map.pak",
+      "exists": true,
+      "headerEntries": 4381,
+      "candidateEntryCount": 56,
+      "candidateEntries": [
+        {
+          "name": "17.hfl",
+          "bytes": 1192972
+        },
+        {
+          "name": "tile_17_nanju_b_03.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_b_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_07.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_06.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_05.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_04.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_03.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_02.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_17_nanju_01.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou04_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou03_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou02_1.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_9.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_8.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_7.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_6.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_5.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_4.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_3.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_2.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_18.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_17.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_16.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_15.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_14.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_13.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_12.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_11.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_10.dds",
+          "bytes": 2856
+        },
+        {
+          "name": "tile_110_mou01_1.dds",
+          "bytes": 2856
+        }
+      ],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MoyoI\\墨香源启\\monster.pak",
+      "exists": true,
+      "headerEntries": 3916,
+      "candidateEntryCount": 6,
+      "candidateEntries": [
+        {
+          "name": "l203_lod2.mod",
+          "bytes": 84774
+        },
+        {
+          "name": "l203_lod1.mod",
+          "bytes": 63265
+        },
+        {
+          "name": "l203_lod0.mod",
+          "bytes": 52647
+        },
+        {
+          "name": "l203.mod",
+          "bytes": 84774
+        },
+        {
+          "name": "l203.dds",
+          "bytes": 43816
+        },
+        {
+          "name": "l203.chx",
+          "bytes": 296
+        }
+      ],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MoyoI\\��ī��\\monster.pak",
+      "exists": true,
+      "headerEntries": 3258,
+      "candidateEntryCount": 6,
+      "candidateEntries": [
+        {
+          "name": "l203.chx",
+          "bytes": 296
+        },
+        {
+          "name": "l203.dds",
+          "bytes": 43816
+        },
+        {
+          "name": "l203.mod",
+          "bytes": 84774
+        },
+        {
+          "name": "l203_lod0.mod",
+          "bytes": 52647
+        },
+        {
+          "name": "l203_lod1.mod",
+          "bytes": 63265
+        },
+        {
+          "name": "l203_lod2.mod",
+          "bytes": 84774
+        }
+      ],
+      "exactMissingNameMatches": []
+    },
+    {
+      "path": "D:\\MX\\client-legacy\\monster.pak",
+      "exists": true,
+      "headerEntries": 2967,
+      "candidateEntryCount": 6,
+      "candidateEntries": [
+        {
+          "name": "l203_lod2.mod",
+          "bytes": 84774
+        },
+        {
+          "name": "l203_lod1.mod",
+          "bytes": 63265
+        },
+        {
+          "name": "l203_lod0.mod",
+          "bytes": 52647
+        },
+        {
+          "name": "l203.mod",
+          "bytes": 84774
+        },
+        {
+          "name": "l203.dds",
+          "bytes": 43816
+        },
+        {
+          "name": "l203.chx",
+          "bytes": 296
+        }
+      ],
+      "exactMissingNameMatches": []
+    }
+  ],
+  "exactFilesystemMatches": [],
+  "decision": "No archive contains the exact nine Map17 texture names or Monster_203.bin. MoyoI archives contain alternate Map17 families (for example tile_17_nanju and tile_110_mou) and client l203 visual assets only; these are not admitted to the original line.",
+  "releaseReady": false
+}

@@ -1,45 +1,53 @@
 {
   "schema": "moxiang.original-client-targeted-tests.v1",
   "generatedAt": "2026-10-20T21:56:20+08:00",
-  "sourceHead": "4abc2dc8f7897da85e80186b3a47960061b9b51b",
+  "sourceHead": "d0898e56226dbaa43326b1551c54fc0712dfb319",
   "branch": "codex/reorg-original-20261009",
   "build": {
-    "bytes": 6970880,
+    "bytes": 6969344,
     "compiler": "MSVC 14.44.35207 (C:\\BuildTools)",
     "target": "mxh_client_tests",
     "directory": "modern/build/gameplay-client-isolated",
     "executable": "modern/build/gameplay-client-isolated/tests/unit/client/mxh_client_tests.exe",
-    "sha256": "a4fe230f507eaf6b554bd92707896a83ba2e256fa113430a14eeadc8d179306b"
+    "sha256": "4cc3851c1b083de30a8d7711b26fb2f945f2d00a05a1c91c78369654efd7768c"
   },
   "test": {
-    "testsRun": 61,
-    "testsPassed": 61,
+    "testsRun": 80,
+    "testsPassed": 80,
     "log": "modern/out/original-targeted-client-tests-20261020.log",
-    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.* plus ClientUiRuntime.* and EffectRuntime.*",
+    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.*:ClientUiRuntime.*:InGameUiRuntime.* plus EffectRuntime.*",
     "suites": {
       "ProtocolBurst": "passed",
       "CMainGameStateIds": "passed",
       "CInGameState": "passed",
       "MonsterLifeAuthority": "passed",
       "ClientUiRuntime": "passed",
-      "EffectRuntime": "passed"
+      "EffectRuntime": "passed",
+      "InGameUiRuntime": "passed"
     },
     "exitCode": 0,
     "testsFailed": 0,
     "additionalRuns": [
       {
         "exitCode": 0,
-        "durationMs": 69,
-        "testsPassed": 32,
         "testsRun": 32,
-        "filter": "ClientUiRuntime.*"
+        "filter": "ClientUiRuntime.*",
+        "durationMs": 69,
+        "testsPassed": 32
       },
       {
         "exitCode": 0,
-        "durationMs": 12529,
-        "testsPassed": 8,
+        "testsRun": 19,
+        "filter": "InGameUiRuntime.*",
+        "durationMs": 451,
+        "testsPassed": 19
+      },
+      {
+        "exitCode": 0,
         "testsRun": 8,
-        "filter": "EffectRuntime.*"
+        "filter": "EffectRuntime.*",
+        "durationMs": 31355,
+        "testsPassed": 8
       }
     ]
   },
