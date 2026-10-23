@@ -314,7 +314,6 @@ int main(int argc, char** argv) {
             ServerLaunch ml{loginPath, {}};
             if (a.modern_legacy || a.modern_only) ml.args.push_back("--legacy");
             ml.args.push_back("--port"); ml.args.push_back(std::to_string(a.modern_port));
-            ml.args.push_back("--init-schema");
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
             const bool login_only = a.scenario == "login";
