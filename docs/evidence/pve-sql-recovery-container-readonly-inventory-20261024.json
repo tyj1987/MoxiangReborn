@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-sql-recovery-container-readonly-inventory",
+  "capturedAtUtc": "2026-10-24",
+  "databaseEndpoint": {
+    "host": "192.168.2.238",
+    "port": 1433,
+    "containerId": 930,
+    "hostname": "moxiang-db-recovery-20261009",
+    "service": "mssql-server",
+    "serviceState": "active",
+    "serviceEnabled": "enabled",
+    "filesystem": {
+      "sizeGiB": 100,
+      "usedGiB": 7,
+      "availableGiB": 94
+    }
+  },
+  "ct105": {
+    "containerId": 105,
+    "hostname": "moxiang-mssql",
+    "address": "192.168.2.105",
+    "serviceState": "active",
+    "databaseEndpointTarget": false
+  },
+  "backups": [
+    {
+      "path": "/var/opt/mssql/data/MoxiangOriginalPreR17_original-r17-db-9b4fd2904db84345826d220c6b45052b.bak",
+      "bytes": 4968448,
+      "sha256": "7d20582d06ac6d71a6eb2a868b5da118defe4ebb566d2a648bd91c3d95f3f5d1",
+      "line": "original"
+    },
+    {
+      "path": "/var/opt/mssql/data/MoxiangOriginalPreR16_original-r16-db-acb7cba118934eb0ae2be364285a48d8.bak",
+      "bytes": 4968448,
+      "sha256": "38373a16491091667ecd68a1685904c383b608efdc2027d55261d1d9fc8e93a8",
+      "line": "original"
+    },
+    {
+      "path": "/var/opt/mssql/data/MoxiangUnityTest_20261009-pre-schema-v1-20261009.bak",
+      "bytes": 4444160,
+      "sha256": "ed4ac16ba196f71735a4fb7b3a8d28e8592ba8134846a8934a57992bafdbda3b",
+      "line": "unity"
+    }
+  ],
+  "readOnlyInventory": true,
+  "backupHeaderValidated": false,
+  "restoreValidated": false,
+  "databaseWritesPerformed": false
+}
