@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import re
 import subprocess
 import zipfile
 from datetime import datetime, timezone
@@ -93,6 +94,8 @@ def main() -> None:
     parser.add_argument("--database", default="MoxiangOriginalTest_20261009")
     parser.add_argument("--database-host", default="192.168.2.238",
                         help="explicit IPv4 SQL endpoint for this isolated stage")
+    parser.add_argument("--database-certificate-name", default="",
+                        help="optional DNS SAN to validate when a clone retains its source certificate")
     parser.add_argument("--login-port", type=int, default=16001)
     parser.add_argument("--agent-port", type=int, default=17001)
     parser.add_argument("--map-port", type=int, default=18001)
@@ -104,6 +107,8 @@ def main() -> None:
     database_ip = ipaddress.ip_address(args.database_host)
     if database_ip.version != 4 or database_ip.is_loopback or database_ip.is_unspecified:
         raise ValueError("database host must be an explicit, non-loopback IPv4 address")
+    if args.database_certificate_name and not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", args.database_certificate_name):
+        raise ValueError("database certificate name must be a DNS SAN name")
     ports = [args.login_port, args.agent_port, args.map_port, args.map12_port, args.map2_port]
     if any(port < 1 or port > 65535 for port in ports) or len(set(ports)) != len(ports):
         raise ValueError("all five stage ports must be distinct values in 1..65535")
@@ -156,6 +161,7 @@ def main() -> None:
         "writerContract": {
             "id": "original-vm112-modern-mssql-v1",
             "databaseHost": str(database_ip),
+            "databaseCertificateName": args.database_certificate_name,
             "database": args.database,
             "schemaVersion": 4,
             "resourceProfile": "playdh-current",

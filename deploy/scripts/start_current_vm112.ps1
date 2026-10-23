@@ -69,11 +69,28 @@ $state = Join-Path $stage 'run\pids-current.json'
 if (-not $Start) { [ordered]@{mode='plan-only';stage=$stage;sourceHead=$manifest.sourceHead;ports=$allPorts;map17Enabled=[bool]$EnableMap17;startsProcesses=$false} | ConvertTo-Json; return }
 if (Test-Path $state) { throw 'current stage PID file already exists' }
 $cfg = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
-if ([string]::IsNullOrWhiteSpace($cfg) -or
-    $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or
-    $cfg -notmatch (("(?i)(^|;)host=" + [regex]::Escape($DatabaseHost) + '(;|$)')) -or
-    $cfg -notmatch ("(?i)(^|;)database=" + [regex]::Escape($DatabaseName) + '(;|$)')) {
-    throw 'protected database config missing or mismatched'
+if ([string]::IsNullOrWhiteSpace($cfg)) { throw 'protected database config missing or mismatched' }
+function Assert-CurrentDatabaseConfigValue {
+    param([string]$Config, [string]$Name, [string]$Expected)
+    $pattern = '(?i)(?:^|;)\s*' + [regex]::Escape($Name) + '\s*=\s*([^;]+)'
+    $matches = [regex]::Matches($Config, $pattern)
+    if ($matches.Count -ne 1 -or
+        -not [StringComparer]::OrdinalIgnoreCase.Equals($matches[0].Groups[1].Value.Trim(), $Expected)) {
+        throw "Protected database configuration has a missing, duplicate, or mismatched $Name value."
+    }
+}
+Assert-CurrentDatabaseConfigValue $cfg 'backend' 'mssql_odbc'
+Assert-CurrentDatabaseConfigValue $cfg 'host' $DatabaseHost
+Assert-CurrentDatabaseConfigValue $cfg 'database' $DatabaseName
+Assert-CurrentDatabaseConfigValue $cfg 'encrypt' 'yes'
+Assert-CurrentDatabaseConfigValue $cfg 'trust_server_certificate' 'no'
+$certificateName = [string]$manifest.writerContract.databaseCertificateName
+$certificateNameMatches = [regex]::Matches($cfg, '(?i)(?:^|;)\s*hostname_in_certificate\s*=\s*([^;]+)')
+if ([string]::IsNullOrWhiteSpace($certificateName)) {
+    if ($certificateNameMatches.Count -ne 0) { throw 'Unexpected hostname_in_certificate override.' }
+} elseif ($certificateNameMatches.Count -ne 1 -or
+    -not [StringComparer]::OrdinalIgnoreCase.Equals($certificateNameMatches[0].Groups[1].Value.Trim(), $certificateName)) {
+    throw 'Protected database certificate identity does not match the stage manifest.'
 }
 $dbTool = Join-Path $bin 'MoxianDbTool\mxh_db_tool.exe'
 $contractGuard = Join-Path $stage 'deploy\scripts\assert_original_writer_contract.ps1'

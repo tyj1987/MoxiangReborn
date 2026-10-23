@@ -28,13 +28,16 @@ TEST(DbAdapter, ConnectionConfigRoundTrip) {
 TEST(DbAdapter, SqlServerEncryptionPolicyRoundTripsExplicitOverrides) {
     auto cfg = ConnectionConfig::from_kv_string(
         "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=master;"
-        "encrypt=no;trust_server_certificate=yes;");
+        "encrypt=no;trust_server_certificate=yes;"
+        "hostname_in_certificate=moxiang-db-recovery-20261009;");
     EXPECT_FALSE(cfg.encrypt);
     EXPECT_TRUE(cfg.trust_server_certificate);
+    EXPECT_EQ(cfg.hostname_in_certificate, "moxiang-db-recovery-20261009");
 
     const auto serialized = cfg.to_kv_string();
     EXPECT_NE(serialized.find("encrypt=no"), std::string::npos);
     EXPECT_NE(serialized.find("trust_server_certificate=yes"), std::string::npos);
+    EXPECT_NE(serialized.find("hostname_in_certificate=moxiang-db-recovery-20261009"), std::string::npos);
 }
 
 TEST(DbAdapter, SqlServerOdbcDriverPinRoundTrips) {

@@ -53,15 +53,19 @@ class Vm112WriterContractTests(unittest.TestCase):
         self.assertIn("$manifest.writerContract.database -ne $DatabaseName", source)
         self.assertIn("$manifest.writerContract.databaseHost -ne $DatabaseHost", source)
         self.assertIn("[string]::IsNullOrWhiteSpace($DatabaseHost)", source)
-        self.assertIn("[regex]::Escape($DatabaseHost)", source)
+        self.assertIn("Assert-CurrentDatabaseConfigValue $cfg 'host' $DatabaseHost", source)
+        self.assertIn("Assert-CurrentDatabaseConfigValue $cfg 'encrypt' 'yes'", source)
+        self.assertIn("Assert-CurrentDatabaseConfigValue $cfg 'trust_server_certificate' 'no'", source)
+        self.assertIn("Protected database certificate identity does not match the stage manifest.", source)
         self.assertIn("stage listener port contract mismatch", source)
-        self.assertIn("[regex]::Escape($DatabaseName)", source)
+        self.assertIn("Assert-CurrentDatabaseConfigValue $cfg 'database' $DatabaseName", source)
 
     def test_current_package_records_only_explicit_non_loopback_database_host(self):
         source = CURRENT_PACKAGE.read_text(encoding="utf-8")
         self.assertIn('"--database-host", default="192.168.2.238"', source)
         self.assertIn("database_ip.is_loopback", source)
         self.assertIn('"databaseHost": str(database_ip)', source)
+        self.assertIn('"databaseCertificateName": args.database_certificate_name', source)
         self.assertIn('"map12": args.map12_port', source)
 
     def test_current_package_rejects_duplicate_ports_before_build_access(self):

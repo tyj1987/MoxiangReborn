@@ -63,6 +63,7 @@ ConnectionConfig ConnectionConfig::from_kv_string(std::string_view s) {
         else if (k == "database") cfg.database = v;
         else if (k == "user") cfg.user = v;
         else if (k == "password") cfg.password = v;
+        else if (k == "hostname_in_certificate") cfg.hostname_in_certificate = v;
         else if (k == "odbc_driver") cfg.odbc_driver = v;
         else if (k == "encrypt") cfg.encrypt = (v == "yes" || v == "true" || v == "1");
         else if (k == "trust_server_certificate") cfg.trust_server_certificate = (v == "yes" || v == "true" || v == "1");
@@ -78,6 +79,8 @@ std::string ConnectionConfig::to_kv_string() const {
     os << "port=" << port << ';';
     if (!database.empty()) os << "database=" << database << ';';
     if (!user.empty()) os << "user=" << user << ';';
+    if (!hostname_in_certificate.empty())
+        os << "hostname_in_certificate=" << hostname_in_certificate << ';';
     if (!odbc_driver.empty()) os << "odbc_driver=" << odbc_driver << ';';
     os << "encrypt=" << (encrypt ? "yes" : "no") << ';';
     os << "trust_server_certificate=" << (trust_server_certificate ? "yes" : "no") << ';';

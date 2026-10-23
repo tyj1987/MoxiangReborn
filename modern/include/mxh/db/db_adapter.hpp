@@ -34,6 +34,9 @@ struct ConnectionConfig {
     std::string database;                  // MSSQL only
     std::string user;                      // MSSQL only
     std::string password;                  // MSSQL only
+    // Optional TLS identity override for isolated replicas that retain a
+    // source database certificate while using a distinct network address.
+    std::string hostname_in_certificate;
     // Empty selects the newest installed Microsoft SQL Server ODBC driver
     // (18, then 17). Set an exact registered driver name to pin deployment.
     std::string odbc_driver;
