@@ -35,7 +35,7 @@
     "totalTimeSeconds": 87.46,
     "log": {
       "path": "modern/out/ctest-current-20261015/Testing/Temporary/LastTest.log",
-      "sha256": "5973500CD201A9D69909021BAB9CD4FC13275057646B11A9EFE59851DB6DDC23F",
+      "sha256": "973500CD201A9D69909021BAB9CD4FC13275057646B11A9EFE59851DB6DDC23F",
       "scope": "local ignored build output"
     },
     "skippedTests": [

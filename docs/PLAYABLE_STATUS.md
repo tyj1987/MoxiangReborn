@@ -1,4 +1,4 @@
-2026-10-24 | 原版当前构建完成全量 CTest：**12,579/12,579 通过、0 失败、14 显式跳过**，总耗时 710.44 秒；跳过项为真实 MSSQL、受保护资源、历史二进制/加密样本等外部门禁，未计入通过。回执见 [`original-full-ctest-20261024.json`](evidence/original-full-ctest-20261024.json)。
+2026-10-24 | 原版当前代码基线 `41b4022b` 在 MSVC 19.44 / VS 2022 Developer PowerShell 下重建成功；全量 CTest 共 **12,579 项：12,565 通过、0 失败、14 跳过**，耗时 87.46 秒。两项客户端 E2E 均命中各自验收正则并计为通过；14 个跳过项为数据库、受保护资源和历史二进制/加密样本门禁，未计入通过。回执与逐项跳过清单见 [`original-full-ctest-20261024-current-head.json`](evidence/original-full-ctest-20261024-current-head.json)。
 
 2026-10-23 | 原版资源/登录隔离门禁在当前提交 `be72f1f9` 重跑：`MoxianLoginSbsE2E`、`MxhResourceByteLevel`、`MxhResourceReference` 共 23 项，21 项通过、0 失败、2 项显式跳过；跳过项均记录了缺少完整 Release 夹具或恢复归档的原因。回执见 [`original-resource-reference-gate-20261023.json`](evidence/original-resource-reference-gate-20261023.json)。
 
