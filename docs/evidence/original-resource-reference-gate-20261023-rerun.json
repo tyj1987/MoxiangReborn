@@ -1,0 +1,32 @@
+{
+  "schema": "moxiang.original-resource-reference-gate.v1",
+  "generatedAt": "2026-10-23T19:20:00+08:00",
+  "sourceHead": "3b737eb196635a74ab50f35ffda356b6b3a8fbf1",
+  "branch": "codex/reorg-original-20261009",
+  "command": "ctest --test-dir modern/build/gameplay-client-isolated -R ^(MxhResourceReference\\.|MxhResourceByteLevel\\.|Map10InGameSmoke\\.|MoxianLoginSbsE2E\\.) --output-on-failure -j1",
+  "summary": {
+    "testsDiscovered": 23,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 2,
+    "exitCode": 0
+  },
+  "skipped": [
+    {
+      "test": "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+      "reason": "requires the complete runtime fixture for the Release smoke path"
+    },
+    {
+      "test": "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+      "reason": "recovered runtime server archive is not present in this isolated checkout"
+    }
+  ],
+  "log": {
+    "path": "modern/out/runs/original-resource-reference-gate-20261023-rerun.log",
+    "sha256": "1EF428C066439CB7A840BBDA1A2CE1EB5A7BA567668238C7F9F8493FADDDF779"
+  },
+  "limitations": [
+    "This local gate does not close missing exact Map17 textures or Monster_203.bin.",
+    "It does not replace PVE MSSQL, full GUI or commercial release acceptance."
+  ]
+}

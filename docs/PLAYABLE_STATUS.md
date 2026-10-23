@@ -238,3 +238,4 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 
 2026-10-20 | 原版真实 GUI 移动子门禁已在提交 `e5beb5c5c9b72ed6434e98642c61dccfe1fcedbe` 通过：VM112 原版默认服务与 PlayDH 下，临时 1 级角色进入 Map10 后由窗口夹具真实调用 `CInGameState::OnKeyEvent` 按住/释放 W，位置从 `(24474,24733)` 收到服务端权威回执变为 `(24474,24832)`，随后正常 `GUI_SMOKE_PASS`。临时账号、角色、状态和物品行已清零，默认三服保持运行；回执见 [`original-pve-gui-movement-20261020.json`](evidence/original-pve-gui-movement-20261020.json)。这只关闭移动子门禁，战斗后的装备/切图/重登 GUI 路径、完整资源与商业稳定性仍未闭合。
 
+2026-10-23 | 原版工作树当前提交 `3b737eb1` 重新执行资源字节、PlayDH 引用、Map10 smoke 与登录侧边并行回归：23 项中 **21 通过、0 失败、2 显式跳过**，退出码 0。回执见 [`evidence/original-resource-reference-gate-20261023-rerun.json`](evidence/original-resource-reference-gate-20261023-rerun.json)。跳过项仍缺完整 Release 夹具与恢复服务端归档，不关闭原版精确缺口、PVE MSSQL 或真人 GUI。
