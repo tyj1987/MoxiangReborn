@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GUARD = ROOT / "deploy/scripts/assert_original_writer_contract.ps1"
 WRAPPER = ROOT / "deploy/scripts/start_original_vm112.ps1"
 PACKAGE = ROOT / "scripts/package-original-vm112.py"
+CURRENT_PACKAGE = ROOT / "scripts/package-original-vm112-current.py"
 
 
 class Vm112WriterContractTests(unittest.TestCase):
@@ -50,7 +51,40 @@ class Vm112WriterContractTests(unittest.TestCase):
         source = (ROOT / "deploy/scripts/start_current_vm112.ps1").read_text(encoding="utf-8")
         self.assertIn("[string]$DatabaseName = 'MoxiangOriginalTest_20261009'", source)
         self.assertIn("$manifest.writerContract.database -ne $DatabaseName", source)
+        self.assertIn("$manifest.writerContract.databaseHost -ne $DatabaseHost", source)
+        self.assertIn("[string]::IsNullOrWhiteSpace($DatabaseHost)", source)
+        self.assertIn("[regex]::Escape($DatabaseHost)", source)
+        self.assertIn("stage listener port contract mismatch", source)
         self.assertIn("[regex]::Escape($DatabaseName)", source)
+
+    def test_current_package_records_only_explicit_non_loopback_database_host(self):
+        source = CURRENT_PACKAGE.read_text(encoding="utf-8")
+        self.assertIn('"--database-host", default="192.168.2.238"', source)
+        self.assertIn("database_ip.is_loopback", source)
+        self.assertIn('"databaseHost": str(database_ip)', source)
+        self.assertIn('"map12": args.map12_port', source)
+
+    def test_current_package_rejects_duplicate_ports_before_build_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "candidate"
+            result = subprocess.run(
+                ["python", str(CURRENT_PACKAGE), "--build-dir", str(Path(directory) / "missing"),
+                 "--output", str(output), "--login-port", "36001", "--agent-port", "36001"],
+                capture_output=True, text=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("five stage ports must be distinct", result.stderr)
+        self.assertFalse(output.exists())
+
+    def test_current_package_rejects_loopback_database_before_build_access(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "candidate"
+            result = subprocess.run(
+                ["python", str(CURRENT_PACKAGE), "--build-dir", str(Path(directory) / "missing"),
+                 "--output", str(output), "--database-host", "127.0.0.1"],
+                capture_output=True, text=True, timeout=20)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("non-loopback IPv4", result.stderr)
+        self.assertFalse(output.exists())
 
     def test_guard_pins_new_nullable_attribute_writer_contract(self):
         source = GUARD.read_text(encoding="utf-8")

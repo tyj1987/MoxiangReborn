@@ -4,11 +4,11 @@ param(
     [string]$DatabaseConfigEnv = 'MXH_DATABASE_CONFIG',
     [string]$DatabaseHost = '',
     [string]$DatabaseName = 'MoxiangOriginalTest_20261009',
-    [int]$LoginPort = 16001,
-    [int]$AgentPort = 17001,
-    [int]$MapPort = 18001,
-    [int]$Map12Port = 18002,
-    [int]$Map2Port = 18003,
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [ValidateRange(1, 65535)] [int]$Map12Port = 18002,
+    [ValidateRange(1, 65535)] [int]$Map2Port = 18003,
     [switch]$EnableMap17,
     [ValidateRange(1, 65535)] [int]$Map17Port = 18004,
     [int]$MapNumber = 10,
@@ -20,14 +20,25 @@ $manifestPath = Join-Path $stage 'stage-manifest.json'
 if (-not (Test-Path $manifestPath -PathType Leaf)) { throw 'stage-manifest.json is missing' }
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
 if ([int]$manifest.schema -ne 2 -or [string]$manifest.stage -notlike '*stage-*') { throw 'current stage manifest identity mismatch' }
-if ([string]$manifest.writerContract.databaseHost -ne '192.168.2.238' -or
+if ([string]::IsNullOrWhiteSpace($DatabaseHost) -or
+    [string]$manifest.writerContract.databaseHost -ne $DatabaseHost -or
     [string]$manifest.writerContract.database -ne $DatabaseName -or
     [int]$manifest.writerContract.schemaVersion -ne 4 -or
     [string]$manifest.writerContract.resourceProfile -ne 'playdh-current') { throw 'writer contract mismatch' }
-if ($AdvertisedAgentAddress -ne '192.168.2.244' -or $DatabaseHost -ne '192.168.2.238') { throw 'VM112 binding mismatch' }
+$databaseIp = $null
+if (-not [Net.IPAddress]::TryParse($DatabaseHost, [ref]$databaseIp) -or
+    $databaseIp.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or
+    [Net.IPAddress]::IsLoopback($databaseIp) -or
+    $databaseIp.Equals([Net.IPAddress]::Any)) { throw 'An explicit non-loopback IPv4 database host is required.' }
+if ($AdvertisedAgentAddress -ne '192.168.2.244') { throw 'VM112 binding mismatch' }
 $allPorts = @($LoginPort,$AgentPort,$MapPort,$Map12Port,$Map2Port)
 if ($EnableMap17) { $allPorts += $Map17Port }
 if (@($allPorts | Group-Object | Where-Object Count -gt 1).Count -gt 0) { throw 'Login, Agent and Map ports must be distinct.' }
+if ([int]$manifest.listenerPorts.login -ne $LoginPort -or
+    [int]$manifest.listenerPorts.agent -ne $AgentPort -or
+    [int]$manifest.listenerPorts.map10 -ne $MapPort -or
+    [int]$manifest.listenerPorts.map12 -ne $Map12Port -or
+    [int]$manifest.listenerPorts.map2 -ne $Map2Port) { throw 'stage listener port contract mismatch' }
 $resourceRoot = Join-Path $stage 'modern\data\PlayDH'
 $serverResourceRoot = Join-Path $resourceRoot 'Resource\Server'
 $resourceManifestPath = Join-Path $stage 'reference\manifests\playdh-current.sha256.json'
@@ -60,7 +71,7 @@ if (Test-Path $state) { throw 'current stage PID file already exists' }
 $cfg = [Environment]::GetEnvironmentVariable($DatabaseConfigEnv, 'Process')
 if ([string]::IsNullOrWhiteSpace($cfg) -or
     $cfg -notmatch '(?i)(^|;)backend=mssql_odbc(;|$)' -or
-    $cfg -notmatch '(?i)(^|;)host=192\.168\.2\.238(;|$)' -or
+    $cfg -notmatch (("(?i)(^|;)host=" + [regex]::Escape($DatabaseHost) + '(;|$)')) -or
     $cfg -notmatch ("(?i)(^|;)database=" + [regex]::Escape($DatabaseName) + '(;|$)')) {
     throw 'protected database config missing or mismatched'
 }

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import subprocess
 import zipfile
@@ -90,9 +91,22 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--stage-path", default=r"C:\Moxiang\original\stage-20261009")
     parser.add_argument("--database", default="MoxiangOriginalTest_20261009")
+    parser.add_argument("--database-host", default="192.168.2.238",
+                        help="explicit IPv4 SQL endpoint for this isolated stage")
+    parser.add_argument("--login-port", type=int, default=16001)
+    parser.add_argument("--agent-port", type=int, default=17001)
+    parser.add_argument("--map-port", type=int, default=18001)
+    parser.add_argument("--map12-port", type=int, default=18002)
+    parser.add_argument("--map2-port", type=int, default=18003)
     parser.add_argument("--map-number", type=int, default=10, help="primary map used by the stage")
     parser.add_argument("--enable-map17", action="store_true", help="require the optional Map17 server AIGroup")
     args = parser.parse_args()
+    database_ip = ipaddress.ip_address(args.database_host)
+    if database_ip.version != 4 or database_ip.is_loopback or database_ip.is_unspecified:
+        raise ValueError("database host must be an explicit, non-loopback IPv4 address")
+    ports = [args.login_port, args.agent_port, args.map_port, args.map12_port, args.map2_port]
+    if any(port < 1 or port > 65535 for port in ports) or len(set(ports)) != len(ports):
+        raise ValueError("all five stage ports must be distinct values in 1..65535")
     build = (ROOT / args.build_dir).resolve() if not args.build_dir.is_absolute() else args.build_dir
     output = (ROOT / args.output).resolve() if not args.output.is_absolute() else args.output
     archive = output.with_suffix(".zip")
@@ -141,7 +155,7 @@ def main() -> None:
         "resourcePaks": resources,
         "writerContract": {
             "id": "original-vm112-modern-mssql-v1",
-            "databaseHost": "192.168.2.238",
+            "databaseHost": str(database_ip),
             "database": args.database,
             "schemaVersion": 4,
             "resourceProfile": "playdh-current",
@@ -149,7 +163,8 @@ def main() -> None:
         },
         "requiredMapNumbers": [row["map"] for row in server_ai_groups],
         "serverAiGroupResources": server_ai_groups,
-        "listenerPorts": {"login": 16001, "agent": 17001, "map10": 18001, "map12": 18002, "map2": 18003},
+        "listenerPorts": {"login": args.login_port, "agent": args.agent_port, "map10": args.map_port,
+                           "map12": args.map12_port, "map2": args.map2_port},
         "files": entries,
     }
     (output / "stage-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
