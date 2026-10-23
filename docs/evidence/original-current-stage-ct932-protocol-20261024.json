@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "observedAtLocal": "2026-10-24",
+  "result": "partial_pass",
+  "releaseReady": false,
+  "source": {
+    "branch": "codex/reorg-original-20261009",
+    "commit": "d1481931f2dae214af3d26f8927afa5253cf3fc2",
+    "gitlabBranchAtCheck": "d1481931f2dae214af3d26f8927afa5253cf3fc2",
+    "githubMirrorBranchAtCheck": "8a3974a16ab13f083c3e9c35b5433469e06cbe4b"
+  },
+  "build": {
+    "configuration": "Visual Studio 2022 x86 Debug",
+    "buildStepsPassed": 330,
+    "ctest": {
+      "total": 12579,
+      "passed": 12579,
+      "failed": 0,
+      "skipped": 14,
+      "durationSeconds": 65.99,
+      "logSha256": "3f03d5c673a46d4050ba34cd69b73947252756cb7be745fd4e0e71e966ca7e8a",
+      "skippedTests": [
+        "MhFileExUtf8.LegacyEucKrTitanServerBinDecodesToEucKr",
+        "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+        "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+        "MxhResourcePayloadSha256.VerifyManifest_Deploy",
+        "MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds",
+        "MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip",
+        "MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip",
+        "MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState",
+        "DropItemLoaderTest.ParsesReadOnlySworkingReference",
+        "AiGroupLoader.LoadsRealMonster10Bin",
+        "AiGroupLoader.LoadsRealEmptyMonster12Bin",
+        "AISystemGroupLoader.ReplacesStateTransactionally",
+        "HselMapFixture.HselEncryptedGameInRoundTrip",
+        "PlayerMonsterPoint.LoadsRecoveredRuntimeBinary"
+      ]
+    }
+  },
+  "package": {
+    "path": "modern/out/runs/original-current-ct932-tlsname-20261024.zip",
+    "sha256": "4587c50c93ef64755e5966f9e436f181292c62d98587919cc7d5bd99192b36ab",
+    "sourceHead": "d1481931f2dae214af3d26f8927afa5253cf3fc2",
+    "resourceProfile": "playdh-current",
+    "resourceManifestSha256": "875d2de35eb0f22b4cf20eb2caa3794902b87c9e6038e30c73f0663c2f74d90c",
+    "resourceFiles": 5297,
+    "resourceBytes": 1691253485,
+    "resourceHashAudit": {
+      "missing": 0,
+      "wrongShaOrSize": 0,
+      "extra": 0
+    }
+  },
+  "pve": {
+    "vm": 112,
+    "stage": "C:\\Moxiang\\original\\stage-ct932-20261024-r2",
+    "databaseContainer": 932,
+    "databaseContainerHost": "192.168.2.237",
+    "databaseContainerOnboot": false,
+    "sourceContainer930Preserved": true,
+    "database": "MoxiangOriginalRestoreAudit_20261024",
+    "databaseWriterContract": "original-vm112-modern-mssql-v1",
+    "databaseSchemaVersion": 4,
+    "tls": {
+      "encrypt": true,
+      "trustServerCertificate": false,
+      "hostnameInCertificate": "moxiang-db-recovery-20261009",
+      "readOnlyConnectionPassed": true
+    },
+    "ports": {
+      "login": 36101,
+      "agent": 37101,
+      "map10": 38101,
+      "map12": 38102,
+      "map2": 38103
+    },
+    "listenerReadback": {
+      "allFiveListening": true,
+      "allExecutablesResolvedUnderStage": true,
+      "defaultOriginalAndUnityPortsChanged": false
+    },
+    "databaseFixture": {
+      "testAccount": "mxhct718533",
+      "character": "E2Ect932b",
+      "characterId": 100004,
+      "loginAckUserId": 2,
+      "accountAndCharacterReadbackPassed": true,
+      "credentialPersisted": false,
+      "fixtureRetainedOnlyInIsolatedClone": true
+    }
+  },
+  "protocolE2e": {
+    "client": "modern/out/ctest-current-20261015/tools/MoxianClientE2E/mxh_client_e2e.exe",
+    "clientLog": "docs/evidence/original-current-protocol-e2e-ct932-20261024.log",
+    "clientLogSha256": "b223f77fbbd98a8b5e5e086f1be2a1fc7d45be151527902d35c0e3584197d3e3",
+    "exitCode": 0,
+    "stepsPassed": [
+      "LoginAck",
+      "CharacterListAck",
+      "CharacterMakeAndRelist",
+      "CharacterSelectAck",
+      "Map10GameInAck"
+    ],
+    "map10MonsterCount": 228,
+    "playerLevel": 1,
+    "playerLife": "131/131",
+    "serverSpawnedByClient": false,
+    "writesOccurredOnlyAgainstIsolatedClone": true
+  },
+  "notAccepted": [
+    "Human GUI visual and input acceptance",
+    "authoritative combat, natural drop, click pickup, equipment and relog persistence",
+    "full original 1:1 missing-resource gates",
+    "all maps, economy, social systems and long-duration stability"
+  ]
+}
