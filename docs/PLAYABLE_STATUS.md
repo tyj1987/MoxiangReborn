@@ -1,3 +1,5 @@
+2026-10-24 | 原版当前构建完成全量 CTest：**12,579/12,579 通过、0 失败、14 显式跳过**，总耗时 710.44 秒；跳过项为真实 MSSQL、受保护资源、历史二进制/加密样本等外部门禁，未计入通过。回执见 [`original-full-ctest-20261024.json`](evidence/original-full-ctest-20261024.json)。
+
 2026-10-23 | 原版资源/登录隔离门禁在当前提交 `be72f1f9` 重跑：`MoxianLoginSbsE2E`、`MxhResourceByteLevel`、`MxhResourceReference` 共 23 项，21 项通过、0 失败、2 项显式跳过；跳过项均记录了缺少完整 Release 夹具或恢复归档的原因。回执见 [`original-resource-reference-gate-20261023.json`](evidence/original-resource-reference-gate-20261023.json)。
 
 2026-10-23 | 原版 side-by-side 登录联调修复并重新构建：修正测试从 `tools/MoxianSideBySide` 推导服务端根目录的层级，移除登录服不支持的 `--init-schema` 参数；`MoxianLoginSbsE2E.*` **2/2 通过**，现代登录服在 `26101` 接受 loopback 探针且日志无未知参数。回执见 [`original-login-sbs-current-20261023.json`](evidence/original-login-sbs-current-20261023.json)。这仍是本机 side-by-side 门禁，不替代 PVE MSSQL、真人 GUI 全链或商业发布验收。
