@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "kind": "original-full-ctest",
-  "timestampUtc": "2026-10-24T00:00:00Z",
+  "runDate": "2026-10-24",
   "workspace": "E:/Workspaces/moxiang/worktrees/original-integration",
   "command": "ctest --test-dir modern/build/gameplay-client-isolated --output-on-failure -j1",
   "result": {
