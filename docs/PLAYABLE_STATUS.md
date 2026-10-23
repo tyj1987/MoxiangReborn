@@ -252,3 +252,11 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 2026-10-24 | 原版 modern 当前构建目录完整 CTest 重跑：`12574/12574` 通过、0 失败、14 项显式跳过，退出码 0，实耗 123.94s。跳过项仍集中在真实 MSSQL、部署/参考资源和受保护运行时门禁，不能升级为完整商业可玩验收；回执见 [`original-full-ctest-20261024-rerun.json`](evidence/original-full-ctest-20261024-rerun.json)。
 
 2026-10-24 | 原版 PlayDH 资源覆盖重新审计：当前运行资源根目录 600/600 文件经 modern 解析器通过（`.pak` 7/7，`.bin` 499/501，另 2 个明确为派生解包 payload，BMHM 81/81，BSAD 11/11）；该结果只证明现存文件可解析，不证明 HFL/TTB/Map17/Map203 缺失源资源已恢复。报告 `modern/out/runs/resource-coverage-current-20261024.txt`，结构化回执见 [`original-resource-coverage-20261024.json`](evidence/original-resource-coverage-20261024.json)。
+
+## 2026-10-24 当前原版源码隔离 stage 准备
+
+原版候选 `335f004ee59088348d65b8c78e2235292fc0e350` 已新增明确的数据库 IPv4 与五个 stage 端口契约；包清单、启动参数和运行时数据库配置必须完全一致。9 项 writer-contract 定向测试通过，PowerShell 解析与 `git diff --check` 通过。提交已推送 GitLab 原版候选分支。
+
+在 VM112 新建隔离目录 `C:\Moxiang\original\stage-ct932-20261024`，服务使用 CT932 恢复库 `MoxiangOriginalRestoreAudit_20261024`，端口 `36001/37001/38001/38002/38003`。只读资源比对发现旧运行 stage 少 161 个当前 manifest 文件、共 1,778,728 字节；已有 5,136 个文件 SHA-256 全部匹配，没有额外文件。仅将这 161 个清单内资源补入新目录，全部逐个校验后，PlayDH 恢复到 5,297 个文件、1,691,253,485 字节；没有覆盖已有文件。新包 SHA、资源 overlay SHA 和完整结果见 [`original-current-stage-ct932-planonly-20261024.json`](evidence/original-current-stage-ct932-planonly-20261024.json)。
+
+启动脚本的 plan-only 已绑定当前源码 SHA、数据库名、数据库主机和全部端口并通过，确认不会启动进程。真实启服前，CT932 克隆证书对 `192.168.2.237` 的 TLS 主机名验证失败；克隆 SA 登录诊断也未通过。未放宽 `trust_server_certificate`，未启动候选进程。CT930 与 CT932 SQL 服务均保持 active，VM112 原版/Unity 默认端口保持不变，候选端口未监听。当前 SHA 服务部署、真实登录/玩法、业务写入与重启回读仍未通过。
