@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-10-23T19:18:56Z",
+  "sourceCommit": "7914431bd9185cfc94dd31aef42638968ea54535",
+  "unitySourceCommit": "20cb9ffe5276b3d0f20eb62730a1ff37f7917e0d",
+  "scope": {
+    "pveNode": "pve",
+    "sourceContainer": 930,
+    "sourceContainerName": "moxiang-db-recovery-20261009",
+    "sourceEndpoint": "192.168.2.238:1433",
+    "sourceSqlServiceAfterTest": "active",
+    "sourceBackupsUnchanged": true,
+    "sourceSnapshot": "before-moxiang-restore-audit-20261024",
+    "snapshotFilesystemFreezeThaw": true,
+    "isolatedClone": 932,
+    "isolatedCloneName": "moxiang-db-restore-audit-20261024",
+    "cloneEndpoint": "192.168.2.237:1433",
+    "cloneOnboot": false,
+    "allRestoresAndSchemaWritesConfinedToClone": true
+  },
+  "permissionDiagnosis": {
+    "sqlErrorNumbers": [262, 3013],
+    "meaning": "The VM112 runtime login lacked CREATE DATABASE permission required by RESTORE HEADERONLY.",
+    "sourceSqlLoginOrPermissionsChanged": false,
+    "reference": "https://learn.microsoft.com/en-us/sql/t-sql/statements/restore-statements-headeronly-transact-sql?view=sql-server-ver17"
+  },
+  "backups": [
+    {
+      "label": "original-r17",
+      "path": "/var/opt/mssql/data/MoxiangOriginalPreR17_original-r17-db-9b4fd2904db84345826d220c6b45052b.bak",
+      "sizeBytes": 4968448,
+      "sha256": "7d20582d06ac6d71a6eb2a868b5da118defe4ebb566d2a648bd91c3d95f3f5d1",
+      "headerOnly": "passed",
+      "backupDatabaseName": "MoxiangOriginalTest_20261009",
+      "backupType": "Database",
+      "isDamaged": false,
+      "backupSizeBytes": 4939776,
+      "fileList": [
+        {"logicalName": "MoxiangOriginalTest_20261009", "type": "D", "fileId": 1},
+        {"logicalName": "MoxiangOriginalTest_20261009_log", "type": "L", "fileId": 2}
+      ],
+      "verifyOnlyWithChecksum": "passed",
+      "restoredDatabase": "MoxiangOriginalRestoreAudit_20261024",
+      "restoreUsedReplace": false,
+      "dbccCheckdb": "passed",
+      "restoredSchemaVersion": 1,
+      "tableCountBeforeMigration": 20,
+      "currentSourceMssqlSchemaStatements": 42,
+      "currentSourceSchemaMigration": "passed",
+      "schemaVersionAfterMigration": 4,
+      "tableCountAfterMigration": 21,
+      "sourceBusinessRowsBeforeAfter": {
+        "character_info": [4, 4],
+        "chr_log_info": [1, 1]
+      },
+      "dbccAfterMigration": "passed",
+      "modernPlayerStateWriteReadRollback": {
+        "passed": true,
+        "rowCountDuringTransaction": 1,
+        "rowCountAfterRollback": 0
+      }
+    },
+    {
+      "label": "unity-v6b",
+      "path": "/var/opt/mssql/data/MoxiangUnityTest_20261009-pre-network-v6b-69f98655.bak",
+      "sizeBytes": 5296128,
+      "sha256": "e3ddfd705308e25e5d3877a657b078d6c160a0dca03ff5cd13a33a8152aca997",
+      "headerOnly": "passed",
+      "backupDatabaseName": "MoxiangUnityTest_20261009",
+      "backupType": "Database",
+      "isDamaged": false,
+      "backupSizeBytes": 5267456,
+      "fileList": [
+        {"logicalName": "MoxiangUnityTest_20261009", "type": "D", "fileId": 1},
+        {"logicalName": "MoxiangUnityTest_20261009_log", "type": "L", "fileId": 2}
+      ],
+      "verifyOnlyWithChecksum": "passed",
+      "restoredDatabase": "MoxiangUnityRestoreAudit_20261024",
+      "restoreUsedReplace": false,
+      "dbccCheckdb": "passed",
+      "restoredSchemaVersion": 1,
+      "tableCountBeforeMigration": 22,
+      "currentSourceMssqlSchemaStatements": 33,
+      "currentSourceSchemaMigration": "passed",
+      "schemaVersionAfterMigration": 1,
+      "tableCountAfterMigration": 22,
+      "sourceBusinessRowsBeforeAfter": {
+        "character_info": [1, 1],
+        "chr_log_info": [1, 1]
+      },
+      "dbccAfterMigration": "passed",
+      "modernPlayerStateWriteReadRollback": {
+        "passed": true,
+        "rowCountDuringTransaction": 1,
+        "rowCountAfterRollback": 0
+      }
+    }
+  ],
+  "migrationSources": {
+    "original": {
+      "path": "modern/src/schema_migration.cpp",
+      "sha256": "1d591d49fb9d66d2644726ace1c146c6776a4df46243cce92f0742e7685b0838",
+      "extractedStatementCount": 42,
+      "statementsSha256": "b99a3939602da7e2a655ffecbd746ce99dc661ab661fbffad02d67d5aa0dec80"
+    },
+    "unity": {
+      "path": "modern/src/schema_migration.cpp",
+      "sha256": "69e3eb5e437d765bdd69120fb7c0536b53226cc6f232d21602dba3edc552a5c3",
+      "extractedStatementCount": 33,
+      "statementsSha256": "eed9b3004b1883e0f5b8db5f693a0146adda1c8569eb20e1931f853330b5a334"
+    }
+  },
+  "sourceDatabasePostCheck": {
+    "database": "MoxiangOriginalTest_20261009",
+    "host": "192.168.2.238:1433",
+    "readOnlyQuery": "passed",
+    "tableCount": 21,
+    "schemaVersion": 4,
+    "writesPerformed": false
+  },
+  "receipts": [
+    {"file": "moxiang-vm112-backup-header-readonly-20261024-40c1733467f3452a9a8c94c803dbaeca.jsonl", "sha256": "60e1861d5d43852d460680e57f0a3e219c26967884a30d629134d0bc8f3d303a"},
+    {"file": "moxiang-ct932-backup-verify-20261024-412f726012344b919fe02a725879d846-original-r17.jsonl", "sha256": "61b1c4b3276c6d09918ef8e9238690e378f8227750ee6ead0ee98eda2ede4bc8"},
+    {"file": "moxiang-ct932-backup-verify-20261024-412f726012344b919fe02a725879d846-unity-v6b.jsonl", "sha256": "99285c664d43bc77b58e192b46d86565568da97a45ef2eab6b00c75c4971e878"},
+    {"file": "moxiang-ct932-isolated-restore-20261024-8a1f4f577d3e431b974cccd1d0b37523-original-r17.jsonl", "sha256": "29f4bea6140a84a34ca4d6c3b3d5be6acbfc16a78eab35210f3c613088aedacc"},
+    {"file": "moxiang-ct932-isolated-restore-20261024-8a1f4f577d3e431b974cccd1d0b37523-unity-v6b.jsonl", "sha256": "19d7b47623b46113e84800216f431a91defc8cbf070c5114ce4ff3e57e0c0f09"},
+    {"file": "moxiang-ct932-schema-migration-20261024-0419e29cdec043f6a850187de6cfb7b0-original.jsonl", "sha256": "06068fbf7b3479a31ec2fd06a61d1f51914953754d9793e606c5dba70c313184"},
+    {"file": "moxiang-ct932-schema-migration-20261024-0419e29cdec043f6a850187de6cfb7b0-unity.jsonl", "sha256": "cb872c88942cc9e2d58136948978c536fadc14a8882ecf362d98b7a7e92eef99"},
+    {"file": "moxiang-vm112-sql-readonly-20261024-540e53faac8348eb86f0bf98dd5956f7.jsonl", "sha256": "4acd12c7943209974170bf4451e57e2b07d55837d8aeb60d5aeba42a7c920fa6"}
+  ],
+  "notProven": [
+    "Current server binaries have not been deployed to or started against CT932.",
+    "GUI gameplay and persistence on the current source SHA remain open.",
+    "This isolated restore does not make CT930 source databases or VM112 stage deployable/accepted."
+  ]
+}
