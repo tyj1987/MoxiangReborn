@@ -245,3 +245,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 2026-10-24 | 原版当前提交 `b5a0b91d75e946be81e30ae39b56b974dcf3b504` 资源引用/字节回归重新执行：23 项中 21 通过、0 失败、2 项按预期跳过（完整 Release fixture 与 recovered runtime archive 缺失）。回执见 [`evidence/original-resource-reference-gate-20261024.json`](evidence/original-resource-reference-gate-20261024.json)；该结果不关闭原版精确资源、PVE MSSQL、真人 GUI 或商业发布门禁。
 2026-10-24 | 已扫描本地抓取的 18 个 GitLab/GitHub 远端引用：精确 HFL 非占位命中 0、Monster_203.bin 精确路径命中 0、Map17 目标纹理引用命中 0；近名 InsDGMonster_203.bin 和 Unity 派生 TTB 均未准入原版。回执见 [vidence/original-all-remote-resource-ref-scan-20261024.json](evidence/original-all-remote-resource-ref-scan-20261024.json)。
 2026-10-24 | 原版资源引用/字节回归绑定当前提交 410cf7fa：23 项中 21 通过、0 失败、2 项按预期跳过。回执见 [vidence/original-resource-reference-gate-rerun-20261024.json](evidence/original-resource-reference-gate-rerun-20261024.json)。
+2026-10-24 | 原版 modern 当前构建目录完整 CTest 重跑：`12574/12574` 通过、0 失败、14 项显式跳过，退出码 0，实耗 123.94s。跳过项仍集中在真实 MSSQL、部署/参考资源和受保护运行时门禁，不能升级为完整商业可玩验收；回执见 [`original-full-ctest-20261024-rerun.json`](evidence/original-full-ctest-20261024-rerun.json)。
+
