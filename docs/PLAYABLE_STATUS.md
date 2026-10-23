@@ -260,3 +260,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 在 VM112 新建隔离目录 `C:\Moxiang\original\stage-ct932-20261024`，服务使用 CT932 恢复库 `MoxiangOriginalRestoreAudit_20261024`，端口 `36001/37001/38001/38002/38003`。只读资源比对发现旧运行 stage 少 161 个当前 manifest 文件、共 1,778,728 字节；已有 5,136 个文件 SHA-256 全部匹配，没有额外文件。仅将这 161 个清单内资源补入新目录，全部逐个校验后，PlayDH 恢复到 5,297 个文件、1,691,253,485 字节；没有覆盖已有文件。新包 SHA、资源 overlay SHA 和完整结果见 [`original-current-stage-ct932-planonly-20261024.json`](evidence/original-current-stage-ct932-planonly-20261024.json)。
 
 启动脚本的 plan-only 已绑定当前源码 SHA、数据库名、数据库主机和全部端口并通过，确认不会启动进程。真实启服前，CT932 克隆证书对 `192.168.2.237` 的 TLS 主机名验证失败；克隆 SA 登录诊断也未通过。未放宽 `trust_server_certificate`，未启动候选进程。CT930 与 CT932 SQL 服务均保持 active，VM112 原版/Unity 默认端口保持不变，候选端口未监听。当前 SHA 服务部署、真实登录/玩法、业务写入与重启回读仍未通过。
+
+CT932 的临时 SA 恢复尝试未到交互提示即失败；没有修改 CT930 凭据、数据库 schema 或业务数据，CT932 SQL 服务仍 active。测试凭据未进入仓库。具体边界和失败结果已写入同一结构化证据。

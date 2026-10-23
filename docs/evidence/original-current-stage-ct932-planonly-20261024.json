@@ -60,6 +60,13 @@
     "processesStarted": 0,
     "candidatePidManifestCreated": false
   },
+  "credentialRecovery": {
+    "isolatedCloneSaResetAttempt": "failed_before_interactive_prompt",
+    "isolatedSqlServiceAfterAttempt": "active",
+    "sourceContainerCredentialsChanged": false,
+    "databaseSchemaOrBusinessRowsWritten": false,
+    "credentialMaterialCommitted": false
+  },
   "liveEnvironmentAfterAttempt": {
     "ct930SqlService": "active",
     "ct932SqlService": "active",
