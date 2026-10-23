@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-playdh-resource-coverage",
+  "runDate": "2026-10-24",
+  "sourceHead": "f694685e63fe064c4f1ab0bfadec96207050901f",
+  "command": "python modern/tools/audit_resource_coverage.py modern/data/PlayDH --build-dir modern/out/build-client-x64-diagnose --output modern/out/runs/resource-coverage-current-20261024.txt",
+  "result": {
+    "files": 600,
+    "parsed": 600,
+    "failed": 0,
+    "status": "pass",
+    "extensions": {
+      ".bin": {"total": 501, "ok": 499, "presentDerived": 2},
+      ".bmhm": {"total": 81, "ok": 81},
+      ".bsad": {"total": 11, "ok": 11},
+      ".pak": {"total": 7, "ok": 7}
+    },
+    "pakBytes": 1328704897,
+    "totalBytes": 1336864105
+  },
+  "reportPath": "modern/out/runs/resource-coverage-current-20261024.txt",
+  "interpretation": "All files present in the current tracked PlayDH runtime root parse successfully. This inventory does not prove that missing HFL/TTB/Map17/Map203 source resources are present; two .bin entries are derived-unpacked payloads and remain classified separately."
+}

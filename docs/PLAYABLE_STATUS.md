@@ -247,3 +247,5 @@ UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原�
 2026-10-24 | 原版资源引用/字节回归绑定当前提交 410cf7fa：23 项中 21 通过、0 失败、2 项按预期跳过。回执见 [vidence/original-resource-reference-gate-rerun-20261024.json](evidence/original-resource-reference-gate-rerun-20261024.json)。
 2026-10-24 | 原版 modern 当前构建目录完整 CTest 重跑：`12574/12574` 通过、0 失败、14 项显式跳过，退出码 0，实耗 123.94s。跳过项仍集中在真实 MSSQL、部署/参考资源和受保护运行时门禁，不能升级为完整商业可玩验收；回执见 [`original-full-ctest-20261024-rerun.json`](evidence/original-full-ctest-20261024-rerun.json)。
 
+2026-10-24 | 原版 PlayDH 资源覆盖重新审计：当前运行资源根目录 600/600 文件经 modern 解析器通过（`.pak` 7/7，`.bin` 499/501，另 2 个明确为派生解包 payload，BMHM 81/81，BSAD 11/11）；该结果只证明现存文件可解析，不证明 HFL/TTB/Map17/Map203 缺失源资源已恢复。报告 `modern/out/runs/resource-coverage-current-20261024.txt`，结构化回执见 [`original-resource-coverage-20261024.json`](evidence/original-resource-coverage-20261024.json)。
+
