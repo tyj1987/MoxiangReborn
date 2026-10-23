@@ -1,0 +1,34 @@
+{
+  "schema": "moxiang.original-login-side-by-side.v1",
+  "generatedAt": "2026-10-23T00:00:00+08:00",
+  "sourceHead": "713be282",
+  "branch": "codex/reorg-original-20261009",
+  "build": {
+    "targets": [
+      "mxh_side_by_side",
+      "mxh_login_sbs_e2e_tests"
+    ],
+    "directory": "modern/build/gameplay-client-isolated",
+    "compiler": "MSVC 14.44.35207 (C:\\BuildTools)"
+  },
+  "test": {
+    "command": "tests/unit/mxh_login_sbs_e2e_tests.exe --gtest_filter=MoxianLoginSbsE2E.*",
+    "testsRun": 2,
+    "testsPassed": 2,
+    "testsFailed": 0,
+    "exitCode": 0,
+    "checks": [
+      "ServerBinariesAreDiscoverable",
+      "StartsLoginServerAndAcceptsLoopbackProbe"
+    ],
+    "observed": [
+      "side-by-side resolves sibling servers below the build tools root",
+      "modern login server accepts the loopback probe on port 26101",
+      "no unsupported --init-schema argument is passed to MoxianLoginServer"
+    ]
+  },
+  "limitations": [
+    "This is a local side-by-side login harness gate, not a PVE MSSQL or full GUI acceptance.",
+    "The loopback probe intentionally uses the test server's SQLite backend."
+  ]
+}
