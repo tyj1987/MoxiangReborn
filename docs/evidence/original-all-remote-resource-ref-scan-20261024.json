@@ -1,0 +1,519 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-24",
+  "scope": "all locally fetched GitLab/GitHub remote refs and local heads",
+  "refsScanned": 18,
+  "refs": [
+    {
+      "ref": "refs/heads/codex/reorg-original-20261009",
+      "head": "6051bed1c10e7e7c0e85071519d80337c1e52a66",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/heads/codex/reorg-unity-20261009",
+      "head": "865c73106a201d9a5a0f3ecc0000186ac873d176",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 110
+    },
+    {
+      "ref": "refs/heads/codex/unity-client-remaster",
+      "head": "b751df254df429b292db7b237fd165b2e924113e",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/heads/main",
+      "head": "fffe87fda796d4d7fc423da5a75ef648a4f5dd3d",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": false,
+      "map17TexturePaths": 0,
+      "ttbPaths": 0
+    },
+    {
+      "ref": "refs/remotes/gitlab/codex/reorg-original-20261009",
+      "head": "6051bed1c10e7e7c0e85071519d80337c1e52a66",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/gitlab/codex/reorg-unity-20261009",
+      "head": "865c73106a201d9a5a0f3ecc0000186ac873d176",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 110
+    },
+    {
+      "ref": "refs/remotes/gitlab/codex/sync-moxiang-20261001",
+      "head": "99b3a72f6fe5093c07495a311d007f6e5a51ea75",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/gitlab/codex/unity-client-remaster",
+      "head": "92dff9c38f2b2c585c76c3432c9ed2a0da892ec8",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 110
+    },
+    {
+      "ref": "refs/remotes/gitlab/main",
+      "head": "15d5fcef208f338a9e86fe60b28affbef72db093",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/fix-pickup-loop-20261001",
+      "head": "b038ce40d17790ca9e28ce37cc9f8446de480106",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/original-assets-foundation",
+      "head": "3dc89bc708bf3055aed8311e753c4bad4d4d66c9",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/reorg-original-20261009",
+      "head": "3b737eb196635a74ab50f35ffda356b6b3a8fbf1",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/runtime-recovery-pve",
+      "head": "89a11b3653549bab7471f53f8f0aafb72e98ce2a",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/sync-moxiang-20261001",
+      "head": "99b3a72f6fe5093c07495a311d007f6e5a51ea75",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/codex/unity-client-remaster",
+      "head": "b751df254df429b292db7b237fd165b2e924113e",
+      "hfl": {
+        "modern/data/PlayDH/Resource/Map/0.hfl": {
+          "blob": "20f758f97218c73f5c3f5b2b5ad789f29ab9eeb9",
+          "bytes": 137030,
+          "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/4.hfl": {
+          "blob": "f9cf173137d4c549bf9c53978482ce821287a154",
+          "bytes": 137030,
+          "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/23.hfl": {
+          "blob": "a19b9c53205f755e8808da2681e7492fbf19373d",
+          "bytes": 137030,
+          "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/24.hfl": {
+          "blob": "cab184aa99a76eae516d2e7ebdb7ff489ef23ca5",
+          "bytes": 137030,
+          "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/32.hfl": {
+          "blob": "7f9f3f41e72eada715f59455c0bc82c42a653fa0",
+          "bytes": 137030,
+          "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/33.hfl": {
+          "blob": "7452d7176a2df739ca28f17e49d16c360c486241",
+          "bytes": 137030,
+          "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/34.hfl": {
+          "blob": "7930e0aba96aeb3297728525eed96da3672e95bb",
+          "bytes": 137030,
+          "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+          "rejectedPlaceholder": true
+        },
+        "modern/data/PlayDH/Resource/Map/94.hfl": {
+          "blob": "fd6cdbdb50a9f3d2d361dc5b758fcd76871d3978",
+          "bytes": 137030,
+          "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+          "rejectedPlaceholder": true
+        }
+      },
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": true,
+      "map17TexturePaths": 0,
+      "ttbPaths": 64
+    },
+    {
+      "ref": "refs/remotes/origin/main",
+      "head": "4dddd9a6f609f2c0d4c961ea0a159aff4fd449b9",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": false,
+      "map17TexturePaths": 0,
+      "ttbPaths": 0
+    },
+    {
+      "ref": "refs/remotes/origin/migration/rog-20260923-main",
+      "head": "fffe87fda796d4d7fc423da5a75ef648a4f5dd3d",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": false,
+      "map17TexturePaths": 0,
+      "ttbPaths": 0
+    },
+    {
+      "ref": "refs/remotes/origin/minimaxcode",
+      "head": "0228e42251efd4c45a18fb8f129a9ec813f528aa",
+      "hfl": {},
+      "hasMonster203ExactPath": false,
+      "hasNearInsDGMonster203": false,
+      "map17TexturePaths": 0,
+      "ttbPaths": 0
+    }
+  ],
+  "exactTargetHits": {
+    "hflNonPlaceholder": 0,
+    "monster203ExactPath": 0,
+    "map17TextureRefs": 0
+  },
+  "decision": "NO_EXACT_SOURCE_IN_FETCHED_REFS"
+}
