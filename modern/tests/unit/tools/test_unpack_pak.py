@@ -16,7 +16,9 @@ or directly:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import struct
@@ -413,6 +415,76 @@ class PakHeaderVariantTests(unittest.TestCase):
                 unpack_pak.pak_extract(
                     str(pak), str(tdp / "named"),
                     dry_run=False, write_manifest=False, verify=False)
+
+
+def _run_cli(argv: list[str]) -> tuple[int, str]:
+    """Invoke unpack_pak.main with argv.  Returns (rc, stdout)."""
+    buf = io.StringIO()
+    old = sys.argv
+    try:
+        sys.argv = ["unpack_pak.py", *argv]
+        with contextlib.redirect_stdout(buf):
+            rc = unpack_pak.main()
+    finally:
+        sys.argv = old
+    return rc, buf.getvalue()
+
+
+class DryRunTests(unittest.TestCase):
+    """--dry-run enumerates both modes and both headers, and writes nothing."""
+
+    def _assert_dry_run_creates_nothing(self, pak: Path, extra: list[str],
+                                        expect_in_stdout: str) -> None:
+        out = pak.parent / "out"
+        before = sorted(p.name for p in pak.parent.iterdir())
+        rc, text = _run_cli([str(pak), "--dry-run", "--out", str(out), *extra])
+        self.assertEqual(rc, 0, text)
+        self.assertIn(expect_in_stdout, text)
+        self.assertIn("dry-run", text)
+        self.assertFalse(out.exists(), text)
+        self.assertEqual(sorted(p.name for p in pak.parent.iterdir()), before)
+
+    def test_legacy_worktree_92_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "worktree.pak"
+            _make_pak([
+                ("Map/one.bmhm", b"one-payload"),
+                ("Map/two.bmhm", b"two-payload"),
+            ], pak)
+            self._assert_dry_run_creates_nothing(pak, [], "Map/one.bmhm")
+
+    def test_legacy_original_96_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "original.pak"
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            self._assert_dry_run_creates_nothing(pak, [], "water.tif")
+
+    def test_named_worktree_92_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "worktree.pak"
+            _make_pak([
+                ("Map/one.bmhm", b"one-payload"),
+                ("Map/two.bmhm", b"two-payload"),
+            ], pak)
+            self._assert_dry_run_creates_nothing(
+                pak, ["--named", "--manifest"], "Map/one.bmhm")
+
+    def test_named_original_96_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "original.pak"
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            self._assert_dry_run_creates_nothing(
+                pak, ["--named", "--manifest"], "水面.tif")
 
 
 class ParsePakHeaderTests(unittest.TestCase):

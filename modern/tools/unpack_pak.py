@@ -3,7 +3,7 @@
 unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 
 Mode 1 (legacy / default):
-  unpack_pak.py <pak_path> [<out_dir>]
+  unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
   Falls back to "<stem>_unpacked" when out_dir omitted.
   Each entry is written as "{i:05d}_{real}.bin" (legacy convention used by
   many existing test fixtures; preserved so the 12 existing audit scripts
@@ -15,6 +15,9 @@ Mode 2 (pak_extract / --named):
   Writes each entry by its real .pak-internal name (e.g. "Map/Map10.hfl"
   or "Map\\\\Map10.hfl" from the legacy "\\" separator).
   Produces manifest.json with per-entry sha256/size/offset.
+
+--dry-run applies to both modes and both header sizes.  It enumerates
+and validates entries, and creates no directories or files.
 
 Two header variants, detected from dwFileItemNum at offset 4.
 Spec: docs/formats/pak.md.
@@ -317,7 +320,8 @@ def hfl_header_ok(prefix: bytes) -> bool:
 # Mode 1 — legacy (preserve {i:05d}_{real}.bin naming)
 # ---------------------------------------------------------------------------
 
-def _unpack_legacy_original(pak_path: str, out_dir: str) -> int:
+def _unpack_legacy_original(pak_path: str, out_dir: str, *,
+                            dry_run: bool = False) -> int:
     """Legacy writer for the original 96-byte header (count at offset 92)."""
     pak_size = os.path.getsize(pak_path)
     count = _original_declared_count(pak_path)
@@ -334,26 +338,35 @@ def _unpack_legacy_original(pak_path: str, out_dir: str) -> int:
                     f"(declared count {count})"
                 )
             safe = f"{entry.index:05d}_{entry.real_size}.bin"
-            target = os.path.join(out_dir, safe)
-            with open(target, "wb") as out:
-                out.write(data)
+            if not dry_run:
+                target = os.path.join(out_dir, safe)
+                with open(target, "wb") as out:
+                    out.write(data)
             n_written += 1
             if n_written <= 3 or n_written % 500 == 0:
+                tail = " (dry-run)" if dry_run else ""
                 print(
                     f"  [{n_written}/{count}] {safe}  "
-                    f"({entry.real_size} bytes, name={entry.name[:40]!r})"
+                    f"({entry.real_size} bytes, name={entry.name[:40]!r}){tail}"
                 )
-    print(f"wrote {n_written} entries")
+    if dry_run:
+        print(f"dry-run: {n_written} entries (no files written)")
+    else:
+        print(f"wrote {n_written} entries")
     return 0
 
 
-def unpack_legacy(pak_path: str, out_dir: str) -> int:
-    """The original mode that writes entries as {i:05d}_{real}.bin."""
-    os.makedirs(out_dir, exist_ok=True)
+def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False) -> int:
+    """The original mode that writes entries as {i:05d}_{real}.bin.
+
+    dry_run enumerates and validates, and creates neither out_dir nor files.
+    """
+    if not dry_run:
+        os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
     print(f"version={version} n_items={n_items} flag={flag}")
     if n_items == 0:
-        return _unpack_legacy_original(pak_path, out_dir)
+        return _unpack_legacy_original(pak_path, out_dir, dry_run=dry_run)
     cur = 92
     n_written = 0
     consecutive_junk = 0
@@ -379,17 +392,23 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
                 "latin-1", errors="replace")
             data = f.read(real)
             safe = f"{i:05d}_{real}.bin"
-            target = os.path.join(out_dir, safe)
-            with open(target, "wb") as out:
-                out.write(data)
+            if not dry_run:
+                target = os.path.join(out_dir, safe)
+                with open(target, "wb") as out:
+                    out.write(data)
             n_written += 1
             # Advance by real_file_size only — see walk_entries() note
             # about the 4DyuchiFileStorage no-alignment convention.
             cur = cur + 32 + (name_len + 1) + real
             if n_written <= 3 or n_written % 500 == 0:
-                print(f"  [{n_written}/{n_items}] {safe}  ({real} bytes, name={name[:40]!r})")
+                tail = " (dry-run)" if dry_run else ""
+                print(f"  [{n_written}/{n_items}] {safe}  "
+                      f"({real} bytes, name={name[:40]!r}){tail}")
             i += 1
-    print(f"wrote {n_written} entries")
+    if dry_run:
+        print(f"dry-run: {n_written} entries (no files written)")
+    else:
+        print(f"wrote {n_written} entries")
     return 0
 
 
@@ -533,7 +552,8 @@ def main() -> int:
     ap.add_argument("--named", action="store_true",
                     help="use pak_extract mode (named entries + manifest)")
     ap.add_argument("--dry-run", action="store_true",
-                    help="walk but do not write")
+                    help="enumerate and validate only; create no directories "
+                         "or files (legacy and --named, both header sizes)")
     ap.add_argument("--manifest", action="store_true",
                     help="write manifest.json (only with --named)")
     ap.add_argument("--verify", action="store_true",
@@ -559,7 +579,7 @@ def main() -> int:
             filter_pattern=args.filter,
         )
         return 0 if stats.written > 0 else 2
-    return unpack_legacy(pak_path, out_dir)
+    return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
