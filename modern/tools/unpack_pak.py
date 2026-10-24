@@ -4,7 +4,8 @@ unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 
 Mode 1 (legacy / default):
   unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
-  Falls back to "<stem>_unpacked" when out_dir omitted.
+  When out_dir is omitted, files go under the system temp directory
+  (moxiang-unpack/<stem>), never beside the pak.
   Each entry is written as "{i:05d}_{real}.bin" (legacy convention used by
   many existing test fixtures; preserved so the 12 existing audit scripts
   that grep the legacy name pattern keep working).
@@ -18,6 +19,11 @@ Mode 2 (pak_extract / --named):
 
 --dry-run applies to both modes and both header sizes.  It enumerates
 and validates entries, and creates no directories or files.
+
+The pak's own directory and anything under it are read-only.  The
+resolved output path (symlinks followed; case-insensitive on Windows)
+must not be that directory or a subdirectory of it.  The tool exits
+non-zero and writes nothing when it is.
 
 Two header variants, detected from dwFileItemNum at offset 4.
 Spec: docs/formats/pak.md.
@@ -47,9 +53,14 @@ import os
 import re
 import struct
 import sys
+import tempfile
 import time
 from pathlib import Path
 from typing import BinaryIO, Iterable, Optional
+
+
+class PakOutputError(ValueError):
+    """The output path would write into the pak's own directory."""
 
 
 @dataclasses.dataclass
@@ -88,6 +99,68 @@ class PakStats:
 # ---------------------------------------------------------------------------
 # Core unpack
 # ---------------------------------------------------------------------------
+
+def _same_or_under(parent: str, child: str, *, case_insensitive: bool) -> bool:
+    """True when child is parent or a directory inside parent.
+
+    `parent` and `child` are already-resolved path strings.  On Windows
+    the comparison is case-insensitive so D:\\MX and d:\\mx match.
+    """
+    parent_n = os.path.normpath(parent)
+    child_n = os.path.normpath(child)
+    if case_insensitive:
+        parent_n = parent_n.casefold()
+        child_n = child_n.casefold()
+    try:
+        common = os.path.normpath(os.path.commonpath([parent_n, child_n]))
+    except ValueError:
+        return False
+    if case_insensitive:
+        common = common.casefold()
+    return common == parent_n
+
+
+def output_is_inside_pak_dir(pak_path: str, out_dir: str, *,
+                             case_insensitive: Optional[bool] = None) -> bool:
+    """True when resolved out_dir is the pak directory or a child of it."""
+    if case_insensitive is None:
+        case_insensitive = os.name == "nt"
+    pak_dir = Path(pak_path).resolve().parent
+    out = Path(out_dir).resolve()
+    return _same_or_under(str(pak_dir), str(out),
+                          case_insensitive=case_insensitive)
+
+
+def refuse_output_inside_pak_dir(pak_path: str, out_dir: str) -> None:
+    """Raise PakOutputError before any directory or file is created."""
+    if not output_is_inside_pak_dir(pak_path, out_dir):
+        return
+    pak_dir = Path(pak_path).resolve().parent
+    raise PakOutputError(
+        f"refusing to write {out_dir}: output is the pak directory or a "
+        f"subdirectory of it ({pak_dir}). Original resource directories "
+        f"are read-only. Pass --out outside that directory; the default "
+        f"is under the system temp directory."
+    )
+
+
+def default_unpack_dir(pak_path: str) -> Path:
+    """Temp (then cwd) directory that is not beside the pak."""
+    stem = Path(pak_path).stem or "pak"
+    candidates = (
+        Path(tempfile.gettempdir()) / "moxiang-unpack" / stem,
+        Path.cwd() / "moxiang-unpack" / stem,
+    )
+    for candidate in candidates:
+        if not output_is_inside_pak_dir(pak_path, str(candidate)):
+            return candidate
+    raise PakOutputError(
+        f"refusing to choose a default output directory for {pak_path}: "
+        f"both the system temp directory and the workspace would fall "
+        f"inside the pak directory. Original resource directories are "
+        f"read-only. Pass --out explicitly, outside that directory."
+    )
+
 
 def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
     """Read the 92-byte header.  Returns (raw_header, version, n_items, flag)."""
@@ -361,6 +434,7 @@ def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False) -> int:
 
     dry_run enumerates and validates, and creates neither out_dir nor files.
     """
+    refuse_output_inside_pak_dir(pak_path, out_dir)
     if not dry_run:
         os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
@@ -429,6 +503,7 @@ def pak_extract(pak_path: str, out_dir: str, *,
                 verify: bool = False,
                 filter_pattern: Optional[str] = None) -> PakStats:
     """Named-entry mode.  Returns a stats summary."""
+    refuse_output_inside_pak_dir(pak_path, out_dir)
     t0 = time.monotonic()
     pak_size = os.path.getsize(pak_path)
     _header, version, n_items, flag = parse_pak(pak_path)
@@ -565,7 +640,12 @@ def main() -> int:
         args.out = args.out_flag
 
     pak_path = args.pak
-    out_dir = args.out or (os.path.splitext(pak_path)[0] + "_unpacked")
+    try:
+        out_dir = args.out or str(default_unpack_dir(pak_path))
+        refuse_output_inside_pak_dir(pak_path, out_dir)
+    except PakOutputError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     print(f"unpacking {pak_path} -> {out_dir}")
     print(f"  size = {os.path.getsize(pak_path)} bytes")
