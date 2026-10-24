@@ -6,6 +6,8 @@
 
 `MXH_GUI_SMOKE_EXIT=1` 且未设置 `MXH_GUI_SMOKE_RENDER_ENTITIES` 时，客户端不填充实体列表，Map 截图没有怪物、NPC 和玩家。`capture-gamein.ps1`、`capture-state-frames.ps1`、`gui-client-smoke.ps1` 默认打开该开关，`-NoEntities` 可退出，并在 `capture-metadata.json` / `result.json` 记录 `entities_enabled`。`verify-entity-frame.py` 在实体渲染关闭或 drawn 为 0 时失败；尚无逐帧 `drawn/culled` 日志时输出 `no conclusion`（退出码 3），不报 PASS。
 
+`GameInAckDoesNotFalseFireInRelease` 会写游戏库。未同时设置 `MXH_MAP10_SMOKE_HOST`、`MXH_MAP10_SMOKE_LOGIN_PORT`、`MXH_MAP10_SMOKE_AGENT_PORT`、`MXH_MAP10_SMOKE_MAP_PORT` 时跳过，不再回落 16001/17001/18001。显式配置时在测试开始打印解析后的主机和端口。
+
 ### visual / UI / map polish follow-up (2026-09-07 evening, 4 commit)
 
 紧接日间 session 收尾, 4 个 commit 把 polish session 的资源侧打磨到底:

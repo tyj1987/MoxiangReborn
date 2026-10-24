@@ -12,26 +12,34 @@
 //     (no `m_pendingGameInAckSinceMs` carry-over).
 //
 // The test is opt-in (not part of the default ctest sweep) because
-// it requires:
-//   * a 3-server chain running on 16001/17001/18001;
-//   * a populated local MSSQLSERVER with mxh_e2e / Pass1234;
-//   * the MoxianClientE2E binary built (the test locates it via
-//     `mxh_client_e2e` target or env override MXH_CLIENT_E2E_BIN).
+// it writes the game database. It never falls back to CT930
+// 192.168.2.244:16001/17001/18001. All of the following must be set:
+//   MXH_MAP10_SMOKE=1
+//   MXH_MAP10_SMOKE_HOST
+//   MXH_MAP10_SMOKE_LOGIN_PORT
+//   MXH_MAP10_SMOKE_AGENT_PORT
+//   MXH_MAP10_SMOKE_MAP_PORT
+// plus a populated server account mxh_e2e / Pass1234 and the
+// MoxianClientE2E binary (`mxh_client_e2e`, or MXH_CLIENT_E2E_BIN).
 //
-// Enable with: MXH_MAP10_SMOKE=1 ctest -R Map10InGameSmoke
-// Or directly:  modern\build\tests\Debug\map10_smoke.exe
-#include "CEngine.hpp"
+// Enable with MXH_MAP10_SMOKE=1 plus the four endpoint variables above,
+// then: ctest -R Map10InGameSmoke
+#include "map10_smoke_endpoint.hpp"
 
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <thread>
+#include <vector>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -39,6 +47,7 @@
 
 namespace {
 
+#if defined(_WIN32)
 // Locate the MoxianClientE2E binary.  Honour MXH_CLIENT_E2E_BIN first
 // (so a custom build or shared location can be injected), then look in
 // the conventional `modern/build` Debug / Release paths.
@@ -59,7 +68,6 @@ std::filesystem::path locate_client_e2e_binary() {
     return {};
 }
 
-#if defined(_WIN32)
 // Run a command line and capture stdout + exit code.  This is a
 // minimal replacement for `popen` that lets us pass a wide-char
 // string and read the output synchronously.
@@ -137,10 +145,27 @@ int run_with_output(const std::filesystem::path& exe,
 TEST(Map10InGameSmoke, GameInAckDoesNotFalseFireInRelease) {
     const char* env = std::getenv("MXH_MAP10_SMOKE");
     if (!env || !*env) {
-        GTEST_SKIP() << "set MXH_MAP10_SMOKE=1 to run the 60-s Map 10 "
-                        "smoke (requires a 3-server chain on "
-                        "16001/17001/18001)";
+        GTEST_SKIP() << "set MXH_MAP10_SMOKE=1 to run the Map 10 smoke. "
+                        "The test writes the game database and also requires "
+                        "MXH_MAP10_SMOKE_HOST, MXH_MAP10_SMOKE_LOGIN_PORT, "
+                        "MXH_MAP10_SMOKE_AGENT_PORT, and "
+                        "MXH_MAP10_SMOKE_MAP_PORT. It does not fall back to "
+                        "16001/17001/18001.";
     }
+    const mxh::test::Map10SmokeEndpoint endpoint =
+        mxh::test::resolve_map10_smoke_endpoint(
+            [](const char* name) { return std::getenv(name); });
+    if (!endpoint.ready) {
+        GTEST_SKIP() << endpoint.skip_reason;
+    }
+    // Log only after the endpoint is fully explicit. stdout is what the
+    // ctest log captures for this smoke.
+    std::cout << endpoint.log_line() << std::endl;
+#if !defined(_WIN32)
+    GTEST_SKIP() << "MoxianClientE2E process launch is Windows-only; "
+                    "resolved endpoint was not replaced with "
+                    "16001/17001/18001. " << endpoint.log_line();
+#else
     const auto bin = locate_client_e2e_binary();
     if (bin.empty()) {
         GTEST_SKIP() << "mxh_client_e2e binary not found; set "
@@ -155,7 +180,7 @@ TEST(Map10InGameSmoke, GameInAckDoesNotFalseFireInRelease) {
     }();
     std::string output;
     const int rc = run_with_output(
-        bin, "--map-number 10 --timeout 30 --no-spawn",
+        bin, endpoint.e2e_arguments(),
         output, budget_seconds);
     ASSERT_NE(rc, -2)
         << "MoxianClientE2E timed out after " << budget_seconds
@@ -181,6 +206,7 @@ TEST(Map10InGameSmoke, GameInAckDoesNotFalseFireInRelease) {
         << "expected 'map_num=10' in E2E output to confirm Map 10 "
            "was reached; full output:\n"
         << output;
+#endif
 }
 
 }  // namespace
