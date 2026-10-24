@@ -36,13 +36,14 @@ import unpack_pak  # noqa: E402  (sys.path modified above)
 
 def _make_pak(entries: list[tuple[str, bytes]], out_path: Path,
               *, header_count: int | None = None) -> int:
-    """Build a minimal valid .pak file.  Returns the header file_item_num.
+    """Build a worktree-style .pak: 92-byte header, entries from offset 92.
 
-    header_count overrides dwFileItemNum.  The entry bytes that follow are
-    still written in order; pass 0 to reproduce archives that pack entries
-    through EOF with a zero count in the header.
+    dwFileItemNum at offset 4 is the entry count and must be non-zero.
+    The original 96-byte header is built by _write_original_pak, not here.
     """
     count = len(entries) if header_count is None else header_count
+    if count == 0:
+        raise ValueError("worktree fixture requires a non-zero header count")
     with out_path.open("wb") as f:
         # 92-byte PACK_FILE_HEADER
         f.write(struct.pack("<III", 1, count, 0))  # version, n_items, flag
@@ -204,40 +205,102 @@ class PakExtractNamedModeTests(unittest.TestCase):
             self.assertFalse((out / "Map" / "Map1.hfl").exists())
 
 
-class HeaderCountEofTests(unittest.TestCase):
-    """dwFileItemNum == 0 means entries run until EOF.
+def _write_original_pak(out_path: Path, entries: list[tuple[str, bytes]],
+                        *, count: int | None = None, chop: int = 0,
+                        trailer: bytes = b"") -> bytes:
+    """Write an original-style pak from the on-disk layout, not the parser.
 
-    Synthetic only.  A few KB, no original client resources.
+    96-byte header: version=1 at 0, n_items=0 at offset 4, entry count
+    uint32 at offset 92.  Entries start at 96.  Each entry is
+    total, real, name_len, data_off (uint32) + 16 zero bytes, then the
+    GBK filename, a NUL, then the payload.  total = 32 + name_len + 1 +
+    len(payload).  The next entry is immediately cur + total; no pad.
     """
+    body = bytearray()
+    cursor = 96
+    for name, data in entries:
+        name_b = name.encode("gbk")
+        name_len = len(name_b)
+        real = len(data)
+        total = 32 + name_len + 1 + real
+        body += struct.pack("<IIII", total, real, name_len, cursor)
+        body += b"\x00" * 16
+        body += name_b
+        body += b"\x00"
+        body += data
+        cursor += total
+    declared = len(entries) if count is None else count
+    header = bytearray(96)
+    struct.pack_into("<III", header, 0, 1, 0, 0)
+    struct.pack_into("<I", header, 92, declared)
+    blob = bytes(header) + bytes(body) + trailer
+    if chop:
+        if chop >= len(blob):
+            raise ValueError("chop removes the whole fixture")
+        blob = blob[:-chop]
+    out_path.write_bytes(blob)
+    return blob
 
-    def test_zero_header_count_reads_three_entries(self):
+
+class PakHeaderVariantTests(unittest.TestCase):
+    """One synthetic pak for each header variant.  No original resources."""
+
+    def test_original_style_count_at_offset_92_reads_three_entries(self):
         entries = [
-            ("Map/zone_a.bmhm", b"zone-a:" + b"A" * 1200),
-            ("Map/zone_b.bmhm", b"zone-b:" + b"B" * 1300),
-            ("Char/npc_c.chx", b"npc-c:" + b"C" * 1400),
+            ("water.tif", b"water-pixels:" + b"W" * 400),
+            ("水面.tif", b"surface:" + b"S" * 500),
+            ("Map/zone_c.bmhm", b"zone-c:" + b"Z" * 600),
         ]
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
-            pak = tdp / "zero_count.pak"
-            self.assertEqual(_make_pak(entries, pak, header_count=0), 0)
-            self.assertLess(pak.stat().st_size, 16 * 1024)
+            pak = tdp / "original.pak"
+            raw = _write_original_pak(pak, entries)
+            self.assertLess(len(raw), 16 * 1024)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 3)
+            gbk_name = "水面.tif".encode("gbk")
+            self.assertEqual(gbk_name, bytes.fromhex("cbaec3e62e746966"))
+            self.assertIn(gbk_name, raw)
+            self.assertNotIn("水面.tif".encode("utf-8"), raw)
+
+            totals = []
+            cursor = 96
+            for name, payload in entries:
+                total, real, name_len, data_off = struct.unpack_from("<IIII", raw, cursor)
+                name_b = name.encode("gbk")
+                self.assertEqual(total, 32 + len(name_b) + 1 + len(payload))
+                self.assertEqual(real, len(payload))
+                self.assertEqual(name_len, len(name_b))
+                self.assertEqual(data_off, cursor)
+                self.assertEqual(raw[cursor + 16:cursor + 32], b"\x00" * 16)
+                name_at = cursor + 32
+                self.assertEqual(raw[name_at:name_at + name_len], name_b)
+                self.assertEqual(raw[name_at + name_len], 0)
+                data_at = name_at + name_len + 1
+                self.assertEqual(raw[data_at:data_at + real], payload)
+                totals.append(total)
+                cursor += total
+            self.assertEqual(cursor, len(raw))
+            # Entry 1 begins on the byte after entry 0.  No alignment gap.
+            self.assertEqual(struct.unpack_from("<I", raw, 96 + totals[0])[0], totals[1])
+
             _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
             self.assertEqual(n_items, 0)
-
-            raw = pak.read_bytes()
             walked = list(unpack_pak.walk_entries(str(pak), 0))
             self.assertEqual(len(walked), 3)
-            for entry, (name, payload) in zip(walked, entries):
-                self.assertEqual(entry.name, name)
+            self.assertEqual([e.name for e in walked], [name for name, _ in entries])
+            self.assertEqual(walked[0].entry_offset, 96)
+            self.assertEqual(walked[1].entry_offset, 96 + totals[0])
+            self.assertEqual(walked[2].entry_offset, 96 + totals[0] + totals[1])
+            for entry, (_name, payload) in zip(walked, entries):
                 got = raw[entry.data_offset:entry.data_offset + entry.real_size]
                 self.assertEqual(got, payload)
-                self.assertEqual(entry.real_size, len(payload))
 
             named_out = tdp / "named"
             stats = unpack_pak.pak_extract(
                 str(pak), str(named_out),
                 dry_run=False, write_manifest=False, verify=False)
-            self.assertEqual(stats.file_item_num, 0)
+            self.assertEqual(stats.file_item_num, 3)
             self.assertEqual(stats.parsed, 3)
             self.assertEqual(stats.written, 3)
             for name, payload in entries:
@@ -246,16 +309,11 @@ class HeaderCountEofTests(unittest.TestCase):
             legacy_out = tdp / "legacy"
             rc = unpack_pak.unpack_legacy(str(pak), str(legacy_out))
             self.assertEqual(rc, 0)
-            written = sorted(p.name for p in legacy_out.iterdir())
-            self.assertEqual(
-                written,
-                [f"{i:05d}_{len(payload)}.bin" for i, (_name, payload) in enumerate(entries)],
-            )
             for i, (_name, payload) in enumerate(entries):
                 blob = legacy_out / f"{i:05d}_{len(payload)}.bin"
                 self.assertEqual(blob.read_bytes(), payload)
 
-    def test_nonzero_header_count_still_stops_at_declared_count(self):
+    def test_worktree_style_nonzero_count_starts_at_92(self):
         entries = [
             ("Map/one.bmhm", b"one-payload"),
             ("Map/two.bmhm", b"two-payload-ok"),
@@ -263,15 +321,24 @@ class HeaderCountEofTests(unittest.TestCase):
         ]
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
-            pak = tdp / "counted.pak"
+            pak = tdp / "worktree.pak"
             self.assertEqual(_make_pak(entries, pak, header_count=2), 2)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 0)[0], 1)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 2)
+            # Offset 92 is entry 0's total, not an original-style count.
+            name_b = b"Map/one.bmhm"
+            entry0_total = 32 + len(name_b) + 1 + len(b"one-payload")
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], entry0_total)
+            self.assertNotEqual(entry0_total, 2)
+            self.assertEqual(raw[92 + 32:92 + 32 + len(name_b)], name_b)
+
             _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
             self.assertEqual(n_items, 2)
-
             walked = list(unpack_pak.walk_entries(str(pak), n_items))
             self.assertEqual([e.name for e in walked],
                              ["Map/one.bmhm", "Map/two.bmhm"])
-            raw = pak.read_bytes()
+            self.assertEqual(walked[0].entry_offset, 92)
             self.assertEqual(
                 raw[walked[0].data_offset:walked[0].data_offset + walked[0].real_size],
                 b"one-payload")
@@ -300,38 +367,52 @@ class HeaderCountEofTests(unittest.TestCase):
             self.assertEqual((legacy_out / "00000_11.bin").read_bytes(), b"one-payload")
             self.assertEqual((legacy_out / "00001_14.bin").read_bytes(), b"two-payload-ok")
 
-    def test_zero_header_count_truncated_last_entry_errors(self):
+    def test_original_style_early_eof_errors(self):
+        entries = [
+            ("Map/ok.bmhm", b"complete-entry"),
+            ("Map/cut.bmhm", b"X" * 64),
+        ]
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
-            pak = tdp / "truncated.pak"
-            _make_pak([("Map/ok.bmhm", b"complete-entry")], pak, header_count=0)
-            name = b"Map/cut.bmhm"
-            claimed_size = 64
-            with pak.open("ab") as f:
-                f.write(struct.pack(
-                    "<IIIIIIII",
-                    32 + len(name) + 1 + claimed_size,
-                    claimed_size, len(name),
-                    0, 0, 0, 0, 0))
-                f.write(name)
-                f.write(b"\x00")
-                f.write(b"X" * 10)  # 10 of the 64 declared payload bytes
+            pak = tdp / "early_eof.pak"
+            _write_original_pak(pak, entries, chop=20)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 2)
 
             walked = unpack_pak.walk_entries(str(pak), 0)
             first = next(walked)
             self.assertEqual(first.name, "Map/ok.bmhm")
+            self.assertEqual(first.entry_offset, 96)
             self.assertEqual(
-                pak.read_bytes()[first.data_offset:first.data_offset + first.real_size],
+                raw[first.data_offset:first.data_offset + first.real_size],
                 b"complete-entry")
-            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
                 next(walked)
 
-            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
                 unpack_pak.pak_extract(
                     str(pak), str(tdp / "named"),
                     dry_run=False, write_manifest=False, verify=False)
-            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
                 unpack_pak.unpack_legacy(str(pak), str(tdp / "legacy"))
+
+    def test_original_style_trailing_bytes_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "trailing.pak"
+            _write_original_pak(
+                pak,
+                [("water.tif", b"pixels")],
+                trailer=b"\x99\x99\x99",
+            )
+            with self.assertRaisesRegex(
+                    ValueError, r"byte\(s\) remain after the declared count"):
+                list(unpack_pak.walk_entries(str(pak), 0))
+            with self.assertRaisesRegex(ValueError, r"remain after the declared count"):
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
 
 
 class ParsePakHeaderTests(unittest.TestCase):
