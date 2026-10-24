@@ -1,0 +1,495 @@
+[e2e] --no-spawn: assuming servers are already up (login:36101, agent:37101, map:38101)
+[e2e] using explicit PlayDH root: E:\Workspaces\moxiang\worktrees\original-integration\modern\data\PlayDH
+[e2e] [1/5] Login: CLoginState connecting to 192.168.2.244:36101 ...
+[09:48:03.394] INFO  CLoginState.cpp:195  CLoginState connecting to 192.168.2.244:36101 as 'mxhct718533'
+[09:48:03.397] INFO  CLoginState.cpp:255  CLoginState::on_connect id=1 from 192.168.2.244
+[09:48:03.522] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=0 obj=1003 payload=0
+[09:48:03.522] INFO  CLoginState.cpp:303  CLoginState: got DistConnectSuccess
+[09:48:03.522] INFO  CLoginState.cpp:320  CLoginState: sent RequestLogin (38B legacy payload)
+[09:48:04.395] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=2 obj=0 payload=23
+[09:48:04.395] INFO  CLoginState.cpp:409  CLoginState: LoginAck agent=192.168.2.244:37101 user_idx=2 level=0
+[09:48:04.395] DEBUG CLoginState.cpp:243  CLoginState::TakeLoginResult -> user_idx=2 agent=192.168.2.244:37101
+[e2e] [1/5] OK: LoginAck received, user_idx=2 agent=192.168.2.244:37101
+[e2e] [2/5] CharSelect: CCharSelectState connecting to 192.168.2.244:37101 ...
+[09:48:04.399] DEBUG CCharSelectState.cpp:251  CCharSelectState: pulled LoginResult from engine transfer slot (agent=192.168.2.244:37101, user_idx=2)
+[09:48:04.399] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:37101 (user_idx=2)
+[09:48:04.399] INFO  CCharSelectState.cpp:358  CCharSelectState::on_connect id=1 from 192.168.2.244
+[09:48:04.457] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=8 obj=65225 payload=0
+[09:48:04.457] INFO  CCharSelectState.cpp:383  CCharSelectState: got AgentConnectSuccess
+[09:48:04.457] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[09:48:04.519] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[09:48:04.519] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=100004
+[e2e] [2/5] OK: CharacterListAck received, 1 valid slot(s)
+[09:48:04.519] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [3/5] SKIP: 1 valid slot(s) already exist, reusing
+[e2e] [4/5] CharSelect: re-fetching list after create ...
+[09:48:04.520] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:37101 (user_idx=2)
+[09:48:04.520] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[09:48:04.580] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[09:48:04.580] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=100004
+[e2e] [4/5] OK: created character present (chrid=100004, 1 valid slot(s))
+[09:48:04.580] INFO  CCharSelectState.cpp:601  CCharSelectState: sent CharacterSelectSyn chrid=100004
+[09:48:04.642] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=17 obj=100004 payload=1
+[09:48:04.642] INFO  CCharSelectState.cpp:781  CCharSelectState: CharacterSelectAck chrid=100004 map_num=10
+[09:48:04.642] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [5/5] InGame: sending GameInSyn through persistent AgentSession ...
+[09:48:04.643] INFO  CInGameState.cpp:1041  heap label=gamein_start_enter ws=9584640 peak_ws=9584640 private=1970176 virtual=1970176
+[09:48:04.643] INFO  CInGameState.cpp:1055  CInGameState effect catalog loading asynchronously
+[09:48:04.643] INFO  CInGameState.cpp:1058  heap label=gamein_after_effect_kickoff ws=9629696 peak_ws=9629696 private=2043904 virtual=2043904
+[09:48:04.656] INFO  CInGameState.cpp:1068  heap label=gamein_after_ui_loadmany ws=58294272 peak_ws=58294272 private=220086272 virtual=220135424
+[09:48:04.656] INFO  CInGameState.cpp:1070  heap label=gamein_pre_skilllist ws=58355712 peak_ws=58355712 private=220086272 virtual=220135424
+[09:48:04.752] INFO  CInGameState.cpp:1077  CInGameState skill list loaded skills=1817 errors=0
+[09:48:04.752] INFO  CInGameState.cpp:1088  heap label=gamein_post_skilllist ws=232030208 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.752] INFO  CInGameState.cpp:1095  CInGameState experience curve loaded levels=121
+[09:48:04.752] INFO  CInGameState.cpp:1102  heap label=gamein_post_expcurve ws=232034304 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.753] INFO  CInGameState.cpp:1104  heap label=gamein_post_applyactiveset ws=232034304 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.753] INFO  CInGameState.cpp:1108  heap label=gamein_post_refresh_bindings ws=232046592 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.753] INFO  CInGameState.cpp:1111  CInGameState using persistent AgentSession (player_id=100004, map=10)
+[09:48:04.753] INFO  CInGameState.cpp:1116  heap label=gamein_pre_send_gamein_syn ws=232046592 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.753] INFO  CInGameState.cpp:1651  CInGameState: sent GameInSyn player_id=100004 (empty payload)
+[09:48:04.753] INFO  CInGameState.cpp:1118  heap label=gamein_post_send_gamein_syn ws=232050688 peak_ws=238817280 private=225894400 virtual=234549248
+[09:48:04.813] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100004 payload=3775
+[09:48:04.813] INFO  CInGameState.cpp:1721  CInGameState: GameInAck player_id=100004 user_id=100004 name='E2Ect932b' level=53 map=10 life=20271/20271 gender=1 face=1 hair=1 equip2=23000 server_time=2026-10-24 9:00
+[09:48:04.813] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=232103936 peak_ws=238817280 private=225939456 virtual=234549248
+[09:48:04.813] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=64
+[09:48:04.813] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=232112128 peak_ws=238817280 private=225939456 virtual=234549248
+[09:48:04.813] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=128
+[09:48:04.844] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=232124416 peak_ws=238817280 private=225939456 virtual=234549248
+[09:48:04.844] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=192
+[09:48:04.844] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=39 obj=554 payload=64
+[09:48:04.844] INFO  CInGameState.cpp:1860  CInGameState: NpcAdd id=554 kind=50 pos=(22000,11700) name=�_�Ǫ���
+[09:48:04.844] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=39 obj=572 payload=64
+[09:48:04.844] INFO  CInGameState.cpp:1860  CInGameState: NpcAdd id=572 kind=54 pos=(3500,46900) name=�����W������
+[e2e] [5/5] OK: Map10 initial monster population=228
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[e2e] [5/5] OK: GameInAck received, player_id=100004 name='E2Ect932b' level=53 map=10 life=20271/20271
+[e2e] [5/5] Combat: exercising server-authoritative attack/effect/drop path ...
+[09:48:05.651] DEBUG CInGameState.cpp:3826  CInGameState: send_move proto=13 pos=(24493,24659)
+[e2e] [5/5] Combat target selected id=50143 life=6150 pos=(24493,24659)
+[09:48:05.652] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:05.804] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:05.804] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=2076
+[09:48:05.804] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:05.805] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:05.805] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=218 hit=1
+[09:48:05.805] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80000 payload=0
+[09:48:05.805] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80000 stopped=0
+[09:48:05.990] INFO  CInGameState.cpp:914  CInGameState effect catalog ready: assets=4564 beff=3078 befl=3 packed=1483 loose=3081
+[09:48:06.516] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:06.609] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:06.609] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=1856
+[09:48:06.609] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:06.609] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:06.609] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=220 hit=1
+[09:48:06.609] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80001 payload=0
+[09:48:06.609] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80001 stopped=0
+[09:48:07.383] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:07.445] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:07.445] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=1639
+[09:48:07.445] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:07.475] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:07.476] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=217 hit=1
+[09:48:07.476] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80002 payload=0
+[09:48:07.476] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80002 stopped=0
+[09:48:07.941] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:07.941] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=5 obj=100004 payload=4
+[09:48:07.942] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:07.942] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80003 payload=0
+[09:48:07.942] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80003 stopped=1
+[09:48:08.253] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:08.315] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:08.315] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=1413
+[09:48:08.346] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:08.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:08.347] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=226 hit=1
+[09:48:08.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80004 payload=0
+[09:48:08.347] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80004 stopped=0
+[09:48:09.123] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:09.215] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:09.215] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=1195
+[09:48:09.215] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:09.215] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:09.215] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=218 hit=1
+[09:48:09.215] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80005 payload=0
+[09:48:09.215] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80005 stopped=0
+[09:48:09.993] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:10.055] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:10.055] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=968
+[09:48:10.055] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:10.086] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:10.086] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=227 hit=1
+[09:48:10.086] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80006 payload=0
+[09:48:10.086] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80006 stopped=0
+[09:48:10.860] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:10.952] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:10.952] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=747
+[09:48:10.952] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:10.952] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:10.953] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=221 hit=1
+[09:48:10.953] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80007 payload=0
+[09:48:10.953] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80007 stopped=0
+[09:48:10.983] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:10.983] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=5 obj=100004 payload=4
+[09:48:10.983] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:10.983] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80008 payload=0
+[09:48:10.983] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80008 stopped=1
+[09:48:11.726] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:11.819] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:11.819] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=523
+[09:48:11.819] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:11.819] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:11.819] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=224 hit=1
+[09:48:11.819] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80009 payload=0
+[09:48:11.819] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80009 stopped=0
+[09:48:12.596] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:12.689] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:12.689] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=308
+[09:48:12.689] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:12.689] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:12.689] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=215 hit=1
+[09:48:12.689] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80010 payload=0
+[09:48:12.689] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80010 stopped=0
+[09:48:13.461] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:13.522] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:13.522] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6150 shield=87
+[09:48:13.553] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:13.553] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:13.553] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=221 hit=1
+[09:48:13.553] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80011 payload=0
+[09:48:13.553] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80011 stopped=0
+[09:48:14.046] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:14.046] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=5 obj=100004 payload=4
+[09:48:14.046] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:14.046] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80012 payload=0
+[09:48:14.046] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80012 stopped=1
+[09:48:14.322] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:14.385] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:14.385] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=6017 shield=0
+[09:48:14.385] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:14.415] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:14.415] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=220 hit=1
+[09:48:14.415] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80013 payload=0
+[09:48:14.415] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80013 stopped=0
+[09:48:15.186] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:15.278] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:15.278] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=5802 shield=0
+[09:48:15.278] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:15.278] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:15.278] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=215 hit=1
+[09:48:15.278] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80014 payload=0
+[09:48:15.278] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80014 stopped=0
+[09:48:16.052] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:16.145] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:16.145] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=5576 shield=0
+[09:48:16.145] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:16.145] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:16.145] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=226 hit=1
+[09:48:16.145] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80015 payload=0
+[09:48:16.145] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80015 stopped=0
+[09:48:16.916] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:17.010] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:17.010] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=5355 shield=0
+[09:48:17.010] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:17.010] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:17.011] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=221 hit=1
+[09:48:17.011] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80016 payload=0
+[09:48:17.011] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80016 stopped=0
+[09:48:17.103] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:17.103] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=5 obj=100004 payload=4
+[09:48:17.103] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:17.103] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80017 payload=0
+[09:48:17.103] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80017 stopped=1
+[09:48:17.781] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:17.874] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:17.874] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=5126 shield=0
+[09:48:17.874] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:17.874] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:17.874] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=229 hit=1
+[09:48:17.874] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80018 payload=0
+[09:48:17.874] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80018 stopped=0
+[09:48:18.647] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:18.740] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:18.740] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=4899 shield=0
+[09:48:18.740] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:18.741] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:18.741] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=227 hit=1
+[09:48:18.741] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80019 payload=0
+[09:48:18.741] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80019 stopped=0
+[09:48:19.518] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:19.611] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:19.611] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=4679 shield=0
+[09:48:19.611] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:19.612] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:19.612] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=220 hit=1
+[09:48:19.612] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80020 payload=0
+[09:48:19.612] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80020 stopped=0
+[09:48:20.171] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:20.171] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:20.171] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80021 payload=0
+[09:48:20.171] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80021 stopped=1
+[09:48:20.388] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:20.481] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:20.481] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=4452 shield=0
+[09:48:20.481] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:20.481] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:20.481] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=227 hit=1
+[09:48:20.481] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80022 payload=0
+[09:48:20.481] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80022 stopped=0
+[09:48:21.254] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:21.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:21.347] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=4222 shield=0
+[09:48:21.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:21.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:21.347] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=230 hit=1
+[09:48:21.347] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80023 payload=0
+[09:48:21.347] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80023 stopped=0
+[09:48:22.123] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:22.185] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:22.185] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=3994 shield=0
+[09:48:22.185] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:22.216] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:22.216] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=228 hit=1
+[09:48:22.216] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80024 payload=0
+[09:48:22.216] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80024 stopped=0
+[09:48:22.992] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:23.055] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:23.086] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:23.086] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=0 hit=0
+[09:48:23.086] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80025 payload=0
+[09:48:23.086] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80025 stopped=0
+[09:48:23.241] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:23.242] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:23.242] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80026 payload=0
+[09:48:23.242] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80026 stopped=1
+[09:48:23.862] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:23.956] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:23.956] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=3779 shield=0
+[09:48:23.956] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:23.956] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:23.956] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=215 hit=1
+[09:48:23.956] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80027 payload=0
+[09:48:23.956] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80027 stopped=0
+[09:48:24.731] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:24.824] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:24.824] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=3563 shield=0
+[09:48:24.824] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:24.824] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:24.825] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=216 hit=1
+[09:48:24.825] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80028 payload=0
+[09:48:24.825] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80028 stopped=0
+[09:48:25.599] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:25.754] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:25.754] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=3341 shield=0
+[09:48:25.754] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:25.754] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:25.754] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=222 hit=1
+[09:48:25.754] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80029 payload=0
+[09:48:25.754] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80029 stopped=0
+[09:48:26.312] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:26.312] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:26.312] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80030 payload=0
+[09:48:26.312] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80030 stopped=1
+[09:48:26.468] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:26.561] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:26.561] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=3127 shield=0
+[09:48:26.561] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:26.561] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:26.561] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=214 hit=1
+[09:48:26.561] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80031 payload=0
+[09:48:26.561] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80031 stopped=0
+[09:48:27.336] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:27.397] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:27.397] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=2902 shield=0
+[09:48:27.398] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:27.398] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:27.398] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=225 hit=1
+[09:48:27.429] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80032 payload=0
+[09:48:27.429] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80032 stopped=0
+[09:48:28.206] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:28.299] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:28.299] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=2672 shield=0
+[09:48:28.299] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:28.299] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:28.300] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=230 hit=1
+[09:48:28.300] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80033 payload=0
+[09:48:28.300] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80033 stopped=0
+[09:48:29.072] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:29.164] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:29.164] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=2453 shield=0
+[09:48:29.164] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:29.164] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:29.164] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=219 hit=1
+[09:48:29.164] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80034 payload=0
+[09:48:29.164] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80034 stopped=0
+[09:48:29.350] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:29.351] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:29.351] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80035 payload=0
+[09:48:29.351] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80035 stopped=1
+[09:48:29.943] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:30.034] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:30.034] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=2225 shield=0
+[09:48:30.034] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:30.034] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:30.034] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=228 hit=1
+[09:48:30.034] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80036 payload=0
+[09:48:30.034] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80036 stopped=0
+[09:48:30.811] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:30.904] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:30.904] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=2010 shield=0
+[09:48:30.904] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:30.905] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:30.905] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=215 hit=1
+[09:48:30.905] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80037 payload=0
+[09:48:30.905] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80037 stopped=0
+[09:48:31.680] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:31.773] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:31.773] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=1797 shield=0
+[09:48:31.773] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:31.774] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:31.774] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=213 hit=1
+[09:48:31.774] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80038 payload=0
+[09:48:31.774] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80038 stopped=0
+[09:48:32.428] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:32.428] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:32.428] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80039 payload=0
+[09:48:32.428] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80039 stopped=1
+[09:48:32.551] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:32.644] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:32.644] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=1577 shield=0
+[09:48:32.644] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:32.644] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:32.644] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=220 hit=1
+[09:48:32.644] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80040 payload=0
+[09:48:32.644] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80040 stopped=0
+[09:48:33.419] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:33.511] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:33.511] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=1357 shield=0
+[09:48:33.511] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:33.511] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:33.512] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=220 hit=1
+[09:48:33.512] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80041 payload=0
+[09:48:33.512] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80041 stopped=0
+[09:48:34.286] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:34.378] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:34.378] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=1125 shield=0
+[09:48:34.378] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:34.378] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:34.378] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=232 hit=1
+[09:48:34.378] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80042 payload=0
+[09:48:34.378] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80042 stopped=0
+[09:48:35.154] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:35.247] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:35.247] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=906 shield=0
+[09:48:35.247] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:35.247] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:35.247] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=219 hit=1
+[09:48:35.247] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80043 payload=0
+[09:48:35.247] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80043 stopped=0
+[09:48:35.495] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:35.495] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:35.495] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80044 payload=0
+[09:48:35.495] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80044 stopped=1
+[09:48:36.025] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:36.087] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:36.118] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:36.118] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=0 hit=0
+[09:48:36.118] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80045 payload=0
+[09:48:36.118] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80045 stopped=0
+[09:48:36.897] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:36.959] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:36.959] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=690 shield=0
+[09:48:36.959] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:36.990] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:36.991] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=216 hit=1
+[09:48:36.991] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80046 payload=0
+[09:48:36.991] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80046 stopped=0
+[09:48:37.767] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:37.860] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:37.860] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=465 shield=0
+[09:48:37.860] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:37.860] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:37.861] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=225 hit=1
+[09:48:37.861] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80047 payload=0
+[09:48:37.861] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80047 stopped=0
+[09:48:38.545] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=3 obj=50143 payload=22
+[09:48:38.545] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=1 obj=100004 payload=4
+[09:48:38.545] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80048 payload=0
+[09:48:38.545] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80048 stopped=1
+[09:48:38.639] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:38.732] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:38.732] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=234 shield=0
+[09:48:38.732] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:38.732] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:38.732] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=231 hit=1
+[09:48:38.732] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80049 payload=0
+[09:48:38.732] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80049 stopped=0
+[09:48:39.508] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:39.569] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:39.569] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=13 shield=0
+[09:48:39.569] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:39.600] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:39.600] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=221 hit=1
+[09:48:39.600] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80050 payload=0
+[09:48:39.600] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80050 stopped=0
+[09:48:40.375] INFO  CInGameState.cpp:3911  CInGameState: attack target=50143 pos=(24493,24659)
+[09:48:40.498] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Monster proto=0 obj=50143 payload=8
+[09:48:40.498] DEBUG CInGameState.cpp:2071  CInGameState: monster life id=50143 life=0 shield=0
+[09:48:40.498] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=13 obj=100004 payload=9
+[09:48:40.498] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=35 obj=100004 payload=20
+[09:48:40.499] INFO  CInGameState.cpp:2500  CInGameState: ground drop id=90000 item=8009 pos=(24494,24659)
+[09:48:40.499] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Character proto=9 obj=100004 payload=4
+[09:48:40.499] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=11 obj=50143 payload=9
+[09:48:40.499] INFO  CInGameState.cpp:2153  CInGameState: SkillSingleResult target=50143 damage=229 hit=1
+[09:48:40.499] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Skill proto=4 obj=80051 payload=0
+[09:48:40.499] INFO  CInGameState.cpp:2180  CInGameState: SkillObjectRemove object=80051 stopped=0
+[09:48:40.499] INFO  CInGameState.cpp:2433  CInGameState: pickup drop=90000
+[09:48:40.560] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=20 obj=100004 payload=8
+[09:48:40.560] INFO  CInGameState.cpp:2554  CInGameState: picked up drop=90000 item=8009 count=1 awaiting inventory snapshot
+[09:48:40.560] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=0 obj=100004 payload=2728
+[09:48:40.560] INFO  CInGameState.cpp:2713  CInGameState: inventory refreshed
+[e2e] [5/5] OK: combat hit/effect/life/drop/pickup target=50143 alive=228->227
+[09:48:40.622] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=17 obj=100004 payload=24
+[09:48:40.622] INFO  CInGameState.cpp:2674  CInGameState: item moved db=700003 source=0 target=1
+[09:48:40.622] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=35 obj=100004 payload=288
+[09:48:40.622] INFO  CInGameState.cpp:1808  CInGameState: self CharacterAdd refresh life=20159/20271
+[09:48:40.622] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=0 obj=100004 payload=2728
+[09:48:40.622] INFO  CInGameState.cpp:2713  CInGameState: inventory refreshed
+[e2e] [5/5] OK: inventory MoveAck item=8009 source=0 target=1
+[09:48:40.622] DEBUG CInGameState.cpp:749  CInGameState::Release
+[09:48:40.622] INFO  CInGameState.cpp:1682  CInGameState: sent GameOutSyn player_id=100004
+[09:48:40.628] INFO  CInGameState.cpp:1041  heap label=gamein_start_enter ws=15843328 peak_ws=238817280 private=8974336 virtual=234549248
+[09:48:40.629] INFO  CInGameState.cpp:1055  CInGameState effect catalog loading asynchronously
+[09:48:40.629] INFO  CInGameState.cpp:1058  heap label=gamein_after_effect_kickoff ws=15843328 peak_ws=238817280 private=8974336 virtual=234549248
+[09:48:40.634] INFO  CInGameState.cpp:1068  heap label=gamein_after_ui_loadmany ws=47878144 peak_ws=238817280 private=227090432 virtual=234549248
+[09:48:40.634] INFO  CInGameState.cpp:1070  heap label=gamein_pre_skilllist ws=48009216 peak_ws=238817280 private=227090432 virtual=234549248
+[09:48:40.728] INFO  CInGameState.cpp:1077  CInGameState skill list loaded skills=1817 errors=0
+[09:48:40.728] INFO  CInGameState.cpp:1088  heap label=gamein_post_skilllist ws=238211072 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.729] INFO  CInGameState.cpp:1095  CInGameState experience curve loaded levels=121
+[09:48:40.729] INFO  CInGameState.cpp:1102  heap label=gamein_post_expcurve ws=238211072 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.730] INFO  CInGameState.cpp:1104  heap label=gamein_post_applyactiveset ws=238219264 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.730] INFO  CInGameState.cpp:1108  heap label=gamein_post_refresh_bindings ws=238219264 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.730] INFO  CInGameState.cpp:1111  CInGameState using persistent AgentSession (player_id=100004, map=10)
+[09:48:40.730] INFO  CInGameState.cpp:1116  heap label=gamein_pre_send_gamein_syn ws=238219264 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.730] INFO  CInGameState.cpp:1651  CInGameState: sent GameInSyn player_id=100004 (empty payload)
+[09:48:40.730] INFO  CInGameState.cpp:1118  heap label=gamein_post_send_gamein_syn ws=238219264 peak_ws=244793344 private=233107456 virtual=241389568
+[09:48:40.790] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100004 payload=3775
+[09:48:40.790] INFO  CInGameState.cpp:1721  CInGameState: GameInAck player_id=100004 user_id=100004 name='E2Ect932b' level=53 map=10 life=20159/20271 gender=1 face=1 hair=1 equip2=23000 server_time=2026-10-24 9:00
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[e2e] [5/5] OK: GameOutSyn persistence re-login item=8009
+[09:48:40.822] DEBUG CInGameState.cpp:749  CInGameState::Release
+[09:48:40.822] INFO  CInGameState.cpp:1682  CInGameState: sent GameOutSyn player_id=100004
+[09:48:41.339] DEBUG CInGameState.cpp:749  CInGameState::Release
+[09:48:41.339] DEBUG CLoginState.cpp:119  CLoginState::Release (disconnecting login client)
+[e2e] Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)

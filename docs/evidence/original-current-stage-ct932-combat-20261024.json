@@ -1,0 +1,137 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-current-stage-ct932-combat-20261024",
+  "observedDate": "2026-10-24",
+  "result": "passed_isolated_map10_combat_drop_pickup_relogin",
+  "releaseReady": false,
+  "sourceHead": "d1481931f2dae214af3d26f8927afa5253cf3fc2",
+  "runtimePackageSha256": "4587c50c93ef64755e5966f9e436f181292c62d98587919cc7d5bd99192b36ab",
+  "endpoint": {
+    "vm": 112,
+    "stage": "C:\\Moxiang\\original\\stage-ct932-20261024-r2",
+    "host": "192.168.2.244",
+    "loginPort": 36101,
+    "agentPort": 37101,
+    "mapPort": 38101,
+    "map12Port": 38102,
+    "map2Port": 38103,
+    "serverSpawnedByClient": false
+  },
+  "database": {
+    "container": 932,
+    "host": "192.168.2.237",
+    "name": "MoxiangOriginalRestoreAudit_20261024",
+    "schemaVersion": 4,
+    "tls": {
+      "encrypt": true,
+      "trustServerCertificate": false,
+      "hostnameInCertificate": "moxiang-db-recovery-20261009"
+    },
+    "sourceContainer930Modified": false
+  },
+  "fixture": {
+    "account": "mxhct718533",
+    "character": "E2Ect932b",
+    "playerId": 100004,
+    "startingState": {
+      "level": 1,
+      "map": 10,
+      "stats": [12, 12, 12, 12],
+      "vitals": [131, 251, 128],
+      "equipment": [11000, 23000, 27000],
+      "inventoryRows": 3
+    },
+    "temporaryCombatState": {
+      "level": 53,
+      "stats": [2000, 12, 2000, 12],
+      "vitals": [20271, 245, 125],
+      "expFlag": 16,
+      "equipment": [11000, 23000, 27000]
+    },
+    "baselineEvidence": "docs/evidence/original-current-stage-ct932-combat-baseline-20261024.json",
+    "baselineSnapshotSha256": "a5941dc7857d6ea1fc51931622b8d1480b502ef6cc9d5ebbc530b03153fb44ec"
+  },
+  "client": {
+    "binary": "modern/out/ctest-current-20261015/tools/MoxianClientE2E/mxh_client_e2e.exe",
+    "sha256": "7963ca223bc8b51b04a30151a91a56e1391f7c39170956985a3efdee060b64fb",
+    "commandProfile": "--no-spawn --use-hsel --exercise-combat --timeout 240",
+    "log": "docs/evidence/original-current-stage-ct932-combat-20261024.log",
+    "logSha256": "487fa78ca536200bfe3d5868f595b13f1a4e9475ca33aa94ebb399b3826c2f82",
+    "exitCode": 0
+  },
+  "combat": {
+    "loginAck": true,
+    "characterSelect": true,
+    "gameInAck": true,
+    "map": 10,
+    "initialMonsters": 228,
+    "targetId": 50143,
+    "targetInitialLife": 6150,
+    "attackResponses": 41,
+    "successfulDamageResponses": 39,
+    "zeroDamageResponses": 2,
+    "successfulDamageRange": [213, 232],
+    "authoritativeKill": true,
+    "monsterCountAfterKill": 227,
+    "naturalDrop": {
+      "dropId": 90000,
+      "itemId": 8009,
+      "count": 1
+    },
+    "pickupAccepted": true,
+    "inventoryMoveAck": {
+      "itemId": 8009,
+      "source": 0,
+      "target": 1
+    },
+    "gameOutAndFreshGameIn": true,
+    "reloginInventoryItem": 8009
+  },
+  "databaseReadback": {
+    "postCombat": {
+      "level": 53,
+      "exp": 1447,
+      "hp": 20159,
+      "shield": 0,
+      "inventoryRows": 4,
+      "dropRow": {
+        "container": 0,
+        "slot": 1,
+        "dbIndex": 700003,
+        "itemId": 8009
+      }
+    },
+    "afterRestore": {
+      "characterLevel": 1,
+      "map": 10,
+      "stats": [12, 12, 12, 12],
+      "state": {
+        "money": 0,
+        "level": 1,
+        "exp": 0,
+        "maxLevel": 1,
+        "expFlag": 16
+      },
+      "vitals": {
+        "hp": 131,
+        "shield": 251,
+        "mp": 128,
+        "dead": 0,
+        "initialized": 1,
+        "revision": 1
+      },
+      "equipment": [11000, 23000, 27000],
+      "inventoryRows": 3,
+      "fixtureSkillRows": 0,
+      "fixtureQuestRows": 0,
+      "fixtureItemGrantRows": 0,
+      "matchesBaseline": true
+    }
+  },
+  "remaining": [
+    "This was a headless protocol path, not human GUI acceptance",
+    "Level 53 temporary combat stats do not prove first-level balance",
+    "Equipping the acquired drop was not tested",
+    "Full map, NPC, quest, social, economy, resource 1:1, Unity, licensing, and stability gates remain open"
+  ]
+}
