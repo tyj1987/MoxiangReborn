@@ -52,7 +52,12 @@
 
 ## C++ 读取器还没接变体 B
 
-`PackFile::open()` 不能读变体 B，但也不是从 92 把原版包错读成条目。这次不改 C++。
+`PackFile::open()` 不能读变体 B，但也不是从 92 把原版包错读成条目。`PackFile` 的解析这次不改。
+
+打不开时不再没有日志：
+
+- `FilesystemFileStorage::Initialize`（`modern/src/render/filesystem_file_storage.cpp`）对 `PackFile::open` 失败的 `.pak` 打 `MLOG_WARN`，写明路径和 `unsupported header / not a pak`，然后跳过，继续扫目录。
+- `EffectCatalog::load`（`modern/src/game/effect_catalog.cpp`）本来就会失败返回，不是跳过。现在同样打 `MLOG_WARN`。`error` 仍是 `Effect.pak is not a valid PackFile`，函数仍返回 false。
 
 - `modern/src/pack_file.cpp` 的 `PackFile::is_pak`（38–44 行）要求 `file_item_num > 0`。偏移 4 为 0 时直接判定不是 pak。
 - `PackFile::open`（47–54 行）把文件交给 `open_buffer`。

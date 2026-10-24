@@ -1,5 +1,6 @@
 #include "mxh/render/FilesystemFileStorage.hpp"
 #include "mxh/compat/pack_file.hpp"
+#include "mxh/log/mlog.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -73,8 +74,13 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     std::error_code ec;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (auto pack = mxh::compat::PackFile::open(item.path()))
+        if (auto pack = mxh::compat::PackFile::open(item.path())) {
             packs_.push_back(std::move(pack));
+        } else {
+            const auto pak_path = item.path().string();
+            MLOG_WARN("[pak] skipped '%s': unsupported header / not a pak",
+                      pak_path.c_str());
+        }
     }
     return TRUE;
 }
