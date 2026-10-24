@@ -5,7 +5,8 @@ unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 Mode 1 (legacy / default):
   unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
   When out_dir is omitted, files go under the system temp directory
-  (moxiang-unpack/<stem>), never beside the pak.
+  (moxiang-unpack/<stem>), never beside the pak and never inside the
+  original resource root.
   Each entry is written as "{i:05d}_{real}.bin" (legacy convention used by
   many existing test fixtures; preserved so the 12 existing audit scripts
   that grep the legacy name pattern keep working).
@@ -20,10 +21,16 @@ Mode 2 (pak_extract / --named):
 --dry-run applies to both modes and both header sizes.  It enumerates
 and validates entries, and creates no directories or files.
 
-The pak's own directory and anything under it are read-only.  The
-resolved output path (symlinks followed; case-insensitive on Windows)
-must not be that directory or a subdirectory of it.  The tool exits
-non-zero and writes nothing when it is.
+Two resolved locations are read-only (symlinks followed, ".." folded,
+case-insensitive on Windows).  The tool exits non-zero and writes
+nothing, including under --dry-run, when the output is either of them:
+
+  * the original resource root, or anything under it.  On Windows the
+    root defaults to D:\\MX.  --original-root overrides MXH_ORIGINAL_ROOT,
+    which overrides that default.  A prefix sibling such as D:\\MX2 is
+    not inside D:\\MX.
+  * the pak's own directory, or anything under it.  This still applies
+    when the pak lives outside the original root.
 
 Two header variants, detected from dwFileItemNum at offset 4.
 Spec: docs/formats/pak.md.
@@ -60,7 +67,12 @@ from typing import BinaryIO, Iterable, Optional
 
 
 class PakOutputError(ValueError):
-    """The output path would write into the pak's own directory."""
+    """The output path would write into a read-only resource directory."""
+
+
+# Windows original-client tree.  Non-Windows has no default root.
+ORIGINAL_ROOT_ENV = "MXH_ORIGINAL_ROOT"
+DEFAULT_ORIGINAL_ROOT_WINDOWS = r"D:\MX"
 
 
 @dataclasses.dataclass
@@ -100,24 +112,45 @@ class PakStats:
 # Core unpack
 # ---------------------------------------------------------------------------
 
-def _same_or_under(parent: str, child: str, *, case_insensitive: bool) -> bool:
+def _same_or_under(parent: str, child: str, *, case_insensitive: bool,
+                   pathmod=os.path) -> bool:
     """True when child is parent or a directory inside parent.
 
     `parent` and `child` are already-resolved path strings.  On Windows
     the comparison is case-insensitive so D:\\MX and d:\\mx match.
+    A prefix sibling does not match: D:\\MX2 is not under D:\\MX.
+    `pathmod` is os.path in production; tests pass ntpath to check the
+    Windows spelling on other hosts.
     """
-    parent_n = os.path.normpath(parent)
-    child_n = os.path.normpath(child)
+    parent_n = pathmod.normpath(parent)
+    child_n = pathmod.normpath(child)
     if case_insensitive:
         parent_n = parent_n.casefold()
         child_n = child_n.casefold()
     try:
-        common = os.path.normpath(os.path.commonpath([parent_n, child_n]))
+        common = pathmod.normpath(pathmod.commonpath([parent_n, child_n]))
     except ValueError:
         return False
     if case_insensitive:
         common = common.casefold()
     return common == parent_n
+
+
+def resolve_original_root(cli_value: Optional[str] = None, *,
+                          environ: Optional[dict[str, str]] = None,
+                          windows: Optional[bool] = None) -> Optional[str]:
+    """Flag, then MXH_ORIGINAL_ROOT, then D:\\MX on Windows."""
+    if windows is None:
+        windows = os.name == "nt"
+    if cli_value is not None and cli_value.strip():
+        return cli_value.strip()
+    env_map = os.environ if environ is None else environ
+    env_value = env_map.get(ORIGINAL_ROOT_ENV, "")
+    if env_value.strip():
+        return env_value.strip()
+    if windows:
+        return DEFAULT_ORIGINAL_ROOT_WINDOWS
+    return None
 
 
 def output_is_inside_pak_dir(pak_path: str, out_dir: str, *,
@@ -128,6 +161,21 @@ def output_is_inside_pak_dir(pak_path: str, out_dir: str, *,
     pak_dir = Path(pak_path).resolve().parent
     out = Path(out_dir).resolve()
     return _same_or_under(str(pak_dir), str(out),
+                          case_insensitive=case_insensitive)
+
+
+def output_is_inside_original_root(out_dir: str,
+                                   original_root: Optional[str], *,
+                                   case_insensitive: Optional[bool] = None,
+                                   ) -> bool:
+    """True when resolved out_dir is the original root or a child of it."""
+    if original_root is None or not original_root.strip():
+        return False
+    if case_insensitive is None:
+        case_insensitive = os.name == "nt"
+    root = Path(original_root).resolve()
+    out = Path(out_dir).resolve()
+    return _same_or_under(str(root), str(out),
                           case_insensitive=case_insensitive)
 
 
@@ -144,21 +192,51 @@ def refuse_output_inside_pak_dir(pak_path: str, out_dir: str) -> None:
     )
 
 
-def default_unpack_dir(pak_path: str) -> Path:
-    """Temp (then cwd) directory that is not beside the pak."""
+def refuse_readonly_output(pak_path: str, out_dir: str,
+                           original_root: Optional[str] = None) -> None:
+    """Pak directory first, then the original resource root."""
+    refuse_output_inside_pak_dir(pak_path, out_dir)
+    if not output_is_inside_original_root(out_dir, original_root):
+        return
+    root = Path(original_root).resolve()
+    raise PakOutputError(
+        f"refusing to write {out_dir}: output is inside the original "
+        f"root ({root}). Original resource directories are read-only. "
+        f"Pass --out outside that directory; the default is under the "
+        f"system temp directory."
+    )
+
+
+def _output_is_readonly(pak_path: str, out_dir: str,
+                        original_root: Optional[str]) -> bool:
+    return (output_is_inside_pak_dir(pak_path, out_dir)
+            or output_is_inside_original_root(out_dir, original_root))
+
+
+def default_unpack_dir(pak_path: str,
+                       original_root: Optional[str] = None) -> Path:
+    """Temp (then cwd) directory outside the pak dir and the original root.
+
+    original_root None resolves the flag, MXH_ORIGINAL_ROOT, then the
+    Windows default.  A candidate inside either read-only tree is skipped,
+    so the temp fallback is not used when it would land in the root.
+    """
+    if original_root is None:
+        original_root = resolve_original_root()
     stem = Path(pak_path).stem or "pak"
     candidates = (
         Path(tempfile.gettempdir()) / "moxiang-unpack" / stem,
         Path.cwd() / "moxiang-unpack" / stem,
     )
     for candidate in candidates:
-        if not output_is_inside_pak_dir(pak_path, str(candidate)):
+        if not _output_is_readonly(pak_path, str(candidate), original_root):
             return candidate
     raise PakOutputError(
         f"refusing to choose a default output directory for {pak_path}: "
         f"both the system temp directory and the workspace would fall "
-        f"inside the pak directory. Original resource directories are "
-        f"read-only. Pass --out explicitly, outside that directory."
+        f"inside the pak directory or the original root. Original "
+        f"resource directories are read-only. Pass --out explicitly, "
+        f"outside that directory."
     )
 
 
@@ -429,12 +507,16 @@ def _unpack_legacy_original(pak_path: str, out_dir: str, *,
     return 0
 
 
-def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False) -> int:
+def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
+                  original_root: Optional[str] = None) -> int:
     """The original mode that writes entries as {i:05d}_{real}.bin.
 
     dry_run enumerates and validates, and creates neither out_dir nor files.
+    original_root None resolves the CLI/env/Windows default.
     """
-    refuse_output_inside_pak_dir(pak_path, out_dir)
+    if original_root is None:
+        original_root = resolve_original_root()
+    refuse_readonly_output(pak_path, out_dir, original_root)
     if not dry_run:
         os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
@@ -501,9 +583,12 @@ def pak_extract(pak_path: str, out_dir: str, *,
                 dry_run: bool = False,
                 write_manifest: bool = True,
                 verify: bool = False,
-                filter_pattern: Optional[str] = None) -> PakStats:
+                filter_pattern: Optional[str] = None,
+                original_root: Optional[str] = None) -> PakStats:
     """Named-entry mode.  Returns a stats summary."""
-    refuse_output_inside_pak_dir(pak_path, out_dir)
+    if original_root is None:
+        original_root = resolve_original_root()
+    refuse_readonly_output(pak_path, out_dir, original_root)
     t0 = time.monotonic()
     pak_size = os.path.getsize(pak_path)
     _header, version, n_items, flag = parse_pak(pak_path)
@@ -635,14 +720,24 @@ def main() -> int:
                     help="print each skipped entry's reason")
     ap.add_argument("--filter", default=None,
                     help="only write entries whose name matches this regex")
+    ap.add_argument(
+        "--original-root",
+        default=None,
+        help="read-only original resource root. Output inside it is "
+             "refused even with --dry-run "
+             f"(default: {ORIGINAL_ROOT_ENV}, or "
+             f"{DEFAULT_ORIGINAL_ROOT_WINDOWS} on Windows). "
+             "A prefix sibling such as D:\\MX2 is allowed.",
+    )
     args = ap.parse_args()
     if args.out_flag is not None:
         args.out = args.out_flag
 
     pak_path = args.pak
     try:
-        out_dir = args.out or str(default_unpack_dir(pak_path))
-        refuse_output_inside_pak_dir(pak_path, out_dir)
+        original_root = resolve_original_root(args.original_root)
+        out_dir = args.out or str(default_unpack_dir(pak_path, original_root))
+        refuse_readonly_output(pak_path, out_dir, original_root)
     except PakOutputError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -657,9 +752,11 @@ def main() -> int:
             write_manifest=args.manifest,
             verify=args.verify,
             filter_pattern=args.filter,
+            original_root=original_root,
         )
         return 0 if stats.written > 0 else 2
-    return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run)
+    return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run,
+                         original_root=original_root)
 
 
 if __name__ == "__main__":

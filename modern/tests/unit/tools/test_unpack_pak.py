@@ -20,6 +20,7 @@ import contextlib
 import hashlib
 import io
 import json
+import ntpath
 import os
 import shutil
 import struct
@@ -440,6 +441,22 @@ def _run_cli(argv: list[str]) -> tuple[int, str, str]:
     return rc, out_buf.getvalue(), err_buf.getvalue()
 
 
+@contextlib.contextmanager
+def _set_env(name: str, value: str | None):
+    old = os.environ.get(name)
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = old
+
+
 def _tree(root: Path) -> list[str]:
     """Relative paths under root, including symlink targets."""
     if not root.exists():
@@ -834,6 +851,221 @@ class ReadOnlyOutputTests(unittest.TestCase):
             pak = self._worktree(tdp)
             folded = str(pak.parent.resolve()).swapcase()
             self._assert_cli_refuses(pak, folded + "\\out")
+
+
+class OriginalRootGuardTests(unittest.TestCase):
+    """Output inside the original root is refused, not only the pak dir."""
+
+    def _pak_outside(self, parent: Path, name: str = "tiny.pak") -> Path:
+        src = parent / "src"
+        src.mkdir(exist_ok=True)
+        pak = src / name
+        _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+        return pak
+
+    def test_windows_root_spelling_and_prefix_sibling(self):
+        root = r"D:\MX"
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"D:\MX\tools\x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"d:\mx\tools\x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"D:\MX\tmp_x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, root, case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MX2", case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MX2\out", case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MXtmp_x", case_insensitive=True, pathmod=ntpath))
+        self.assertEqual(
+            unpack_pak.resolve_original_root(environ={}, windows=True),
+            r"D:\MX")
+        self.assertIsNone(
+            unpack_pak.resolve_original_root(environ={}, windows=False))
+        self.assertEqual(
+            unpack_pak.resolve_original_root(
+                None, environ={"MXH_ORIGINAL_ROOT": r"E:\from-env"},
+                windows=True),
+            r"E:\from-env")
+        self.assertEqual(
+            unpack_pak.resolve_original_root(
+                r"E:\from-flag",
+                environ={"MXH_ORIGINAL_ROOT": r"E:\from-env"},
+                windows=True),
+            r"E:\from-flag")
+
+    def test_out_under_original_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            before_root = _tree(root)
+            before_pak = _tree(pak.parent)
+            cases = {
+                "tools/x": root / "tools" / "x",
+                "tmp_x": root / "tmp_x",
+                "root itself": root,
+                "dotdot back into root": root / "escape" / ".." / "tools" / "x",
+            }
+            for label, out in cases.items():
+                with self.subTest(label=label):
+                    rc, text, err = _run_cli([
+                        str(pak), "--original-root", str(root),
+                        "--out", str(out),
+                    ])
+                    self.assertEqual(rc, 1, text + err)
+                    self.assertIn("refusing", err)
+                    self.assertIn("read-only", err)
+                    self.assertIn("original root", err)
+                    self.assertNotIn("Traceback", err)
+                    if out != root:
+                        self.assertFalse(out.exists())
+                    self.assertEqual(_tree(root), before_root)
+                    self.assertEqual(_tree(pak.parent), before_pak)
+            with self.subTest(label="dry-run does not bypass"):
+                out = root / "tools" / "x"
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(root),
+                    "--dry-run", "--named", "--out", str(out),
+                ])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertEqual(_tree(root), before_root)
+                self.assertFalse((root / "tools").exists())
+
+    def test_sibling_root2_is_allowed(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            root2 = tdp / "MX2"
+            pak = self._pak_outside(tdp)
+            out = root2 / "out"
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root), "--out", str(out),
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((out / "00000_11.bin").read_bytes(), b"one-payload")
+            self.assertEqual(_tree(root), [])
+            self.assertEqual(_tree(pak.parent), [pak.name])
+
+    def test_override_flag_replaces_env(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            env_root = tdp / "MX"
+            flag_root = tdp / "OTHER"
+            env_root.mkdir()
+            flag_root.mkdir()
+            pak = self._pak_outside(tdp)
+            in_env = env_root / "tools" / "x"
+            in_flag = flag_root / "tmp_x"
+            with _set_env("MXH_ORIGINAL_ROOT", str(env_root)):
+                rc, text, err = _run_cli([str(pak), "--out", str(in_env)])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertFalse(in_env.exists())
+                self.assertEqual(_tree(env_root), [])
+
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(flag_root),
+                    "--out", str(in_env),
+                ])
+                self.assertEqual(rc, 0, text + err)
+                self.assertEqual((in_env / "00000_11.bin").read_bytes(),
+                                 b"one-payload")
+                self.assertEqual(_tree(flag_root), [])
+
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(flag_root),
+                    "--dry-run", "--out", str(in_flag),
+                ])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertEqual(_tree(flag_root), [])
+                self.assertFalse(in_flag.exists())
+
+    def test_pak_dir_check_still_applies_outside_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            before = _tree(pak.parent)
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root),
+                "--out", str(pak.parent / "extracted"),
+            ])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("pak directory", err)
+            self.assertEqual(_tree(pak.parent), before)
+            self.assertEqual(_tree(root), [])
+
+    def test_symlink_into_original_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            outside = tdp / "outside"
+            outside.mkdir()
+            trap = outside / "trap"
+            try:
+                trap.symlink_to(root, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlinks unavailable: {exc}")
+            before = _tree(root)
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root),
+                "--out", str(trap / "tools" / "x"),
+            ])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("original root", err)
+            self.assertEqual(_tree(root), before)
+            self.assertFalse((root / "tools").exists())
+
+    def test_temp_fallback_never_lands_in_original_root(self):
+        unique = uuid.uuid4().hex
+        root = Path(tempfile.gettempdir())
+        scratch = Path(tempfile.mkdtemp(
+            prefix=f"mxh-oroot-{unique}-", dir="/workspace"))
+        pak = scratch / "src" / f"map-{unique}.pak"
+        pak.parent.mkdir()
+        _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+        temp_candidate = root / "moxiang-unpack" / pak.stem
+        old = os.getcwd()
+        try:
+            self.assertFalse(temp_candidate.exists())
+            os.chdir(scratch)
+            with _set_env("MXH_ORIGINAL_ROOT", str(root)):
+                chosen = unpack_pak.default_unpack_dir(str(pak))
+                self.assertEqual(chosen, scratch / "moxiang-unpack" / pak.stem)
+                self.assertTrue(unpack_pak.output_is_inside_original_root(
+                    str(temp_candidate), str(root)))
+                self.assertFalse(unpack_pak.output_is_inside_original_root(
+                    str(chosen), str(root)))
+                rc, text, err = _run_cli([str(pak)])
+                self.assertEqual(rc, 0, text + err)
+                self.assertEqual(
+                    (chosen / "00000_11.bin").read_bytes(), b"one-payload")
+                self.assertFalse(temp_candidate.exists())
+                self.assertIn(str(chosen), text)
+                self.assertEqual(_tree(pak.parent), [pak.name])
+
+                os.chdir(root)
+                rc, text, err = _run_cli([str(pak)])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("refusing", err)
+                self.assertIn("read-only", err)
+                self.assertFalse(temp_candidate.exists())
+                self.assertFalse((root / "moxiang-unpack" / pak.stem).exists())
+        finally:
+            os.chdir(old)
+            shutil.rmtree(scratch, ignore_errors=True)
+            if temp_candidate.exists():
+                shutil.rmtree(temp_candidate, ignore_errors=True)
 
 
 class ParsePakHeaderTests(unittest.TestCase):
