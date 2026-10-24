@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### capture: Map 帧默认包含实体 (2026-10-24)
+
+`MXH_GUI_SMOKE_EXIT=1` 且未设置 `MXH_GUI_SMOKE_RENDER_ENTITIES` 时，客户端不填充实体列表，Map 截图没有怪物、NPC 和玩家。`capture-gamein.ps1`、`capture-state-frames.ps1`、`gui-client-smoke.ps1` 默认打开该开关，`-NoEntities` 可退出，并在 `capture-metadata.json` / `result.json` 记录 `entities_enabled`。`verify-entity-frame.py` 在实体渲染关闭或 drawn 为 0 时失败；尚无逐帧 `drawn/culled` 日志时输出 `no conclusion`（退出码 3），不报 PASS。
+
 ### visual / UI / map polish follow-up (2026-09-07 evening, 4 commit)
 
 紧接日间 session 收尾, 4 个 commit 把 polish session 的资源侧打磨到底:
