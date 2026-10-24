@@ -1,4 +1,5 @@
 #include "mxh/render/StaticScene.hpp"
+#include "mxh/render/StaticSceneCenter.hpp"
 
 #include "mxh/compat/stm_static_model.hpp"
 #include "mxh/log/mlog.hpp"
@@ -17,11 +18,10 @@ namespace mxh::gx {
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr float kSceneScale = 0.001f;
-// kMapCenter is now sourced from the cached centre pushed by the caller via
-// StaticScene::setMapCenter (defaults to the legacy 25.6f constant for any
-// code path that constructs a StaticScene without a matching TerrainScene —
-// e.g. the standalone tests). See mxh::gx::StaticScene::setMapCenter.
-constexpr float kMapCenter = 25.6f;
+// The map centre is supplied by the caller (TerrainScene::mapCenter()) via
+// StaticScene::load(..., centre) or setMapCenter() BEFORE load. Vertices are
+// baked into GPU meshes at load time, so a centre change after load cannot
+// move the meshes; see setMapCenter.
 
 bool readStorageFile(I4DyuchiFileStorage* storage, const char* name,
                      std::vector<std::uint8_t>& bytes) {
@@ -98,8 +98,9 @@ struct StaticScene::Impl {
     // STM mesh re-centres by the same offset the terrain mesh builder
     // subtracts. Defaults to the legacy 25.6f constant for unit tests that
     // build a StaticScene without a corresponding TerrainScene.
-    float map_center_x = 25.6f;
-    float map_center_z = 25.6f;
+    float map_center_x = static_center::kLegacyMapCenter;
+    float map_center_z = static_center::kLegacyMapCenter;
+    bool baked = false;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
 
@@ -107,8 +108,18 @@ StaticScene::StaticScene() : impl_(std::make_unique<Impl>()) {}
 StaticScene::~StaticScene() = default;
 
 bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storage,
+                       const char* stm_name, float map_center_x, float map_center_z,
+                       std::string* error) {
+    if (!impl_) return false;
+    impl_->map_center_x = map_center_x;
+    impl_->map_center_z = map_center_z;
+    return load(renderer, storage, stm_name, error);
+}
+
+bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storage,
                        const char* stm_name, std::string* error) {
     if (!renderer || !storage || !stm_name) return false;
+    const static_center::Center centre{impl_->map_center_x, impl_->map_center_z};
     for (auto* mesh : impl_->meshes) if (mesh) mesh->Release();
     impl_->meshes.clear(); impl_->textures.clear();
     impl_->collision_bounds.clear();
@@ -121,10 +132,10 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     impl_->collision_bounds.reserve(scene.collision_bounds.size());
     for (const auto& source : scene.collision_bounds) {
         impl_->collision_bounds.push_back({
-            source.min[0] * kSceneScale - impl_->map_center_x,
-            source.max[0] * kSceneScale - impl_->map_center_x,
-            source.min[2] * kSceneScale - impl_->map_center_z,
-            source.max[2] * kSceneScale - impl_->map_center_z});
+            static_center::worldToSceneX(source.min[0], centre),
+            static_center::worldToSceneX(source.max[0], centre),
+            static_center::worldToSceneZ(source.min[2], centre),
+            static_center::worldToSceneZ(source.max[2], centre)});
     }
 
     ID3D11Device* device = nullptr;
@@ -151,9 +162,9 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         std::vector<VECTOR3> normals(source.positions.size(), VECTOR3{0, 1, 0});
         std::vector<TVERTEX> texcoords(source.positions.size());
         for (std::size_t i = 0; i < source.positions.size(); ++i) {
-            positions[i] = {source.positions[i][0] * kSceneScale - impl_->map_center_x,
+            positions[i] = {static_center::worldToSceneX(source.positions[i][0], centre),
                             source.positions[i][1] * kSceneScale,
-                            source.positions[i][2] * kSceneScale - impl_->map_center_z};
+                            static_center::worldToSceneZ(source.positions[i][2], centre)};
             if (i < source.normals.size())
                 normals[i] = {source.normals[i][0], source.normals[i][1], source.normals[i][2]};
             if (i < source.texcoords.size())
@@ -186,7 +197,9 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
                 mesh->SetFaceGroupDiffuseSRV(group, impl_->textures[materials[group]].Get());
         impl_->meshes.push_back(mesh);
     }
-    MLOG_INFO("[static] original STM loaded meshes=%u/%u textures=%u/%u",
+    impl_->baked = true;
+    MLOG_INFO("[static] original STM loaded centre=(%.3f,%.3f) meshes=%u/%u textures=%u/%u",
+              centre.x, centre.z,
               meshCount(), static_cast<unsigned>(scene.meshes.size()), loadedTextureCount(),
               static_cast<unsigned>(scene.materials.size()));
     return !impl_->meshes.empty();
@@ -212,8 +225,9 @@ std::uint32_t StaticScene::unresolvedTextureCount() const noexcept {
 bool StaticScene::blocksPoint(float world_x, float world_z,
                               float radius) const noexcept {
     if (!impl_ || impl_->collision_bounds.empty()) return false;
-    const float scene_x = world_x * kSceneScale - impl_->map_center_x;
-    const float scene_z = world_z * kSceneScale - impl_->map_center_z;
+    const static_center::Center centre{impl_->map_center_x, impl_->map_center_z};
+    const float scene_x = static_center::worldToSceneX(world_x, centre);
+    const float scene_z = static_center::worldToSceneZ(world_z, centre);
     const float r = std::max(0.0f, radius) * kSceneScale;
     return std::any_of(impl_->collision_bounds.begin(),
                        impl_->collision_bounds.end(),
@@ -225,6 +239,18 @@ bool StaticScene::blocksPoint(float world_x, float world_z,
 
 void StaticScene::setMapCenter(float world_x, float world_z) noexcept {
     if (!impl_) return;
+    const static_center::Center next{world_x, world_z};
+    const static_center::Center prev{impl_->map_center_x, impl_->map_center_z};
+    if (static_center::sameCenter(prev, next)) return;
+    if (impl_->baked) {
+        // Meshes were baked with `prev`; changing the centre here would make
+        // blocksPoint() disagree with the rendered geometry. Keep the baked
+        // centre and report the wiring error instead of silently drifting.
+        MLOG_WARN("[static] setMapCenter(%.3f,%.3f) after load ignored; baked centre=(%.3f,%.3f)."
+                  " Pass TerrainScene::mapCenter() to StaticScene::load.",
+                  world_x, world_z, prev.x, prev.z);
+        return;
+    }
     impl_->map_center_x = world_x;
     impl_->map_center_z = world_z;
 }

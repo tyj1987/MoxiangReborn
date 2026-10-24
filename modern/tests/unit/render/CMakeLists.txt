@@ -1,6 +1,11 @@
 add_executable(mxh_box_geometry_tests box_geometry_test.cpp)
 target_link_libraries(mxh_box_geometry_tests PRIVATE mxh_render GTest::gtest_main)
 gtest_add_tests(TARGET mxh_box_geometry_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+# Header-only, DX-free: StaticScene map-centre regression (Map 10 0.6 offset).
+add_executable(mxh_static_scene_center_tests static_scene_center_test.cpp)
+target_include_directories(mxh_static_scene_center_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_static_scene_center_tests PRIVATE GTest::gtest_main)
+gtest_add_tests(TARGET mxh_static_scene_center_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp

@@ -661,7 +661,12 @@ public:
         if (stage_ == 3) {
             static_scene_ = std::make_unique<mxh::gx::StaticScene>();
             const auto name = std::to_string(map_num_) + ".stm";
-            if (!static_scene_->load(renderer_, storage_, name.c_str(), &stage_error_))
+            // Bake STM with the terrain's own centre (Map 10 = 25.0, not the
+            // legacy 25.6) so statics/collision line up with terrain and the
+            // server's absolute-coordinate tile collision.
+            const auto centre = terrain_->mapCenter();
+            if (!static_scene_->load(renderer_, storage_, name.c_str(),
+                                     centre.first, centre.second, &stage_error_))
                 return fail("Static scene load failed (" + name + "): " + stage_error_, error);
             if (static_scene_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
                 return fail("Static scene contains " + std::to_string(static_scene_->unresolvedTextureCount()) + " unresolved textures", error);
