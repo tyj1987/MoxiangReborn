@@ -34,11 +34,18 @@ if str(_TOOLS_DIR) not in sys.path:
 import unpack_pak  # noqa: E402  (sys.path modified above)
 
 
-def _make_pak(entries: list[tuple[str, bytes]], out_path: Path) -> int:
-    """Build a minimal valid .pak file.  Returns file_item_num."""
+def _make_pak(entries: list[tuple[str, bytes]], out_path: Path,
+              *, header_count: int | None = None) -> int:
+    """Build a minimal valid .pak file.  Returns the header file_item_num.
+
+    header_count overrides dwFileItemNum.  The entry bytes that follow are
+    still written in order; pass 0 to reproduce archives that pack entries
+    through EOF with a zero count in the header.
+    """
+    count = len(entries) if header_count is None else header_count
     with out_path.open("wb") as f:
         # 92-byte PACK_FILE_HEADER
-        f.write(struct.pack("<III", 1, len(entries), 0))  # version, n_items, flag
+        f.write(struct.pack("<III", 1, count, 0))  # version, n_items, flag
         f.write(b"\x00" * (92 - 12))
         for name, data in entries:
             name_b = name.encode("latin-1")
@@ -57,7 +64,7 @@ def _make_pak(entries: list[tuple[str, bytes]], out_path: Path) -> int:
             # trailing alignment.  Earlier fixtures added a pad here
             # which self-consistently passed but did not match what
             # real .pak files actually contain.
-    return len(entries)
+    return count
 
 
 def _make_dummy_hfl(face_size: float = 512.0) -> bytes:
@@ -195,6 +202,136 @@ class PakExtractNamedModeTests(unittest.TestCase):
             self.assertTrue((out / "Map" / "Map0.hfl").is_file())
             self.assertTrue((out / "Map" / "Map2.hfl").is_file())
             self.assertFalse((out / "Map" / "Map1.hfl").exists())
+
+
+class HeaderCountEofTests(unittest.TestCase):
+    """dwFileItemNum == 0 means entries run until EOF.
+
+    Synthetic only.  A few KB, no original client resources.
+    """
+
+    def test_zero_header_count_reads_three_entries(self):
+        entries = [
+            ("Map/zone_a.bmhm", b"zone-a:" + b"A" * 1200),
+            ("Map/zone_b.bmhm", b"zone-b:" + b"B" * 1300),
+            ("Char/npc_c.chx", b"npc-c:" + b"C" * 1400),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "zero_count.pak"
+            self.assertEqual(_make_pak(entries, pak, header_count=0), 0)
+            self.assertLess(pak.stat().st_size, 16 * 1024)
+            _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
+            self.assertEqual(n_items, 0)
+
+            raw = pak.read_bytes()
+            walked = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(walked), 3)
+            for entry, (name, payload) in zip(walked, entries):
+                self.assertEqual(entry.name, name)
+                got = raw[entry.data_offset:entry.data_offset + entry.real_size]
+                self.assertEqual(got, payload)
+                self.assertEqual(entry.real_size, len(payload))
+
+            named_out = tdp / "named"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(named_out),
+                dry_run=False, write_manifest=False, verify=False)
+            self.assertEqual(stats.file_item_num, 0)
+            self.assertEqual(stats.parsed, 3)
+            self.assertEqual(stats.written, 3)
+            for name, payload in entries:
+                self.assertEqual((named_out / name).read_bytes(), payload)
+
+            legacy_out = tdp / "legacy"
+            rc = unpack_pak.unpack_legacy(str(pak), str(legacy_out))
+            self.assertEqual(rc, 0)
+            written = sorted(p.name for p in legacy_out.iterdir())
+            self.assertEqual(
+                written,
+                [f"{i:05d}_{len(payload)}.bin" for i, (_name, payload) in enumerate(entries)],
+            )
+            for i, (_name, payload) in enumerate(entries):
+                blob = legacy_out / f"{i:05d}_{len(payload)}.bin"
+                self.assertEqual(blob.read_bytes(), payload)
+
+    def test_nonzero_header_count_still_stops_at_declared_count(self):
+        entries = [
+            ("Map/one.bmhm", b"one-payload"),
+            ("Map/two.bmhm", b"two-payload-ok"),
+            ("Map/three.bmhm", b"three-must-stay-unread"),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "counted.pak"
+            self.assertEqual(_make_pak(entries, pak, header_count=2), 2)
+            _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
+            self.assertEqual(n_items, 2)
+
+            walked = list(unpack_pak.walk_entries(str(pak), n_items))
+            self.assertEqual([e.name for e in walked],
+                             ["Map/one.bmhm", "Map/two.bmhm"])
+            raw = pak.read_bytes()
+            self.assertEqual(
+                raw[walked[0].data_offset:walked[0].data_offset + walked[0].real_size],
+                b"one-payload")
+            self.assertEqual(
+                raw[walked[1].data_offset:walked[1].data_offset + walked[1].real_size],
+                b"two-payload-ok")
+
+            out = tdp / "named"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out),
+                dry_run=False, write_manifest=False, verify=False)
+            self.assertEqual(stats.file_item_num, 2)
+            self.assertEqual(stats.parsed, 2)
+            self.assertEqual(stats.written, 2)
+            self.assertEqual((out / "Map" / "one.bmhm").read_bytes(), b"one-payload")
+            self.assertEqual((out / "Map" / "two.bmhm").read_bytes(), b"two-payload-ok")
+            self.assertFalse((out / "Map" / "three.bmhm").exists())
+
+            legacy_out = tdp / "legacy"
+            rc = unpack_pak.unpack_legacy(str(pak), str(legacy_out))
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                sorted(p.name for p in legacy_out.iterdir()),
+                ["00000_11.bin", "00001_14.bin"],
+            )
+            self.assertEqual((legacy_out / "00000_11.bin").read_bytes(), b"one-payload")
+            self.assertEqual((legacy_out / "00001_14.bin").read_bytes(), b"two-payload-ok")
+
+    def test_zero_header_count_truncated_last_entry_errors(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "truncated.pak"
+            _make_pak([("Map/ok.bmhm", b"complete-entry")], pak, header_count=0)
+            name = b"Map/cut.bmhm"
+            claimed_size = 64
+            with pak.open("ab") as f:
+                f.write(struct.pack(
+                    "<IIIIIIII",
+                    32 + len(name) + 1 + claimed_size,
+                    claimed_size, len(name),
+                    0, 0, 0, 0, 0))
+                f.write(name)
+                f.write(b"\x00")
+                f.write(b"X" * 10)  # 10 of the 64 declared payload bytes
+
+            walked = unpack_pak.walk_entries(str(pak), 0)
+            first = next(walked)
+            self.assertEqual(first.name, "Map/ok.bmhm")
+            self.assertEqual(
+                pak.read_bytes()[first.data_offset:first.data_offset + first.real_size],
+                b"complete-entry")
+            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+                next(walked)
+
+            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
+            with self.assertRaisesRegex(ValueError, r"truncated pak entry 1 .*EOF"):
+                unpack_pak.unpack_legacy(str(pak), str(tdp / "legacy"))
 
 
 class ParsePakHeaderTests(unittest.TestCase):

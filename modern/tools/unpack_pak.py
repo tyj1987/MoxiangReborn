@@ -19,9 +19,15 @@ Mode 2 (pak_extract / --named):
 Source: 墨香【源码】\\4DyuchiFileStorage\\CoStorage.cpp
         Initialize() walks the .pak sequentially using dwFileDataOffset.
         Some real .pak files have corrupt dwFileDataOffset (zeros) so we
-        walk via layout (32 byte header + nameLen + 1 NUL + realSize + 4
-        byte alignment pad), which matches what the C++ PackFile::open()
-        does (modern/include/mxh/compat/pack_file.hpp).
+        walk via layout (32 byte header + nameLen + 1 NUL + realSize),
+        which matches what the C++ PackFile::open() does
+        (modern/include/mxh/compat/pack_file.hpp). There is no per-entry
+        alignment pad.
+
+        When dwFileItemNum is 0, entries are still packed back-to-back
+        through EOF (the original client's Map.pak does this). That case
+        reads until EOF and rejects a truncated final entry. A non-zero
+        count keeps the historical walk.
 """
 
 from __future__ import annotations
@@ -36,7 +42,7 @@ import struct
 import sys
 import time
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import BinaryIO, Iterable, Optional
 
 
 @dataclasses.dataclass
@@ -88,6 +94,64 @@ def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
     return pak_header, version, n_items, flag
 
 
+def _walk_entries_until_eof(f: BinaryIO, pak_size: int) -> Iterable[PakEntry]:
+    """Yield entries from offset 92 through EOF.
+
+    Used only when the header entry count is 0.  Landing exactly on EOF
+    ends the walk.  A header, filename, or payload that is cut off raises
+    ValueError; this path does not use the non-zero count's junk-header
+    resync.
+    """
+    cur = 92
+    index = 0
+    while cur < pak_size:
+        remaining = pak_size - cur
+        f.seek(cur)
+        hdr = f.read(32)
+        if len(hdr) < 32:
+            raise ValueError(
+                f"truncated pak entry {index} at offset 0x{cur:x}: "
+                f"entry header is 32 bytes but only {len(hdr)} byte(s) "
+                f"remain before EOF"
+            )
+        (_total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
+            struct.unpack("<IIIIIIII", hdr))
+        declared = 32 + name_len + 1 + real
+        if cur + declared > pak_size:
+            raise ValueError(
+                f"truncated pak entry {index} at offset 0x{cur:x}: "
+                f"name_len={name_len} real_size={real} needs {declared} "
+                f"bytes but only {remaining} byte(s) remain before EOF"
+            )
+        f.seek(cur + 32)
+        raw_name = f.read(name_len + 1)
+        if len(raw_name) < name_len + 1:
+            raise ValueError(
+                f"truncated pak entry {index} at offset 0x{cur:x}: "
+                f"filename needs {name_len + 1} bytes but only "
+                f"{len(raw_name)} byte(s) remain before EOF"
+            )
+        data_offset = cur + 32 + name_len + 1
+        f.seek(data_offset)
+        data = f.read(real)
+        if len(data) < real:
+            raise ValueError(
+                f"truncated pak entry {index} at offset 0x{cur:x}: "
+                f"payload needs {real} bytes but only {len(data)} byte(s) "
+                f"remain before EOF"
+            )
+        name = raw_name.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
+        yield PakEntry(
+            index=index,
+            name=name,
+            real_size=real,
+            data_offset=data_offset,
+            entry_offset=cur,
+        )
+        cur = data_offset + real
+        index += 1
+
+
 def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
     """Yield PakEntry in order.  Stops cleanly on truncation or layout error.
 
@@ -102,8 +166,17 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
     retries, rather than aborting the whole walk.  This lets us recover
     from a 32-byte alignment glitch that older `4DyuchiFileStorage`
     writers occasionally produced.
+
+    A claimed count of 0 is different: original archives such as the
+    client's Map.pak store entries through EOF with dwFileItemNum left at
+    0.  That walk stops on a clean EOF and raises ValueError if the final
+    entry is partial.  Non-zero counts keep the loop below unchanged.
     """
     pak_size = os.path.getsize(pak_path)
+    if expected == 0:
+        with open(pak_path, "rb") as f:
+            yield from _walk_entries_until_eof(f, pak_size)
+        return
     with open(pak_path, "rb") as f:
         cur = 92
         i = 0
@@ -200,11 +273,41 @@ def hfl_header_ok(prefix: bytes) -> bool:
 # Mode 1 — legacy (preserve {i:05d}_{real}.bin naming)
 # ---------------------------------------------------------------------------
 
+def _unpack_legacy_until_eof(pak_path: str, out_dir: str) -> int:
+    """Legacy writer for archives whose header entry count is 0."""
+    pak_size = os.path.getsize(pak_path)
+    n_written = 0
+    with open(pak_path, "rb") as f:
+        for entry in _walk_entries_until_eof(f, pak_size):
+            f.seek(entry.data_offset)
+            data = f.read(entry.real_size)
+            if len(data) != entry.real_size:
+                raise ValueError(
+                    f"truncated pak entry {entry.index} at offset "
+                    f"0x{entry.entry_offset:x}: payload needs {entry.real_size} "
+                    f"bytes but only {len(data)} byte(s) remain before EOF"
+                )
+            safe = f"{entry.index:05d}_{entry.real_size}.bin"
+            target = os.path.join(out_dir, safe)
+            with open(target, "wb") as out:
+                out.write(data)
+            n_written += 1
+            if n_written <= 3 or n_written % 500 == 0:
+                print(
+                    f"  [{n_written}/eof] {safe}  "
+                    f"({entry.real_size} bytes, name={entry.name[:40]!r})"
+                )
+    print(f"wrote {n_written} entries")
+    return 0
+
+
 def unpack_legacy(pak_path: str, out_dir: str) -> int:
     """The original mode that writes entries as {i:05d}_{real}.bin."""
     os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
     print(f"version={version} n_items={n_items} flag={flag}")
+    if n_items == 0:
+        return _unpack_legacy_until_eof(pak_path, out_dir)
     cur = 92
     n_written = 0
     consecutive_junk = 0
@@ -312,7 +415,8 @@ def pak_extract(pak_path: str, out_dir: str, *,
             stats.written += 1
             if stats.written <= 3 or stats.written % 1000 == 0:
                 tail = " (dry-run)" if dry_run else ""
-                print(f"  [{stats.written}/{n_items}] "
+                shown_total = "eof" if n_items == 0 else str(n_items)
+                print(f"  [{stats.written}/{shown_total}] "
                       f"{entry.canonical_name}  ({entry.real_size} bytes){tail}")
 
     stats.elapsed_ms = int((time.monotonic() - t0) * 1000)
