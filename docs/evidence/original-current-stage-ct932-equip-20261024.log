@@ -1,0 +1,128 @@
+[e2e] --no-spawn: assuming servers are already up (login:36101, agent:37101, map:38101)
+[e2e] using explicit PlayDH root: E:\Workspaces\moxiang\worktrees\original-integration\modern\data\PlayDH
+[e2e] [1/5] Login: CLoginState connecting to 192.168.2.244:36101 ...
+[10:18:54.900] INFO  CLoginState.cpp:195  CLoginState connecting to 192.168.2.244:36101 as 'mxheb7368e41b5cb'
+[10:18:54.901] INFO  CLoginState.cpp:255  CLoginState::on_connect id=1 from 192.168.2.244
+[10:18:55.023] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=0 obj=1004 payload=0
+[10:18:55.023] INFO  CLoginState.cpp:303  CLoginState: got DistConnectSuccess
+[10:18:55.023] INFO  CLoginState.cpp:320  CLoginState: sent RequestLogin (38B legacy payload)
+[10:18:55.769] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=2 obj=0 payload=23
+[10:18:55.769] INFO  CLoginState.cpp:409  CLoginState: LoginAck agent=192.168.2.244:37101 user_idx=3 level=0
+[10:18:55.769] DEBUG CLoginState.cpp:243  CLoginState::TakeLoginResult -> user_idx=3 agent=192.168.2.244:37101
+[e2e] [1/5] OK: LoginAck received, user_idx=3 agent=192.168.2.244:37101
+[e2e] [2/5] CharSelect: CCharSelectState connecting to 192.168.2.244:37101 ...
+[10:18:55.783] DEBUG CCharSelectState.cpp:251  CCharSelectState: pulled LoginResult from engine transfer slot (agent=192.168.2.244:37101, user_idx=3)
+[10:18:55.783] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:37101 (user_idx=3)
+[10:18:55.784] INFO  CCharSelectState.cpp:358  CCharSelectState::on_connect id=1 from 192.168.2.244
+[10:18:55.846] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=8 obj=76655 payload=0
+[10:18:55.846] INFO  CCharSelectState.cpp:383  CCharSelectState: got AgentConnectSuccess
+[10:18:55.846] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[10:18:55.909] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[10:18:55.909] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=0
+[e2e] [2/5] OK: CharacterListAck received, 0 valid slot(s)
+[10:18:55.909] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [3/5] CharMake: creating character via CCharMake ...
+[10:18:55.920] INFO  CCharMake.cpp:324  CCharMake connecting to 192.168.2.244:37101 (user_idx=3)
+[10:18:55.920] INFO  CCharMake.cpp:549  CCharMake: submit appearance sex=1 face=1 hair=1 equipment0=0 equipment2=23000
+[10:18:55.920] INFO  CCharMake.cpp:749  CCharMake: sent CharacterMakeSyn name='EQa3cdb08b21' (59B legacy payload)
+[e2e] [3/5] submitting CharacterMakeSyn name='EQa3cdb08b21'
+[10:18:56.110] DEBUG CCharMake.cpp:420  CCharMake::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[10:18:56.110] INFO  CCharMake.cpp:443  CCharMake: CharacterListAck received after create; switching to CharSelect
+[e2e] [3/5] OK: character created, agent re-sent CharacterListAck
+[10:18:56.110] DEBUG CCharMake.cpp:343  CCharMake::Release
+[e2e] [4/5] CharSelect: re-fetching list after create ...
+[10:18:56.110] DEBUG CCharSelectState.cpp:251  CCharSelectState: pulled LoginResult from engine transfer slot (agent=192.168.2.244:37101, user_idx=3)
+[10:18:56.110] INFO  CCharSelectState.cpp:267  CCharSelectState connecting to 192.168.2.244:37101 (user_idx=3)
+[10:18:56.110] INFO  CCharSelectState.cpp:521  CCharSelectState: sent CharacterListSyn (8B legacy payload)
+[10:18:56.171] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=12 obj=0 payload=889
+[10:18:56.171] INFO  CCharSelectState.cpp:403  CCharSelectState: CharacterListAck char_count derived from list, first valid chrid=100005
+[e2e] [4/5] OK: created character present (chrid=100005, 1 valid slot(s))
+[10:18:56.171] INFO  CCharSelectState.cpp:601  CCharSelectState: sent CharacterSelectSyn chrid=100005
+[10:18:56.233] DEBUG CCharSelectState.cpp:375  CCharSelectState::on_message id=1 cat=UserConn proto=17 obj=100005 payload=1
+[10:18:56.233] INFO  CCharSelectState.cpp:781  CCharSelectState: CharacterSelectAck chrid=100005 map_num=10
+[10:18:56.233] DEBUG CCharSelectState.cpp:287  CCharSelectState::Release
+[e2e] [5/5] InGame: sending GameInSyn through persistent AgentSession ...
+[10:18:56.233] INFO  CInGameState.cpp:1041  heap label=gamein_start_enter ws=8708096 peak_ws=8732672 private=1847296 virtual=1847296
+[10:18:56.233] INFO  CInGameState.cpp:1055  CInGameState effect catalog loading asynchronously
+[10:18:56.233] INFO  CInGameState.cpp:1058  heap label=gamein_after_effect_kickoff ws=8744960 peak_ws=8744960 private=1871872 virtual=1871872
+[10:18:56.348] INFO  CInGameState.cpp:1068  heap label=gamein_after_ui_loadmany ws=226521088 peak_ws=226562048 private=219975680 virtual=220000256
+[10:18:56.348] INFO  CInGameState.cpp:1070  heap label=gamein_pre_skilllist ws=226521088 peak_ws=226562048 private=219975680 virtual=220000256
+[10:18:56.384] INFO  CInGameState.cpp:1077  CInGameState skill list loaded skills=1817 errors=0
+[10:18:56.384] INFO  CInGameState.cpp:1088  heap label=gamein_post_skilllist ws=231366656 peak_ws=238047232 private=227192832 virtual=234500096
+[10:18:56.391] INFO  CInGameState.cpp:1095  CInGameState experience curve loaded levels=121
+[10:18:56.391] INFO  CInGameState.cpp:1102  heap label=gamein_post_expcurve ws=231366656 peak_ws=238047232 private=227192832 virtual=234500096
+[10:18:56.391] INFO  CInGameState.cpp:1104  heap label=gamein_post_applyactiveset ws=231366656 peak_ws=238047232 private=227192832 virtual=234500096
+[10:18:56.391] INFO  CInGameState.cpp:1108  heap label=gamein_post_refresh_bindings ws=231383040 peak_ws=238047232 private=227192832 virtual=234500096
+[10:18:56.391] INFO  CInGameState.cpp:1111  CInGameState using persistent AgentSession (player_id=100005, map=10)
+[10:18:56.391] INFO  CInGameState.cpp:1116  heap label=gamein_pre_send_gamein_syn ws=231383040 peak_ws=238047232 private=227192832 virtual=234500096
+[10:18:56.391] INFO  CInGameState.cpp:1651  CInGameState: sent GameInSyn player_id=100005 (empty payload)
+[10:18:56.391] INFO  CInGameState.cpp:1118  heap label=gamein_post_send_gamein_syn ws=231383040 peak_ws=238047232 private=227192832 virtual=234500096
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[10:18:56.512] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100005 payload=3775
+[10:18:56.512] INFO  CInGameState.cpp:1721  CInGameState: GameInAck player_id=100005 user_id=100005 name='EQa3cdb08b21' level=1 map=10 life=131/131 gender=1 face=1 hair=1 equip2=23000 server_time=2026-10-24 10:00
+[10:18:56.512] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=16068608 peak_ws=238047232 private=10805248 virtual=234500096
+[10:18:56.512] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=64
+[10:18:56.512] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=16068608 peak_ws=238047232 private=10805248 virtual=234500096
+[10:18:56.512] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=128
+[10:18:56.512] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=16068608 peak_ws=238047232 private=10805248 virtual=234500096
+[10:18:56.512] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=192
+[10:18:56.512] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=39 obj=554 payload=64
+[10:18:56.512] INFO  CInGameState.cpp:1860  CInGameState: NpcAdd id=554 kind=50 pos=(22000,11700) name=�_�Ǫ���
+[10:18:56.512] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=39 obj=572 payload=64
+[10:18:56.512] INFO  CInGameState.cpp:1860  CInGameState: NpcAdd id=572 kind=54 pos=(3500,46900) name=�����W������
+[e2e] [5/5] OK: Map10 initial monster population=228
+[e2e] [5/5] OK: GameInAck received, player_id=100005 name='EQa3cdb08b21' level=1 map=10 life=131/131
+[e2e] [5/5] Equipment: exercising authoritative unequip/equip and persistence ...
+[10:18:57.350] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=17 obj=100005 payload=24
+[10:18:57.350] INFO  CInGameState.cpp:2674  CInGameState: item moved db=700003 source=81 target=0
+[10:18:57.350] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=35 obj=100005 payload=288
+[10:18:57.350] INFO  CInGameState.cpp:1808  CInGameState: self CharacterAdd refresh life=131/131
+[10:18:57.350] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=0 obj=100005 payload=2728
+[10:18:57.350] INFO  CInGameState.cpp:2713  CInGameState: inventory refreshed
+[10:18:57.413] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=17 obj=100005 payload=24
+[10:18:57.413] INFO  CInGameState.cpp:2674  CInGameState: item moved db=700003 source=0 target=81
+[10:18:57.413] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=35 obj=100005 payload=288
+[10:18:57.413] INFO  CInGameState.cpp:1808  CInGameState: self CharacterAdd refresh life=131/131
+[10:18:57.413] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=Item proto=0 obj=100005 payload=2728
+[10:18:57.413] INFO  CInGameState.cpp:2713  CInGameState: inventory refreshed
+[e2e] [5/5] OK: equipment MoveAck unequip/equip db=700003 icon=11000 slot=1
+[10:18:57.413] DEBUG CInGameState.cpp:749  CInGameState::Release
+[10:18:57.413] INFO  CInGameState.cpp:1682  CInGameState: sent GameOutSyn player_id=100005
+[10:19:10.476] INFO  CInGameState.cpp:1041  heap label=gamein_start_enter ws=30539776 peak_ws=238047232 private=24866816 virtual=234500096
+[10:19:10.476] INFO  CInGameState.cpp:1055  CInGameState effect catalog loading asynchronously
+[10:19:10.476] INFO  CInGameState.cpp:1058  heap label=gamein_after_effect_kickoff ws=30539776 peak_ws=238047232 private=24866816 virtual=234500096
+[10:19:10.477] INFO  CInGameState.cpp:1068  heap label=gamein_after_ui_loadmany ws=40087552 peak_ws=238047232 private=242688000 virtual=242749440
+[10:19:10.477] INFO  CInGameState.cpp:1070  heap label=gamein_pre_skilllist ws=40087552 peak_ws=238047232 private=242688000 virtual=242749440
+[10:19:10.503] INFO  CInGameState.cpp:1077  CInGameState skill list loaded skills=1817 errors=0
+[10:19:10.503] INFO  CInGameState.cpp:1088  heap label=gamein_post_skilllist ws=181039104 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.503] INFO  CInGameState.cpp:1095  CInGameState experience curve loaded levels=121
+[10:19:10.503] INFO  CInGameState.cpp:1102  heap label=gamein_post_expcurve ws=182284288 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.503] INFO  CInGameState.cpp:1104  heap label=gamein_post_applyactiveset ws=182988800 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.503] INFO  CInGameState.cpp:1108  heap label=gamein_post_refresh_bindings ws=183136256 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.503] INFO  CInGameState.cpp:1111  CInGameState using persistent AgentSession (player_id=100005, map=10)
+[10:19:10.503] INFO  CInGameState.cpp:1116  heap label=gamein_pre_send_gamein_syn ws=183201792 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.503] INFO  CInGameState.cpp:1651  CInGameState: sent GameInSyn player_id=100005 (empty payload)
+[10:19:10.503] INFO  CInGameState.cpp:1118  heap label=gamein_post_send_gamein_syn ws=183595008 peak_ws=238047232 private=249425920 virtual=257970176
+[10:19:10.564] DEBUG CInGameState.cpp:1410  CInGameState::on_message id=1 cat=UserConn proto=29 obj=100005 payload=3775
+[10:19:10.564] INFO  CInGameState.cpp:1721  CInGameState: GameInAck player_id=100005 user_id=100005 name='EQa3cdb08b21' level=1 map=10 life=131/131 gender=1 face=1 hair=1 equip2=23000 server_time=2026-10-24 10:00
+[10:19:10.564] INFO  CInGameState.cpp:1837  heap label=monster_add_post_insert ws=253140992 peak_ws=253140992 private=249430016 virtual=257970176
+[10:19:10.564] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=64
+[e2e] [5/5] OK: GameOutSyn persistence re-login equipped weapon db=700003 icon=11000
+[10:19:10.594] DEBUG CInGameState.cpp:749  CInGameState::Release
+[10:19:10.595] INFO  CInGameState.cpp:1682  CInGameState: sent GameOutSyn player_id=100005
+[PakFile] version=1 file_item_num=1671
+  entry 0: name=titan_portal_eff.mod size=15012
+  entry 1: name=titan_portal_eff.chx size=99
+  entry 2: name=titan_portal_eff.anm size=57368
+  entry 3: name=w_throwsnow_s.mod size=69456
+  entry 4: name=w_throwsnow_s.chx size=91
+[PakFile] parsed 1671 entries, raw_size=217392990
+[10:19:10.902] DEBUG CInGameState.cpp:749  CInGameState::Release
+[10:19:10.902] DEBUG CLoginState.cpp:119  CLoginState::Release (disconnecting login client)
+[e2e] Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)
