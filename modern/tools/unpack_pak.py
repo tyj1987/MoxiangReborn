@@ -3,8 +3,13 @@
 unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 
 Mode 1 (legacy / default):
-  unpack_pak.py <pak_path> [<out_dir>]
-  Falls back to "<stem>_unpacked" when out_dir omitted.
+  unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
+  When out_dir is omitted, files go under the system temp directory
+  (moxiang-unpack/<stem>).  If that location is inside the pak directory
+  or the original root, Windows uses %LOCALAPPDATA%\\moxiang-unpack\\<stem>
+  (or the working directory when LOCALAPPDATA is unset) and POSIX uses
+  ~/.cache/moxiang-unpack/<stem> and then the working directory.  A
+  candidate that still resolves inside either read-only tree is skipped.
   Each entry is written as "{i:05d}_{real}.bin" (legacy convention used by
   many existing test fixtures; preserved so the 12 existing audit scripts
   that grep the legacy name pattern keep working).
@@ -16,12 +21,36 @@ Mode 2 (pak_extract / --named):
   or "Map\\\\Map10.hfl" from the legacy "\\" separator).
   Produces manifest.json with per-entry sha256/size/offset.
 
-Source: 墨香【源码】\\4DyuchiFileStorage\\CoStorage.cpp
-        Initialize() walks the .pak sequentially using dwFileDataOffset.
-        Some real .pak files have corrupt dwFileDataOffset (zeros) so we
-        walk via layout (32 byte header + nameLen + 1 NUL + realSize + 4
-        byte alignment pad), which matches what the C++ PackFile::open()
-        does (modern/include/mxh/compat/pack_file.hpp).
+--dry-run applies to both modes and both header sizes.  It enumerates
+and validates entries, and creates no directories or files.
+
+Two resolved locations are read-only (symlinks followed, ".." folded,
+case-insensitive on Windows).  The tool exits non-zero and writes
+nothing, including under --dry-run, when the output is either of them:
+
+  * the original resource root, or anything under it.  On Windows the
+    root defaults to D:\\MX.  --original-root overrides MXH_ORIGINAL_ROOT,
+    which overrides that default.  A prefix sibling such as D:\\MX2 is
+    not inside D:\\MX.
+  * the pak's own directory, or anything under it.  This still applies
+    when the pak lives outside the original root.
+
+Two header variants, detected from dwFileItemNum at offset 4.
+Spec: docs/formats/pak.md.
+
+  Worktree (offset 4 != 0, e.g. PlayDH/Map.pak count 4192):
+    92-byte header, entries start at 92.  Advance by
+    32 + nameLen + 1 + realSize.  Some totals are corrupt, so this
+    path does not step by dwTotalSize and does not require the file
+    to end on the last entry.
+
+  Original (offset 4 == 0, e.g. client Map.pak count 11267):
+    96-byte header.  The entry count is the uint32 at offset 92.
+    Entries start at 96.  Each entry is 32 bytes (total, real,
+    name_len, data_off, 16 zero bytes) + GBK name + NUL + data.
+    total == 32 + name_len + 1 + real, and the next entry is
+    cur + total.  Stop after that count.  EOF before the count, or
+    bytes left after it, is an error.
 """
 
 from __future__ import annotations
@@ -34,9 +63,19 @@ import os
 import re
 import struct
 import sys
+import tempfile
 import time
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import BinaryIO, Iterable, Optional
+
+
+class PakOutputError(ValueError):
+    """The output path would write into a read-only resource directory."""
+
+
+# Windows original-client tree.  Non-Windows has no default root.
+ORIGINAL_ROOT_ENV = "MXH_ORIGINAL_ROOT"
+DEFAULT_ORIGINAL_ROOT_WINDOWS = r"D:\MX"
 
 
 @dataclasses.dataclass
@@ -76,6 +115,186 @@ class PakStats:
 # Core unpack
 # ---------------------------------------------------------------------------
 
+def _split_path(path: str, pathmod) -> tuple[str, bool, list[str]]:
+    """Drive, absolute flag, and components.  ``..`` is already folded."""
+    normalized = pathmod.normpath(path)
+    drive, tail = pathmod.splitdrive(normalized)
+    sep = pathmod.sep
+    alt = pathmod.altsep
+    if alt:
+        tail = tail.replace(alt, sep)
+    is_abs = tail.startswith(sep)
+    parts = [part for part in tail.split(sep)
+             if part and part != pathmod.curdir]
+    return drive, is_abs, parts
+
+
+def _same_or_under(parent: str, child: str, *, case_insensitive: bool,
+                   pathmod=os.path) -> bool:
+    """True when child is parent or a directory inside parent.
+
+    `parent` and `child` are already-resolved path strings.  Comparison
+    is case-sensitive unless `case_insensitive` is set.  ntpath.commonpath
+    always lowercases, so this does not use it: case_insensitive=False
+    must not treat Client and client as the same directory.
+    Production passes case_insensitive=True on Windows, so D:\\MX and
+    d:\\mx still match there.  A prefix sibling does not match:
+    D:\\MX2 is not under D:\\MX.
+    `pathmod` is os.path in production; tests pass ntpath to check the
+    Windows spelling on other hosts.
+    """
+    def fold(text: str) -> str:
+        return text.casefold() if case_insensitive else text
+
+    parent_drive, parent_abs, parent_parts = _split_path(parent, pathmod)
+    child_drive, child_abs, child_parts = _split_path(child, pathmod)
+    if parent_abs != child_abs or fold(parent_drive) != fold(child_drive):
+        return False
+    if len(child_parts) < len(parent_parts):
+        return False
+    return [fold(part) for part in child_parts[:len(parent_parts)]] == [
+        fold(part) for part in parent_parts]
+
+
+def resolve_original_root(cli_value: Optional[str] = None, *,
+                          environ: Optional[dict[str, str]] = None,
+                          windows: Optional[bool] = None) -> Optional[str]:
+    """Flag, then MXH_ORIGINAL_ROOT, then D:\\MX on Windows."""
+    if windows is None:
+        windows = os.name == "nt"
+    if cli_value is not None and cli_value.strip():
+        return cli_value.strip()
+    env_map = os.environ if environ is None else environ
+    env_value = env_map.get(ORIGINAL_ROOT_ENV, "")
+    if env_value.strip():
+        return env_value.strip()
+    if windows:
+        return DEFAULT_ORIGINAL_ROOT_WINDOWS
+    return None
+
+
+def output_is_inside_pak_dir(pak_path: str, out_dir: str, *,
+                             case_insensitive: Optional[bool] = None) -> bool:
+    """True when resolved out_dir is the pak directory or a child of it."""
+    if case_insensitive is None:
+        case_insensitive = os.name == "nt"
+    pak_dir = Path(pak_path).resolve().parent
+    out = Path(out_dir).resolve()
+    return _same_or_under(str(pak_dir), str(out),
+                          case_insensitive=case_insensitive)
+
+
+def output_is_inside_original_root(out_dir: str,
+                                   original_root: Optional[str], *,
+                                   case_insensitive: Optional[bool] = None,
+                                   ) -> bool:
+    """True when resolved out_dir is the original root or a child of it."""
+    if original_root is None or not original_root.strip():
+        return False
+    if case_insensitive is None:
+        case_insensitive = os.name == "nt"
+    root = Path(original_root).resolve()
+    out = Path(out_dir).resolve()
+    return _same_or_under(str(root), str(out),
+                          case_insensitive=case_insensitive)
+
+
+def refuse_output_inside_pak_dir(pak_path: str, out_dir: str) -> None:
+    """Raise PakOutputError before any directory or file is created."""
+    if not output_is_inside_pak_dir(pak_path, out_dir):
+        return
+    pak_dir = Path(pak_path).resolve().parent
+    raise PakOutputError(
+        f"refusing to write {out_dir}: output is the pak directory or a "
+        f"subdirectory of it ({pak_dir}). Original resource directories "
+        f"are read-only. Pass --out outside that directory; the default "
+        f"is under the system temp directory."
+    )
+
+
+def refuse_readonly_output(pak_path: str, out_dir: str,
+                           original_root: Optional[str] = None) -> None:
+    """Pak directory first, then the original resource root."""
+    refuse_output_inside_pak_dir(pak_path, out_dir)
+    if not output_is_inside_original_root(out_dir, original_root):
+        return
+    root = Path(original_root).resolve()
+    raise PakOutputError(
+        f"refusing to write {out_dir}: output is inside the original "
+        f"root ({root}). Original resource directories are read-only. "
+        f"Pass --out outside that directory; the default is under the "
+        f"system temp directory."
+    )
+
+
+def _output_is_readonly(pak_path: str, out_dir: str,
+                        original_root: Optional[str]) -> bool:
+    return (output_is_inside_pak_dir(pak_path, out_dir)
+            or output_is_inside_original_root(out_dir, original_root))
+
+
+def _default_output_candidates(stem: str, *,
+                               windows: Optional[bool] = None,
+                               environ: Optional[dict[str, str]] = None,
+                               temp_dir: Optional[str] = None,
+                               cwd: Optional[str] = None,
+                               home: Optional[str] = None) -> list[Path]:
+    """Default output dirs, first choice first.
+
+    System temp is always first.  On Windows the next choice is
+    %LOCALAPPDATA%\\moxiang-unpack\\<stem>, or the working directory when
+    LOCALAPPDATA is unset.  On POSIX the next choice is
+    ~/.cache/moxiang-unpack/<stem>, then the working directory.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    env = os.environ if environ is None else environ
+    if temp_dir is None:
+        temp_dir = tempfile.gettempdir()
+    if cwd is None:
+        cwd = os.getcwd()
+    candidates = [Path(temp_dir) / "moxiang-unpack" / stem]
+    if windows:
+        local = env.get("LOCALAPPDATA", "").strip()
+        if local:
+            candidates.append(Path(local) / "moxiang-unpack" / stem)
+        else:
+            candidates.append(Path(cwd) / "moxiang-unpack" / stem)
+        return candidates
+    if home is None:
+        try:
+            home = str(Path.home())
+        except RuntimeError:
+            home = ""
+    if home:
+        candidates.append(Path(home) / ".cache" / "moxiang-unpack" / stem)
+    candidates.append(Path(cwd) / "moxiang-unpack" / stem)
+    return candidates
+
+
+def default_unpack_dir(pak_path: str,
+                       original_root: Optional[str] = None) -> Path:
+    """First default directory outside the pak dir and the original root.
+
+    original_root None resolves the flag, MXH_ORIGINAL_ROOT, then the
+    Windows default.  A candidate inside either read-only tree is skipped,
+    so temp / LOCALAPPDATA / ~/.cache / cwd are not used when they would
+    land in the root or the pak directory.
+    """
+    if original_root is None:
+        original_root = resolve_original_root()
+    stem = Path(pak_path).stem or "pak"
+    for candidate in _default_output_candidates(stem):
+        if not _output_is_readonly(pak_path, str(candidate), original_root):
+            return candidate
+    raise PakOutputError(
+        f"refusing to choose a default output directory for {pak_path}: "
+        f"every default location would fall inside the pak directory or "
+        f"the original root. Original resource directories are read-only. "
+        f"Pass --out explicitly, outside that directory."
+    )
+
+
 def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
     """Read the 92-byte header.  Returns (raw_header, version, n_items, flag)."""
     with open(pak_path, "rb") as f:
@@ -88,22 +307,129 @@ def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
     return pak_header, version, n_items, flag
 
 
-def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
-    """Yield PakEntry in order.  Stops cleanly on truncation or layout error.
+def _original_declared_count(pak_path: str) -> int:
+    """Entry count for an original-style pak (dwFileItemNum at offset 4 is 0).
 
-    The `expected` parameter is the header's claimed file count.  Some real
-    .pak files (notably Map.pak on 2026-09-07 scratch) report a count that
-    is wildly higher than the actual valid entry run — the byte after the
-    last real entry decodes as junk (e.g. a 10 MB name_len), so we must
-    treat `expected` as a hint and use EOF / invalid-layout as the real
-    stopping condition.
-
-    When the parser hits a junk header it advances `cur` by 4 bytes and
-    retries, rather than aborting the whole walk.  This lets us recover
-    from a 32-byte alignment glitch that older `4DyuchiFileStorage`
-    writers occasionally produced.
+    The count is the uint32 at offset 92.  Entries themselves start at 96.
+    See docs/formats/pak.md.
     """
     pak_size = os.path.getsize(pak_path)
+    if pak_size < 96:
+        raise ValueError(
+            "original-style pak (dwFileItemNum at offset 4 is 0) needs a "
+            f"96-byte header with the entry count at offset 92, but file "
+            f"size is {pak_size}"
+        )
+    with open(pak_path, "rb") as f:
+        f.seek(92)
+        raw = f.read(4)
+    if len(raw) < 4:
+        raise ValueError(
+            "original-style pak (dwFileItemNum at offset 4 is 0) needs the "
+            f"entry count at offset 92, but only {len(raw)} byte(s) were read"
+        )
+    return struct.unpack("<I", raw)[0]
+
+
+def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[PakEntry]:
+    """Yield `count` original-style entries starting at offset 96.
+
+    Advance by the entry's total.  Exactly `count` entries must consume
+    the file: EOF before that is "EOF arrived early"; leftover bytes are
+    "bytes remain after the declared count".
+    """
+    cur = 96
+    for index in range(count):
+        remaining = pak_size - cur
+        if remaining <= 0:
+            raise ValueError(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"declared count is {count} but no bytes remain "
+                f"(file size {pak_size})"
+            )
+        f.seek(cur)
+        hdr = f.read(32)
+        if len(hdr) < 32:
+            raise ValueError(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"entry header is 32 bytes but only {len(hdr)} byte(s) "
+                f"remain before EOF (declared count {count})"
+            )
+        (total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
+            struct.unpack("<IIIIIIII", hdr))
+        expected_total = 32 + name_len + 1 + real
+        if total != expected_total:
+            raise ValueError(
+                f"pak entry {index} at offset 0x{cur:x}: total={total} "
+                f"does not equal 32+name_len+1+real={expected_total} "
+                f"(name_len={name_len} real_size={real})"
+            )
+        if cur + total > pak_size:
+            raise ValueError(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"total={total} name_len={name_len} real_size={real} but "
+                f"only {remaining} byte(s) remain before EOF "
+                f"(declared count {count})"
+            )
+        f.seek(cur + 32)
+        raw_name = f.read(name_len)
+        nul = f.read(1)
+        if len(raw_name) < name_len or len(nul) != 1:
+            raise ValueError(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"GBK filename needs {name_len + 1} bytes but the read "
+                f"fell short before EOF (declared count {count})"
+            )
+        if nul != b"\x00":
+            raise ValueError(
+                f"pak entry {index} at offset 0x{cur:x}: expected NUL after "
+                f"the GBK filename, got 0x{nul[0]:02x}"
+            )
+        try:
+            name = raw_name.decode("gbk")
+        except UnicodeDecodeError as exc:
+            raise ValueError(
+                f"pak entry {index} at offset 0x{cur:x}: filename is not "
+                f"valid GBK ({exc})"
+            ) from exc
+        data_offset = cur + 32 + name_len + 1
+        f.seek(data_offset)
+        data = f.read(real)
+        if len(data) < real:
+            raise ValueError(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"payload needs {real} bytes but only {len(data)} byte(s) "
+                f"remain before EOF (declared count {count})"
+            )
+        yield PakEntry(
+            index=index,
+            name=name,
+            real_size=real,
+            data_offset=data_offset,
+            entry_offset=cur,
+        )
+        cur += total
+    if cur != pak_size:
+        raise ValueError(
+            f"{pak_size - cur} byte(s) remain after the declared count "
+            f"{count} at offset 0x{cur:x} (file size {pak_size})"
+        )
+
+
+def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
+    """Yield PakEntry in order.
+
+    `expected` is dwFileItemNum at offset 4, not a guess.  Zero selects
+    the original 96-byte header (count at offset 92, entries at 96).
+    A non-zero value keeps the worktree walk below, unchanged: start at
+    92, stop at the declared count, and resync 4 bytes on a junk header.
+    """
+    pak_size = os.path.getsize(pak_path)
+    if expected == 0:
+        count = _original_declared_count(pak_path)
+        with open(pak_path, "rb") as f:
+            yield from _walk_original_entries(f, pak_size, count)
+        return
     with open(pak_path, "rb") as f:
         cur = 92
         i = 0
@@ -200,11 +526,58 @@ def hfl_header_ok(prefix: bytes) -> bool:
 # Mode 1 — legacy (preserve {i:05d}_{real}.bin naming)
 # ---------------------------------------------------------------------------
 
-def unpack_legacy(pak_path: str, out_dir: str) -> int:
-    """The original mode that writes entries as {i:05d}_{real}.bin."""
-    os.makedirs(out_dir, exist_ok=True)
+def _unpack_legacy_original(pak_path: str, out_dir: str, *,
+                            dry_run: bool = False) -> int:
+    """Legacy writer for the original 96-byte header (count at offset 92)."""
+    pak_size = os.path.getsize(pak_path)
+    count = _original_declared_count(pak_path)
+    n_written = 0
+    with open(pak_path, "rb") as f:
+        for entry in _walk_original_entries(f, pak_size, count):
+            f.seek(entry.data_offset)
+            data = f.read(entry.real_size)
+            if len(data) != entry.real_size:
+                raise ValueError(
+                    f"EOF arrived early at pak entry {entry.index} offset "
+                    f"0x{entry.entry_offset:x}: payload needs {entry.real_size} "
+                    f"bytes but only {len(data)} byte(s) remain before EOF "
+                    f"(declared count {count})"
+                )
+            safe = f"{entry.index:05d}_{entry.real_size}.bin"
+            if not dry_run:
+                target = os.path.join(out_dir, safe)
+                with open(target, "wb") as out:
+                    out.write(data)
+            n_written += 1
+            if n_written <= 3 or n_written % 500 == 0:
+                tail = " (dry-run)" if dry_run else ""
+                print(
+                    f"  [{n_written}/{count}] {safe}  "
+                    f"({entry.real_size} bytes, name={entry.name[:40]!r}){tail}"
+                )
+    if dry_run:
+        print(f"dry-run: {n_written} entries (no files written)")
+    else:
+        print(f"wrote {n_written} entries")
+    return 0
+
+
+def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
+                  original_root: Optional[str] = None) -> int:
+    """The original mode that writes entries as {i:05d}_{real}.bin.
+
+    dry_run enumerates and validates, and creates neither out_dir nor files.
+    original_root None resolves the CLI/env/Windows default.
+    """
+    if original_root is None:
+        original_root = resolve_original_root()
+    refuse_readonly_output(pak_path, out_dir, original_root)
+    if not dry_run:
+        os.makedirs(out_dir, exist_ok=True)
     _header, version, n_items, flag = parse_pak(pak_path)
     print(f"version={version} n_items={n_items} flag={flag}")
+    if n_items == 0:
+        return _unpack_legacy_original(pak_path, out_dir, dry_run=dry_run)
     cur = 92
     n_written = 0
     consecutive_junk = 0
@@ -230,17 +603,23 @@ def unpack_legacy(pak_path: str, out_dir: str) -> int:
                 "latin-1", errors="replace")
             data = f.read(real)
             safe = f"{i:05d}_{real}.bin"
-            target = os.path.join(out_dir, safe)
-            with open(target, "wb") as out:
-                out.write(data)
+            if not dry_run:
+                target = os.path.join(out_dir, safe)
+                with open(target, "wb") as out:
+                    out.write(data)
             n_written += 1
             # Advance by real_file_size only — see walk_entries() note
             # about the 4DyuchiFileStorage no-alignment convention.
             cur = cur + 32 + (name_len + 1) + real
             if n_written <= 3 or n_written % 500 == 0:
-                print(f"  [{n_written}/{n_items}] {safe}  ({real} bytes, name={name[:40]!r})")
+                tail = " (dry-run)" if dry_run else ""
+                print(f"  [{n_written}/{n_items}] {safe}  "
+                      f"({real} bytes, name={name[:40]!r}){tail}")
             i += 1
-    print(f"wrote {n_written} entries")
+    if dry_run:
+        print(f"dry-run: {n_written} entries (no files written)")
+    else:
+        print(f"wrote {n_written} entries")
     return 0
 
 
@@ -259,17 +638,24 @@ def pak_extract(pak_path: str, out_dir: str, *,
                 dry_run: bool = False,
                 write_manifest: bool = True,
                 verify: bool = False,
-                filter_pattern: Optional[str] = None) -> PakStats:
+                filter_pattern: Optional[str] = None,
+                original_root: Optional[str] = None) -> PakStats:
     """Named-entry mode.  Returns a stats summary."""
+    if original_root is None:
+        original_root = resolve_original_root()
+    refuse_readonly_output(pak_path, out_dir, original_root)
     t0 = time.monotonic()
     pak_size = os.path.getsize(pak_path)
     _header, version, n_items, flag = parse_pak(pak_path)
     accept = make_filter(filter_pattern)
+    # Offset 4 == 0 is the original header: the walk count lives at offset 92.
+    # A non-zero offset-4 count is the worktree header and stays as-is.
+    entry_count = _original_declared_count(pak_path) if n_items == 0 else n_items
     stats = PakStats(
         pak_path=str(Path(pak_path).resolve()),
         pak_size=pak_size,
         header_version=version,
-        file_item_num=n_items,
+        file_item_num=entry_count,
     )
 
     if not dry_run:
@@ -312,7 +698,7 @@ def pak_extract(pak_path: str, out_dir: str, *,
             stats.written += 1
             if stats.written <= 3 or stats.written % 1000 == 0:
                 tail = " (dry-run)" if dry_run else ""
-                print(f"  [{stats.written}/{n_items}] "
+                print(f"  [{stats.written}/{entry_count}] "
                       f"{entry.canonical_name}  ({entry.real_size} bytes){tail}")
 
     stats.elapsed_ms = int((time.monotonic() - t0) * 1000)
@@ -381,19 +767,35 @@ def main() -> int:
     ap.add_argument("--named", action="store_true",
                     help="use pak_extract mode (named entries + manifest)")
     ap.add_argument("--dry-run", action="store_true",
-                    help="walk but do not write")
+                    help="enumerate and validate only; create no directories "
+                         "or files (legacy and --named, both header sizes)")
     ap.add_argument("--manifest", action="store_true",
                     help="write manifest.json (only with --named)")
     ap.add_argument("--verify", action="store_true",
                     help="print each skipped entry's reason")
     ap.add_argument("--filter", default=None,
                     help="only write entries whose name matches this regex")
+    ap.add_argument(
+        "--original-root",
+        default=None,
+        help="read-only original resource root. Output inside it is "
+             "refused even with --dry-run "
+             f"(default: {ORIGINAL_ROOT_ENV}, or "
+             f"{DEFAULT_ORIGINAL_ROOT_WINDOWS} on Windows). "
+             "A prefix sibling such as D:\\MX2 is allowed.",
+    )
     args = ap.parse_args()
     if args.out_flag is not None:
         args.out = args.out_flag
 
     pak_path = args.pak
-    out_dir = args.out or (os.path.splitext(pak_path)[0] + "_unpacked")
+    try:
+        original_root = resolve_original_root(args.original_root)
+        out_dir = args.out or str(default_unpack_dir(pak_path, original_root))
+        refuse_readonly_output(pak_path, out_dir, original_root)
+    except PakOutputError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     print(f"unpacking {pak_path} -> {out_dir}")
     print(f"  size = {os.path.getsize(pak_path)} bytes")
@@ -405,9 +807,11 @@ def main() -> int:
             write_manifest=args.manifest,
             verify=args.verify,
             filter_pattern=args.filter,
+            original_root=original_root,
         )
         return 0 if stats.written > 0 else 2
-    return unpack_legacy(pak_path, out_dir)
+    return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run,
+                         original_root=original_root)
 
 
 if __name__ == "__main__":

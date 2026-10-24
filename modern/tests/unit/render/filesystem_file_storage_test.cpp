@@ -5,8 +5,10 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <filesystem>
 #include <cstdio>
+#include <fstream>
 #include <set>
 #include <string>
 #include <vector>
@@ -28,6 +30,39 @@ std::filesystem::path findPlayDh() {
     }
     return {};
 }
+}
+
+TEST(FilesystemFileStorage, WarnsAndSkipsPakThatFailsToOpen) {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto root = std::filesystem::temp_directory_path() /
+        ("mxh-pak-skip-" + std::to_string(static_cast<long long>(stamp)));
+    std::filesystem::create_directories(root);
+    const auto pak = root / "broken.pak";
+    {
+        // Original-style header: version 1, dwFileItemNum 0. PackFile rejects
+        // this (file_item_num must be > 0) and Initialize must skip it.
+        std::vector<unsigned char> header(96, 0);
+        header[0] = 1;
+        std::ofstream out(pak, std::ios::binary);
+        ASSERT_TRUE(out);
+        out.write(reinterpret_cast<const char*>(header.data()),
+                  static_cast<std::streamsize>(header.size()));
+    }
+
+    testing::internal::CaptureStderr();
+    auto* storage = new mxh::gx::FilesystemFileStorage(root);
+    const BOOL opened = storage->Initialize(
+        0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE);
+    const std::string logged = testing::internal::GetCapturedStderr();
+
+    EXPECT_TRUE(opened);
+    EXPECT_NE(logged.find("broken.pak"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("skipped"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("unsupported header"), std::string::npos) << logged;
+    char missing[] = "missing.bin";
+    EXPECT_FALSE(storage->IsExistInFileStorage(missing));
+    storage->Release();
+    std::filesystem::remove_all(root);
 }
 
 TEST(FilesystemFileStorage, MountsOriginalMapPack) {

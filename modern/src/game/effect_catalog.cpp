@@ -2,6 +2,7 @@
 
 #include "mxh/compat/pack_file.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
+#include "mxh/log/mlog.hpp"
 
 #include <algorithm>
 #include <array>
@@ -166,6 +167,9 @@ bool EffectCatalog::load(const std::filesystem::path& root, std::string* error) 
     if (std::filesystem::exists(pakPath)) {
         const auto pack = mxh::compat::PackFile::open(pakPath);
         if (!pack) {
+            const auto shown = pakPath.string();
+            MLOG_WARN("[effect] failed to open '%s': unsupported header / not a pak",
+                      shown.c_str());
             if (error) *error = "Effect.pak is not a valid PackFile";
             return false;
         }
