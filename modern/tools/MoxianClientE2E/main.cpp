@@ -36,6 +36,7 @@
 //                  [--login-port N] [--agent-port N] [--map-port N]
 //                  [--map12-port N] [--map-number N]
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
+//                  [--exercise-equip]   # Live equipment MoveAck/relogin gate
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
 //                  [--exercise-position] # movement/GameOut/relog position gate
@@ -158,6 +159,7 @@ struct CliArgs {
     int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
     bool exercise_combat = false; // opt-in live combat gate; never implicit
+    bool exercise_equip = false; // opt-in equipment move and persistence gate
     bool exercise_shop = false; // opt-in live NPC shop catalog/buy gate
     bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
@@ -252,6 +254,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
         else if (s == "--exercise-combat") a.exercise_combat = true;
+        else if (s == "--exercise-equip") a.exercise_equip = true;
         else if (s == "--exercise-shop") a.exercise_shop = true;
         else if (s == "--exercise-quest") a.exercise_quest = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
@@ -479,6 +482,89 @@ int prepare_sqlite_database(const std::string& path, const CliArgs& cli) {
     return 0;
 }
 #endif  // _WIN32
+
+struct EquipmentGateResult {
+    std::uint32_t db_idx = 0;
+    std::uint16_t icon_idx = 0;
+};
+
+bool exercise_equipment_move(mxh::client::CInGameState& game,
+                             int timeout_s,
+                             EquipmentGateResult& result) {
+    constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+    const auto& equipped = game.game_info().items.WearedItem[kWeaponSlot];
+    result.db_idx = equipped.dwDBIdx;
+    result.icon_idx = equipped.wIconIdx;
+
+    std::size_t bag_slot = mxh::game::SLOT_INVENTORY_NUM;
+    for (std::size_t slot = 0; slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+        if (mxh::game::is_empty_slot(game.game_info().items.Inventory[slot])) {
+            bag_slot = slot;
+            break;
+        }
+    }
+
+    bool observed_unequip = false;
+    if (result.db_idx != 0 && result.icon_idx != 0 &&
+        bag_slot < mxh::game::SLOT_INVENTORY_NUM &&
+        game.request_inventory_move(
+            mxh::game::TP_WEAREDITEM_START + kWeaponSlot, bag_slot)) {
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
+            if (game.game_info().items.Inventory[bag_slot].dwDBIdx == result.db_idx &&
+                mxh::game::is_empty_slot(
+                    game.game_info().items.WearedItem[kWeaponSlot])) {
+                observed_unequip = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+    }
+    if (!observed_unequip) {
+        LOG("[5/5] FAIL: equipment MoveAck unequip db=%u bag_slot=%zu",
+            result.db_idx, bag_slot);
+        return false;
+    }
+
+    bool observed_equip = false;
+    if (game.request_inventory_move(
+            bag_slot, mxh::game::TP_WEAREDITEM_START + kWeaponSlot)) {
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
+            const auto& weapon = game.game_info().items.WearedItem[kWeaponSlot];
+            if (weapon.dwDBIdx == result.db_idx &&
+                weapon.wIconIdx == result.icon_idx &&
+                game.game_info().items.Inventory[bag_slot].dwDBIdx == 0) {
+                observed_equip = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+    }
+    if (!observed_equip) {
+        LOG("[5/5] FAIL: equipment MoveAck equip db=%u slot=%u",
+            result.db_idx,
+            static_cast<unsigned>(mxh::game::TP_WEAREDITEM_START + kWeaponSlot));
+        return false;
+    }
+    LOG("[5/5] OK: equipment MoveAck unequip/equip db=%u icon=%u slot=%u",
+        result.db_idx, static_cast<unsigned>(result.icon_idx),
+        static_cast<unsigned>(kWeaponSlot));
+    return true;
+}
+
+bool persisted_equipment_matches(const mxh::client::CInGameState& game,
+                                 const EquipmentGateResult& expected) {
+    constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+    const auto& weapon = game.game_info().items.WearedItem[kWeaponSlot];
+    return weapon.dwDBIdx == expected.db_idx &&
+           weapon.wIconIdx == expected.icon_idx &&
+           game.game_info().weared_item_idx[kWeaponSlot] == expected.icon_idx;
+}
 
 // ---------------------------------------------------------------------------
 // E2E flow
@@ -1498,6 +1584,11 @@ int run_e2e(const CliArgs& cli) {
             LOG("[5/5] OK: inventory MoveAck item=%u source=%zu target=%zu",
                 static_cast<unsigned>(observed_item_id), move_source, move_target);
 
+            // The drop catalog id need not be equippable. Exercise the
+            // starter weapon via the same authoritative move path as the UI.
+            EquipmentGateResult weapon;
+            if (!exercise_equipment_move(game, cli.timeout_s, weapon)) return 2;
+
             // Close the live session and re-enter through a fresh state.  The
             // server must flush the picked item on GameOutSyn; merely seeing it
             // in the old state's inventory is not persistence evidence.
@@ -1528,8 +1619,60 @@ int run_e2e(const CliArgs& cli) {
                     static_cast<unsigned>(observed_item_id));
                 return 2;
             }
+            if (!persisted_equipment_matches(relog, weapon)) {
+                constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+                const auto& persisted_weapon =
+                    relog.game_info().items.WearedItem[kWeaponSlot];
+                LOG("[5/5] FAIL: equipped weapon db=%u icon=%u not persisted; "
+                    "got db=%u icon=%u appearance=%u",
+                    weapon.db_idx, static_cast<unsigned>(weapon.icon_idx),
+                    persisted_weapon.dwDBIdx,
+                    static_cast<unsigned>(persisted_weapon.wIconIdx),
+                    static_cast<unsigned>(
+                        relog.game_info().weared_item_idx[kWeaponSlot]));
+                return 2;
+            }
+            LOG("[5/5] OK: GameOutSyn persistence re-login equipped weapon db=%u icon=%u",
+                weapon.db_idx, static_cast<unsigned>(weapon.icon_idx));
             LOG("[5/5] OK: GameOutSyn persistence re-login item=%u",
                 static_cast<unsigned>(observed_item_id));
+            relog.Release();
+        }
+        if (cli.exercise_equip && !cli.exercise_combat) {
+            LOG("[5/5] Equipment: exercising authoritative unequip/equip and persistence ...");
+            EquipmentGateResult weapon;
+            if (!exercise_equipment_move(game, cli.timeout_s, weapon)) return 2;
+
+            game.Release();
+            mxh::client::CInGameState relog;
+            relog.Start(&engine, created_chrid,
+                        static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog.is_in_game()) {
+                LOG("[5/5] FAIL: equipment re-login GameInAck timed out");
+                return 2;
+            }
+            if (!persisted_equipment_matches(relog, weapon)) {
+                constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+                const auto& persisted_weapon =
+                    relog.game_info().items.WearedItem[kWeaponSlot];
+                LOG("[5/5] FAIL: equipped weapon db=%u icon=%u not persisted; "
+                    "got db=%u icon=%u appearance=%u",
+                    weapon.db_idx, static_cast<unsigned>(weapon.icon_idx),
+                    persisted_weapon.dwDBIdx,
+                    static_cast<unsigned>(persisted_weapon.wIconIdx),
+                    static_cast<unsigned>(
+                        relog.game_info().weared_item_idx[kWeaponSlot]));
+                return 2;
+            }
+            LOG("[5/5] OK: GameOutSyn persistence re-login equipped weapon db=%u icon=%u",
+                weapon.db_idx, static_cast<unsigned>(weapon.icon_idx));
             relog.Release();
         }
         if (cli.exercise_skills) {
