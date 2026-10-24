@@ -442,6 +442,32 @@ def _run_cli(argv: list[str]) -> tuple[int, str, str]:
 
 
 @contextlib.contextmanager
+def _temp_env(updates: dict[str, str | None]):
+    """Point TEMP/TMPDIR/HOME/LOCALAPPDATA at test dirs and restore them.
+
+    tempfile.gettempdir() caches the first answer, so the cache is cleared
+    for the duration of the test and put back afterwards.
+    """
+    saved_tempdir = tempfile.tempdir
+    saved = {key: os.environ.get(key) for key in updates}
+    try:
+        for key, value in updates.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        tempfile.tempdir = None
+        yield
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        tempfile.tempdir = saved_tempdir
+
+
+@contextlib.contextmanager
 def _set_env(name: str, value: str | None):
     old = os.environ.get(name)
     if value is None:
@@ -760,51 +786,82 @@ class ReadOnlyOutputTests(unittest.TestCase):
                     parent.rmdir()
 
     def test_default_uses_workspace_when_temp_is_inside_pak_dir(self):
+        """Temp inside the pak dir is skipped for the platform fallback.
+
+        Windows uses %LOCALAPPDATA%.  POSIX uses ~/.cache.  Neither is a
+        hardcoded /workspace path; that string was only in the old fixture.
+        """
         unique = uuid.uuid4().hex
-        pak = Path(tempfile.gettempdir()) / f"mxh-ro-{unique}.pak"
-        scratch = Path(tempfile.mkdtemp(prefix=f"mxh-ro-ws-{unique}-", dir="/workspace"))
-        old = os.getcwd()
-        temp_candidate = Path(tempfile.gettempdir()) / "moxiang-unpack" / pak.stem
-        try:
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            temp_dir = tdp / "temp"
+            fallback = tdp / "fallback"
+            cwd_dir = tdp / "cwd"
+            temp_dir.mkdir()
+            fallback.mkdir()
+            cwd_dir.mkdir()
+            pak = temp_dir / f"mxh-ro-{unique}.pak"
             _make_pak([("a.bin", b"zz")], pak)
-            os.chdir(scratch)
-            chosen = unpack_pak.default_unpack_dir(str(pak))
-            self.assertEqual(chosen, scratch / "moxiang-unpack" / pak.stem)
-            self.assertTrue(unpack_pak.output_is_inside_pak_dir(
-                str(pak), str(temp_candidate)))
-            rc, text, err = _run_cli([str(pak)])
-            self.assertEqual(rc, 0, text + err)
-            self.assertEqual((chosen / "00000_2.bin").read_bytes(), b"zz")
-            self.assertFalse(temp_candidate.exists())
-            self.assertFalse((pak.parent / f"{pak.stem}_unpacked").exists())
-        finally:
-            os.chdir(old)
-            pak.unlink(missing_ok=True)
-            shutil.rmtree(scratch, ignore_errors=True)
-            if temp_candidate.exists():
-                shutil.rmtree(temp_candidate, ignore_errors=True)
+            if os.name == "nt":
+                expected = fallback / "moxiang-unpack" / pak.stem
+            else:
+                expected = fallback / ".cache" / "moxiang-unpack" / pak.stem
+            temp_candidate = temp_dir / "moxiang-unpack" / pak.stem
+            old = os.getcwd()
+            try:
+                os.chdir(cwd_dir)
+                with _temp_env({
+                    "TMPDIR": str(temp_dir),
+                    "TEMP": str(temp_dir),
+                    "TMP": str(temp_dir),
+                    "LOCALAPPDATA": str(fallback),
+                    "HOME": str(fallback),
+                }):
+                    chosen = unpack_pak.default_unpack_dir(str(pak))
+                    self.assertEqual(chosen, expected)
+                    self.assertTrue(unpack_pak.output_is_inside_pak_dir(
+                        str(pak), str(temp_candidate)))
+                    self.assertFalse(unpack_pak.output_is_inside_pak_dir(
+                        str(pak), str(expected)))
+                    rc, text, err = _run_cli([str(pak)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual((expected / "00000_2.bin").read_bytes(), b"zz")
+                    self.assertFalse(temp_candidate.exists())
+                    self.assertFalse((cwd_dir / "moxiang-unpack").exists())
+                    self.assertFalse((pak.parent / f"{pak.stem}_unpacked").exists())
+            finally:
+                os.chdir(old)
 
     def test_default_errors_when_temp_and_workspace_are_inside_pak_dir(self):
         unique = uuid.uuid4().hex
-        pak = Path(tempfile.gettempdir()) / f"mxh-ro-both-{unique}.pak"
-        old = os.getcwd()
-        temp_candidate = Path(tempfile.gettempdir()) / "moxiang-unpack" / pak.stem
-        try:
+        with tempfile.TemporaryDirectory() as td:
+            pak_dir = Path(td)
+            pak = pak_dir / f"mxh-ro-both-{unique}.pak"
             _make_pak([("a.bin", b"zz")], pak)
-            os.chdir(pak.parent)
-            with self.assertRaises(unpack_pak.PakOutputError) as raised:
-                unpack_pak.default_unpack_dir(str(pak))
-            self.assertIn("refusing", str(raised.exception))
-            rc, text, err = _run_cli([pak.name])
-            self.assertEqual(rc, 1, text + err)
-            self.assertIn("refusing", err)
-            self.assertIn("read-only", err)
-            self.assertFalse(temp_candidate.exists())
-            self.assertFalse((pak.parent / f"{pak.stem}_unpacked").exists())
-            self.assertTrue(pak.is_file())
-        finally:
-            os.chdir(old)
-            pak.unlink(missing_ok=True)
+            old = os.getcwd()
+            try:
+                os.chdir(pak_dir)
+                with _temp_env({
+                    "TMPDIR": str(pak_dir),
+                    "TEMP": str(pak_dir),
+                    "TMP": str(pak_dir),
+                    "LOCALAPPDATA": str(pak_dir),
+                    "HOME": str(pak_dir),
+                }):
+                    with self.assertRaises(unpack_pak.PakOutputError) as raised:
+                        unpack_pak.default_unpack_dir(str(pak))
+                    self.assertIn("refusing", str(raised.exception))
+                    self.assertIn("read-only", str(raised.exception))
+                    rc, text, err = _run_cli([pak.name])
+                    self.assertEqual(rc, 1, text + err)
+                    self.assertIn("refusing", err)
+                    self.assertIn("read-only", err)
+                    self.assertFalse((pak_dir / "moxiang-unpack").exists())
+                    self.assertFalse((pak_dir / ".cache").exists())
+                    self.assertFalse((pak_dir / f"{pak.stem}_unpacked").exists())
+                    self.assertTrue(pak.is_file())
+            finally:
+                os.chdir(old)
 
     def test_casefold_comparison_and_prefix(self):
         sep = os.sep
@@ -826,6 +883,14 @@ class ReadOnlyOutputTests(unittest.TestCase):
             parent, sibling, case_insensitive=False))
         self.assertFalse(unpack_pak._same_or_under(
             parent, "client", case_insensitive=True))
+        # ntpath.commonpath lowercases, so case_insensitive=False must not
+        # go through it.  Client != client on every host, including Windows.
+        self.assertFalse(unpack_pak._same_or_under(
+            r"D:\data\client", r"D:\data\Client\out",
+            case_insensitive=False, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            r"D:\data\client", r"d:\data\Client\out",
+            case_insensitive=True, pathmod=ntpath))
 
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
@@ -838,8 +903,14 @@ class ReadOnlyOutputTests(unittest.TestCase):
                 str(pak), nested, case_insensitive=True))
             self.assertTrue(unpack_pak.output_is_inside_pak_dir(
                 str(pak), folded, case_insensitive=True))
-            self.assertFalse(unpack_pak.output_is_inside_pak_dir(
-                str(pak), nested, case_insensitive=False))
+            # Windows Path.resolve() returns the on-disk casing, so a
+            # case-only difference is gone before the flag is applied.
+            # Production still compares case-insensitively on Windows.
+            resolved_same = os.name == "nt"
+            self.assertEqual(
+                unpack_pak.output_is_inside_pak_dir(
+                    str(pak), nested, case_insensitive=False),
+                resolved_same)
             self.assertFalse(unpack_pak.output_is_inside_pak_dir(
                 str(pak), str(pak.parent.resolve()) + "2",
                 case_insensitive=True))
@@ -1026,46 +1097,94 @@ class OriginalRootGuardTests(unittest.TestCase):
             self.assertEqual(_tree(root), before)
             self.assertFalse((root / "tools").exists())
 
+    def test_default_output_candidates_follow_the_platform(self):
+        stem = "Map"
+        windows = unpack_pak._default_output_candidates(
+            stem, windows=True,
+            environ={"LOCALAPPDATA": r"D:\Users\me\AppData\Local"},
+            temp_dir=r"D:\temp", cwd=r"D:\work")
+        self.assertEqual(windows, [
+            Path(r"D:\temp") / "moxiang-unpack" / stem,
+            Path(r"D:\Users\me\AppData\Local") / "moxiang-unpack" / stem,
+        ])
+        no_local = unpack_pak._default_output_candidates(
+            stem, windows=True, environ={}, temp_dir=r"D:\temp", cwd=r"D:\work")
+        self.assertEqual(no_local, [
+            Path(r"D:\temp") / "moxiang-unpack" / stem,
+            Path(r"D:\work") / "moxiang-unpack" / stem,
+        ])
+        posix = unpack_pak._default_output_candidates(
+            stem, windows=False, environ={}, temp_dir="/tmp",
+            cwd="/work", home="/home/me")
+        self.assertEqual(posix, [
+            Path("/tmp") / "moxiang-unpack" / stem,
+            Path("/home/me/.cache/moxiang-unpack") / stem,
+            Path("/work") / "moxiang-unpack" / stem,
+        ])
+
     def test_temp_fallback_never_lands_in_original_root(self):
         unique = uuid.uuid4().hex
-        root = Path(tempfile.gettempdir())
-        scratch = Path(tempfile.mkdtemp(
-            prefix=f"mxh-oroot-{unique}-", dir="/workspace"))
-        pak = scratch / "src" / f"map-{unique}.pak"
-        pak.parent.mkdir()
-        _make_pak([("Map/one.bmhm", b"one-payload")], pak)
-        temp_candidate = root / "moxiang-unpack" / pak.stem
-        old = os.getcwd()
-        try:
-            self.assertFalse(temp_candidate.exists())
-            os.chdir(scratch)
-            with _set_env("MXH_ORIGINAL_ROOT", str(root)):
-                chosen = unpack_pak.default_unpack_dir(str(pak))
-                self.assertEqual(chosen, scratch / "moxiang-unpack" / pak.stem)
-                self.assertTrue(unpack_pak.output_is_inside_original_root(
-                    str(temp_candidate), str(root)))
-                self.assertFalse(unpack_pak.output_is_inside_original_root(
-                    str(chosen), str(root)))
-                rc, text, err = _run_cli([str(pak)])
-                self.assertEqual(rc, 0, text + err)
-                self.assertEqual(
-                    (chosen / "00000_11.bin").read_bytes(), b"one-payload")
-                self.assertFalse(temp_candidate.exists())
-                self.assertIn(str(chosen), text)
-                self.assertEqual(_tree(pak.parent), [pak.name])
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            temp_dir = root / "temp"
+            outside = tdp / "outside"
+            cwd_dir = tdp / "cwd"
+            temp_dir.mkdir(parents=True)
+            outside.mkdir()
+            cwd_dir.mkdir()
+            pak = cwd_dir / "src" / f"map-{unique}.pak"
+            pak.parent.mkdir()
+            _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+            if os.name == "nt":
+                expected = outside / "moxiang-unpack" / pak.stem
+            else:
+                expected = outside / ".cache" / "moxiang-unpack" / pak.stem
+            temp_candidate = temp_dir / "moxiang-unpack" / pak.stem
+            old = os.getcwd()
+            try:
+                os.chdir(cwd_dir)
+                with _temp_env({
+                    "TMPDIR": str(temp_dir),
+                    "TEMP": str(temp_dir),
+                    "TMP": str(temp_dir),
+                    "LOCALAPPDATA": str(outside),
+                    "HOME": str(outside),
+                    "MXH_ORIGINAL_ROOT": str(root),
+                }):
+                    chosen = unpack_pak.default_unpack_dir(str(pak))
+                    self.assertEqual(chosen, expected)
+                    self.assertTrue(unpack_pak.output_is_inside_original_root(
+                        str(temp_candidate), str(root)))
+                    self.assertFalse(unpack_pak.output_is_inside_original_root(
+                        str(chosen), str(root)))
+                    rc, text, err = _run_cli([str(pak)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(
+                        (expected / "00000_11.bin").read_bytes(), b"one-payload")
+                    self.assertFalse(temp_candidate.exists())
+                    self.assertFalse((root / "moxiang-unpack").exists())
+                    self.assertIn(str(expected), text)
 
-                os.chdir(root)
-                rc, text, err = _run_cli([str(pak)])
-                self.assertEqual(rc, 1, text + err)
-                self.assertIn("refusing", err)
-                self.assertIn("read-only", err)
-                self.assertFalse(temp_candidate.exists())
-                self.assertFalse((root / "moxiang-unpack" / pak.stem).exists())
-        finally:
-            os.chdir(old)
-            shutil.rmtree(scratch, ignore_errors=True)
-            if temp_candidate.exists():
-                shutil.rmtree(temp_candidate, ignore_errors=True)
+                    inside = root / "fallback"
+                    inside.mkdir()
+                    os.chdir(root)
+                    with _temp_env({
+                        "LOCALAPPDATA": str(inside),
+                        "HOME": str(inside),
+                    }):
+                        rc, text, err = _run_cli([str(pak)])
+                        self.assertEqual(rc, 1, text + err)
+                        self.assertIn("refusing", err)
+                        self.assertIn("read-only", err)
+                        self.assertFalse(temp_candidate.exists())
+                        self.assertFalse((root / "moxiang-unpack").exists())
+                        self.assertFalse(
+                            (inside / "moxiang-unpack").exists())
+                        self.assertFalse(
+                            (inside / ".cache" / "moxiang-unpack").exists())
+            finally:
+                os.chdir(old)
 
 
 class ParsePakHeaderTests(unittest.TestCase):

@@ -5,8 +5,11 @@ unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 Mode 1 (legacy / default):
   unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
   When out_dir is omitted, files go under the system temp directory
-  (moxiang-unpack/<stem>), never beside the pak and never inside the
-  original resource root.
+  (moxiang-unpack/<stem>).  If that location is inside the pak directory
+  or the original root, Windows uses %LOCALAPPDATA%\\moxiang-unpack\\<stem>
+  (or the working directory when LOCALAPPDATA is unset) and POSIX uses
+  ~/.cache/moxiang-unpack/<stem> and then the working directory.  A
+  candidate that still resolves inside either read-only tree is skipped.
   Each entry is written as "{i:05d}_{real}.bin" (legacy convention used by
   many existing test fixtures; preserved so the 12 existing audit scripts
   that grep the legacy name pattern keep working).
@@ -112,28 +115,45 @@ class PakStats:
 # Core unpack
 # ---------------------------------------------------------------------------
 
+def _split_path(path: str, pathmod) -> tuple[str, bool, list[str]]:
+    """Drive, absolute flag, and components.  ``..`` is already folded."""
+    normalized = pathmod.normpath(path)
+    drive, tail = pathmod.splitdrive(normalized)
+    sep = pathmod.sep
+    alt = pathmod.altsep
+    if alt:
+        tail = tail.replace(alt, sep)
+    is_abs = tail.startswith(sep)
+    parts = [part for part in tail.split(sep)
+             if part and part != pathmod.curdir]
+    return drive, is_abs, parts
+
+
 def _same_or_under(parent: str, child: str, *, case_insensitive: bool,
                    pathmod=os.path) -> bool:
     """True when child is parent or a directory inside parent.
 
-    `parent` and `child` are already-resolved path strings.  On Windows
-    the comparison is case-insensitive so D:\\MX and d:\\mx match.
-    A prefix sibling does not match: D:\\MX2 is not under D:\\MX.
+    `parent` and `child` are already-resolved path strings.  Comparison
+    is case-sensitive unless `case_insensitive` is set.  ntpath.commonpath
+    always lowercases, so this does not use it: case_insensitive=False
+    must not treat Client and client as the same directory.
+    Production passes case_insensitive=True on Windows, so D:\\MX and
+    d:\\mx still match there.  A prefix sibling does not match:
+    D:\\MX2 is not under D:\\MX.
     `pathmod` is os.path in production; tests pass ntpath to check the
     Windows spelling on other hosts.
     """
-    parent_n = pathmod.normpath(parent)
-    child_n = pathmod.normpath(child)
-    if case_insensitive:
-        parent_n = parent_n.casefold()
-        child_n = child_n.casefold()
-    try:
-        common = pathmod.normpath(pathmod.commonpath([parent_n, child_n]))
-    except ValueError:
+    def fold(text: str) -> str:
+        return text.casefold() if case_insensitive else text
+
+    parent_drive, parent_abs, parent_parts = _split_path(parent, pathmod)
+    child_drive, child_abs, child_parts = _split_path(child, pathmod)
+    if parent_abs != child_abs or fold(parent_drive) != fold(child_drive):
         return False
-    if case_insensitive:
-        common = common.casefold()
-    return common == parent_n
+    if len(child_parts) < len(parent_parts):
+        return False
+    return [fold(part) for part in child_parts[:len(parent_parts)]] == [
+        fold(part) for part in parent_parts]
 
 
 def resolve_original_root(cli_value: Optional[str] = None, *,
@@ -213,30 +233,65 @@ def _output_is_readonly(pak_path: str, out_dir: str,
             or output_is_inside_original_root(out_dir, original_root))
 
 
+def _default_output_candidates(stem: str, *,
+                               windows: Optional[bool] = None,
+                               environ: Optional[dict[str, str]] = None,
+                               temp_dir: Optional[str] = None,
+                               cwd: Optional[str] = None,
+                               home: Optional[str] = None) -> list[Path]:
+    """Default output dirs, first choice first.
+
+    System temp is always first.  On Windows the next choice is
+    %LOCALAPPDATA%\\moxiang-unpack\\<stem>, or the working directory when
+    LOCALAPPDATA is unset.  On POSIX the next choice is
+    ~/.cache/moxiang-unpack/<stem>, then the working directory.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    env = os.environ if environ is None else environ
+    if temp_dir is None:
+        temp_dir = tempfile.gettempdir()
+    if cwd is None:
+        cwd = os.getcwd()
+    candidates = [Path(temp_dir) / "moxiang-unpack" / stem]
+    if windows:
+        local = env.get("LOCALAPPDATA", "").strip()
+        if local:
+            candidates.append(Path(local) / "moxiang-unpack" / stem)
+        else:
+            candidates.append(Path(cwd) / "moxiang-unpack" / stem)
+        return candidates
+    if home is None:
+        try:
+            home = str(Path.home())
+        except RuntimeError:
+            home = ""
+    if home:
+        candidates.append(Path(home) / ".cache" / "moxiang-unpack" / stem)
+    candidates.append(Path(cwd) / "moxiang-unpack" / stem)
+    return candidates
+
+
 def default_unpack_dir(pak_path: str,
                        original_root: Optional[str] = None) -> Path:
-    """Temp (then cwd) directory outside the pak dir and the original root.
+    """First default directory outside the pak dir and the original root.
 
     original_root None resolves the flag, MXH_ORIGINAL_ROOT, then the
     Windows default.  A candidate inside either read-only tree is skipped,
-    so the temp fallback is not used when it would land in the root.
+    so temp / LOCALAPPDATA / ~/.cache / cwd are not used when they would
+    land in the root or the pak directory.
     """
     if original_root is None:
         original_root = resolve_original_root()
     stem = Path(pak_path).stem or "pak"
-    candidates = (
-        Path(tempfile.gettempdir()) / "moxiang-unpack" / stem,
-        Path.cwd() / "moxiang-unpack" / stem,
-    )
-    for candidate in candidates:
+    for candidate in _default_output_candidates(stem):
         if not _output_is_readonly(pak_path, str(candidate), original_root):
             return candidate
     raise PakOutputError(
         f"refusing to choose a default output directory for {pak_path}: "
-        f"both the system temp directory and the workspace would fall "
-        f"inside the pak directory or the original root. Original "
-        f"resource directories are read-only. Pass --out explicitly, "
-        f"outside that directory."
+        f"every default location would fall inside the pak directory or "
+        f"the original root. Original resource directories are read-only. "
+        f"Pass --out explicitly, outside that directory."
     )
 
 
