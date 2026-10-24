@@ -19,6 +19,9 @@
 //   MXH_MAP10_SMOKE_LOGIN_PORT
 //   MXH_MAP10_SMOKE_AGENT_PORT
 //   MXH_MAP10_SMOKE_MAP_PORT
+// Default stage ports are refused even when set explicitly: login 16001,
+// agent 17001, and map 18001-18003. Opt in to those listeners with
+//   MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE=1
 // plus a populated server account mxh_e2e / Pass1234 and the
 // MoxianClientE2E binary (`mxh_client_e2e`, or MXH_CLIENT_E2E_BIN).
 //
@@ -150,7 +153,9 @@ TEST(Map10InGameSmoke, GameInAckDoesNotFalseFireInRelease) {
                         "MXH_MAP10_SMOKE_HOST, MXH_MAP10_SMOKE_LOGIN_PORT, "
                         "MXH_MAP10_SMOKE_AGENT_PORT, and "
                         "MXH_MAP10_SMOKE_MAP_PORT. It does not fall back to "
-                        "16001/17001/18001.";
+                        "16001/17001/18001. Default stage ports (login 16001, "
+                        "agent 17001, map 18001-18003) also need "
+                        "MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE=1.";
     }
     const mxh::test::Map10SmokeEndpoint endpoint =
         mxh::test::resolve_map10_smoke_endpoint(

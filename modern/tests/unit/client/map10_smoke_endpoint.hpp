@@ -13,6 +13,12 @@
 //   MXH_MAP10_SMOKE_AGENT_PORT   TCP port 1..65535, distinct from the others
 //   MXH_MAP10_SMOKE_MAP_PORT     TCP port 1..65535, distinct from the others
 //
+// A second guard refuses the default stage ports even when they are set
+// explicitly: login 16001, agent 17001, and map 18001-18003. If any
+// configured port is one of those, the test skips unless
+//   MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE=1
+// is also set. Other values, including unset, do not allow the stage.
+//
 // MXH_MAP10_SMOKE=1 is still required by the integration test itself; it
 // does not supply a host or any port. MXH_LOGIN_HOST is not read here.
 
@@ -29,6 +35,19 @@ inline constexpr const char* kMap10SmokeHostEnv = "MXH_MAP10_SMOKE_HOST";
 inline constexpr const char* kMap10SmokeLoginPortEnv = "MXH_MAP10_SMOKE_LOGIN_PORT";
 inline constexpr const char* kMap10SmokeAgentPortEnv = "MXH_MAP10_SMOKE_AGENT_PORT";
 inline constexpr const char* kMap10SmokeMapPortEnv = "MXH_MAP10_SMOKE_MAP_PORT";
+inline constexpr const char* kMap10SmokeAllowDefaultStageEnv =
+    "MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE";
+
+// Default VM112/CT930 stage listeners. Any configured port in this set is
+// refused unless MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE=1.
+inline constexpr int kDefaultStagePorts[] = {16001, 17001, 18001, 18002, 18003};
+
+inline bool is_default_stage_port(int port) {
+    for (const int blocked : kDefaultStagePorts) {
+        if (port == blocked) return true;
+    }
+    return false;
+}
 
 struct Map10SmokeEndpoint {
     bool ready = false;
@@ -149,6 +168,37 @@ Map10SmokeEndpoint resolve_map10_smoke_endpoint(Lookup&& lookup) {
             rejected.skip_reason += problems[i];
         }
         return rejected;
+    }
+
+    const bool allow_default_stage = raw(kMap10SmokeAllowDefaultStageEnv) == "1";
+    if (!allow_default_stage) {
+        const struct {
+            const char* name;
+            int port;
+        } configured[] = {
+            {kMap10SmokeLoginPortEnv, login_port},
+            {kMap10SmokeAgentPortEnv, agent_port},
+            {kMap10SmokeMapPortEnv, map_port},
+        };
+        std::vector<std::string> offending;
+        for (const auto& entry : configured) {
+            if (is_default_stage_port(entry.port)) {
+                offending.push_back(std::string(entry.name) + "=" +
+                                    std::to_string(entry.port));
+            }
+        }
+        if (!offending.empty()) {
+            rejected.skip_reason =
+                "GameInAckDoesNotFalseFireInRelease writes the game database "
+                "and is skipped because a configured port is a default stage "
+                "port (login 16001, agent 17001, map 18001-18003). Set "
+                "MXH_MAP10_SMOKE_ALLOW_DEFAULT_STAGE=1 to proceed. Offending: ";
+            for (std::size_t i = 0; i < offending.size(); ++i) {
+                if (i != 0) rejected.skip_reason += "; ";
+                rejected.skip_reason += offending[i];
+            }
+            return rejected;
+        }
     }
 
     Map10SmokeEndpoint ready;
