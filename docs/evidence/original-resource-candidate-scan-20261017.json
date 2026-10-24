@@ -25,19 +25,22 @@
   "targetHflTtbClassification": {
     "allMatchesAreKnownNonCanonicalCopies": true,
     "hfl": {
-      "names": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
+      "names": [],
+      "notReferencedByOriginal": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
       "sizeBytes": 137030,
       "copiesPerName": 12,
       "role": "historical-recovered-or-development-placeholder"
     },
     "ttb": {
-      "names": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"],
+      "names": [],
+      "notReferencedByOriginal": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"],
       "sizeBytes": 2097160,
       "copiesPerName": 1,
       "role": "UnityNative-derived-overlay"
     }
   },
-  "decision": "No file was copied, renamed, or admitted. Exact original resource gate remains blocked until byte-authenticated source payloads are found.",
+  "decision": "No file was copied, renamed, or admitted. Exact original resource gate remains blocked until byte-authenticated source payloads are found. See extensionAndPakCorrection. The emptied hfl/ttb name lists are the unreferenced ids, not a new derived missing total.",
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): fileNameScan searched tile_17_mou_a_*.dds, the wrong extension. Map17's original HFL references tile_17_mou_a_01..09.tga. It also used the wrong pak when a pak was consulted: the worktree PlayDH/Map.pak, whose header has 4192 entries, not the original D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect. remainingExactBlockers.hfl 22 and ttb 18 are the 2026-10-17 totals and include ids that are not referenced; they are not restated as a new count.",
   "remainingExactBlockers": {
     "hfl": 22,
     "ttb": 18,

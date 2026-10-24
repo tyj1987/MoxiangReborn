@@ -75,6 +75,10 @@
 /墨香【源码配套资源】/
 /墨香【源码】/DB.zip
 
+# Warn-only resource-reference CI artifacts (not source).
+/ci-resource-reference-report.json
+/ci-resource-reference-codequality.json
+
 # Generated reports and screenshots
 /docs/**/run-*/
 /docs/**/baseline-*/
