@@ -42,5 +42,6 @@
       "bytes": 2856
     },
     "conclusion": "The raw strings are HFL dependency references, not texture payload entries; no exact mou_a texture was admitted."
-  }
+  },
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): requiredTextures above used the wrong extension (.dds). Map17's original HFL references tile_17_mou_a_01..09.tga. The worktree and client-legacy PlayDH/Map.pak rows are the 4192-entry archive, not a complete read of D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. The extract attempt for tile_17_mou_a_01.tga was already entry_not_found. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect."
 }
