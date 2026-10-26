@@ -251,6 +251,7 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     std::uint32_t, std::uint32_t, std::uint32_t, FILE_ACCESS_METHOD) {
     if (!std::filesystem::is_directory(root_)) return FALSE;
     packs_.clear();
+    pack_names_.clear();
     std::error_code ec;
     std::vector<PakMountCandidate> classified;
     struct SkippedPak {
@@ -285,6 +286,8 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
                 mounted.push_back(MountedPak{filename_utf8(path), *tier});
             }
             packs_.push_back(std::move(pack));
+            // Same UTF-8 bytes as the "[pak] mount order" line, same order.
+            pack_names_.push_back(filename_utf8(path));
         } else {
             const auto pak_path = path.string();
             MLOG_WARN("[pak] skipped '%s': unsupported header / not a pak",
@@ -341,17 +344,37 @@ std::uint32_t __stdcall FilesystemFileStorage::GetFileNum(void*) { return 0; }
 std::uint32_t __stdcall FilesystemFileStorage::CreateFileInfoList(
     void*, FSFILE_ATOM_INFO**, std::uint32_t) { return 0; }
 void __stdcall FilesystemFileStorage::DeleteFileInfoList(void*, FSFILE_ATOM_INFO*) {}
-BOOL __stdcall FilesystemFileStorage::IsExistInFileStorage(char* name) {
+// Single lookup used by IsExistInFileStorage, FSOpenFile and describeSource:
+// loose file under root_ first, then mounted packs in mount order (packs_ is
+// filled in "[pak] mount order"), full normalized name then basename.
+// Zero-length pak entries are skipped (FSOpenFile never returned them).
+FilesystemFileStorage::Location FilesystemFileStorage::locate(const char* name) const {
+    Location out;
     const auto path = resolve(name);
-    if (!path.empty() && std::filesystem::is_regular_file(path)) return TRUE;
-    if (!name || !*name) return FALSE;
+    if (!path.empty() && std::filesystem::is_regular_file(path)) {
+        out.kind = Location::Kind::Loose;
+        out.loose = path;
+        return out;
+    }
+    if (!name || !*name) return out;
     std::string normalized(name);
     std::replace(normalized.begin(), normalized.end(), '/', '\\');
-    const auto basename = std::filesystem::path(normalized).filename().string();
-    for (const auto& pack : packs_) {
-        if (pack->find(normalized) || (basename != normalized && pack->find(basename))) return TRUE;
+    const std::string basename = std::filesystem::path(normalized).filename().string();
+    for (std::size_t i = 0; i < packs_.size(); ++i) {
+        const auto* entry = packs_[i]->find(normalized);
+        if ((!entry || entry->raw_view.empty()) && basename != normalized)
+            entry = packs_[i]->find(basename);
+        if (entry && !entry->raw_view.empty()) {
+            out.kind = Location::Kind::Pak;
+            out.pack = i;
+            out.entry = entry;
+            return out;
+        }
     }
-    return FALSE;
+    return out;
+}
+BOOL __stdcall FilesystemFileStorage::IsExistInFileStorage(char* name) {
+    return locate(name).kind != Location::Kind::None ? TRUE : FALSE;
 }
 BOOL __stdcall FilesystemFileStorage::LockPackFile(void*, std::uint32_t) { return FALSE; }
 BOOL __stdcall FilesystemFileStorage::InsertFileToPackFile(void*, char*) { return FALSE; }
@@ -362,22 +385,30 @@ BOOL __stdcall FilesystemFileStorage::ExtractAllFiles() { return FALSE; }
 std::uint32_t __stdcall FilesystemFileStorage::ExtractAllFilesFromPackFile(void*) { return 0; }
 
 void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
-    const auto path = resolve(name);
-    if (!path.empty() && std::filesystem::is_regular_file(path)) {
-        auto* file = new OpenFile(path);
+    const auto where = locate(name);
+    if (where.kind == Location::Kind::Loose) {
+        auto* file = new OpenFile(where.loose);
         if (file->stream) return file;
         delete file;
+        const auto u8 = where.loose.u8string();
+        const std::string loose_path(reinterpret_cast<const char*>(u8.data()), u8.size());
+        MLOG_WARN("[fs] loose file exists but cannot open: %s", loose_path.c_str());
+        return nullptr;
     }
-    if (!name || !*name) return nullptr;
-    std::string normalized(name);
-    std::replace(normalized.begin(), normalized.end(), '/', '\\');
-    const std::string basename = std::filesystem::path(normalized).filename().string();
-    for (const auto& pack : packs_) {
-        auto bytes = pack->read(normalized);
-        if (bytes.empty() && basename != normalized) bytes = pack->read(basename);
-        if (!bytes.empty()) return new OpenFile(std::move(bytes));
-    }
+    if (where.kind == Location::Kind::Pak)
+        return new OpenFile(std::vector<std::uint8_t>(where.entry->raw_view.begin(),
+                                                      where.entry->raw_view.end()));
     return nullptr;
+}
+std::string FilesystemFileStorage::describeSource(const char* name) const {
+    const auto where = locate(name);
+    if (where.kind == Location::Kind::Loose) {
+        const auto u8 = where.loose.u8string();
+        return "loose:" + std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+    }
+    if (where.kind == Location::Kind::Pak)
+        return "pak:" + (where.pack < pack_names_.size() ? pack_names_[where.pack] : std::string("?"));
+    return {};
 }
 int __stdcall FilesystemFileStorage::FSScanf(void*, char*, ...) { return 0; }
 std::uint32_t __stdcall FilesystemFileStorage::FSRead(

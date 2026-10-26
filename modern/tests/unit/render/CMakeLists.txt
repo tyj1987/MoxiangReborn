@@ -304,3 +304,9 @@ gtest_add_tests(TARGET mxh_render_tests
     FrustumIntersectsAABB.BoxOffToTheLeftOfLeftPlaneIsCulled
     FrustumIntersectsAABB.EmptyPlanesDontCrash
 )
+
+# describeSource()/FSOpenFile() share FilesystemFileStorage::locate():
+# loose / pak / missing, pak names as printed by "[pak] mount order".
+add_executable(mxh_file_storage_source_tests file_storage_source_test.cpp)
+target_link_libraries(mxh_file_storage_source_tests PRIVATE mxh_render GTest::gtest_main)
+gtest_add_tests(TARGET mxh_file_storage_source_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)

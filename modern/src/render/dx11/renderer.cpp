@@ -367,20 +367,44 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     UINT stride = sizeof(MeshObject::Vertex), offset = 0;
     ID3D11Buffer* vb = mesh->vertexBuffer();
     ID3D11Buffer* ib = mesh->indexBuffer();
-    ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
     ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
-    ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
-    // Pick the multi-light PS when there's at least one active dynamic or RT
-    // light — it accumulates per-pixel contributions from up to 8 light slots.
-    // When no lights are active, fall back to the cheaper single-directional PS.
-    const bool needMultiLight = m_meshShaders.psMultiLight &&
-                                (m_rtLightActiveCount > 0 ||
-                                 (pDynList && dwLightNum > 0));
-    ctx->PSSetShader(needMultiLight ? m_meshShaders.psMultiLight.Get()
-                                    : m_meshShaders.psLit.Get(),
-                     nullptr, 0);
+    // STM-only legacy vertex-colour path (CVLSMeshObject): only meshes that
+    // were initialised with MESH_DESC::pVertexColor own a colour stream, so
+    // terrain/entity meshes keep the lit layout/shader below untouched.
+    const bool stmVertexColor = mesh->hasVertexColors() && m_meshShaders.psStmVcl &&
+                                m_meshShaders.vsStmVcl && m_meshShaders.ilStmVcl;
+    if (mesh->hasVertexColors() && !stmVertexColor) {
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            MLOG_ERROR("[renderer] STM vertex-color mesh drawn with lit fallback: "
+                       "vcl shader variant unavailable (stmVclShaderFailed)");
+        }
+    }
+    if (stmVertexColor) {
+        ID3D11Buffer* vbs[2] = {vb, mesh->colorBuffer()};
+        UINT strides[2] = {static_cast<UINT>(sizeof(MeshObject::Vertex)),
+                           static_cast<UINT>(sizeof(std::uint32_t))};
+        UINT offsets[2] = {0, 0};
+        ctx->IASetVertexBuffers(0, 2, vbs, strides, offsets);
+        ctx->IASetInputLayout(m_meshShaders.ilStmVcl.Get());
+        ctx->VSSetShader(m_meshShaders.vsStmVcl.Get(), nullptr, 0);
+        ctx->PSSetShader(m_meshShaders.psStmVcl.Get(), nullptr, 0);
+    } else {
+        ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+        ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
+        ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+        // Pick the multi-light PS when there's at least one active dynamic or RT
+        // light — it accumulates per-pixel contributions from up to 8 light slots.
+        // When no lights are active, fall back to the cheaper single-directional PS.
+        const bool needMultiLight = m_meshShaders.psMultiLight &&
+                                    (m_rtLightActiveCount > 0 ||
+                                     (pDynList && dwLightNum > 0));
+        ctx->PSSetShader(needMultiLight ? m_meshShaders.psMultiLight.Get()
+                                        : m_meshShaders.psLit.Get(),
+                         nullptr, 0);
+    }
     ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
     ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
     ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
@@ -402,6 +426,10 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     // Unbind SRV to avoid D3D11 warnings.
     ID3D11ShaderResourceView* nullSRV = nullptr;
     ctx->PSSetShaderResources(0, 1, &nullSRV);
+    if (stmVertexColor) {
+        ID3D11Buffer* nullVB = nullptr; UINT zero = 0;
+        ctx->IASetVertexBuffers(1, 1, &nullVB, &zero, &zero);
+    }
     ctx->RSSetState(m_dev->rasterizerDefault());
     return TRUE;
 }
