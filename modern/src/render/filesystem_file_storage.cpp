@@ -75,6 +75,35 @@ PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path) {
     return prefix;
 }
 
+namespace {
+
+bool read_u32_at(const std::vector<std::uint8_t>& bytes, std::size_t offset,
+                 std::uint32_t& out) {
+    if (offset > bytes.size() || bytes.size() - offset < sizeof(out)) return false;
+    std::memcpy(&out, bytes.data() + offset, sizeof(out));
+    return true;
+}
+
+std::optional<std::vector<std::uint8_t>> read_entire_file(
+    const std::filesystem::path& path) {
+    errno = 0;
+    std::ifstream in(path, std::ios::binary | std::ios::ate);
+    if (!in) return std::nullopt;
+    const auto end = in.tellg();
+    if (end < 0) return std::nullopt;
+    const auto size = static_cast<std::size_t>(end);
+    in.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (size > 0 &&
+        !in.read(reinterpret_cast<char*>(bytes.data()),
+                 static_cast<std::streamsize>(size))) {
+        return std::nullopt;
+    }
+    return bytes;
+}
+
+}  // namespace
+
 PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
                                            PakHeaderOpener opener) {
     const PakHeaderPrefix prefix = opener != nullptr ? opener(path)
@@ -89,14 +118,45 @@ PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
         result.kind = PakHeaderKind::ShorterThan8;
         return result;
     }
-    const unsigned char* buf = prefix.bytes;
-    const std::uint32_t count_at_offset_4 =
-        static_cast<std::uint32_t>(buf[4]) |
-        (static_cast<std::uint32_t>(buf[5]) << 8) |
-        (static_cast<std::uint32_t>(buf[6]) << 16) |
-        (static_cast<std::uint32_t>(buf[7]) << 24);
-    result.kind = count_at_offset_4 != 0 ? PakHeaderKind::PlayDh92
-                                          : PakHeaderKind::Original96;
+
+    const auto bytes = read_entire_file(path);
+    if (!bytes) {
+        result.kind = PakHeaderKind::CannotOpen;
+        const int saved = errno;
+        if (saved != 0) {
+            result.open_error = std::error_code(saved, std::generic_category()).message();
+        }
+        return result;
+    }
+    if (bytes->size() < 8) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+
+    std::uint32_t count_at_offset_4 = 0;
+    if (!read_u32_at(*bytes, 4, count_at_offset_4)) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+    const auto probe = mxh::compat::probe_pak_layouts(*bytes);
+    result.playdh92_valid = probe.playdh92_exact_eof;
+    result.original96_valid = probe.original96_exact_eof;
+
+    std::uint32_t count_at_offset_92 = 0;
+    read_u32_at(*bytes, 92, count_at_offset_92);
+
+    if (result.playdh92_valid && !result.original96_valid) {
+        result.kind = PakHeaderKind::PlayDh92;
+        result.entry_count = count_at_offset_4;
+        return result;
+    }
+    if (result.original96_valid && !result.playdh92_valid) {
+        result.kind = PakHeaderKind::Original96;
+        result.entry_count = count_at_offset_92;
+        return result;
+    }
+    result.kind = PakHeaderKind::Unrecognized;
+    result.entry_count = 0;
     return result;
 }
 
@@ -232,8 +292,9 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
         }
     };
     for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
-    // Cannot-open and shorter-than-8 both skip PackFile::open. They share
-    // the mount-order filename sort (UTF-8 bytes of filename().u8string()).
+    // Cannot-open, shorter-than-8, and unrecognized headers skip
+    // PackFile::open. They share the mount-order filename sort (UTF-8
+    // bytes of filename().u8string()).
     std::sort(skipped.begin(), skipped.end(),
               [](const SkippedPak& a, const SkippedPak& b) {
                   return pak_filename_less(filename_utf8(a.path), filename_utf8(b.path));
@@ -251,6 +312,9 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
             break;
         case PakHeaderKind::ShorterThan8:
             MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+            break;
+        case PakHeaderKind::Unrecognized:
+            MLOG_ERROR("[pak] ambiguous/unrecognized header: %s", name.c_str());
             break;
         case PakHeaderKind::PlayDh92:
         case PakHeaderKind::Original96:

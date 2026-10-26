@@ -88,8 +88,7 @@ void write_playdh_pak(const std::filesystem::path& path,
 }
 
 // Original pak: 96-byte header, uint32 at offset 4 is 0, entry count at
-// offset 92, entries start at offset 96. PackFile::open rejects this until
-// feat/packfile-96-header (PR #7). The bytes follow docs/formats/pak.md.
+// offset 92, entries start at offset 96. The bytes follow docs/formats/pak.md.
 void write_original_pak(const std::filesystem::path& path,
                         std::string_view entry_name,
                         std::string_view payload) {
@@ -173,8 +172,8 @@ TEST(FilesystemFileStorage, WarnsAndSkipsPakThatFailsToOpen) {
     std::filesystem::create_directories(root);
     const auto pak = root / "broken.pak";
     {
-        // Original-style header: version 1, dwFileItemNum 0. PackFile rejects
-        // this (file_item_num must be > 0) and Initialize must skip it.
+        // 96-byte version-1 header of zeros. Both counts are 0, so neither
+        // walk reaches EOF. Initialize must not load it.
         std::vector<unsigned char> header(96, 0);
         header[0] = 1;
         std::ofstream out(pak, std::ios::binary);
@@ -190,9 +189,11 @@ TEST(FilesystemFileStorage, WarnsAndSkipsPakThatFailsToOpen) {
     const std::string logged = testing::internal::GetCapturedStderr();
 
     EXPECT_TRUE(opened);
-    EXPECT_NE(logged.find("broken.pak"), std::string::npos) << logged;
-    EXPECT_NE(logged.find("skipped"), std::string::npos) << logged;
-    EXPECT_NE(logged.find("unsupported header"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("ERROR"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("[pak] ambiguous/unrecognized header: broken.pak"),
+              std::string::npos) << logged;
+    EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("skipped"), std::string::npos) << logged;
     char missing[] = "missing.bin";
     EXPECT_FALSE(storage->IsExistInFileStorage(missing));
     storage->Release();
@@ -316,7 +317,95 @@ TEST(FilesystemFileStorage, DefaultPakTierOrderIsPlayDhThenOriginal) {
     EXPECT_EQ(options.pak_tier_order[1], mxh::gx::PakFormatTier::Original96);
 }
 
-TEST(FilesystemFileStorage, ClassifiesPakByOffset4) {
+void poke_u32(std::vector<std::uint8_t>& bytes, std::size_t offset, std::uint32_t value) {
+    bytes.at(offset) = static_cast<std::uint8_t>(value & 0xffu);
+    bytes.at(offset + 1) = static_cast<std::uint8_t>((value >> 8) & 0xffu);
+    bytes.at(offset + 2) = static_cast<std::uint8_t>((value >> 16) & 0xffu);
+    bytes.at(offset + 3) = static_cast<std::uint8_t>((value >> 24) & 0xffu);
+}
+
+std::uint32_t read_u32_at(const std::vector<std::uint8_t>& bytes, std::size_t offset) {
+    return static_cast<std::uint32_t>(bytes.at(offset)) |
+           (static_cast<std::uint32_t>(bytes.at(offset + 1)) << 8) |
+           (static_cast<std::uint32_t>(bytes.at(offset + 2)) << 16) |
+           (static_cast<std::uint32_t>(bytes.at(offset + 3)) << 24);
+}
+
+// Independent of classify_pak_header. total must equal 32+name_len+1+real,
+// the name must be followed by NUL, and `count` entries from `start` must
+// finish on the last byte.
+bool oracle_walk_ends_at_eof(const std::vector<std::uint8_t>& bytes,
+                             std::uint32_t count, std::size_t start) {
+    if (start > bytes.size() || count > 1000000u) return false;
+    if (count == 0) return start == bytes.size();
+    std::size_t cur = start;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        if (bytes.size() - cur < 32) return false;
+        const auto total = read_u32_at(bytes, cur);
+        const auto real = read_u32_at(bytes, cur + 4);
+        const auto name_len = read_u32_at(bytes, cur + 8);
+        const auto expected = 32ull + static_cast<std::uint64_t>(name_len) + 1ull +
+                              static_cast<std::uint64_t>(real);
+        if (expected != total || total < 33) return false;
+        if (static_cast<std::uint64_t>(total) > bytes.size() - cur) return false;
+        if (bytes[cur + 32 + name_len] != 0) return false;
+        cur += total;
+    }
+    return cur == bytes.size();
+}
+
+void write_bytes(const std::filesystem::path& path, const std::vector<std::uint8_t>& bytes) {
+    std::ofstream out(path, std::ios::binary);
+    ASSERT_TRUE(out) << path;
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+    ASSERT_TRUE(out);
+}
+
+// 96-byte header, decoy count at offset 4, real count at offset 92, and that
+// many 33-byte entries from offset 96. The PlayDH walk of the decoy count
+// does not end at EOF.
+std::vector<std::uint8_t> make_original_with_decoy(std::uint32_t decoy,
+                                                   std::uint32_t entry_count) {
+    std::vector<std::uint8_t> bytes(96 + static_cast<std::size_t>(entry_count) * 33, 0);
+    poke_u32(bytes, 0, 1);
+    poke_u32(bytes, 4, decoy);
+    poke_u32(bytes, 92, entry_count);
+    for (std::uint32_t index = 0; index < entry_count; ++index) {
+        poke_u32(bytes, 96 + static_cast<std::size_t>(index) * 33, 33);
+    }
+    return bytes;
+}
+
+// Both layouts validate. PlayDH count at offset 4 is 2 (entries of 66 and
+// 4166 bytes from offset 92). Original count at offset 92 is 66 (33, 33,
+// 2083, then 63 minimum entries from offset 96). The overlapping headers
+// were checked to satisfy total == 32+name_len+1+real on both walks.
+std::vector<std::uint8_t> make_ambiguous_pak() {
+    constexpr std::size_t kEof = 4324;
+    std::vector<std::uint8_t> bytes(kEof, 0);
+    const auto write_min = [&](std::size_t at) { poke_u32(bytes, at, 33); };
+    poke_u32(bytes, 0, 1);
+    poke_u32(bytes, 4, 2);
+    write_min(96);
+    write_min(129);
+    poke_u32(bytes, 162, 2083);
+    poke_u32(bytes, 166, 2050);
+    std::size_t at = 2245;
+    for (int index = 0; index < 63; ++index) {
+        write_min(at);
+        at += 33;
+    }
+    EXPECT_EQ(at, kEof);
+    poke_u32(bytes, 92, 66);
+    poke_u32(bytes, 96, 33);
+    poke_u32(bytes, 158, 4166);
+    poke_u32(bytes, 162, 2083);
+    poke_u32(bytes, 166, 2050);
+    return bytes;
+}
+
+TEST(FilesystemFileStorage, ClassifiesPakByEntryWalk) {
     const TempDir dir("mxh-pak-classify-");
     const auto playdh = dir.path / "playdh.pak";
     const auto original = dir.path / "original.pak";
@@ -334,13 +423,116 @@ TEST(FilesystemFileStorage, ClassifiesPakByOffset4) {
     const auto tiny_header = mxh::gx::classify_pak_header(tiny);
     const auto missing_header = mxh::gx::classify_pak_header(dir.path / "missing.pak");
     EXPECT_EQ(playdh_header.kind, mxh::gx::PakHeaderKind::PlayDh92);
+    EXPECT_TRUE(playdh_header.playdh92_valid);
+    EXPECT_FALSE(playdh_header.original96_valid);
+    EXPECT_EQ(playdh_header.entry_count, 1u);
     EXPECT_TRUE(playdh_header.open_error.empty());
     EXPECT_EQ(original_header.kind, mxh::gx::PakHeaderKind::Original96);
+    EXPECT_FALSE(original_header.playdh92_valid);
+    EXPECT_TRUE(original_header.original96_valid);
+    EXPECT_EQ(original_header.entry_count, 1u);
     EXPECT_TRUE(original_header.open_error.empty());
     EXPECT_EQ(tiny_header.kind, mxh::gx::PakHeaderKind::ShorterThan8);
+    EXPECT_FALSE(tiny_header.playdh92_valid);
+    EXPECT_FALSE(tiny_header.original96_valid);
     EXPECT_TRUE(tiny_header.open_error.empty());
     EXPECT_EQ(missing_header.kind, mxh::gx::PakHeaderKind::CannotOpen);
     EXPECT_FALSE(missing_header.open_error.empty());
+}
+
+TEST(FilesystemFileStorage, ClassifiesSyntheticOriginalCounts2942441547) {
+    const TempDir dir("mxh-pak-decoy-");
+    struct Sample {
+        const char* name;
+        std::uint32_t decoy_at_offset_4;
+        std::uint32_t entry_count;
+    };
+    const Sample samples[] = {
+        {"titan.pak", 99, 294},
+        {"farm.pak", 181, 244},
+        {"pet.pak", 63, 1547},
+    };
+    for (const auto& sample : samples) {
+        const auto bytes = make_original_with_decoy(sample.decoy_at_offset_4, sample.entry_count);
+        ASSERT_EQ(read_u32_at(bytes, 4), sample.decoy_at_offset_4) << sample.name;
+        ASSERT_EQ(read_u32_at(bytes, 92), sample.entry_count) << sample.name;
+        ASSERT_FALSE(oracle_walk_ends_at_eof(bytes, sample.decoy_at_offset_4, 92)) << sample.name;
+        ASSERT_TRUE(oracle_walk_ends_at_eof(bytes, sample.entry_count, 96)) << sample.name;
+        const auto path = dir.path / sample.name;
+        write_bytes(path, bytes);
+        const auto header = mxh::gx::classify_pak_header(path);
+        EXPECT_EQ(header.kind, mxh::gx::PakHeaderKind::Original96) << sample.name;
+        EXPECT_FALSE(header.playdh92_valid) << sample.name;
+        EXPECT_TRUE(header.original96_valid) << sample.name;
+        EXPECT_EQ(header.entry_count, sample.entry_count) << sample.name;
+        EXPECT_TRUE(header.open_error.empty()) << sample.name;
+    }
+}
+
+TEST(FilesystemFileStorage, SkipsAmbiguousPakHeader) {
+    const TempDir dir("mxh-pak-ambiguous-");
+    const auto bytes = make_ambiguous_pak();
+    ASSERT_EQ(read_u32_at(bytes, 4), 2u);
+    ASSERT_EQ(read_u32_at(bytes, 92), 66u);
+    ASSERT_TRUE(oracle_walk_ends_at_eof(bytes, 2, 92));
+    ASSERT_TRUE(oracle_walk_ends_at_eof(bytes, 66, 96));
+    write_bytes(dir.path / "both.pak", bytes);
+    write_playdh_pak(dir.path / "m_ok.pak", "shared.bin", "from-ok");
+
+    const auto header = mxh::gx::classify_pak_header(dir.path / "both.pak");
+    EXPECT_EQ(header.kind, mxh::gx::PakHeaderKind::Unrecognized);
+    EXPECT_TRUE(header.playdh92_valid);
+    EXPECT_TRUE(header.original96_valid);
+    EXPECT_EQ(header.entry_count, 0u);
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(dir.path);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    const auto error_at = logged.find("[pak] ambiguous/unrecognized header: both.pak");
+    EXPECT_NE(logged.find("ERROR"), std::string::npos) << logged;
+    ASSERT_NE(error_at, std::string::npos) << logged;
+    EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("cannot open"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("header shorter than 8 bytes"), std::string::npos) << logged;
+    EXPECT_EQ(line.find("both.pak"), std::string::npos) << logged;
+    EXPECT_EQ(line, "[pak] mount order: 1=m_ok.pak(92)") << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-ok");
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, SkipsUnrecognizedPakHeader) {
+    const TempDir dir("mxh-pak-unrecognized-");
+    // Longer than both header sizes, with a zero count in each slot. An
+    // empty PlayDH walk would end at 92 and an empty original walk at 96,
+    // so neither finishes at EOF.
+    std::vector<std::uint8_t> bytes(128, 0);
+    poke_u32(bytes, 0, 1);
+    ASSERT_FALSE(oracle_walk_ends_at_eof(bytes, 0, 92));
+    ASSERT_FALSE(oracle_walk_ends_at_eof(bytes, 0, 96));
+    write_bytes(dir.path / "neither.pak", bytes);
+    write_playdh_pak(dir.path / "m_ok.pak", "shared.bin", "from-ok");
+
+    const auto header = mxh::gx::classify_pak_header(dir.path / "neither.pak");
+    EXPECT_EQ(header.kind, mxh::gx::PakHeaderKind::Unrecognized);
+    EXPECT_FALSE(header.playdh92_valid);
+    EXPECT_FALSE(header.original96_valid);
+    EXPECT_EQ(header.entry_count, 0u);
+    EXPECT_TRUE(header.open_error.empty());
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(dir.path);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    const auto error_at = logged.find("[pak] ambiguous/unrecognized header: neither.pak");
+    EXPECT_NE(logged.find("ERROR"), std::string::npos) << logged;
+    ASSERT_NE(error_at, std::string::npos) << logged;
+    EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("cannot open"), std::string::npos) << logged;
+    EXPECT_EQ(line.find("neither.pak"), std::string::npos) << logged;
+    EXPECT_EQ(line, "[pak] mount order: 1=m_ok.pak(92)") << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-ok");
+    storage->Release();
 }
 
 TEST(FilesystemFileStorage, PakTierOrderFollowsConfiguredPriority) {
@@ -499,7 +691,7 @@ TEST(FilesystemFileStorage, CrossTierResolutionFollowsConfiguredPriority) {
                         "feat/packfile-96-header (PR #7). PackFile::open still "
                         "rejects a header whose uint32 at offset 4 is 0. "
                         "Tier priority is locked by PakTierOrderFollowsConfiguredPriority "
-                        "and classification by ClassifiesPakByOffset4. This case "
+                        "and classification by ClassifiesPakByEntryWalk. This case "
                         "starts asserting once that branch can open the fixture "
                         "written here (entry count at offset 92, entries at 96).";
     }

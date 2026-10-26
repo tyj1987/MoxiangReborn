@@ -120,7 +120,10 @@ gtest_add_tests(TARGET mxh_render_tests
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
     FilesystemFileStorage.WarnsAndSkipsPakThatFailsToOpen
     FilesystemFileStorage.DefaultPakTierOrderIsPlayDhThenOriginal
-    FilesystemFileStorage.ClassifiesPakByOffset4
+    FilesystemFileStorage.ClassifiesPakByEntryWalk
+    FilesystemFileStorage.ClassifiesSyntheticOriginalCounts2942441547
+    FilesystemFileStorage.SkipsAmbiguousPakHeader
+    FilesystemFileStorage.SkipsUnrecognizedPakHeader
     FilesystemFileStorage.PakTierOrderFollowsConfiguredPriority
     FilesystemFileStorage.CaseOnlyNameTieBreakIsRawBytes
     FilesystemFileStorage.ResolvesSameEntryByPakNameOrder

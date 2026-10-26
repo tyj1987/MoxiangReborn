@@ -3,9 +3,15 @@
 // Original source: 墨香【源码】\4DyuchiFileStorage\PackFile.cpp + typedef.h
 //
 // Layout (verified against real .pak files and docs/formats/pak.md):
-//   - Offset 4 != 0: 92-byte header, entries at 92, advance by layout.
-//   - Offset 4 == 0: 96-byte header, count at offset 92, entries at 96,
-//     next entry at cur + total. Truncation and corrupt headers fail closed.
+//   Both walks run on every open. Exactly one that ends at EOF is used.
+//   Neither or both: the pak is not loaded.
+//   - PlayDH 92: count at offset 4, entries at 92, advance by layout.
+//     A count of 0 does not validate.
+//   - Original 96: count at offset 92, entries at 96, next entry at
+//     cur + total. total must equal 32+name_len+1+real and a NUL must
+//     follow the name. A count of 0 does not validate.
+//   - When offset 4 is 0 and neither walk validates, the original-96
+//     parser still runs so its detailed errors stay.
 //   - Per entry: 32-byte FSFILE_HEADER + nameLen bytes + 1 NUL + realSize bytes data
 
 #include "mxh/compat/pack_file.hpp"
@@ -34,6 +40,84 @@ bool read_u32(const std::vector<std::uint8_t>& bytes, std::size_t offset,
     return true;
 }
 
+constexpr const char* kAmbiguousHeader = "ambiguous/unrecognized header";
+constexpr std::uint32_t kCurrentVersion = 0x00000001;
+constexpr std::uint32_t kMaxEntryCount = 1'000'000u;
+constexpr std::size_t kMinEntry = 33;
+
+// Same break conditions as open_playdh_92, including an early break that
+// leaves the cursor where the loop stopped. Valid only when that cursor
+// is the file size. A count of 0 is not a walk.
+bool playdh92_walk_ends_at_eof(std::span<const std::uint8_t> bytes,
+                               std::uint32_t count) noexcept {
+    if (count == 0 || count > kMaxEntryCount) return false;
+    std::size_t cursor = sizeof(mxh::compat::PackFileHeader);
+    for (std::uint32_t i = 0; i < count; ++i) {
+        if (cursor + sizeof(mxh::compat::PackFileDesc) > bytes.size()) break;
+
+        mxh::compat::PackFileDesc desc{};
+        std::memcpy(&desc, bytes.data() + cursor, sizeof(desc));
+        cursor += sizeof(mxh::compat::PackFileDesc);
+
+        if (desc.total_size < sizeof(mxh::compat::PackFileDesc) + 1) break;
+        if (desc.file_name_len > 4096) break;
+        if (desc.real_file_size > bytes.size()) break;
+
+        if (cursor + desc.file_name_len > bytes.size()) break;
+        cursor += desc.file_name_len;
+
+        if (cursor + 1 > bytes.size()) break;
+        cursor += 1;
+
+        const std::size_t layout_advance = static_cast<std::size_t>(desc.real_file_size);
+        const std::size_t total_advance = static_cast<std::size_t>(desc.total_size)
+                                         - sizeof(mxh::compat::PackFileDesc)
+                                         - desc.file_name_len
+                                         - 1;
+        const std::size_t advance = total_advance < layout_advance * 8
+                                       ? total_advance
+                                       : layout_advance;
+        if (cursor + advance > bytes.size()) break;
+        cursor += advance;
+    }
+    return cursor == bytes.size();
+}
+
+// Same success condition as open_original_96: every entry's total equals
+// 32+name_len+1+real, a NUL follows the name, and the cursor is EOF.
+bool original96_walk_ends_at_eof(std::span<const std::uint8_t> bytes,
+                                 std::uint32_t count) noexcept {
+    if (bytes.size() < 96 || count == 0 || count > kMaxEntryCount) return false;
+    const std::size_t body = bytes.size() - 96;
+    if (body / kMinEntry < count) return false;
+
+    std::size_t cur = 96;
+    for (std::uint32_t index = 0; index < count; ++index) {
+        if (bytes.size() - cur < sizeof(mxh::compat::PackFileDesc)) return false;
+        mxh::compat::PackFileDesc desc{};
+        std::memcpy(&desc, bytes.data() + cur, sizeof(desc));
+
+        const std::uint64_t expected =
+            32ull + static_cast<std::uint64_t>(desc.file_name_len) + 1ull +
+            static_cast<std::uint64_t>(desc.real_file_size);
+        if (expected != desc.total_size || desc.total_size < kMinEntry) return false;
+        if (expected > bytes.size() - cur) return false;
+
+        const std::size_t name_off = cur + sizeof(mxh::compat::PackFileDesc);
+        const std::size_t name_len = desc.file_name_len;
+        if (name_len > bytes.size() - name_off) return false;
+        if (name_len + 1 > bytes.size() - name_off ||
+            bytes[name_off + name_len] != 0) {
+            return false;
+        }
+        const std::size_t data_off = name_off + name_len + 1;
+        if (desc.real_file_size > bytes.size() - data_off) return false;
+        if (cur > 0xffffffffu || data_off > 0xffffffffu) return false;
+        cur += desc.total_size;
+    }
+    return cur == bytes.size();
+}
+
 }  // namespace
 
 namespace mxh::compat {
@@ -43,8 +127,10 @@ PackFile::~PackFile() = default;
 PackFile::PackFile(PackFile&& other) noexcept
     : header_(other.header_),
       entries_(std::move(other.entries_)),
-      raw_(std::move(other.raw_)) {
+      raw_(std::move(other.raw_)),
+      report_parsed_count_(other.report_parsed_count_) {
     other.header_ = {};
+    other.report_parsed_count_ = false;
 }
 
 PackFile& PackFile::operator=(PackFile&& other) noexcept {
@@ -52,9 +138,28 @@ PackFile& PackFile::operator=(PackFile&& other) noexcept {
         header_ = other.header_;
         entries_ = std::move(other.entries_);
         raw_ = std::move(other.raw_);
+        report_parsed_count_ = other.report_parsed_count_;
         other.header_ = {};
+        other.report_parsed_count_ = false;
     }
     return *this;
+}
+
+PakLayoutProbe probe_pak_layouts(std::span<const std::uint8_t> bytes) noexcept {
+    PakLayoutProbe probe;
+    if (bytes.size() < 8) return probe;
+    std::uint32_t version = 0;
+    std::uint32_t count_at_offset_4 = 0;
+    std::memcpy(&version, bytes.data(), sizeof(version));
+    std::memcpy(&count_at_offset_4, bytes.data() + 4, sizeof(count_at_offset_4));
+    if (version != kCurrentVersion) return probe;
+    probe.playdh92_exact_eof = playdh92_walk_ends_at_eof(bytes, count_at_offset_4);
+    if (bytes.size() >= 96) {
+        std::uint32_t count_at_offset_92 = 0;
+        std::memcpy(&count_at_offset_92, bytes.data() + 92, sizeof(count_at_offset_92));
+        probe.original96_exact_eof = original96_walk_ends_at_eof(bytes, count_at_offset_92);
+    }
+    return probe;
 }
 
 bool PackFile::is_pak(std::span<const std::uint8_t> bytes) noexcept {
@@ -63,34 +168,44 @@ bool PackFile::is_pak(std::span<const std::uint8_t> bytes) noexcept {
     std::uint32_t file_item_num = 0;
     std::memcpy(&version, bytes.data(), sizeof(version));
     std::memcpy(&file_item_num, bytes.data() + 4, sizeof(file_item_num));
-    if (version != 0x00000001) return false;  // CURRENT_VERSION
+    if (version != kCurrentVersion) return false;
     if (file_item_num == 0) {
         // Original 96-byte header. The count is not the field at offset 4.
         if (bytes.size() < 96) return false;
         std::uint32_t count = 0;
         std::memcpy(&count, bytes.data() + 92, sizeof(count));
-        return count > 0 && count <= 1'000'000;
+        return count > 0 && count <= kMaxEntryCount;
     }
     if (bytes.size() < sizeof(PackFileHeader)) return false;
-    return file_item_num <= 1'000'000;
+    return file_item_num <= kMaxEntryCount;
 }
 
 std::unique_ptr<PackFile> PackFile::open(const std::filesystem::path& path,
                                          std::string* error) {
-    if (error) error->clear();
+    std::string local_error;
+    std::string* const reported = error != nullptr ? error : &local_error;
+    reported->clear();
     std::ifstream f(path, std::ios::binary | std::ios::ate);
     if (!f) {
-        if (error) *error = "failed to open pak";
+        *reported = "failed to open pak";
         return nullptr;
     }
     const auto size = static_cast<std::size_t>(f.tellg());
     f.seekg(0);
     std::vector<std::uint8_t> buf(size);
-    if (!f.read(reinterpret_cast<char*>(buf.data()), size)) {
-        if (error) *error = "failed to read pak";
+    if (size > 0 && !f.read(reinterpret_cast<char*>(buf.data()),
+                            static_cast<std::streamsize>(size))) {
+        *reported = "failed to read pak";
         return nullptr;
     }
-    return open_buffer(std::move(buf), error);
+    auto pack = open_buffer(std::move(buf), reported);
+    if (!pack && *reported == kAmbiguousHeader) {
+        const auto u8 = path.filename().u8string();
+        const std::string name(reinterpret_cast<const char*>(u8.data()), u8.size());
+        std::fprintf(stderr, "ERROR [pak] ambiguous/unrecognized header: %s\n",
+                     name.c_str());
+    }
+    return pack;
 }
 
 std::unique_ptr<PackFile> PackFile::open_original_96(std::vector<std::uint8_t> bytes,
@@ -119,13 +234,12 @@ std::unique_ptr<PackFile> PackFile::open_original_96(std::vector<std::uint8_t> b
     if (count == 0) {
         return fail("corrupt pak header: entry count at offset 92 is 0");
     }
-    if (count > 1'000'000u) {
+    if (count > kMaxEntryCount) {
         return fail("entry count " + std::to_string(count) +
                     " is larger than the file allows");
     }
 
     // Smallest entry is 32 + 0-byte name + NUL + 0-byte payload.
-    constexpr std::size_t kMinEntry = 33;
     const std::size_t body = bytes.size() - 96;
     if (body / kMinEntry < count) {
         return fail("entry count " + std::to_string(count) +
@@ -219,6 +333,7 @@ std::unique_ptr<PackFile> PackFile::open_original_96(std::vector<std::uint8_t> b
 
     auto pack = std::unique_ptr<PackFile>(new PackFile());
     std::memcpy(&pack->header_, bytes.data(), sizeof(PackFileHeader));
+    pack->report_parsed_count_ = true;
     pack->raw_ = std::move(bytes);
     pack->entries_ = std::move(parsed);
     for (auto& entry : pack->entries_) {
@@ -234,20 +349,38 @@ std::unique_ptr<PackFile> PackFile::open_buffer(std::vector<std::uint8_t> bytes,
                                                 std::string* error) {
     if (error) error->clear();
 
-    // Same rule as unpack_pak.py: a zero at offset 4 selects the 96-byte
-    // header. Non-zero falls through to the 92-byte loop below, unchanged.
+    const auto probe = probe_pak_layouts(bytes);
+    if (probe.playdh92_exact_eof && probe.original96_exact_eof) {
+        if (error) *error = kAmbiguousHeader;
+        return nullptr;
+    }
+    if (probe.original96_exact_eof) {
+        return open_original_96(std::move(bytes), error);
+    }
+    if (probe.playdh92_exact_eof) {
+        return open_playdh_92(std::move(bytes), error);
+    }
+
+    // Neither walk reached EOF. A zero at offset 4 is still the original
+    // header, so keep that parser's detailed errors. Anything else that
+    // looks like a pak is ambiguous and is not loaded.
     std::uint32_t version = 0;
     std::uint32_t file_item_num = 0;
     if (read_u32(bytes, 0, version) && read_u32(bytes, 4, file_item_num) &&
-        version == 0x00000001 && file_item_num == 0) {
+        version == kCurrentVersion && file_item_num == 0) {
         return open_original_96(std::move(bytes), error);
     }
-
     if (!is_pak(bytes)) {
         if (error) *error = "not a pak";
         return nullptr;
     }
+    if (error) *error = kAmbiguousHeader;
+    return nullptr;
+}
 
+std::unique_ptr<PackFile> PackFile::open_playdh_92(std::vector<std::uint8_t> bytes,
+                                                   std::string* error) {
+    (void)error;
     auto pack = std::unique_ptr<PackFile>(new PackFile());
     pack->raw_ = std::move(bytes);
 

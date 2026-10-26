@@ -94,13 +94,14 @@ std::vector<std::uint8_t> make_original_pak(
 
 class TempPak {
 public:
-    explicit TempPak(std::vector<std::uint8_t> bytes) {
+    explicit TempPak(std::vector<std::uint8_t> bytes,
+                     std::string filename = "sample.pak") {
         static int seq = 0;
         dir_ = std::filesystem::temp_directory_path() /
                ("mxh-packfile-96-" + std::to_string(++seq) + "-" +
                 std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         std::filesystem::create_directories(dir_);
-        path_ = dir_ / "sample.pak";
+        path_ = dir_ / filename;
         std::ofstream out(path_, std::ios::binary);
         out.write(reinterpret_cast<const char*>(bytes.data()),
                   static_cast<std::streamsize>(bytes.size()));
@@ -272,6 +273,14 @@ TEST(PackFileHeader, ZeroCountAtOffset92FailsClosed) {
     std::string error;
     EXPECT_EQ(PackFile::open_buffer(bytes, &error), nullptr);
     EXPECT_NE(error.find("entry count at offset 92 is 0"), std::string::npos) << error;
+
+    TempPak file(bytes, "Effect.pak");
+    testing::internal::CaptureStderr();
+    error.clear();
+    EXPECT_EQ(PackFile::open(file.path(), &error), nullptr);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    EXPECT_NE(error.find("entry count at offset 92 is 0"), std::string::npos) << error;
+    EXPECT_EQ(logged.find("ambiguous/unrecognized"), std::string::npos) << logged;
 }
 
 TEST(PackFileHeader, EntryOverrunsEofFailsClosed) {
@@ -337,6 +346,122 @@ TEST(PackFileHeader, CorruptEntryDoesNotReadPastEof) {
     error.clear();
     EXPECT_EQ(PackFile::open_buffer(missing_nul, &error), nullptr);
     EXPECT_NE(error.find("NUL"), std::string::npos) << error;
+}
+
+std::vector<std::uint8_t> make_decoy_original(std::uint32_t decoy, std::uint32_t count) {
+    std::vector<std::uint8_t> bytes(96 + static_cast<std::size_t>(count) * 33, 0);
+    poke_u32(bytes, 0, 1);
+    poke_u32(bytes, 4, decoy);
+    poke_u32(bytes, 92, count);
+    for (std::uint32_t index = 0; index < count; ++index) {
+        poke_u32(bytes, 96 + static_cast<std::size_t>(index) * 33, 33);
+    }
+    return bytes;
+}
+
+// Same overlapping bytes as FilesystemFileStorage's ambiguous fixture:
+// PlayDH count 2 from offset 92 (66 then 4166 bytes) and original count 66
+// from offset 96 both finish at offset 4324.
+std::vector<std::uint8_t> make_ambiguous_pak() {
+    constexpr std::size_t kEof = 4324;
+    std::vector<std::uint8_t> bytes(kEof, 0);
+    const auto write_min = [&](std::size_t at) { poke_u32(bytes, at, 33); };
+    poke_u32(bytes, 0, 1);
+    poke_u32(bytes, 4, 2);
+    write_min(96);
+    write_min(129);
+    poke_u32(bytes, 162, 2083);
+    poke_u32(bytes, 166, 2050);
+    std::size_t at = 2245;
+    for (int index = 0; index < 63; ++index) {
+        write_min(at);
+        at += 33;
+    }
+    EXPECT_EQ(at, kEof);
+    poke_u32(bytes, 92, 66);
+    poke_u32(bytes, 96, 33);
+    poke_u32(bytes, 158, 4166);
+    poke_u32(bytes, 162, 2083);
+    poke_u32(bytes, 166, 2050);
+    return bytes;
+}
+
+TEST(PackFileHeader, ReadsOriginal96WithNonzeroOffset4) {
+    struct Sample {
+        const char* name;
+        std::uint32_t decoy;
+        std::uint32_t count;
+    };
+    const Sample samples[] = {
+        {"titan", 99, 294},
+        {"farm", 181, 244},
+        {"pet", 63, 1547},
+    };
+    for (const auto& sample : samples) {
+        const auto bytes = make_decoy_original(sample.decoy, sample.count);
+        const auto probe = mxh::compat::probe_pak_layouts(bytes);
+        EXPECT_FALSE(probe.playdh92_exact_eof) << sample.name;
+        EXPECT_TRUE(probe.original96_exact_eof) << sample.name;
+
+        std::string error;
+        const auto pack = PackFile::open_buffer(bytes, &error);
+        ASSERT_NE(pack, nullptr) << sample.name << " " << error;
+        EXPECT_TRUE(error.empty()) << sample.name;
+        EXPECT_EQ(pack->header().version, 1u) << sample.name;
+        EXPECT_EQ(pack->header().file_item_num, sample.decoy) << sample.name;
+        EXPECT_EQ(pack->file_count(), sample.count) << sample.name;
+        EXPECT_EQ(pack->parsed_count(), sample.count) << sample.name;
+        ASSERT_EQ(pack->entries().size(), sample.count) << sample.name;
+        EXPECT_EQ(pack->entries().front().entry_offset, 96u) << sample.name;
+        EXPECT_EQ(pack->entries().front().size, 0u) << sample.name;
+        EXPECT_EQ(pack->entries().back().entry_offset,
+                  96u + (sample.count - 1u) * 33u) << sample.name;
+        const auto mid = sample.count / 2u;
+        EXPECT_EQ(pack->entries()[mid].entry_offset, 96u + mid * 33u) << sample.name;
+    }
+}
+
+TEST(PackFileHeader, RejectsHeaderBothWalksReachEof) {
+    const auto bytes = make_ambiguous_pak();
+    const auto probe = mxh::compat::probe_pak_layouts(bytes);
+    EXPECT_TRUE(probe.playdh92_exact_eof);
+    EXPECT_TRUE(probe.original96_exact_eof);
+
+    std::string error = "stale";
+    EXPECT_EQ(PackFile::open_buffer(bytes, &error), nullptr);
+    EXPECT_EQ(error, "ambiguous/unrecognized header");
+
+    TempPak file(bytes, "both.pak");
+    testing::internal::CaptureStderr();
+    error = "stale";
+    EXPECT_EQ(PackFile::open(file.path(), &error), nullptr);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(error, "ambiguous/unrecognized header");
+    EXPECT_NE(logged.find("ERROR [pak] ambiguous/unrecognized header: both.pak"),
+              std::string::npos) << logged;
+}
+
+TEST(PackFileHeader, RejectsHeaderNeitherWalkReachesEof) {
+    std::vector<std::uint8_t> bytes(200, 0);
+    poke_u32(bytes, 0, 1);
+    poke_u32(bytes, 4, 3);
+    poke_u32(bytes, 92, 5);
+    const auto probe = mxh::compat::probe_pak_layouts(bytes);
+    EXPECT_FALSE(probe.playdh92_exact_eof);
+    EXPECT_FALSE(probe.original96_exact_eof);
+
+    std::string error = "stale";
+    EXPECT_EQ(PackFile::open_buffer(bytes, &error), nullptr);
+    EXPECT_EQ(error, "ambiguous/unrecognized header");
+
+    TempPak file(bytes, "neither.pak");
+    testing::internal::CaptureStderr();
+    error = "stale";
+    EXPECT_EQ(PackFile::open(file.path(), &error), nullptr);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(error, "ambiguous/unrecognized header");
+    EXPECT_NE(logged.find("ERROR [pak] ambiguous/unrecognized header: neither.pak"),
+              std::string::npos) << logged;
 }
 
 TEST(PackFileHeader, RejectsNonPakBlob) {
