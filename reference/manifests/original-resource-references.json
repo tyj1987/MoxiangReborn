@@ -1,24 +1,691 @@
 {
   "schema": "moxiang.original-resource-references.v1",
   "derivation": {
-    "status": "not-run",
-    "runsOn": "ROG, the machine that has the original client files. CI does not have them and must not invent N.hfl / N.ttb names from map numbers.",
-    "checkedBy": "python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH",
-    "command": "python3 modern/tools/resource_reference_gate.py derive --source <original 3DData directory> --pak D:/MX/client/Package/3DData/Map.pak --output reference/manifests/original-resource-references.json",
-    "parsedMapCount": 0,
+    "status": "partial",
+    "runsOn": "ROG, the machine that has the original client files",
+    "checkedBy": "CI check command against this manifest; it does not read original .map/.stm bytes",
+    "parsedMapCount": 83,
     "pak": {
-      "path": "",
-      "headerEntries": null,
-      "entriesReadToEof": null
+      "path": "D:\\MX\\client\\Package\\3DData\\Map.pak",
+      "headerEntries": 0,
+      "entriesReadToEof": 11267
     },
-    "unparsed": [],
-    "note": "Required names come only from filenames stored in original .map, .stm and used .hfl palette rows. The original Map.pak is D:/MX/client/Package/3DData/Map.pak, which reads 11267 entries to EOF. The worktree PlayDH/Map.pak header count of 4192 is the wrong archive and is not a derivation source. Do not commit original game bytes."
+    "unparsed": [
+      {
+        "name": "1.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "10.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "101.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "102.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "103.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "104.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "105.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "106.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "108.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "109.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "11.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "110.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "118.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "12.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "13.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "14.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "15.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "17.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "18.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "19.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "198.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "199.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "2.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "20.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "200.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "201.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "202.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "203.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "204.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "205.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "206.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "207.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "209.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "21.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "210.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "22.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "25.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "3.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "301.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "302.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "311.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "312.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "321.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "322.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "331.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "332.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "341.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "342.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "343.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "35.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "351.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "352.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "353.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "39.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "40.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "401.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "44.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "5.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "501.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "54.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "58.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "59.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "6.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "60.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "65.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "66.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "67.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "68.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "69.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "7.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "70.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "72.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "73.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "75.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "8.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "9.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "90.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "94.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "95.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "96.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "97.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      },
+      {
+        "name": "login.map",
+        "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+      }
+    ],
+    "note": "Required names come only from filenames stored in original .map, .stm and used .hfl palette rows. Map numbers are not turned into N.hfl or N.ttb requirements."
   },
-  "references": [],
+  "references": [
+    {
+      "name": "01_Loginpage_01.stm",
+      "via": "01_loginpage_01.map",
+      "section": "STATIC_MODEL",
+      "originalExists": true
+    },
+    {
+      "name": "01_Loginpage_01.hfl",
+      "via": "01_loginpage_01.map",
+      "section": "HEIGHT_FIELD",
+      "originalExists": true
+    },
+    {
+      "name": "Login_alpha.MOD",
+      "via": "01_loginpage_01.map",
+      "section": "GX_OBJECT",
+      "originalExists": false
+    },
+    {
+      "name": "Login_ani01.chr",
+      "via": "01_loginpage_01.map",
+      "section": "GX_OBJECT",
+      "originalExists": false
+    },
+    {
+      "name": "Login_ani03.chr",
+      "via": "01_loginpage_01.map",
+      "section": "GX_OBJECT",
+      "originalExists": false
+    },
+    {
+      "name": "Login_ani02.chr",
+      "via": "01_loginpage_01.map",
+      "section": "GX_OBJECT",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_006.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body007.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body008.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_011.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_013.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_014.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_009.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_003.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_008.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_006.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_010.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_016.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_017.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_015.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_012.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_002.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_005.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_007.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Loginpage_001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke01_o_nature001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_sm.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke01_o_bottom004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke01_o_body004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke01_o_body001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body002.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body003.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body009.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body005.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body010.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_003.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_007.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_008.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_002.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Cselection_001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke02_o_body006.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Ccreation_001.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Ccreation_002.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Ccreation_004.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Login_Ccreation_003.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "alke01_o_bottom002.tga",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "Loginpage01_o_Login_Ccreation01.tif",
+      "via": "01_Loginpage_01.stm",
+      "section": "stm-material",
+      "originalExists": false
+    },
+    {
+      "name": "t_midoristylepul005.tga",
+      "via": "01_Loginpage_01.hfl",
+      "section": "hfl-used-texture",
+      "originalExists": false
+    },
+    {
+      "name": "t_Gstyledungkulpul005.tga",
+      "via": "01_Loginpage_01.hfl",
+      "section": "hfl-used-texture",
+      "originalExists": false
+    }
+  ],
   "excludedNotReferenced": [],
   "notReferencedByOriginal": {
-    "hfl": [0, 4, 23, 24, 32, 33, 34, 94],
-    "ttb": [0, 3, 4, 23, 24, 32, 33, 34, 94, 198]
+    "hfl": [
+      0,
+      4,
+      23,
+      24,
+      32,
+      33,
+      34,
+      94
+    ],
+    "ttb": [
+      0,
+      3,
+      4,
+      23,
+      24,
+      32,
+      33,
+      34,
+      94,
+      198
+    ]
   },
   "knownReferencedNoOriginalFile": [
     "tile_17_mou_a_01.tga",
