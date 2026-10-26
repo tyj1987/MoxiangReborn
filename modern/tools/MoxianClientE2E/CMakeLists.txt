@@ -6,10 +6,14 @@
 # the modern state classes (not the Python simulator).
 #
 # B.2.5.3 - also registered as a ctest entry so it runs as part of the
-# standard test suite.  Pass --no-spawn if 3 servers are already running
-# on :16001/:17001/:18001; default spawns them and tears them down on
-# exit.  Uses 16001/17001/18001 (not the dev-mode 6001/7001/8001) so it
-# can run alongside a developer's working servers.
+# standard test suite.  Default spawns the three servers and tears them
+# down on exit.  Ports are not written into this file: mxh_client_e2e_ctest
+# reads MXH_E2E_PORT_BASE when ctest starts the test and execs mxh_client_e2e
+# with --login-port, --agent-port, --map-port, and --map12-port.
+# Unset or empty -> 26001 / 27001 / 28001 / 28002.
+# Set to N -> N / N+1000 / N+2000 / N+2001 (N=26001 matches the defaults).
+# The harness applies the same rule when those flags are omitted, and
+# refuses 16001, 17001, and 18001 before starting any server.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client_e2e main.cpp)
 target_include_directories(mxh_client_e2e PRIVATE
@@ -27,11 +31,25 @@ if(MSVC)
     target_link_libraries(mxh_client_e2e PRIVATE ws2_32)
 endif()
 
+# Reads MXH_E2E_PORT_BASE at test execution and passes the four port flags.
+# No client libraries, so the port formula can be built without the servers.
+add_executable(mxh_client_e2e_ctest ctest_launch.cpp)
+target_include_directories(mxh_client_e2e_ctest PRIVATE
+    ${CMAKE_SOURCE_DIR}/tests/support
+)
+target_compile_features(mxh_client_e2e_ctest PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_client_e2e_ctest PRIVATE
+        _CRT_SECURE_NO_WARNINGS NOMINMAX)
+    target_compile_options(mxh_client_e2e_ctest PRIVATE /W3 /utf-8)
+endif()
+
 # Register as a ctest test.  The tool exits 0 only when all 3 protocol
 # steps pass, so ctest's pass/fail reflects the E2E result.  We use
 # a 60s timeout because the tool spawns 3 servers (~2s to listen) and
 # then runs the protocol (~1s per step) with up to 10s per-step slack.
-add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e
+add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e_ctest
+    $<TARGET_FILE:mxh_client_e2e>
     --login-exe $<TARGET_FILE:mxh_login_server>
     --agent-exe $<TARGET_FILE:mxh_agent_server_CHINA>
     --map-exe $<TARGET_FILE:mxh_map_server_CHINA>

@@ -97,6 +97,7 @@
 #include "mxh/server/quest_script_loader.hpp"
 #include "mxh/game/npc_role.hpp"
 
+#include "../../tests/support/e2e_ports.hpp"
 #include "../../tests/support/playdh_env.hpp"
 
 #include <algorithm>
@@ -153,10 +154,12 @@ struct CliArgs {
     std::string agent_host;  // empty = LoginAck agent_addr, else override
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
     bool login_host_explicit = false;
-    int login_port = 16001;
-    int agent_port = 17001;
-    int map_port = 18001;
-    int map12_port = 18002;
+    // MXH_E2E_PORT_BASE, read at startup, replaces these when a port flag is
+    // omitted. 16001/17001/18001 are refused before any server starts.
+    int login_port = mxh::test::kE2eDefaultLoginPort;
+    int agent_port = mxh::test::kE2eDefaultAgentPort;
+    int map_port = mxh::test::kE2eDefaultMapPort;
+    int map12_port = mxh::test::kE2eDefaultMap12Port;
     bool dump_cli = false;
     int  timeout_s = 10;
     int  map_number = 10;
@@ -209,6 +212,10 @@ CliArgs parse_cli(int argc, char** argv) {
     // MSSQL default matches the verified LocalDB command from the P0 E2E:
     //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
     a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;encrypt=no;trust_server_certificate=yes;";
+    bool login_port_explicit = false;
+    bool agent_port_explicit = false;
+    bool map_port_explicit = false;
+    bool map12_port_explicit = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view s = argv[i];
         if      (s == "--login-exe" && i + 1 < argc) a.login_exe = argv[++i];
@@ -231,10 +238,22 @@ CliArgs parse_cli(int argc, char** argv) {
         }
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
-        else if (s == "--login-port" && i + 1 < argc) a.login_port = std::atoi(argv[++i]);
-        else if (s == "--agent-port" && i + 1 < argc) a.agent_port = std::atoi(argv[++i]);
-        else if (s == "--map-port" && i + 1 < argc) a.map_port = std::atoi(argv[++i]);
-        else if (s == "--map12-port" && i + 1 < argc) a.map12_port = std::atoi(argv[++i]);
+        else if (s == "--login-port" && i + 1 < argc) {
+            a.login_port = std::atoi(argv[++i]);
+            login_port_explicit = true;
+        }
+        else if (s == "--agent-port" && i + 1 < argc) {
+            a.agent_port = std::atoi(argv[++i]);
+            agent_port_explicit = true;
+        }
+        else if (s == "--map-port" && i + 1 < argc) {
+            a.map_port = std::atoi(argv[++i]);
+            map_port_explicit = true;
+        }
+        else if (s == "--map12-port" && i + 1 < argc) {
+            a.map12_port = std::atoi(argv[++i]);
+            map12_port_explicit = true;
+        }
         else if (s == "--map-number" && i + 1 < argc) a.map_number = std::atoi(argv[++i]);
         else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
@@ -267,6 +286,21 @@ CliArgs parse_cli(int argc, char** argv) {
         }
         a.password = value;
     }
+    try {
+        const auto resolved = mxh::test::resolve_e2e_cli_ports(
+            std::getenv(mxh::test::kE2ePortBaseEnv),
+            login_port_explicit, a.login_port,
+            agent_port_explicit, a.agent_port,
+            map_port_explicit, a.map_port,
+            map12_port_explicit, a.map12_port);
+        a.login_port = resolved.login;
+        a.agent_port = resolved.agent;
+        a.map_port = resolved.map;
+        a.map12_port = resolved.map12;
+    } catch (const std::runtime_error& error) {
+        std::fprintf(stderr, "%s\n", error.what());
+        std::exit(3);
+    }
     const int ports[] = {a.login_port, a.agent_port, a.map_port, a.map12_port};
     for (const int port : ports) {
         if (port < 1 || port > 65535) {
@@ -278,6 +312,12 @@ CliArgs parse_cli(int argc, char** argv) {
         a.login_port == a.map12_port || a.agent_port == a.map_port ||
         a.agent_port == a.map12_port || a.map_port == a.map12_port) {
         std::fprintf(stderr, "login, agent, map and map12 ports must be distinct\n");
+        std::exit(3);
+    }
+    const auto forbidden = mxh::test::e2e_forbidden_port_message(
+        a.login_port, a.agent_port, a.map_port, a.map12_port);
+    if (!forbidden.empty()) {
+        std::fprintf(stderr, "%s\n", forbidden.c_str());
         std::exit(3);
     }
     return a;
