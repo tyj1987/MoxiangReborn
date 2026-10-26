@@ -21,6 +21,12 @@
             "sha256": "15651784103d8c508a61e64cdd56e3c5986da8d256f8e5e032a55473d631777d"
         },
         {
+            "name": "BobusangInfo.bin",
+            "type": 167,
+            "size": 613,
+            "sha256": "51f5d47287e96258117bafb3425db8bae5f1aa4feabab503309a43d01ec2a377"
+        },
+        {
             "name": "CastleGateList.bin",
             "type": 48,
             "size": 307,
@@ -523,6 +529,12 @@
             "type": 42,
             "size": 72,
             "sha256": "786645983537d3a1240024e2ca91cf619ba2a6cedfcd68b58dc36df5b80a6e49"
+        },
+        {
+            "name": "Server/ItemMixList.bin",
+            "type": 18468,
+            "size": 430230,
+            "sha256": "7f40669fc55dd9241bac26abd3851983f46a46bbf23fab2208fbf959d6f5fead"
         },
         {
             "name": "Server/Item_RareOptionInfo.bin",

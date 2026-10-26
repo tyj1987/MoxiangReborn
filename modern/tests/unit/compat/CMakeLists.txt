@@ -109,6 +109,15 @@ target_compile_definitions(mxh_resource_payload_sha256_tests PRIVATE
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
 
+# Read-only ground-truth dump. Writes only --out:
+#   mxh_payload_dump --dir <resource-dir> [--manifest <json>] --out <file.json>
+add_executable(mxh_payload_dump mxh_payload_dump.cpp)
+target_link_libraries(mxh_payload_dump PRIVATE mxh_compat)
+if(WIN32)
+    target_link_libraries(mxh_payload_dump PRIVATE bcrypt)
+endif()
+target_include_directories(mxh_payload_dump PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 add_executable(mxh_monster_catalog_tests monster_catalog_test.cpp)
 target_link_libraries(mxh_monster_catalog_tests PRIVATE mxh_compat gtest_main)
 target_compile_definitions(mxh_monster_catalog_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
