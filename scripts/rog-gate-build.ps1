@@ -1392,7 +1392,8 @@ function Invoke-RogGateVcVarsCommand {
     param(
         [Parameter(Mandatory = $true)][string[]]$CommandArguments,
         [Parameter(Mandatory = $true)][string]$VcVarsAll,
-        [switch]$Quiet
+        [switch]$Quiet,
+        [ref]$CapturedText
     )
 
     if (-not (Test-Path -LiteralPath $VcVarsAll)) {
@@ -1431,6 +1432,9 @@ function Invoke-RogGateVcVarsCommand {
         $process = New-Object System.Diagnostics.Process
         $process.StartInfo = $startInfo
         if (-not $process.Start()) {
+            if ($PSBoundParameters.ContainsKey('CapturedText')) {
+                $CapturedText.Value = ''
+            }
             return 1
         }
         $outTask = $process.StandardOutput.ReadToEndAsync()
@@ -1438,15 +1442,185 @@ function Invoke-RogGateVcVarsCommand {
         $process.WaitForExit()
         $outText = $outTask.GetAwaiter().GetResult()
         $errText = $errTask.GetAwaiter().GetResult()
+        $combined = ''
         if (-not [string]::IsNullOrEmpty($outText)) {
             [Console]::Out.Write($outText)
+            $combined = $outText
         }
         if (-not [string]::IsNullOrEmpty($errText)) {
             [Console]::Error.Write($errText)
+            if ($combined.Length -gt 0) {
+                $combined = $combined + "`n"
+            }
+            $combined = $combined + $errText
+        }
+        if ($PSBoundParameters.ContainsKey('CapturedText')) {
+            $CapturedText.Value = $combined
         }
         return [int]$process.ExitCode
     } finally {
         Remove-Item -LiteralPath $wrapper -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-RogGatePlayDhRootPath {
+    param([Parameter(Mandatory = $true)][string]$SourceDir)
+
+    # tests/support/playdh_env.hpp and the asset tests expect this directory:
+    # Resource\ItemList.bin and Image\2D\login.dds live under it.
+    $modern = Join-Path -Path $SourceDir -ChildPath 'modern'
+    $data = Join-Path -Path $modern -ChildPath 'data'
+    $playdh = Join-Path -Path $data -ChildPath 'PlayDH'
+    return [System.IO.Path]::GetFullPath($playdh)
+}
+
+function Get-RogGatePlayDhAssignment {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceDir,
+        [AllowNull()][AllowEmptyString()][string]$PreviousValue
+    )
+
+    $path = Get-RogGatePlayDhRootPath -SourceDir $SourceDir
+    $previous = ''
+    if ($null -ne $PreviousValue) {
+        $previous = [string]$PreviousValue
+    }
+    $info = "[INFO] MXH_PLAYDH_ROOT=$path (auto)"
+    if (-not [string]::IsNullOrWhiteSpace($previous)) {
+        $info = "[INFO] MXH_PLAYDH_ROOT=$path (overrode '$previous')"
+    }
+    return [pscustomobject]@{
+        Path     = $path
+        Previous = $previous
+        Info     = $info
+    }
+}
+
+function Set-RogGatePlayDhRootForChildren {
+    param([Parameter(Mandatory = $true)][string]$SourceDir)
+
+    # Always the worktree copy. A value inherited from the parent is replaced
+    # so CTest children do not keep searching upward from the build directory.
+    $assignment = Get-RogGatePlayDhAssignment -SourceDir $SourceDir -PreviousValue $env:MXH_PLAYDH_ROOT
+    $env:MXH_PLAYDH_ROOT = $assignment.Path
+    Write-Host $assignment.Info
+    return $assignment
+}
+
+function Test-RogGateGitLfsPointer {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $marker = 'version https://git-lfs.github.com/spec/v1'
+    $stream = $null
+    $read = 0
+    $buffer = New-Object byte[] ($marker.Length + 3)
+    try {
+        $stream = [System.IO.File]::Open($LiteralPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    $offset = 0
+    if ($read -ge 3 -and $buffer[0] -eq 0xEF -and $buffer[1] -eq 0xBB -and $buffer[2] -eq 0xBF) {
+        $offset = 3
+    }
+    if (($read - $offset) -lt $marker.Length) {
+        return $false
+    }
+    $text = [System.Text.Encoding]::ASCII.GetString($buffer, $offset, $marker.Length)
+    return ($text -eq $marker)
+}
+
+function Test-RogGatePlayDhPreflight {
+    param([Parameter(Mandatory = $true)][string]$PlayDhRoot)
+
+    if (-not (Test-Path -LiteralPath $PlayDhRoot -PathType Container)) {
+        return [pscustomobject]@{
+            Ok     = $false
+            Reason = "MXH_PLAYDH_ROOT directory does not exist: $PlayDhRoot"
+        }
+    }
+    $itemList = Join-Path -Path (Join-Path -Path $PlayDhRoot -ChildPath 'Resource') -ChildPath 'ItemList.bin'
+    $login = Join-Path -Path (Join-Path -Path (Join-Path -Path $PlayDhRoot -ChildPath 'Image') -ChildPath '2D') -ChildPath 'login.dds'
+    $required = @(
+        $itemList,
+        $login
+    )
+    foreach ($full in $required) {
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+            return [pscustomobject]@{
+                Ok     = $false
+                Reason = "PlayDH file missing: $full"
+            }
+        }
+        if (Test-RogGateGitLfsPointer -LiteralPath $full) {
+            return [pscustomobject]@{
+                Ok     = $false
+                Reason = "PlayDH file is a Git LFS pointer: $full"
+            }
+        }
+    }
+    return [pscustomobject]@{
+        Ok     = $true
+        Reason = ''
+    }
+}
+
+function Get-RogGateCTestSkippedTests {
+    param([AllowEmptyString()][string]$Text)
+
+    $names = New-Object 'System.Collections.Generic.List[string]'
+    $seen = @{}
+    if (-not [string]::IsNullOrEmpty($Text)) {
+        $patterns = @(
+            '(?m)^\s*\d+\s+-\s+(.+?)\s+\(Skipped\)\s*$',
+            '(?m)^\s*\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\*+Skipped\b'
+        )
+        foreach ($pattern in $patterns) {
+            $found = [regex]::Matches($Text, $pattern)
+            foreach ($match in $found) {
+                $name = $match.Groups[1].Value.Trim()
+                if ([string]::IsNullOrWhiteSpace($name)) {
+                    continue
+                }
+                $key = $name.ToLowerInvariant()
+                if (-not $seen.ContainsKey($key)) {
+                    $seen[$key] = $true
+                    $names.Add($name)
+                }
+            }
+        }
+    }
+    $count = $names.Count
+    if ($count -eq 0 -and -not [string]::IsNullOrEmpty($Text)) {
+        $summary = [regex]::Match($Text, '(?m)(\d+)\s+tests?\s+skipped')
+        if ($summary.Success) {
+            $count = [int]$summary.Groups[1].Value
+        }
+    }
+    return [pscustomobject]@{
+        Count = $count
+        Names = @($names.ToArray())
+    }
+}
+
+function Get-RogGateCTestSkipReport {
+    param([AllowEmptyString()][string]$Text)
+
+    $parsed = Get-RogGateCTestSkippedTests -Text $Text
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add(('[INFO] CTest skipped={0}' -f [int]$parsed.Count))
+    foreach ($name in @($parsed.Names)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$name)) {
+            $lines.Add(('[INFO] CTest skip: {0}' -f [string]$name))
+        }
+    }
+    return [pscustomobject]@{
+        Count = [int]$parsed.Count
+        Names = @($parsed.Names)
+        Lines = @($lines.ToArray())
     }
 }
 
@@ -1797,6 +1971,83 @@ function Invoke-RogGateSelfTest {
     $onlyTwo = Invoke-RogGateExitOnly -Code 2
     $twoResolved = Resolve-RogGateCollectedExit -Code $onlyTwo
     Assert-RogGateSelfTest -Name 'single exit code 2 passes through unchanged' -Condition ($twoResolved.Ok -and ($twoResolved.ExitCode -eq 2) -and ($twoResolved.ExitCode -is [int]))
+
+    $savedPlayDh = $env:MXH_PLAYDH_ROOT
+    $playdhTemp = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-playdh-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path $playdhTemp -Force | Out-Null
+    try {
+        $playdhSource = Join-Path -Path $playdhTemp -ChildPath 'src'
+        New-Item -ItemType Directory -Path $playdhSource -Force | Out-Null
+        $expectedPlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        $autoPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        $autoInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (auto)"
+        $autoOk = ($autoPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($autoPlayDh.Info -eq $autoInfo)
+        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT is set to the worktree PlayDH path' -Condition $autoOk
+
+        $presetPlayDh = 'D:\not-the-worktree\PlayDH'
+        $env:MXH_PLAYDH_ROOT = $presetPlayDh
+        $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        $overInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (overrode '$presetPlayDh')"
+        $overOk = ($overPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($overPlayDh.Path -ne $presetPlayDh) -and ($overPlayDh.Info -eq $overInfo)
+        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden to the SourceDir path' -Condition $overOk
+
+        $missingPlayDh = Join-Path -Path $playdhTemp -ChildPath 'missing'
+        $missingCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $missingPlayDh
+        $missingOk = (-not $missingCheck.Ok) -and ($missingCheck.Reason -match 'does not exist') -and ($missingCheck.Reason -match [regex]::Escape($missingPlayDh))
+        Assert-RogGateSelfTest -Name 'missing PlayDH directory fails preflight' -Condition $missingOk
+
+        $lfsRoot = Join-Path -Path $playdhTemp -ChildPath 'lfs'
+        $lfsItemDir = Join-Path -Path $lfsRoot -ChildPath 'Resource'
+        $lfsImageDir = Join-Path -Path (Join-Path -Path $lfsRoot -ChildPath 'Image') -ChildPath '2D'
+        New-Item -ItemType Directory -Path $lfsItemDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $lfsImageDir -Force | Out-Null
+        $lfsItem = Join-Path -Path $lfsItemDir -ChildPath 'ItemList.bin'
+        $lfsLogin = Join-Path -Path $lfsImageDir -ChildPath 'login.dds'
+        [System.IO.File]::WriteAllBytes($lfsItem, [byte[]](0x4D, 0x48, 0x00, 0x01))
+        [System.IO.File]::WriteAllBytes($lfsLogin, [byte[]](0x44, 0x44, 0x53, 0x20))
+        $realCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $lfsRoot
+        $pointer = "version https://git-lfs.github.com/spec/v1`noid sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`nsize 4`n"
+        $utf8 = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($lfsLogin, $pointer, $utf8)
+        $pointerCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $lfsRoot
+        $lfsOk = $realCheck.Ok -and (-not $pointerCheck.Ok) -and ($pointerCheck.Reason -match 'LFS pointer') -and ($pointerCheck.Reason -match 'login\.dds')
+        Assert-RogGateSelfTest -Name 'LFS-pointer login.dds fails PlayDH preflight' -Condition $lfsOk
+
+        $ctestSample = @(
+            'Test project D:/build-mxr/pr',
+            '    Start 1: Alpha.One',
+            '1/4 Test #1: Alpha.One .....................***Skipped   0.01 sec',
+            '    Start 2: Beta.Two',
+            '2/4 Test #2: Beta.Two ......................   Passed    0.01 sec',
+            '    Start 9: Other.Fail',
+            '3/4 Test #9: Other.Fail ....................***Failed    0.02 sec',
+            '    Start 3: Gamma.Three',
+            '4/4 Test #3: Gamma.Three ...................***Skipped   0.01 sec',
+            '',
+            '50% tests passed, 2 tests skipped out of 4',
+            '',
+            'The following tests FAILED:',
+            '          9 - Other.Fail (Failed)',
+            '',
+            'The following tests did not run:',
+            '          1 - Alpha.One (Skipped)',
+            '          3 - Gamma.Three (Skipped)',
+            ''
+        ) -join "`n"
+        $skipReport = Get-RogGateCTestSkipReport -Text $ctestSample
+        $skipNames = (@($skipReport.Names) -join ',')
+        $skipLines = (@($skipReport.Lines) -join "`n")
+        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two')
+        Assert-RogGateSelfTest -Name 'CTest skipped tests are counted and named' -Condition $skipOk
+    } finally {
+        if ([string]::IsNullOrEmpty($savedPlayDh)) {
+            Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        } else {
+            $env:MXH_PLAYDH_ROOT = $savedPlayDh
+        }
+        $null = Remove-RogGateFixture -LiteralPath $playdhTemp
+    }
 
     function Initialize-RogGateSelfTestRepo {
         param(
@@ -2512,8 +2763,19 @@ function Invoke-RogGateMain {
     }
 
     $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
+    # Before CTest. The variable stays in this process for any later test child.
+    $playdh = Set-RogGatePlayDhRootForChildren -SourceDir $normSource
+    $playdhCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $playdh.Path
+    if (-not $playdhCheck.Ok) {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $playdhCheck.Reason)
+    }
     Write-Host '[GATE] CTest'
-    $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll
+    $ctestText = ''
+    $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$ctestText)
+    $skipReport = Get-RogGateCTestSkipReport -Text $ctestText
+    foreach ($skipLine in @($skipReport.Lines)) {
+        Write-Host $skipLine
+    }
     if ($testCode -ne 0) {
         return (Resolve-RogGateFailureExit -ExitCode $testCode -Message "CTest failed (exit $testCode).")
     }
