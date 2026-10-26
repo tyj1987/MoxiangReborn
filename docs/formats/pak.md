@@ -128,3 +128,9 @@ python modern/tools/unpack_pak.py D:\MX\client\Package\3DData\Map.pak --named --
 ```
 
 `--list` 不按 `--filter` 裁清单，仍然打印全部条目。
+
+### 资源引用清单里的混淆 `.map`
+
+`resource_reference_gate.py derive` 遇到没有明文节标记、且字节符合上述布局（uint32 长度等于整个条目长度，不以 `GX_` 开头，正文非空，不含明文节标记（不按可打印比例判断，部分真实混淆正文 XOR 后可打印字符超过 85%）；见 `original-map-obfuscation.md`）的 `.map` 时，`derivation.unparsed` 的 reason 记为纯字符串 `obfuscated-map`，不记录任何头部字节，不解码正文。不符合布局的仍记原来的 `map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT`。`derivation.unparsedSummary` 只按 reason 计数。`check` 照旧把每条 unparsed 记为 no conclusion。
+
+逐文件头的统计只能在持有原版文件的机器上用 `derive --local-header-stats` 打印到 stdout，不写入清单；CI 不得传此参数，输出不得提交或粘贴到 CI/issue。
