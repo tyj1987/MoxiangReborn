@@ -26,6 +26,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -44,9 +45,7 @@ int g_passes = 0;
 } while (0)
 
 fs::path resolvePlayDHRoot() {
-    if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
-        return fs::path(env);
-    }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto current = fs::absolute(fs::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {

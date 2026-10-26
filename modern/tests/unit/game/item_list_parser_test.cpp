@@ -15,6 +15,7 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 using mxh::game::ItemInfo;
 using mxh::game::parse_item_row;
@@ -234,6 +235,8 @@ EXPECT_FALSE(res.error_message.empty());
 }
 namespace {
 std::filesystem::path canonical_item_list() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "ItemList.bin";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
         const auto candidate = root / "modern" / "data" / "PlayDH" / "Resource" / "ItemList.bin";

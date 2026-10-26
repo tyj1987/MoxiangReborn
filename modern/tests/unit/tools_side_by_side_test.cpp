@@ -6,22 +6,23 @@
 #include "../../../tools/MoxianSideBySide/diff/packet_diff.hpp"
 
 #include <filesystem>
+#include <stdexcept>
 
 using namespace mxh::tools::sidebyside;
 
 namespace {
+// Repo captures. MXH_SOURCE_DIR is the modern/ source root from CMake.
+// Do not walk the working directory, and do not read MXH_PLAYDH_ROOT.
 std::filesystem::path fixture_path(const char* name) {
+    const std::filesystem::path root =
+        std::filesystem::path(MXH_SOURCE_DIR) / "tests" / "fixtures" /
+        "sbs_captures_modern";
     std::error_code ec;
-    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto root = current / "modern" / "tests" / "fixtures" / "sbs_captures_modern";
-        std::error_code root_ec;
-        if (std::filesystem::is_directory(root, root_ec)) return root / name;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
+    if (!std::filesystem::is_directory(root, ec)) {
+        throw std::runtime_error(
+            "Cannot locate fixture directory \"" + root.string() + "\"");
     }
-    return {};
+    return root / name;
 }
 
 Packet make_packet(std::uint32_t objectId = 0x11223344u) {

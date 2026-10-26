@@ -9,6 +9,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 #pragma comment(lib, "bcrypt.lib")
 
@@ -54,6 +55,8 @@ std::string sha256(const fs::path& path) {
 }
 
 fs::path resource_root(const fs::path& root) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource";
     return root / "modern" / "data" / "PlayDH" / "Resource";
 }
 

@@ -16,12 +16,15 @@
 #include <iterator>
 #include <span>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace mxh::compat::test {
 
 namespace {
 
 std::filesystem::path findMap17Ttb() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Map" / "17.ttb";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {

@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 using mxh::server::AISystem;
@@ -23,6 +24,8 @@ std::filesystem::path recovered_runtime_server_resource(const char* name) {
 }
 
 std::filesystem::path playdh_server_resource(const char* name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Server" / name;
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
         const auto canonical = root / "modern" / "data" / "PlayDH" /

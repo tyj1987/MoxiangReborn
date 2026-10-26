@@ -30,6 +30,7 @@
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace {
 
@@ -271,9 +272,7 @@ TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
 }
 
 std::filesystem::path find_playdh_root() {
-    if (const char* configured = std::getenv("MXH_PLAYDH_ROOT")) {
-        return std::filesystem::path(configured);
-    }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::filesystem::path cursor = std::filesystem::current_path();
     for (int depth = 0; depth < 8; ++depth) {
         const auto candidate = cursor / "modern" / "data" / "PlayDH";

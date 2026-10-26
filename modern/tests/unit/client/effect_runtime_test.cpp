@@ -5,9 +5,11 @@
 #include <windows.h>
 
 #include <algorithm>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     wchar_t buf[MAX_PATH]{};
     const auto n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
     if (n == 0) return {};

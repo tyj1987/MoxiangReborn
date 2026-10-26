@@ -15,6 +15,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 using mxh::client::parse_legacy_gamein_ack;
 using mxh::client::parse_legacy_character_add;
@@ -25,6 +26,7 @@ using mxh::client::parse_legacy_npc_add;
 
 namespace {
 std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
     if (ec) return {};

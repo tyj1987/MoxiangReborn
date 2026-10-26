@@ -10,12 +10,14 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 
 std::filesystem::path locate_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
