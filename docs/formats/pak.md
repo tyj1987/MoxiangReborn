@@ -113,3 +113,18 @@
 - 其它系统接着是 `~/.cache/moxiang-unpack/<包名>`，然后才是当前工作目录
 
 候选落在只读范围内就跳过，所以 `%TEMP%` 或 `%LOCALAPPDATA%` 在原版根目录内时不会被用上。全部不行就拒绝，不会在 pak 旁边建 `<包名>_unpacked`。
+
+## 名称过滤
+
+`--filter` 对默认解包和 `--named` 都生效，92 字节和 96 字节走同一条。可以重复，多个模式是「或」。每个值是正则，大小写不敏感，同时对两处搜索：
+
+- 规范路径：包内名字里的 `\` 先折成 `/`（`PakEntry.canonical_name`）
+- 基名：规范路径的最后一段。这和 `resource_reference_gate` 的大小写不敏感基名，以及 `PackFile::find` / `FilesystemFileStorage` 的「先全名、再基名」一致
+
+不给 `--filter` 时仍写出全部条目。给了过滤但一条都对不上时，不建输出目录、不写文件（含 `manifest.json`），stderr 说明原因，退出码 2。正则里的 `.` 匹配任意一个字符；要只抽一个文件就锚定并转义。从原版 `Map.pak` 只抽出 `10.stm` 和 `10.vcl`：
+
+```
+python modern/tools/unpack_pak.py D:\MX\client\Package\3DData\Map.pak --named --out <dir> --filter "(^|/)10\.stm$" --filter "(^|/)10\.vcl$"
+```
+
+`--list` 不按 `--filter` 裁清单，仍然打印全部条目。

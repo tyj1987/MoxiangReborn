@@ -3,7 +3,7 @@
 unpack_pak.py / pak_extract — decompress 4Dyuchi .pak archives.
 
 Mode 1 (legacy / default):
-  unpack_pak.py <pak_path> [<out_dir>] [--dry-run]
+  unpack_pak.py <pak_path> [<out_dir>] [--dry-run] [--filter <regex>]...
   When out_dir is omitted, files go under the system temp directory
   (moxiang-unpack/<stem>).  If that location is inside the pak directory
   or the original root, Windows uses %LOCALAPPDATA%\\moxiang-unpack\\<stem>
@@ -16,10 +16,25 @@ Mode 1 (legacy / default):
 
 Mode 2 (pak_extract / --named):
   unpack_pak.py <pak_path> --named --out <dir> [--dry-run] [--manifest]
-                       [--filter <glob>] [--verify]
+                       [--filter <regex>]... [--verify]
   Writes each entry by its real .pak-internal name (e.g. "Map/Map10.hfl"
   or "Map\\\\Map10.hfl" from the legacy "\\" separator).
   Produces manifest.json with per-entry sha256/size/offset.
+
+--filter applies to both modes and both header sizes (92-byte and
+96-byte).  Repeat the flag to OR patterns.  Each value is a regular
+expression, searched case-insensitively against the canonical entry
+name (stored "\\" folded to "/") and against that name's basename
+(the last path component).  Basename handling matches
+resource_reference_gate (case-insensitive basename) and PackFile::find
+/ FilesystemFileStorage (case-insensitive full name, then basename).
+With no --filter, every entry is written.  When a filter is set and
+nothing matches, the tool creates no output directory and no files
+(including manifest.json), prints the reason on stderr, and exits 2.
+"." in a pattern is any character; anchor and escape it to select one
+file.  Original Map.pak, only 10.stm and 10.vcl:
+
+  python modern/tools/unpack_pak.py D:\\MX\\client\\Package\\3DData\\Map.pak --named --out <dir> --filter "(^|/)10\\.stm$" --filter "(^|/)10\\.vcl$"
 
 --dry-run applies to both modes and both header sizes.  It enumerates
 and validates entries, and creates no directories or files.
@@ -862,13 +877,101 @@ def _rollback(paths: list[Path]) -> None:
             pass
 
 
+def _filter_patterns(pattern: str | Iterable[str] | None) -> list[str]:
+    """Normalize --filter.  None, \"\", and an empty list mean no filter."""
+    if pattern is None:
+        return []
+    if isinstance(pattern, str):
+        values: Iterable[str] = [pattern]
+    else:
+        values = pattern
+    return [item for item in values if isinstance(item, str) and item]
+
+
+def _filter_targets(entry: PakEntry) -> tuple[str, str]:
+    """Canonical path and basename compared by the name filter.
+
+    Stored names use ``\\`` as the separator.  ``canonical_name`` folds
+    that to ``/`` before the regex runs.  The basename is the last
+    component after the same split as resource_reference_gate._basename.
+    make_filter searches both case-insensitively, which is the same
+    ASCII convention as PackFile::find and _casefold_name (full name,
+    then basename).
+    """
+    full = entry.canonical_name
+    folded = full.replace("\\", "/").rstrip("/")
+    if not folded:
+        return full, ""
+    return full, folded.rsplit("/", 1)[-1]
+
+
+def make_filter(pattern: str | Iterable[str] | None = None):
+    """Return a predicate.  No pattern accepts every entry.
+
+    Each pattern is a regex.  It matches when it searches the canonical
+    path or, separately, the basename.  Matching is case-insensitive.
+    ``^10\\.stm$`` matches ``10.STM`` and ``Map\\\\10.stm`` and does not
+    match ``110.stm``.  ``^Map/`` still matches a canonical ``Map/...``
+    path.  An invalid regex raises ValueError before any file is written.
+    """
+    patterns = _filter_patterns(pattern)
+    if not patterns:
+        return lambda _entry: True
+    compiled = []
+    for item in patterns:
+        try:
+            compiled.append(re.compile(item, re.IGNORECASE))
+        except re.error as exc:
+            raise ValueError(f"invalid --filter regex {item!r}: {exc}") from exc
+
+    def accept(entry: PakEntry) -> bool:
+        full, base = _filter_targets(entry)
+        for rx in compiled:
+            if rx.search(full):
+                return True
+            if base and base != full and rx.search(base):
+                return True
+        return False
+
+    return accept
+
+
+def _filter_miss_message(pak_path: str,
+                         pattern: str | Iterable[str] | None) -> str:
+    shown = ", ".join(_filter_patterns(pattern))
+    return (
+        f"error: name filter matched no entries in {pak_path} "
+        f"(pattern: {shown}). Patterns are case-insensitive regexes "
+        f"matched against the canonical path (backslash folded to '/') "
+        f"and against its basename. Nothing was written."
+    )
+
+
+def _select_entries(entries: list[PakEntry],
+                    pattern: str | Iterable[str] | None,
+                    ) -> tuple[list[PakEntry], int]:
+    """Split entries into (kept, skipped_filter).  No pattern keeps all."""
+    accept = make_filter(pattern)
+    kept: list[PakEntry] = []
+    skipped = 0
+    for entry in entries:
+        if accept(entry):
+            kept.append(entry)
+        else:
+            skipped += 1
+    return kept, skipped
+
+
 def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
-                  original_root: Optional[str] = None) -> int:
+                  original_root: Optional[str] = None,
+                  filter_pattern: str | Iterable[str] | None = None) -> int:
     """The original mode that writes entries as {i:05d}_{real}.bin.
 
     The archive is validated before out_dir is created.  dry_run creates
     neither out_dir nor files.  original_root None resolves the
-    CLI/env/Windows default.
+    CLI/env/Windows default.  filter_pattern is the same --filter used
+    by --named: both layouts honor it.  A filter that matches nothing
+    returns 2 and creates nothing.
     """
     if original_root is None:
         original_root = resolve_original_root()
@@ -880,12 +983,16 @@ def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
     print(f"offset4: {offset4}")
     print(f"declared: {declared}")
     print(f"parsed: {len(entries)}")
+    selected, skipped_filter = _select_entries(entries, filter_pattern)
+    if _filter_patterns(filter_pattern) and not selected:
+        print(_filter_miss_message(pak_path, filter_pattern), file=sys.stderr)
+        return 2
     if not dry_run:
         os.makedirs(out_dir, exist_ok=True)
     written: list[Path] = []
     try:
         with open(pak_path, "rb") as f:
-            for entry in entries:
+            for entry in selected:
                 data = _read_payload(f, entry, declared=declared, kind=kind)
                 safe = f"{entry.index:05d}_{entry.real_size}.bin"
                 if not dry_run:
@@ -904,9 +1011,11 @@ def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
         _rollback(written)
         raise
     if dry_run:
-        print(f"dry-run: {len(entries)} entries (no files written)")
+        print(f"dry-run: {len(selected)} entries (no files written)")
     else:
-        print(f"wrote {len(entries)} entries")
+        print(f"wrote {len(selected)} entries")
+    if skipped_filter:
+        print(f"skipped(filter={skipped_filter})")
     return 0
 
 
@@ -914,20 +1023,19 @@ def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
 # Mode 2 — pak_extract (named + manifest)
 # ---------------------------------------------------------------------------
 
-def make_filter(pattern: Optional[str]):
-    if not pattern:
-        return lambda e: True
-    rx = re.compile(pattern)
-    return lambda e: bool(rx.search(e.canonical_name))
-
 
 def pak_extract(pak_path: str, out_dir: str, *,
                 dry_run: bool = False,
                 write_manifest: bool = True,
                 verify: bool = False,
-                filter_pattern: Optional[str] = None,
+                filter_pattern: str | Iterable[str] | None = None,
                 original_root: Optional[str] = None) -> PakStats:
-    """Named-entry mode.  Returns a stats summary."""
+    """Named-entry mode.  Returns a stats summary.
+
+    filter_pattern is one regex or several (OR).  Both pak layouts use
+    the same predicate.  A filter that matches nothing leaves no
+    directory and no manifest; the caller sees written == 0.
+    """
     if original_root is None:
         original_root = resolve_original_root()
     refuse_readonly_output(pak_path, out_dir, original_root)
@@ -937,71 +1045,73 @@ def pak_extract(pak_path: str, out_dir: str, *,
     # Validate every entry before creating out_dir.  A short read used to
     # increment skipped_truncated and keep going; that wrote a partial tree.
     kind, _offset4, entry_count, entries = read_entries(pak_path)
-    accept = make_filter(filter_pattern)
+    selected, skipped_filter = _select_entries(entries, filter_pattern)
+    filter_miss = bool(_filter_patterns(filter_pattern)) and not selected
     stats = PakStats(
         pak_path=str(Path(pak_path).resolve()),
         pak_size=pak_size,
         header_version=version,
         file_item_num=entry_count,
+        parsed=len(entries),
+        skipped_filter=skipped_filter,
     )
     print(f"header: {kind}")
     print(f"declared: {entry_count}")
     print(f"parsed: {len(entries)}")
 
-    if not dry_run:
+    if not dry_run and not filter_miss:
         os.makedirs(out_dir, exist_ok=True)
 
     seen_raw: set[bytes] = set()
     seen_paths: set[str] = set()
     written_paths: list[Path] = []
     try:
-        with open(pak_path, "rb") as f:
-            for entry in entries:
-                stats.parsed += 1
-                if not accept(entry):
-                    stats.skipped_filter += 1
-                    continue
-                key = entry.match_key
-                if not key or key in seen_raw:
-                    stats.skipped_name_bad += 1
-                    continue
-
-                data = _read_payload(
-                    f, entry, declared=entry_count, kind=kind)
-                rel = _output_relative(entry)
-                if rel in seen_paths:
-                    rel = f"unnamed_{entry.index:05d}.bin"
-                if entry.canonical_name.lower().endswith(".hfl"):
-                    if not hfl_header_ok(data[:32]):
-                        stats.skipped_hfl_bad += 1
-                        if verify:
-                            print(f"  [skip-hfl-bad] {entry.canonical_name} "
-                                  f"(first 32 bytes do not match HFL_DESC)")
+        if not filter_miss:
+            with open(pak_path, "rb") as f:
+                for entry in selected:
+                    key = entry.match_key
+                    if not key or key in seen_raw:
+                        stats.skipped_name_bad += 1
                         continue
 
-                entry.sha256 = hashlib.sha256(data).hexdigest()
-                stats.entries.append(entry)
-                seen_raw.add(key)
-                seen_paths.add(rel)
+                    data = _read_payload(
+                        f, entry, declared=entry_count, kind=kind)
+                    rel = _output_relative(entry)
+                    if rel in seen_paths:
+                        rel = f"unnamed_{entry.index:05d}.bin"
+                    if entry.canonical_name.lower().endswith(".hfl"):
+                        if not hfl_header_ok(data[:32]):
+                            stats.skipped_hfl_bad += 1
+                            if verify:
+                                print(f"  [skip-hfl-bad] {entry.canonical_name} "
+                                      f"(first 32 bytes do not match HFL_DESC)")
+                            continue
 
-                if not dry_run:
-                    target = Path(out_dir) / rel
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    with open(target, "wb") as out:
-                        out.write(data)
-                    written_paths.append(target)
-                stats.written += 1
-                if stats.written <= 3 or stats.written % 1000 == 0:
-                    tail = " (dry-run)" if dry_run else ""
-                    print(f"  [{stats.written}/{entry_count}] "
-                          f"{rel}  ({entry.real_size} bytes){tail}")
+                    entry.sha256 = hashlib.sha256(data).hexdigest()
+                    stats.entries.append(entry)
+                    seen_raw.add(key)
+                    seen_paths.add(rel)
+
+                    if not dry_run:
+                        target = Path(out_dir) / rel
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with open(target, "wb") as out:
+                            out.write(data)
+                        written_paths.append(target)
+                    stats.written += 1
+                    if stats.written <= 3 or stats.written % 1000 == 0:
+                        tail = " (dry-run)" if dry_run else ""
+                        print(f"  [{stats.written}/{entry_count}] "
+                              f"{rel}  ({entry.real_size} bytes){tail}")
     except Exception:
         _rollback(written_paths)
         raise
 
     stats.elapsed_ms = int((time.monotonic() - t0) * 1000)
 
-    if write_manifest and not dry_run:
+    if filter_miss:
+        print(_filter_miss_message(pak_path, filter_pattern), file=sys.stderr)
+    elif write_manifest and not dry_run:
         manifest = {
             "schemaVersion": 1,
             "tool": "pak_extract",
@@ -1076,8 +1186,15 @@ def main() -> int:
                     help="write manifest.json (only with --named)")
     ap.add_argument("--verify", action="store_true",
                     help="print each skipped entry's reason")
-    ap.add_argument("--filter", default=None,
-                    help="only write entries whose name matches this regex")
+    ap.add_argument(
+        "--filter",
+        action="append",
+        default=None,
+        help="only write entries whose canonical path or basename matches "
+             "this regex (case-insensitive). Repeat to OR patterns. "
+             "Both 92-byte and 96-byte layouts, with or without --named. "
+             "Example: --filter \"(^|/)10\\.stm$\" --filter \"(^|/)10\\.vcl$\"",
+    )
     ap.add_argument(
         "--original-root",
         default=None,
@@ -1124,7 +1241,8 @@ def main() -> int:
             )
             return 0 if stats.written > 0 else 2
         return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run,
-                             original_root=original_root)
+                             original_root=original_root,
+                             filter_pattern=args.filter)
     except (ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
