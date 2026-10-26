@@ -267,6 +267,9 @@ void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
         auto* file = new OpenFile(where.loose);
         if (file->stream) return file;
         delete file;
+        const auto u8 = where.loose.u8string();
+        const std::string loose_path(reinterpret_cast<const char*>(u8.data()), u8.size());
+        MLOG_WARN("[fs] loose file exists but cannot open: %s", loose_path.c_str());
         return nullptr;
     }
     if (where.kind == Location::Kind::Pak)

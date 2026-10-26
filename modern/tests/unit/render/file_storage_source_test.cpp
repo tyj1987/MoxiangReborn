@@ -5,6 +5,12 @@
 
 #include <gtest/gtest.h>
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -109,4 +115,37 @@ TEST(FilesystemFileStorage, DescribeSourceMatchesOpenForLoosePakAndMissing) {
 
     fs->Release();
     std::filesystem::remove_all(root);
+}
+
+// A loose file that exists but cannot be opened returns null (no pak fallback)
+// and logs one WARN naming the path.
+TEST(FilesystemFileStorage, LooseFileThatCannotOpenReturnsNullAndWarns) {
+#ifndef _WIN32
+    GTEST_SKIP() << "needs an exclusive Windows file lock";
+#else
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto root = std::filesystem::temp_directory_path() /
+        ("mxh-lock-" + std::to_string(static_cast<long long>(stamp)));
+    std::filesystem::create_directories(root);
+    write_bytes(root / "alpha.pak", make_pak({{"locked.vcl", "pak-copy"}}, true));
+    write_file(root / "locked.vcl", "loose-bytes");
+    auto* fs = new mxh::gx::FilesystemFileStorage(root);
+    ASSERT_TRUE(fs->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+
+    HANDLE lock = CreateFileW((root / "locked.vcl").c_str(), GENERIC_READ, 0, nullptr,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    ASSERT_NE(lock, INVALID_HANDLE_VALUE);
+    testing::internal::CaptureStderr();
+    bool opened = true;
+    const std::string bytes = open_read(fs, "locked.vcl", &opened);
+    const std::string log = testing::internal::GetCapturedStderr();
+    CloseHandle(lock);
+    EXPECT_FALSE(opened);
+    EXPECT_EQ(bytes, "");
+    EXPECT_NE(log.find("[fs] loose file exists but cannot open: "), std::string::npos) << log;
+    EXPECT_NE(log.find("locked.vcl"), std::string::npos) << log;
+
+    fs->Release();
+    std::filesystem::remove_all(root);
+#endif
 }
