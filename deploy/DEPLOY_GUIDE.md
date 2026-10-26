@@ -26,3 +26,44 @@
 VM112当前正常管理使用已验证的加密WinRM身份；QGA仍Stop Pending，停止进一步服务恢复动作。凭据只从私有配置在内存中传递，不放在命令行、Git或日志。数据库测试（包括临时SQLite测试）也在PVE执行；本机共享SQL、其他项目数据库和凭据配置保留。
 
 旧本机一键安装、默认SA/loopback及历史完成声明已从此活动入口移除。旧文可从Git历史和已逐文件验证的私有WIP归档恢复；见 [历史证据索引](../docs/HISTORICAL_EVIDENCE_INDEX.md)。本轮部署成功、GUI通过和完整交付是不同结果，分别在验收矩阵记录。
+
+## 原版 pak 第二层（TYJ-120，当前挂起至 M5）
+
+`deploy/scripts/deploy_client.ps1` 可以在 PlayDH 之外再放一层原版 pak。不传新参数时，脚本仍只做原来的客户端部署。这一层必须和 TYJ-120 同一批合入；当前挂到 M5，在 TYJ-120 合入前不要对验收环境启用。只有原版里有的混淆 `.map` 在 TYJ-119 合入前不得部署。本步骤不复制 `.map`，也不要手工把这类文件放进客户端目录。
+
+脚本常量与 storage 约定一致：
+
+- `$kClientResourceRootRelative = 'data\PlayDH'`：部署目录下的客户端资源根。`FilesystemFileStorage` 目前只扫描这个目录的直接子级 `*.pak`，PlayDH 的 `Map.pak`、`Effect.pak`、`monster.pak`、`npc.pak` 等都在这里，不在 `Resource\` 下。
+- `$kOriginalPakSubdir = 'Original'`：与 storage 常量 `kOriginalPakSubdir = "Original"` 同名同大小写。第二层路径是 `<DeployDir>\data\PlayDH\Original`。本分支的 `FilesystemFileStorage` 源码里还没有这个符号；TYJ-120 合入时应使用同一拼写。
+
+```text
+<DeployDir>\
+  data\PlayDH\                 客户端资源根（第一层，PlayDH）
+    Map.pak
+    Effect.pak
+    monster.pak
+    Original\                  第二层，只补 PlayDH 缺的文件
+      Map.pak
+      Effect.pak
+      manifest.json
+```
+
+原版包和 PlayDH 包同名，不能放在同一个目录。`-OriginalPakSource` 指向只读源目录（例如 `D:\MX\client\Package\3DData` 这种直接放着 `*.pak` 的目录），脚本只读它的直接子级 `*.pak`，不递归，不复制其他文件，不对源目录做任何写入。
+
+```powershell
+.\deploy\scripts\deploy_client.ps1 -OriginalPakSource 'D:\MX\client\Package\3DData' -DryRun
+.\deploy\scripts\deploy_client.ps1 -OriginalPakSource 'D:\MX\client\Package\3DData'
+```
+
+`-DryRun` 只打印将要复制的文件名、字节数和 SHA-256，不创建、不修改文件。正式执行时，先记录部署目录里 PlayDH 那套 pak 的 SHA-256，复制后再核对一遍不变。源目录不存在、没有 pak、复制失败，或复制后大小 / SHA-256 不一致，都以非零退出。`Original\manifest.json` 只记录每个包的 `fileName`、`bytes`、`sha256`、`sourcePath`。源里已经不再提供、但 `Original\` 里还留着的直接子级 `*.pak` 会删掉；PlayDH 根上的 pak 不动。
+
+回滚只删除部署目录下的 `data\PlayDH\Original`，删除前后核对 PlayDH pak 的 SHA-256，不读取、不修改 `-OriginalPakSource`：
+
+```powershell
+.\deploy\scripts\deploy_client.ps1 -RemoveOriginalPaks -DryRun
+.\deploy\scripts\deploy_client.ps1 -RemoveOriginalPaks
+```
+
+不能同时使用 `-OriginalPakSource` 和 `-RemoveOriginalPaks`。`Original\` 若是目录联接或符号链接，脚本会拒绝复制和删除，避免写到或删到链接目标。
+
+本分支的 `FilesystemFileStorage` 还不会挂 `Original\`。另外，`start_modern.ps1` 的 profile 清单会递归统计资源根里的全部文件；在 TYJ-120 同一批让清单忽略 `Original\` 之前，不要把这一层放进会被整树校验的 PlayDH 目录。用临时目录造假 pak 的检查在 `deploy/scripts/tests/test-original-pak-layer.ps1`。

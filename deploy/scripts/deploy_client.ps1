@@ -11,14 +11,39 @@ param(
     [string]$ServerIP = "127.0.0.1",
     [ValidateSet('playdh-current', 'sworking-2008-reference')]
     [string]$ResourceProfileId = 'playdh-current',
+    [string]$OriginalPakSource = "",
+    [switch]$RemoveOriginalPaks,
     [switch]$Help,
     [switch]$DryRun
 )
 
+# 客户端资源根相对 DeployDir。FilesystemFileStorage 只扫描该目录的直接子级 *.pak。
+# 第二层目录名与 storage 常量 kOriginalPakSubdir = "Original" 同名同大小写。
+# 本分支的 FilesystemFileStorage 源码尚未声明该符号，TYJ-120 合入时应对齐这个拼写。
+$kClientResourceRootRelative = 'data\PlayDH'
+$kOriginalPakSubdir = 'Original'
+
 $ErrorActionPreference = "Stop"
 if ($Help) {
-    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-DryRun]'
+    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-OriginalPakSource <dir>] [-RemoveOriginalPaks] [-DryRun]'
     Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，-DryRun 只校验资源，不创建或修改任何文件。'
+    Write-Host '      -OriginalPakSource 可选。只复制该目录的直接子级 *.pak 到 data\PlayDH\Original。不传时部署行为与原来一致。'
+    Write-Host '      -RemoveOriginalPaks 只删除部署目录下的 data\PlayDH\Original，并核对 PlayDH pak 的 SHA-256。不接触源目录。'
+    exit 0
+}
+if ($RemoveOriginalPaks -and -not [string]::IsNullOrWhiteSpace($OriginalPakSource)) {
+    Write-Host '不能同时使用 -OriginalPakSource 和 -RemoveOriginalPaks。' -ForegroundColor Red
+    exit 1
+}
+if ($RemoveOriginalPaks) {
+    $layerScript = Join-Path $PSScriptRoot 'original_pak_layer.ps1'
+    if (-not (Test-Path -LiteralPath $layerScript -PathType Leaf)) { throw "缺少原版 pak 层脚本: $layerScript" }
+    . $layerScript
+    $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+    if ([string]::IsNullOrWhiteSpace($DeployDir)) {
+        $DeployDir = Join-Path $repoRoot 'deploy\client'
+    }
+    Invoke-OriginalPakLayerRollback -DeployDir $DeployDir -ResourceRootRelative $kClientResourceRootRelative -SubdirName $kOriginalPakSubdir -DryRun:$DryRun
     exit 0
 }
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
@@ -84,6 +109,12 @@ foreach ($entry in @($profile.required)) {
     }
 }
 if ($DryRun) {
+    if (-not [string]::IsNullOrWhiteSpace($OriginalPakSource)) {
+        $layerScript = Join-Path $PSScriptRoot 'original_pak_layer.ps1'
+        if (-not (Test-Path -LiteralPath $layerScript -PathType Leaf)) { throw "缺少原版 pak 层脚本: $layerScript" }
+        . $layerScript
+        Invoke-OriginalPakLayerInstall -DeployDir $DeployDir -SourceDir $OriginalPakSource -ResourceRootRelative $kClientResourceRootRelative -SubdirName $kOriginalPakSubdir -DryRun
+    }
     Write-Host "Dry-run passed: profile '$ResourceProfileId' is complete and hash-verified."
     Write-Host "No deployment files were created or modified."
     exit 0
@@ -166,6 +197,14 @@ Get-ChildItem -LiteralPath $ResourceDir -Force | Copy-Item -Destination $profile
 # 保留运行时 profile 清单，供启动器/客户端做一致性诊断
 Copy-Item -LiteralPath $profileManifestPath -Destination (Join-Path $DeployDir 'resource-profiles.json') -Force
 Write-Host "  复制: resource-profiles.json ($ResourceProfileId)" -ForegroundColor Gray
+
+if (-not [string]::IsNullOrWhiteSpace($OriginalPakSource)) {
+    Write-Host "[3b/5] 部署原版 pak 第二层..." -ForegroundColor Yellow
+    $layerScript = Join-Path $PSScriptRoot 'original_pak_layer.ps1'
+    if (-not (Test-Path -LiteralPath $layerScript -PathType Leaf)) { throw "缺少原版 pak 层脚本: $layerScript" }
+    . $layerScript
+    Invoke-OriginalPakLayerInstall -DeployDir $DeployDir -SourceDir $OriginalPakSource -ResourceRootRelative $kClientResourceRootRelative -SubdirName $kOriginalPakSubdir
+}
 
 # 生成客户端配置文件
 Write-Host "[4/5] 生成客户端配置文件..." -ForegroundColor Yellow
@@ -283,6 +322,9 @@ Write-Host "  Image\              - 图片资源" -ForegroundColor White
 Write-Host "  Sound\              - 音效资源" -ForegroundColor White
 Write-Host "  Data\               - 游戏数据" -ForegroundColor White
 Write-Host "  Ini\                - 配置文件" -ForegroundColor White
+if (-not [string]::IsNullOrWhiteSpace($OriginalPakSource)) {
+    Write-Host "  data\PlayDH\Original\ - 原版 pak 第二层" -ForegroundColor White
+}
 Write-Host ""
 Write-Host "服务器地址: $ServerIP:9000" -ForegroundColor Cyan
 Write-Host ""
