@@ -21,6 +21,10 @@
 #   这里不设置该变量，也不使用 continue-on-error。continue-on-error 会把 unittest 失败
 #   一并放过去，和 GitLab 不一致。GitLab 若写成 allow_failure: true，才对应
 #   continue-on-error: true。
+# - check 与单元测试拆成两步。check 的命令和参数与 GitLab script 逐字相同，
+#   单独一步且 if: always()，单元测试失败时这一步仍会跑。退出码仍由 check 自己决定。
+#   original_governance_and_python_tests 也用同一步跑同一条 check，方便两边日志都有结果。
+#   GitLab 的 script 不拆步，命令文本不变。
 # - GitLab artifacts / codequality 不在这里上传：job 在 Alpine 容器内，不能跑
 #   需要 glibc Node 的 upload-artifact。
 #
@@ -91,6 +95,11 @@ jobs:
           python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
           python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
 
+      - name: resource_reference_gate check
+        if: always()
+        run: |
+          python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
+
   original_resource_reference_warn:
     runs-on: ubuntu-latest
     container:
@@ -130,4 +139,8 @@ jobs:
       - name: original_resource_reference_warn
         run: |
           python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+
+      - name: resource_reference_gate check
+        if: always()
+        run: |
           python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json

@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[4] / "modern" / "tools" / "resource_reference_gate.py"
@@ -16,7 +16,6 @@ SPEC = importlib.util.spec_from_file_location("resource_reference_gate", SCRIPT)
 gate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gate)
 
-REPO_MANIFEST = Path(__file__).resolve().parents[4] / "reference" / "manifests" / "original-resource-references.json"
 LFS_POINTER = b"version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n"
 
 
@@ -50,6 +49,41 @@ def build_stm(names: list[str]) -> bytes:
         out += record
     out += struct.pack("<I", 0)
     return bytes(out)
+
+
+def build_original_pak(entries: list[tuple[str | bytes, bytes]], *,
+                       offset4: int = 0, count: int | None = None,
+                       trailer: bytes = b"") -> bytes:
+    """96-byte original layout. Count lives at offset 92, entries at 96.
+
+    ``offset4`` is the uint32 at offset 4. Original Map.pak stores 0 there
+    and the real entry count at offset 92. No original game bytes.
+    """
+    body = bytearray()
+    cursor = 96
+    encoded: list[tuple[bytes, bytes]] = []
+    for name, data in entries:
+        name_b = name if isinstance(name, (bytes, bytearray)) else name.encode("gbk")
+        encoded.append((bytes(name_b), data))
+        name_len = len(name_b)
+        real = len(data)
+        total = 32 + name_len + 1 + real
+        body += struct.pack("<IIII", total, real, name_len, cursor)
+        body += b"\x00" * 16
+        body += name_b + b"\x00" + data
+        cursor += total
+    declared = len(encoded) if count is None else count
+    header = bytearray(96)
+    struct.pack_into("<III", header, 0, 1, offset4, 0)
+    struct.pack_into("<I", header, 92, declared)
+    return bytes(header) + bytes(body) + trailer
+
+
+def write_fixture_manifest(directory: Path, manifest: dict) -> dict:
+    """Persist a manifest in the test temp dir and read that file back."""
+    path = directory / "manifest.json"
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def map_text() -> str:
@@ -181,11 +215,16 @@ class ResourceReferenceGateTests(unittest.TestCase):
             self.assertEqual(from_env.returncode, 1)
 
     def test_unchecked_manifest_is_no_conclusion_not_a_pass(self):
-        self.assertTrue(REPO_MANIFEST.is_file())
-        manifest = json.loads(REPO_MANIFEST.read_text(encoding="utf-8"))
-        self.assertEqual(manifest["derivation"]["status"], "not-run")
-        self.assertEqual(manifest["references"], [])
+        fixture = {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {"status": "not-run", "unparsed": []},
+            "references": [],
+            "knownReferencedNoOriginalFile": [],
+        }
         with tempfile.TemporaryDirectory() as directory:
+            manifest = write_fixture_manifest(Path(directory), fixture)
+            self.assertEqual(manifest["derivation"]["status"], "not-run")
+            self.assertEqual(manifest["references"], [])
             report = gate.check(manifest, Path(directory), strict=False)
         self.assertEqual(report["conclusion"], "no conclusion")
         self.assertEqual(report["exitCode"], 0)
@@ -199,28 +238,92 @@ class ResourceReferenceGateTests(unittest.TestCase):
             gate.emit_warnings(report)
         self.assertIn("::warning::", buffer.getvalue())
 
+    def test_partial_manifest_is_not_a_pass(self):
+        fixture = {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {
+                "status": "partial",
+                "unparsed": [{"name": "9.map", "reason": "truncated container"}],
+            },
+            "references": [
+                {"name": "wall.tga", "via": "town.stm", "section": "stm-material", "originalExists": True},
+            ],
+            "knownReferencedNoOriginalFile": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "wall.tga").write_bytes(b"wall")
+            manifest = write_fixture_manifest(root, fixture)
+            self.assertEqual(manifest["derivation"]["status"], "partial")
+            report = gate.check(manifest, root, strict=False)
+        self.assertEqual(report["conclusion"], "partial")
+        self.assertEqual(report["exitCode"], 0)
+        self.assertNotEqual(report["conclusion"], "clean")
+        text = gate.format_report(report)
+        self.assertIn("conclusion: partial", text)
+        self.assertNotIn("conclusion: clean", text)
+        self.assertNotIn("conclusion: pass", text)
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            gate.emit_warnings(report)
+        warning = "resource reference check is partial; this is not a pass"
+        self.assertIn(f"::warning::{warning}", stdout.getvalue())
+        self.assertIn(f"WARNING: {warning}", stderr.getvalue())
+        self.assertIn("no conclusion for 9.map", stdout.getvalue())
+
     def test_derive_pak_walks_past_a_short_header_count(self):
+        # Mirrors original Map.pak: uint32 at offset 4 is 0, the real entry
+        # count is the uint32 at offset 92, and that many entries end at EOF.
+        entries = [
+            ("first.map", b"GX_MAP\nHEIGHT_FIELD\nkept.hfl\n"),
+            ("second.map", b"GX_MAP\nSTATIC_MODEL\nalso.stm\n"),
+        ]
+        real_count = len(entries)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             pak = root / "Map.pak"
-            # Header claims 1 entry. A second .map is still stored and must be read to EOF.
-            entries = [
-                ("first.map", b"GX_MAP\nHEIGHT_FIELD\nkept.hfl\n"),
-                ("second.map", b"GX_MAP\nSTATIC_MODEL\nalso.stm\n"),
-            ]
-            blob = bytearray(b"\x00" * 92)
-            struct.pack_into("<III", blob, 0, 1, 1, 0)
-            for name, payload in entries:
-                raw_name = name.encode("ascii")
-                blob += struct.pack("<IIIIIIII", 0, len(payload), len(raw_name), 0, 0, 0, 0, 0)
-                blob += raw_name + b"\x00" + payload
+            blob = build_original_pak(entries, offset4=0)
             pak.write_bytes(blob)
+            self.assertEqual(struct.unpack_from("<I", blob, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", blob, 92)[0], real_count)
             manifest = gate.derive(None, pak)
             names = {ref["name"] for ref in manifest["references"]}
-            self.assertEqual(manifest["derivation"]["pak"]["headerEntries"], 1)
-            self.assertEqual(manifest["derivation"]["pak"]["entriesReadToEof"], 2)
+            self.assertEqual(manifest["derivation"]["pak"]["headerEntries"], 0)
+            self.assertEqual(manifest["derivation"]["pak"]["entriesReadToEof"], real_count)
             self.assertIn("kept.hfl", names)
             self.assertIn("also.stm", names)
+
+    def test_pak_with_neither_or_both_layouts_is_an_error_and_skipped(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            neither = root / "neither.pak"
+            neither.write_bytes(build_original_pak([
+                ("only.map", b"GX_MAP\nHEIGHT_FIELD\nkept.hfl\n"),
+            ]) + b"\x01")
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                manifest = gate.derive(None, neither)
+            error = stderr.getvalue()
+            self.assertIn("ERROR:", error)
+            self.assertIn("neither.pak", error)
+            self.assertIn("neither", error)
+            self.assertIsNone(manifest["derivation"]["pak"]["entriesReadToEof"])
+            self.assertEqual(manifest["references"], [])
+
+            ambiguous = root / "ambiguous.pak"
+            name = b"\x00" * 29
+            ambiguous.write_bytes(build_original_pak(
+                [(name, b""), (name, b"")], offset4=2))
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                manifest = gate.derive(None, ambiguous)
+            error = stderr.getvalue()
+            self.assertIn("ERROR:", error)
+            self.assertIn("ambiguous.pak", error)
+            self.assertIn("ambiguous", error)
+            self.assertIsNone(manifest["derivation"]["pak"]["entriesReadToEof"])
+            self.assertEqual(manifest["references"], [])
 
 
 if __name__ == "__main__":
