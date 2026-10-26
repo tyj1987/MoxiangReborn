@@ -5,9 +5,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findNpcChxList() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Client" / "NpcChxList.bin";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty();
          ++depth, root = root.parent_path()) {

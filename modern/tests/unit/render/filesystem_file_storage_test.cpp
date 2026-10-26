@@ -8,7 +8,6 @@
 
 #include <chrono>
 #include <cstdint>
-#include <cstdlib>
 #include <filesystem>
 #include <cstdio>
 #include <fstream>
@@ -16,14 +15,11 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findPlayDh() {
-    // The only environment override for this resource root. Unset or empty
-    // keeps the directory walk below.
-    if (const char* playdh = std::getenv("MXH_PLAYDH_ROOT")) {
-        if (*playdh != '\0') return std::filesystem::path(playdh);
-    }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     auto base = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !base.empty();
          ++depth, base = base.parent_path()) {

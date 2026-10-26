@@ -8,9 +8,12 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findMapPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Map.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -88,8 +91,11 @@ TEST(HflHeightField, RejectsTruncatedData) {
 TEST(HflHeightField, PlaceholderFilesParse) {
     namespace fs = std::filesystem;
     fs::path mapDir;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        mapDir = *playdh_override / "Resource" / "Map";
+    }
     auto root = fs::current_path();
-    for (int level = 0; level < 8; ++level) {
+    for (int level = 0; mapDir.empty() && level < 8; ++level) {
         for (const auto& first : fs::directory_iterator(root)) {
             if (!first.is_directory()) continue;
             const auto candidate = first.path() / "PlayDH" / "Resource" / "Map";

@@ -5,10 +5,13 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 
 std::filesystem::path find_playdh_drop_file() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Server" / "MonsterDropItemList.bin";
     auto base = std::filesystem::current_path();
     for (int depth = 0; depth < 8; ++depth) {
         const auto candidate = base / "modern" / "data" / "PlayDH" /

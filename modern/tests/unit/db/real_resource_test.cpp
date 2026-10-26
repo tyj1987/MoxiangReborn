@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 using namespace mxh;
 using namespace mxh::db;
@@ -18,6 +19,8 @@ using namespace mxh::compat;
 namespace {
 
 std::filesystem::path playdh_resource(const char* name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / name;
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth,
          root = root.parent_path()) {
@@ -30,6 +33,8 @@ std::filesystem::path playdh_resource(const char* name) {
 
 const std::filesystem::path kPlaydhBin = playdh_resource("MonsterList.bin");
 const std::filesystem::path kPlaydhPak = [] {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Effect.pak";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth,
          root = root.parent_path()) {

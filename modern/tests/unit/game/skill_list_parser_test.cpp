@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -29,6 +30,7 @@
 #include <system_error>
 #include <typeinfo>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 using mxh::game::SkillInfo;
 using mxh::game::SkillListParseResult;
@@ -46,6 +48,8 @@ namespace {
 // "No mapping for the Unicode character exists in the target
 // multi-byte code page") on the test fixture's first access.
 const std::filesystem::path kRealSkillList = [] {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "SkillList.bin";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
         const auto candidate = root / "modern" / "data" / "PlayDH" / "Resource" / "SkillList.bin";

@@ -16,12 +16,14 @@
 #include <regex>
 #include <sstream>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #pragma comment(lib, "bcrypt.lib")
 
 #include "mxh/compat/mh_file_ex.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -190,6 +192,8 @@ fs::path find_repo_root() {
 }
 
 fs::path find_playdh_resource_dir() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource";
     static const char kPlayDhResourceU8[] =
         "\xE5\xA2\xA8\xE9\xA6\x99\xE3\x80\x90\xE6\xBA\x90\xE7\xA0\x81\xE9\x85\x8D\xE5\xA5\x97\xE8\xB5\x84\xE6\xBA\x90\xE3\x80\x91/PlayDH/Resource";
     fs::path current;
@@ -227,21 +231,23 @@ fs::path find_source_dir(const std::string& source) {
     return fs::is_directory(absolute, error) ? absolute : fs::path{};
 }
 
+// Manifest JSON is a repo fixture. MXH_SOURCE_DIR is the modern/ source
+// root from CMake. Do not walk cwd and do not read MXH_PLAYDH_ROOT.
 fs::path find_manifest(const std::string& name) {
-    const fs::path root = find_repo_root();
-    if (!root.empty()) {
-        const fs::path candidate = root / "modern/tests/unit/compat" / name;
-        std::error_code error;
-        if (fs::is_regular_file(candidate, error)) return candidate;
+    const fs::path candidate =
+        fs::path(MXH_SOURCE_DIR) / "tests" / "unit" / "compat" / name;
+    std::error_code error;
+    if (!fs::is_regular_file(candidate, error)) {
+        throw std::runtime_error(
+            "Cannot locate fixture \"" + candidate.string() + "\"");
     }
-    return {};
+    return candidate;
 }
 
 void run_manifest_verify(const std::string& manifest_name) {
     const fs::path manifest_path = find_manifest(manifest_name);
-    if (manifest_path.empty()) {
-        GTEST_SKIP() << manifest_name << " not found";
-    }
+    ASSERT_TRUE(fs::is_regular_file(manifest_path))
+        << "Cannot locate fixture \"" << manifest_path.string() << "\"";
     const auto manifest = parse_manifest(manifest_path);
     ASSERT_TRUE(manifest.has_value()) << "invalid manifest " << manifest_name;
 

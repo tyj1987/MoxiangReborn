@@ -17,6 +17,7 @@
 #include "mxh/compat/mh_file_ex.hpp"
 
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 using mxh::ui::cDialog;
 using mxh::ui::InterfaceScript;
@@ -27,6 +28,7 @@ using mxh::ui::parse_interface_script;
 namespace {
 
 std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
     if (ec) return {};

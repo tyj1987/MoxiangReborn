@@ -4,9 +4,12 @@
 
 #include <filesystem>
 #include <fstream>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findClientResource() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Client";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
         for (const auto& entry : std::filesystem::directory_iterator(root)) {

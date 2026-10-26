@@ -5,13 +5,27 @@ cmake_minimum_required(VERSION 3.20)
 # Generate 阶段报 "Missing variable CMAKE_C_COMPILE_OBJECT". 显式 set 跟 Windows-MSVC.cmake
 # line 379 一样的 MSVC compile rule, 让 Cmake 1:1 复制到 compiler file.
 # 这是 build 1:1 行为, 跟老 moxian toolchain 一致.
+# CMake's compiler file omits CMAKE_<LANG>_COMPILE_OBJECT (see the comment
+# above). The rule has to be set before project(). Windows keeps the MSVC
+# /Fo form. Other hosts get the GNU/Clang -o form; the MSVC flags are not
+# valid there.
 if(NOT DEFINED CMAKE_C_COMPILE_OBJECT)
-  set(CMAKE_C_COMPILE_OBJECT
-    "<CMAKE_C_COMPILER>  /nologo <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  if(WIN32)
+    set(CMAKE_C_COMPILE_OBJECT
+      "<CMAKE_C_COMPILER>  /nologo <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  else()
+    set(CMAKE_C_COMPILE_OBJECT
+      "<CMAKE_C_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+  endif()
 endif()
 if(NOT DEFINED CMAKE_CXX_COMPILE_OBJECT)
-  set(CMAKE_CXX_COMPILE_OBJECT
-    "<CMAKE_CXX_COMPILER>  /nologo /TP <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  if(WIN32)
+    set(CMAKE_CXX_COMPILE_OBJECT
+      "<CMAKE_CXX_COMPILER>  /nologo /TP <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  else()
+    set(CMAKE_CXX_COMPILE_OBJECT
+      "<CMAKE_CXX_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+  endif()
 endif()
 project(MoxianReborn
     VERSION 0.1.0

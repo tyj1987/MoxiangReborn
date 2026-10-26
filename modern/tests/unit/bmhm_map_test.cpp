@@ -21,12 +21,15 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 
 std::filesystem::path playdh_map(std::string_view name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Map" / std::string(name);
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth,
          root = root.parent_path()) {

@@ -5,9 +5,12 @@
 
 #include <filesystem>
 #include <cmath>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findCharacterPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Character.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& entry : std::filesystem::directory_iterator(root)) {

@@ -4,9 +4,12 @@
 
 #include <filesystem>
 #include <limits>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findSoundRoot() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Sound";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {

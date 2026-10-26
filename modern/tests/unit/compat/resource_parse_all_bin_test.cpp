@@ -15,12 +15,15 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
 
 fs::path find_resource_dir() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource";
     fs::path cwd;
     try { cwd = fs::current_path(); } catch (...) { return {}; }
     // Try known candidate locations, walking up from cwd.
@@ -50,6 +53,8 @@ fs::path find_resource_dir() {
 // files (HairList_M.bin etc.) use find_playdh_dir / find_client_resource_dir.
 static const char kClient_u8[] = "Client";
 fs::path find_playdh_dir() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource";
     fs::path cwd;
     try { cwd = fs::current_path(); } catch (...) { return {}; }
     for (fs::path base = cwd; !base.empty(); base = base.parent_path()) {
