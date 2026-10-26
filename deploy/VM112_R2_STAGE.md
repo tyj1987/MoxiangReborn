@@ -4,6 +4,12 @@
 >
 > 目前没有人持有 VM112（`192.168.2.244`）的 WinRM 会话。`C:\Moxiang\original\stage-ct932-20261024-r2` 是否由该目录里的 `deploy\scripts\start_current_vm112.ps1` 拉起，没有在机器上确认。下文根据本分支这份脚本，以及客户端、启动器和 `map10_smoke` 的参数实现整理。有人在 VM112 上按「计划」一节跑通，并核对五个监听端口之后，删掉本段。
 
+## GitHub 与 GitLab
+
+文件依据只支持 GitLab→GitHub 的镜像记录，没有反向自动同步。README.md 写明 GitLab 为工程主源、GitHub 为代码镜像。`docs/evidence/remote-sync-status-20261020.json` 把 GitLab 记为权威源（`githubMirror`），并记录过向 GitHub 做快进推送、未做 force-push。`.gitlab-ci.yml`、仓库根 `.github/` 与 `scripts/` 里没有把 GitHub 合入结果推回 GitLab 的作业或脚本。GitHub 上合进主线的提交目前没有文件依据会自动同步到 GitLab（未核实，待确认）。
+
+当前执行口径（项目已定，不是上述文件里的机制）：拿到 GitLab 凭据前，GitHub 主线 `codex/reorg-original-20261009` 是唯一主源，PR 审查和合并以 GitHub 为准，谁都不往 GitLab 推任何东西。拿到凭据后的固定步骤：先 `git merge-base --is-ancestor <gitlab>/主线 <github 主线>`，是祖先才 fast-forward 推送（禁止 force），每次合进主线后由运维推；已分叉则不推，列出分叉提交交由战略专家决定。
+
 r2 的五个监听端口是 Login `36101`、Agent `37101`、Map10 `38101`、Map12 `38102`、Map2 `38103`。脚本不会写死这五个数。它们必须与该 stage 的 `stage-manifest.json` 里 `listenerPorts.login/agent/map10/map12/map2` 逐项相等，计划阶段才会通过。
 
 这套 stage 使用 CT932 克隆库，数据库 schema 为 4。主机、库名、账号和口令只来自私有配置，下文一律写 `<见私有配置>`。
