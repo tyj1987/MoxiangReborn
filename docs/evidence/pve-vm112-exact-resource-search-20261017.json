@@ -8,23 +8,15 @@
   "guestAgent": "qm guest exec/status succeeded",
   "searchRoot": "C:/moxiang",
   "exactMissingHfl": [
-    0,
-    4,
-    23,
-    24,
     26,
     27,
     28,
-    32,
-    33,
-    34,
     35,
     37,
     42,
     44,
     55,
     61,
-    94,
     96,
     97,
     99,
@@ -35,18 +27,12 @@
     117,
     200
   ],
-  "exactMissingTtb": [
-    0,
-    3,
-    4,
-    23,
-    24,
-    32,
-    33,
-    34,
-    94,
-    198
-  ],
+  "exactMissingTtb": [],
+  "removedFromMissingList": {
+    "reason": "Not referenced by the original. Removed from the missing list on 2026-10-24.",
+    "hfl": [0, 4, 23, 24, 32, 33, 34, 94],
+    "ttb": [0, 3, 4, 23, 24, 32, 33, 34, 94, 198]
+  },
   "candidates": [
     {
       "path": "C:/moxiang/original/stage-20261015/modern/data/PlayDH/Resource/Map/3.hfl",
@@ -77,7 +63,9 @@
     "hfl": 22,
     "ttb": 18,
     "map17MissingUsedTextures": 9,
-    "map203MissingTextures": 161
+    "map203MissingTextures": 161,
+    "countNote": "These are the 2026-10-17 totals. HFL 0,4,23,24,32,33,34,94 and TTB 0,3,4,23,24,32,33,34,94,198 are not referenced by the original and are not missing requirements. This note does not replace the historical totals with a new derived count. Map17's nine used textures are tile_17_mou_a_01..09.tga; see extensionAndPakCorrection."
   },
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): Map17 texture searches that concluded from .dds names used the wrong extension. Map17's original HFL references tile_17_mou_a_01..09.tga. They also used the wrong pak: the worktree PlayDH/Map.pak, whose header has 4192 entries, not the original D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect.",
   "next": "Keep original 1:1 resources byte-authenticated; continue source recovery and public-license admission separately."
 }

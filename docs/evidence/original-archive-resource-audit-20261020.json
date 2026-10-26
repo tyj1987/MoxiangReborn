@@ -14,6 +14,11 @@
     "E:/Workspaces/moxiang/worktrees/unity-integration/modern/data/PlayDH/Map.pak"
   ],
   "currentVerifiedMissingNames": {
+    "hfl": [],
+    "ttb": []
+  },
+  "removedFromMissingList": {
+    "reason": "These height fields and tile tables are not referenced by the original .map/.stm files. They must not be reported as missing.",
     "hfl": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
     "ttb": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"]
   },
