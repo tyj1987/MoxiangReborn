@@ -202,4 +202,23 @@ GxMapLoadGate gate_map_script_load(GxMapScriptPresence presence,
     return {};
 }
 
+GxMapScriptPresence classify_map_script_read(bool opened,
+                                             std::uint32_t size,
+                                             std::uint32_t bytes_read,
+                                             std::string_view name) {
+    if (!opened) return GxMapScriptPresence::Absent;
+    if (size == 0) return GxMapScriptPresence::Empty;
+    if (bytes_read == size) return GxMapScriptPresence::Present;
+    if (bytes_read < size) {
+        std::ostringstream out;
+        out << "WARN [map] short read: " << display_name(name)
+            << " (got=" << bytes_read << ", want=" << size << ")";
+        const auto message = out.str();
+        MLOG_WARN("%s", message.c_str());
+        return GxMapScriptPresence::Absent;
+    }
+    // More bytes than the seek reported is not a usable script.
+    return GxMapScriptPresence::Absent;
+}
+
 }  // namespace mxh::compat

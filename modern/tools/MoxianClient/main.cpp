@@ -628,9 +628,14 @@ StorageRead read_storage_bytes(I4DyuchiFileStorage* storage, const std::string& 
     bytes.resize(size);
     const auto read = storage->FSRead(file, bytes.data(), size);
     storage->FSCloseFile(file);
-    if (read != size) {
+    const auto presence = mxh::compat::classify_map_script_read(true, size, read, name);
+    if (presence != mxh::compat::GxMapScriptPresence::Present) {
+        // Short read logs WARN inside classify and comes back Absent,
+        // which is the same continue path as a missing file.
         bytes.clear();
-        return StorageRead::NotFound;
+        return presence == mxh::compat::GxMapScriptPresence::Empty
+                   ? StorageRead::Empty
+                   : StorageRead::NotFound;
     }
     return StorageRead::Ok;
 }

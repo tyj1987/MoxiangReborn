@@ -9,6 +9,7 @@
 
 using mxh::compat::GxMapReject;
 using mxh::compat::GxMapScriptPresence;
+using mxh::compat::classify_map_script_read;
 using mxh::compat::gate_map_script_load;
 using mxh::compat::parse_gx_map_script;
 
@@ -220,4 +221,28 @@ TEST(GxMapScript, EmptyFileIsMalformedNotAbsent) {
               "ERROR [map] obfuscated .map not supported: 10.map (bytes=" +
                   std::to_string(obfuscated.size()) + ")");
     EXPECT_NE(blocked_log.find(blocked.message), std::string::npos) << blocked_log;
+}
+
+TEST(GxMapScript, ShortReadWarnsAndContinuesAsNoScript) {
+    testing::internal::CaptureStderr();
+    const auto short_read = classify_map_script_read(true, 100, 40, "10.map");
+    const auto short_log = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(short_read, GxMapScriptPresence::Absent);
+    EXPECT_NE(short_log.find("WARN [map] short read: 10.map (got=40, want=100)"),
+              std::string::npos) << short_log;
+    EXPECT_EQ(short_log.find("ERROR [map]"), std::string::npos) << short_log;
+    const auto continued = gate_map_script_load(short_read, {}, "10.map");
+    EXPECT_FALSE(continued.fail_load);
+    EXPECT_TRUE(continued.message.empty());
+
+    testing::internal::CaptureStderr();
+    EXPECT_EQ(classify_map_script_read(true, 100, 100, "10.map"),
+              GxMapScriptPresence::Present);
+    EXPECT_EQ(classify_map_script_read(false, 100, 0, "10.map"),
+              GxMapScriptPresence::Absent);
+    EXPECT_EQ(classify_map_script_read(true, 0, 0, "10.map"),
+              GxMapScriptPresence::Empty);
+    const auto quiet = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(quiet.find("WARN [map] short read:"), std::string::npos) << quiet;
+    EXPECT_EQ(quiet.find("ERROR [map]"), std::string::npos) << quiet;
 }

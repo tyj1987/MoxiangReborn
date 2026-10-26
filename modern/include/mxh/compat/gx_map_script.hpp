@@ -73,4 +73,15 @@ struct GxMapLoadGate {
     std::span<const std::uint8_t> bytes,
     std::string_view name);
 
+// Outcome of one storage open. `opened == false` is Absent (missing).
+// `size == 0` is Empty. A full read (`bytes_read == size > 0`) is Present.
+// A short read (`opened`, `size > 0`, `bytes_read < size`) logs
+// `WARN [map] short read: <name> (got=<x>, want=<y>)` and returns Absent,
+// so the caller keeps loading <n>.hfl / <n>.stm and does not fail.
+[[nodiscard]] GxMapScriptPresence classify_map_script_read(
+    bool opened,
+    std::uint32_t size,
+    std::uint32_t bytes_read,
+    std::string_view name);
+
 }  // namespace mxh::compat
