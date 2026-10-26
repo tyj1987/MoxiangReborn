@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cstring>
 #include <fstream>
+#include <optional>
 #include <string>
+#include <utility>
 
 namespace mxh::gx {
 namespace {
@@ -20,8 +22,80 @@ struct OpenFile {
 };
 }
 
-FilesystemFileStorage::FilesystemFileStorage(std::filesystem::path root)
-    : root_(std::filesystem::weakly_canonical(std::move(root))) {}
+namespace {
+
+unsigned char fold_ascii(unsigned char c) noexcept {
+    if (c >= 'A' && c <= 'Z') return static_cast<unsigned char>(c - 'A' + 'a');
+    return c;
+}
+
+int tier_rank(PakFormatTier tier, const std::vector<PakFormatTier>& order) {
+    for (std::size_t i = 0; i < order.size(); ++i) {
+        if (order[i] == tier) return static_cast<int>(i);
+    }
+    // Omitted tiers stay mounted, behind every tier the config listed.
+    return static_cast<int>(order.size());
+}
+
+}  // namespace
+
+std::optional<PakFormatTier> classify_pak_header(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return std::nullopt;
+    unsigned char buf[8]{};
+    in.read(reinterpret_cast<char*>(buf), 8);
+    if (in.gcount() != 8) return std::nullopt;
+    const std::uint32_t count_at_offset_4 =
+        static_cast<std::uint32_t>(buf[4]) |
+        (static_cast<std::uint32_t>(buf[5]) << 8) |
+        (static_cast<std::uint32_t>(buf[6]) << 16) |
+        (static_cast<std::uint32_t>(buf[7]) << 24);
+    if (count_at_offset_4 != 0) return PakFormatTier::PlayDh92;
+    return PakFormatTier::Original96;
+}
+
+bool pak_filename_less(std::string_view a, std::string_view b) noexcept {
+    const auto n = std::min(a.size(), b.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto fa = fold_ascii(static_cast<unsigned char>(a[i]));
+        const auto fb = fold_ascii(static_cast<unsigned char>(b[i]));
+        if (fa != fb) return fa < fb;
+    }
+    if (a.size() != b.size()) return a.size() < b.size();
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        const auto ra = static_cast<unsigned char>(a[i]);
+        const auto rb = static_cast<unsigned char>(b[i]);
+        if (ra != rb) return ra < rb;
+    }
+    return false;
+}
+
+bool pak_mount_less(const PakMountCandidate& a,
+                    const PakMountCandidate& b,
+                    const std::vector<PakFormatTier>& tier_order) {
+    const int rank_a = tier_rank(a.tier, tier_order);
+    const int rank_b = tier_rank(b.tier, tier_order);
+    if (rank_a != rank_b) return rank_a < rank_b;
+    const auto name_a = a.path.filename().string();
+    const auto name_b = b.path.filename().string();
+    return pak_filename_less(name_a, name_b);
+}
+
+std::vector<PakMountCandidate> order_pak_mounts(
+    std::vector<PakMountCandidate> candidates,
+    const std::vector<PakFormatTier>& tier_order) {
+    std::sort(candidates.begin(), candidates.end(),
+              [&](const PakMountCandidate& a, const PakMountCandidate& b) {
+                  return pak_mount_less(a, b, tier_order);
+              });
+    return candidates;
+}
+
+FilesystemFileStorage::FilesystemFileStorage(
+    std::filesystem::path root,
+    FilesystemFileStorageOptions options)
+    : root_(std::filesystem::weakly_canonical(std::move(root))),
+      options_(std::move(options)) {}
 
 STDMETHODIMP FilesystemFileStorage::QueryInterface(REFIID riid, void** out) {
     if (!out) return E_POINTER;
@@ -72,16 +146,51 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     if (!std::filesystem::is_directory(root_)) return FALSE;
     packs_.clear();
     std::error_code ec;
+    std::vector<PakMountCandidate> classified;
+    std::vector<std::filesystem::path> unclassified;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (auto pack = mxh::compat::PackFile::open(item.path())) {
+        if (const auto tier = classify_pak_header(item.path())) {
+            classified.push_back(PakMountCandidate{item.path(), *tier});
+        } else {
+            unclassified.push_back(item.path());
+        }
+    }
+    // Tier sequence comes from options_.pak_tier_order, not from this loop.
+    const auto ordered = order_pak_mounts(std::move(classified), options_.pak_tier_order);
+
+    struct MountedPak {
+        std::string filename;
+        PakFormatTier tier;
+    };
+    std::vector<MountedPak> mounted;
+    const auto try_open = [&](const std::filesystem::path& path,
+                              std::optional<PakFormatTier> tier) {
+        if (auto pack = mxh::compat::PackFile::open(path)) {
+            if (tier) {
+                mounted.push_back(MountedPak{path.filename().string(), *tier});
+            }
             packs_.push_back(std::move(pack));
         } else {
-            const auto pak_path = item.path().string();
+            const auto pak_path = path.string();
             MLOG_WARN("[pak] skipped '%s': unsupported header / not a pak",
                       pak_path.c_str());
         }
+    };
+    for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
+    for (const auto& path : unclassified) try_open(path, std::nullopt);
+
+    std::string line = "[pak] mount order:";
+    for (std::size_t i = 0; i < mounted.size(); ++i) {
+        line.push_back(' ');
+        line += std::to_string(i + 1);
+        line.push_back('=');
+        line += mounted[i].filename;
+        line.push_back('(');
+        line += std::to_string(static_cast<unsigned>(mounted[i].tier));
+        line.push_back(')');
     }
+    MLOG_INFO("%s", line.c_str());
     return TRUE;
 }
 void* __stdcall FilesystemFileStorage::MapPackFile(char*) { return nullptr; }
