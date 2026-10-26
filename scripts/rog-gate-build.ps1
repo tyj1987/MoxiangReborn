@@ -271,7 +271,7 @@ public static class RogGateNativeAttributes {
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern bool SetFileAttributes(string lpFileName, uint dwFileAttributes);
 }
-'@
+'@ | Out-Null
         }
         $wrote = [RogGateNativeAttributes]::SetFileAttributes($LiteralPath, $bits)
         if (-not $wrote) {
@@ -467,7 +467,7 @@ function Clear-RogGateReadOnlyAttribute {
         return
     }
     $cleared = $attrs -band (-bnot $script:RogGateAttributeReadOnly)
-    Set-RogGateRawAttributes -LiteralPath $LiteralPath -Value $cleared
+    $null = Set-RogGateRawAttributes -LiteralPath $LiteralPath -Value $cleared
 }
 
 # Remove-Item -Recurse and Directory.Delete(recursive) follow junctions.
@@ -496,13 +496,13 @@ function Remove-RogGateDirectoryNoFollow {
         }
         $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
         if ($entryIsDir) {
-            Remove-RogGateDirectoryNoFollow -LiteralPath $entry.FullName
+            $null = Remove-RogGateDirectoryNoFollow -LiteralPath $entry.FullName
         } else {
-            Clear-RogGateReadOnlyAttribute -LiteralPath $entry.FullName
+            $null = Clear-RogGateReadOnlyAttribute -LiteralPath $entry.FullName
             [System.IO.File]::Delete($entry.FullName)
         }
     }
-    Clear-RogGateReadOnlyAttribute -LiteralPath $info.FullName
+    $null = Clear-RogGateReadOnlyAttribute -LiteralPath $info.FullName
     [System.IO.Directory]::Delete($info.FullName)
 }
 
@@ -999,6 +999,67 @@ function Resolve-RogGateFailureExit {
         return 1
     }
     return $ExitCode
+}
+
+function Test-RogGateCollectedExitIsInteger {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return $false
+    }
+    # An array, even one that holds a single integer, is stray pipeline output.
+    if ($Value -is [System.Array]) {
+        return $false
+    }
+    if (($Value -is [System.Collections.IEnumerable]) -and ($Value -isnot [string])) {
+        return $false
+    }
+    $type = $Value.GetType()
+    if ($type.IsEnum) {
+        return $false
+    }
+    switch ([System.Type]::GetTypeCode($type)) {
+        'Byte' { return $true }
+        'SByte' { return $true }
+        'Int16' { return $true }
+        'UInt16' { return $true }
+        'Int32' { return $true }
+        'UInt32' { return $true }
+        'Int64' { return $true }
+        'UInt64' { return $true }
+        default { return $false }
+    }
+}
+
+function Format-RogGateCollectedExitDetail {
+    param($Code)
+
+    if ($null -eq $Code) {
+        return 'Collected exit code is not a single integer (type=null, count=0).'
+    }
+    if ($Code -is [System.Array]) {
+        return ("Collected exit code is not a single integer (type={0}, count={1})." -f $Code.GetType().FullName, $Code.Count)
+    }
+    return ("Collected exit code is not a single integer (type={0}, count=1)." -f $Code.GetType().FullName)
+}
+
+function Resolve-RogGateCollectedExit {
+    param($Code)
+
+    # Fail closed. Never cast an array, a string, or null to [int]: PowerShell
+    # would throw, or would turn a leaked pipeline object into a bogus code.
+    if (Test-RogGateCollectedExitIsInteger -Value $Code) {
+        return [pscustomobject]@{
+            Ok       = $true
+            ExitCode = $Code
+            Detail   = ''
+        }
+    }
+    return [pscustomobject]@{
+        Ok       = $false
+        ExitCode = 1
+        Detail   = (Format-RogGateCollectedExitDetail -Code $Code)
+    }
 }
 
 function Write-RogGateFreeSpaceReport {
@@ -1631,15 +1692,15 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'strip extended path prefix' -Condition ($normalized -eq 'D:\build-mxr\pr20')
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path 'D:\..\MX' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path 'D:\..\MX' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject drive escape' -Condition $threw
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path '\\server\share\pr' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path '\\server\share\pr' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject UNC' -Condition $threw
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path 'build-mxr\pr' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path 'build-mxr\pr' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject relative path' -Condition $threw
 
     $safe = Get-RogGateLexicalSafety -BuildDir 'D:\build-mxr\pr20' -AllowedRoot 'D:\build-mxr\'
@@ -1671,7 +1732,7 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'deletion safety refuses D:\MX before any delete' -Condition (-not $combined.Safe)
 
     $mayThrew = $false
-    try { Assert-RogGateMayDelete -Safety $rootItself } catch { $mayThrew = $true }
+    try { $null = Assert-RogGateMayDelete -Safety $rootItself } catch { $mayThrew = $true }
     Assert-RogGateSelfTest -Name 'may-delete refuses the allowed root itself' -Condition $mayThrew
 
     $drives = @(Get-RogGateDrivesToCheck -NormalizedBuildDir 'D:\build-mxr\pr20' -NormalizedSourceDir 'E:\work\trial')
@@ -1689,7 +1750,7 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'per-drive override replaces the default' -Condition (($eThreshold -eq 20) -and ($cThreshold -eq 10))
 
     $badOverride = $false
-    try { ConvertTo-RogGateDriveOverrides -Entries @('E') } catch { $badOverride = $true }
+    try { $null = ConvertTo-RogGateDriveOverrides -Entries @('E') } catch { $badOverride = $true }
     Assert-RogGateSelfTest -Name 'drive override without a value is rejected' -Condition $badOverride
 
     $floorScript = $PSCommandPath
@@ -1717,6 +1778,25 @@ function Invoke-RogGateSelfTest {
     $buildProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SelfTestBuildExit', '2')
     $buildExitOk = ($buildProbe.ExitCode -eq 2) -and ($buildProbe.Text -match 'Build failed \(exit 2\)') -and ($buildProbe.Text -match '\[ERROR\]')
     Assert-RogGateSelfTest -Name 'stubbed build failure exits with the build code' -Condition $buildExitOk
+
+    function Invoke-RogGateExitWithNoise {
+        'noise'
+        0
+    }
+    function Invoke-RogGateExitOnly {
+        param([Parameter(Mandatory = $true)][int]$Code)
+        return $Code
+    }
+    $noisy = Invoke-RogGateExitWithNoise
+    $noisyResolved = Resolve-RogGateCollectedExit -Code $noisy
+    $noisyRejected = (-not $noisyResolved.Ok) -and ($noisyResolved.ExitCode -eq 1) -and ($noisyResolved.Detail -match 'type=') -and ($noisyResolved.Detail -match 'count=2')
+    Assert-RogGateSelfTest -Name 'exit code with extra pipeline output is rejected' -Condition $noisyRejected
+    $onlyZero = Invoke-RogGateExitOnly -Code 0
+    $zeroResolved = Resolve-RogGateCollectedExit -Code $onlyZero
+    Assert-RogGateSelfTest -Name 'single exit code 0 passes through unchanged' -Condition ($zeroResolved.Ok -and ($zeroResolved.ExitCode -eq 0) -and ($zeroResolved.ExitCode -is [int]))
+    $onlyTwo = Invoke-RogGateExitOnly -Code 2
+    $twoResolved = Resolve-RogGateCollectedExit -Code $onlyTwo
+    Assert-RogGateSelfTest -Name 'single exit code 2 passes through unchanged' -Condition ($twoResolved.Ok -and ($twoResolved.ExitCode -eq 2) -and ($twoResolved.ExitCode -is [int]))
 
     function Initialize-RogGateSelfTestRepo {
         param(
@@ -1787,7 +1867,7 @@ function Invoke-RogGateSelfTest {
         param([Parameter(Mandatory = $true)][string]$Path)
         $threw = $false
         try {
-            Assert-RogGateSparseReparsePreflight -SourceDir $Path
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $Path
         } catch {
             $threw = $true
         }
@@ -1845,7 +1925,7 @@ function Invoke-RogGateSelfTest {
         $bothMessage = ''
         $bothThrew = $false
         try {
-            Assert-RogGateSparseReparsePreflight -SourceDir $both
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $both
         } catch {
             $bothThrew = $true
             $bothMessage = $_.Exception.Message
@@ -1907,7 +1987,7 @@ function Invoke-RogGateSelfTest {
         $worktreeThrew = $false
         if ($worktreeLinked) {
             try {
-                Assert-RogGateSparseReparsePreflight -SourceDir $worktreeDir
+                $null = Assert-RogGateSparseReparsePreflight -SourceDir $worktreeDir
             } catch {
                 $worktreeThrew = $true
                 $worktreeMessage = $_.Exception.Message
@@ -1959,7 +2039,7 @@ function Invoke-RogGateSelfTest {
                     $mixedMessage = ''
                     $mixedThrew = $false
                     try {
-                        Assert-RogGateSparseReparsePreflight -SourceDir $mixed
+                        $null = Assert-RogGateSparseReparsePreflight -SourceDir $mixed
                     } catch {
                         $mixedThrew = $true
                         $mixedMessage = $_.Exception.Message
@@ -1979,7 +2059,7 @@ function Invoke-RogGateSelfTest {
             }
         }
     } finally {
-        Remove-RogGateFixture -LiteralPath $preflightRoot
+        $null = Remove-RogGateFixture -LiteralPath $preflightRoot
     }
 
     $required = [int64]10GB
@@ -2061,7 +2141,7 @@ function Invoke-RogGateSelfTest {
 
         $stampDir = Join-Path -Path $fixture -ChildPath 'stamp'
         New-Item -ItemType Directory -Path $stampDir | Out-Null
-        Write-RogGateStamp -BuildDirectory $stampDir -Sha $sha -GeneratorName 'NMake Makefiles' -ConfigName 'Debug'
+        $null = Write-RogGateStamp -BuildDirectory $stampDir -Sha $sha -GeneratorName 'NMake Makefiles' -ConfigName 'Debug'
         $stampRead = Read-RogGateStampSha -BuildDirectory $stampDir
         Assert-RogGateSelfTest -Name 'stamp round-trip keeps the SHA on the first line' -Condition ($stampRead.HasStamp -and ($stampRead.Sha -eq $sha))
 
@@ -2072,10 +2152,10 @@ function Invoke-RogGateSelfTest {
         [System.IO.File]::WriteAllBytes($plainFile, (New-Object byte[] 32))
         $plainItem = Get-Item -LiteralPath $plainFile -Force
         $plainBits = Get-RogGateAttributeValue -Attributes $plainItem.Attributes
-        Set-RogGateRawAttributes -LiteralPath $plainFile -Value ($plainBits -bor $script:RogGateAttributeReadOnly)
+        $null = Set-RogGateRawAttributes -LiteralPath $plainFile -Value ($plainBits -bor $script:RogGateAttributeReadOnly)
         $sibling = Join-Path -Path $fixture -ChildPath 'keep.txt'
         [System.IO.File]::WriteAllText($sibling, 'keep')
-        Remove-RogGateDirectoryNoFollow -LiteralPath $plain
+        $null = Remove-RogGateDirectoryNoFollow -LiteralPath $plain
         Assert-RogGateSelfTest -Name 'no-follow delete removes a normal tree and keeps its sibling' -Condition ((-not (Test-Path -LiteralPath $plain)) -and (Test-Path -LiteralPath $sibling))
 
         $outside = Join-Path -Path $fixture -ChildPath 'outside'
@@ -2119,7 +2199,7 @@ function Invoke-RogGateSelfTest {
 
             $deleteThrew = $false
             try {
-                Remove-RogGateDirectoryNoFollow -LiteralPath $linkedBuild
+                $null = Remove-RogGateDirectoryNoFollow -LiteralPath $linkedBuild
             } catch {
                 $deleteThrew = $true
             }
@@ -2206,11 +2286,11 @@ function Invoke-RogGateSelfTest {
         $rootKind = Format-RogGateSelfTestLinkKind -LinkType $rootLink.LinkType
         $measureThrew = $false
         if ($rootLink.Ok) {
-            try { Get-RogGateTopLevelDirectorySizes -RootPath $reparseRoot } catch { $measureThrew = $true }
+            try { $null = @(Get-RogGateTopLevelDirectorySizes -RootPath $reparseRoot) } catch { $measureThrew = $true }
         }
         Assert-RogGateSelfTest -Name ("measuring a reparse build root is refused (link={0})" -f $rootKind) -Condition ($rootLink.Ok -and ($rootKind -eq $directoryLinkKind) -and $measureThrew)
     } finally {
-        Remove-RogGateFixture -LiteralPath $fixture
+        $null = Remove-RogGateFixture -LiteralPath $fixture
     }
 
     Write-Host ("ROG gate self-test: {0} failed" -f $script:RogGateSelfTestFailures)
@@ -2242,19 +2322,19 @@ function Remove-RogGateFixture {
     }
     $isDir = (Test-RogGateAttributeHasDirectory -Attributes $item.Attributes)
     if (-not $isDir) {
-        Clear-RogGateReadOnlyAttribute -LiteralPath $item.FullName
+        $null = Clear-RogGateReadOnlyAttribute -LiteralPath $item.FullName
         Remove-Item -LiteralPath $item.FullName -Force
         return
     }
     $dirInfo = New-Object System.IO.DirectoryInfo $item.FullName
     foreach ($entry in @($dirInfo.EnumerateFileSystemInfos())) {
-        Remove-RogGateFixture -LiteralPath $entry.FullName
+        $null = Remove-RogGateFixture -LiteralPath $entry.FullName
     }
     Remove-Item -LiteralPath $item.FullName -Force
 }
 
 function Invoke-RogGateMain {
-    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
+    $null = Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($BuildDir) -or [string]::IsNullOrWhiteSpace($ExpectedSha)) {
         throw '-SourceDir, -BuildDir, and -ExpectedSha are required.'
     }
@@ -2281,7 +2361,7 @@ function Invoke-RogGateMain {
         throw "SourceDir not found: $normSource"
     }
     # Same gate as the script entry, before rev-parse, delete, or build.
-    Assert-RogGateSparseReparsePreflight -SourceDir $normSource
+    $null = Assert-RogGateSparseReparsePreflight -SourceDir $normSource
     $cmakeLists = Join-Path -Path (Join-Path -Path $normSource -ChildPath 'modern') -ChildPath 'CMakeLists.txt'
     if (-not (Test-Path -LiteralPath $cmakeLists)) {
         throw "modern/CMakeLists.txt not found under SourceDir: $cmakeLists"
@@ -2302,7 +2382,7 @@ function Invoke-RogGateMain {
     $decision = Get-RogGateCleanDecision -BuildDirExists $buildExists -HasStamp $stamp.HasStamp -StampSha $stamp.Sha -ExpectedSha $expected -HasCache $cache.HasCache -CacheGenerator $cache.Generator -RequestedGenerator $Generator
     $drives = @(Get-RogGateDrivesToCheck -NormalizedBuildDir $normBuild -NormalizedSourceDir $normSource)
 
-    Write-RogGateHeader -Source $normSource -Build $normBuild -Expected $expected -ConfigName $Config -GeneratorName $Generator -Allowed $normRoot -Clean $decision.Clean -Reason $decision.Reason -Drives $drives
+    $null = Write-RogGateHeader -Source $normSource -Build $normBuild -Expected $expected -ConfigName $Config -GeneratorName $Generator -Allowed $normRoot -Clean $decision.Clean -Reason $decision.Reason -Drives $drives
 
     $free = @{}
     foreach ($letter in $drives) {
@@ -2314,11 +2394,11 @@ function Invoke-RogGateMain {
     }
     $report = Get-RogGateFreeSpaceReport -Drives $drives -FreeBytesByDrive $free -MinFreeGB $MinFreeGB -Overrides $overrides
     Write-Host 'Free space:'
-    Write-RogGateFreeSpaceReport -Report $report
+    $null = Write-RogGateFreeSpaceReport -Report $report
     if (-not $report.Ok) {
         $freeSpaceFailure = Resolve-RogGateFailureExit -ExitCode 1 -Message 'Free space pre-flight failed. Refusing to delete or build.'
         try {
-            Write-RogGateLargestDirectories -Root $normRoot
+            $null = Write-RogGateLargestDirectories -Root $normRoot
         } catch {
             Write-RogGateError $_.Exception.Message
         }
@@ -2326,7 +2406,7 @@ function Invoke-RogGateMain {
     }
 
     $safety = Get-RogGateDeletionSafety -BuildDir $normBuild -AllowedRoot $normRoot -ForbiddenRoot $script:RogGateForbiddenRoot
-    Assert-RogGateMayDelete -Safety $safety
+    $null = Assert-RogGateMayDelete -Safety $safety
 
     $dry = [bool]$DryRun
     if ($WhatIfPreference) {
@@ -2392,7 +2472,7 @@ function Invoke-RogGateMain {
 
     if ($decision.ShouldDelete) {
         Write-Host "[GATE] Deleting $normBuild"
-        Remove-RogGateDirectoryNoFollow -LiteralPath $normBuild
+        $null = Remove-RogGateDirectoryNoFollow -LiteralPath $normBuild
     }
 
     $buildStarted = [DateTime]::UtcNow
@@ -2409,7 +2489,7 @@ function Invoke-RogGateMain {
     }
 
     if ($SkipTests) {
-        Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
+        $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
         Write-Host '[GATE] Build succeeded. Tests skipped. Stamp written.'
         return 0
     }
@@ -2431,7 +2511,7 @@ function Invoke-RogGateMain {
         Write-Host ("[GATE] {0} test executable(s) are newer than this rebuild." -f $testExes.Count)
     }
 
-    Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
+    $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
     Write-Host '[GATE] CTest'
     $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll
     if ($testCode -ne 0) {
@@ -2441,33 +2521,36 @@ function Invoke-RogGateMain {
 }
 
 $script:RogGateSawError = $false
-$gateCode = 0
+$collected = $null
 try {
     # Reject a threshold under 10 GB before self-test, git, delete, or build.
-    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
+    $null = Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ($PSBoundParameters.ContainsKey('SelfTestBuildExit')) {
-        # Same reporter the real build-failure path uses. Exit once, below, so
-        # Windows PowerShell 5.1 does not swallow the code inside try/catch.
-        $gateCode = Resolve-RogGateFailureExit -ExitCode $SelfTestBuildExit -Message "Build failed (exit $SelfTestBuildExit). Tests will not run."
+        # Same reporter the real build-failure path uses. This stub does not
+        # call Invoke-RogGateMain. Exit once, below, so Windows PowerShell 5.1
+        # does not swallow the code inside try/catch.
+        $collected = Resolve-RogGateFailureExit -ExitCode $SelfTestBuildExit -Message "Build failed (exit $SelfTestBuildExit). Tests will not run."
     } else {
         # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
         if (-not $SelfTest) {
-            Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
         }
         if ($SelfTest) {
-            $gateCode = Invoke-RogGateSelfTest
+            $collected = Invoke-RogGateSelfTest
         } else {
-            $gateCode = Invoke-RogGateMain
+            $collected = Invoke-RogGateMain
         }
     }
 } catch {
     Write-RogGateError $_.Exception.Message
-    $gateCode = 1
+    $collected = 1
 }
-if ($null -eq $gateCode) {
-    $gateCode = 0
+$resolved = Resolve-RogGateCollectedExit -Code $collected
+if (-not $resolved.Ok) {
+    Write-RogGateError $resolved.Detail
+    exit 1
 }
-$gateCode = [int]$gateCode
+$gateCode = $resolved.ExitCode
 if ($script:RogGateSawError -and $gateCode -eq 0) {
     $gateCode = 1
 }
