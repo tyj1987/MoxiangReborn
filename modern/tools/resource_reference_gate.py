@@ -24,7 +24,14 @@ Categories
   original bytes exist. Informational, not a defect. Known members include
   Map17 ``tile_17_mou_a_01..09.tga``, ``test4`` and ``Monster_203.bin``.
 * ``partial`` — ``derive`` recorded status partial. Warned, never a pass.
-  Unparsed containers are still listed under no conclusion.
+  Unparsed containers are still listed under no conclusion. A ``.map``
+  whose bytes have the obfuscated layout (uint32 length, 20-byte per-file
+  header, XOR body) is recorded with reason ``obfuscated-map`` and its
+  nothing is decoded and no header byte is stored.
+  ``derivation.unparsedSummary`` only counts unparsed entries by reason.
+  Header statistics exist only behind the local ``derive
+  --local-header-stats`` flag, which prints to stdout and never touches the
+  manifest; CI must not pass it.
 * ``no conclusion`` — derivation has not been run, or a checkout file is
   only a Git LFS pointer. Never a pass.
 
@@ -466,9 +473,53 @@ def _original_exists(index: _BlobIndex, name: str) -> bool:
     return bool(index.find(name))
 
 
+OBFUSCATED_MAP_REASON = "obfuscated-map"
+NO_MARKERS_REASON = "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+OBFUSCATED_MAP_PREFIX = 4
+OBFUSCATED_MAP_HEADER = 20
+
+
+def is_obfuscated_map(data: bytes) -> bool:
+    """True when ``data`` has the obfuscated .map layout.
+
+    Layout (see docs/formats/original-map-obfuscation.md): uint32 LE length
+    equal to the whole entry length, a 20-byte per-file header, then an
+    XOR-obfuscated body. Shape check only; the body is never decoded and no
+    header byte is returned. Conservative: the length field must equal
+    len(data), the body must be non-empty, the data must not start with
+    ``GX_``, and no plaintext section marker may appear.
+    """
+    head = OBFUSCATED_MAP_PREFIX + OBFUSCATED_MAP_HEADER
+    if len(data) <= head:
+        return False
+    (declared,) = struct.unpack_from("<I", data, 0)
+    if declared != len(data):
+        return False
+    if data.startswith(b"GX_"):
+        return False
+    upper = data.upper()
+    # No printable-ratio test: some real obfuscated bodies are >85% printable
+    # after XOR. Plaintext maps start with GX_ and carry section markers.
+    return not any(marker in upper for marker in (b"HEIGHT_FIELD", b"STATIC_MODEL", b"GX_OBJECT", b"GX_MAP"))
+
+
+def _unparsed_summary(unparsed: list[dict]) -> dict:
+    by_reason: dict[str, int] = {}
+    for item in unparsed:
+        reason = str(item.get("reason", ""))
+        by_reason[reason] = by_reason.get(reason, 0) + 1
+    return {"total": len(unparsed), "byReason": dict(sorted(by_reason.items()))}
+
+
 def derive(source: Path | None, pak: Path | None = None,
-           known_no_original: tuple[str, ...] = KNOWN_NO_ORIGINAL) -> dict:
-    """Build a name-only manifest from original .map / .stm / .hfl bytes."""
+           known_no_original: tuple[str, ...] = KNOWN_NO_ORIGINAL,
+           local_header_stats: dict[int, int] | None = None) -> dict:
+    """Build a name-only manifest from original .map / .stm / .hfl bytes.
+
+    ``local_header_stats``, when a dict is passed (local CLI flag only), is
+    filled in memory with per-file header byte 2 -> count for obfuscated
+    maps. It is never written into the returned manifest.
+    """
     index, pak_info = _build_source_index(source, pak)
     references: list[dict] = []
     excluded: list[dict] = []
@@ -489,7 +540,13 @@ def derive(source: Path | None, pak: Path | None = None,
             unparsed.append({"name": map_name, "reason": str(exc)})
             continue
         if not refs and b"GX_MAP" not in data.upper() and b"HEIGHT_FIELD" not in data.upper():
-            unparsed.append({"name": map_name, "reason": "map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"})
+            if is_obfuscated_map(data):
+                unparsed.append({"name": map_name, "reason": OBFUSCATED_MAP_REASON})
+                if local_header_stats is not None:
+                    value = data[OBFUSCATED_MAP_PREFIX + 2]
+                    local_header_stats[value] = local_header_stats.get(value, 0) + 1
+            else:
+                unparsed.append({"name": map_name, "reason": NO_MARKERS_REASON})
             continue
         _absorb(references, excluded, refs, map_name, index)
         for ref in refs:
@@ -532,6 +589,7 @@ def derive(source: Path | None, pak: Path | None = None,
             "parsedMapCount": seen_maps,
             "pak": public_pak,
             "unparsed": unparsed,
+            "unparsedSummary": _unparsed_summary(unparsed),
             "note": (
                 "Required names come only from filenames stored in original .map, "
                 ".stm and used .hfl palette rows. Map numbers are not turned into "
@@ -809,6 +867,10 @@ def main(argv: list[str] | None = None) -> int:
     derive_parser.add_argument("--source", type=Path, help="directory of original .map/.stm/.hfl files")
     derive_parser.add_argument("--pak", type=Path, help="original Map.pak (read to EOF, not the 4192-entry worktree pak)")
     derive_parser.add_argument("--output", type=Path, required=True)
+    derive_parser.add_argument(
+        "--local-header-stats", action="store_true", default=False,
+        help="local only, never in CI: print obfuscated-map header byte 2 counts to "
+             "stdout; nothing is written to the manifest")
 
     check_parser = sub.add_parser("check", help="compare a checkout to the manifest; warn-only unless --strict")
     check_parser.add_argument("--manifest", type=Path, required=True)
@@ -822,13 +884,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "derive":
         if args.source is None and args.pak is None:
             parser.error("derive needs --source and/or --pak on the machine that has the original files")
-        document = derive(args.source, args.pak)
+        header_stats: dict[int, int] | None = {} if args.local_header_stats else None
+        document = derive(args.source, args.pak, local_header_stats=header_stats)
         _write_json(args.output, document)
         print(
             f"wrote {args.output} status={document['derivation']['status']} "
             f"references={len(document['references'])} "
             f"pakEntries={document['derivation']['pak'].get('entriesReadToEof')}"
         )
+        if header_stats is not None:
+            print("local-only obfuscated-map header byte 2 counts (do not commit or paste into CI):")
+            for value, count in sorted(header_stats.items()):
+                print(f"  0x{value:02x} {count}")
         # derive always exits 0. check is warn-only by design unless the
         # strict switch is set.
         return 0
