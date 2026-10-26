@@ -25,7 +25,8 @@
 #   需要 glibc Node 的 upload-artifact。
 #
 # Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
-# 只在容器里装 git。pull_request 拉 merge ref；push 拉该分支。这不是 GitLab script 的一部分。
+# 只在容器里装 git。pull_request 拉 merge ref；push 按 GITHUB_SHA 取本次提交，
+# 避免连续合并时拉到分支尖上后一个提交。这不是 GitLab script 的一部分。
 
 name: original_governance_and_python_tests
 
@@ -73,12 +74,14 @@ jobs:
           chmod 700 "$askpass"
           if [ -n "$PR_NUMBER" ]; then
             refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
           else
-            refspec="+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
           fi
-          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
-          rm -f "$askpass"
-          git checkout --detach refs/remotes/origin/pr
 
       - name: original_governance_and_python_tests
         run: |
@@ -115,12 +118,14 @@ jobs:
           chmod 700 "$askpass"
           if [ -n "$PR_NUMBER" ]; then
             refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
           else
-            refspec="+refs/heads/${GITHUB_REF_NAME}:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
           fi
-          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
-          rm -f "$askpass"
-          git checkout --detach refs/remotes/origin/pr
 
       - name: original_resource_reference_warn
         run: |
