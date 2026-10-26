@@ -59,6 +59,10 @@
     Check path safety, generator decisions, drive selection, free-space
     thresholds, and the sparse-checkout reparse preflight without a compiler.
     On Windows, directory links in this self-test are NTFS junctions.
+
+.PARAMETER SelfTestBuildExit
+    Self-test only. When this parameter is present, skip the build and exit
+    with the same code a failed build command would return.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -75,7 +79,8 @@ param(
     [switch]$DryRun,
     [double]$MinFreeGB = 10,
     [string[]]$DriveMinFreeGB = @(),
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    [int]$SelfTestBuildExit = 0
 )
 
 Set-StrictMode -Version 3.0
@@ -87,6 +92,13 @@ $script:RogGateNinja = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMa
 $script:RogGateForbiddenRoot = 'D:\MX'
 $script:RogGateStampName = 'rog-gate.sha'
 $script:RogGateSparsePreflightChecked = ''
+$script:RogGateSawError = $false
+# Win32 FILE_ATTRIBUTE_* bits. Do not convert raw values to
+# [System.IO.FileAttributes]: Windows PowerShell 5.1 rejects unknown bits
+# such as 0x80000, and -band against that enum re-parses the integer.
+$script:RogGateAttributeReadOnly = [int64]0x1
+$script:RogGateAttributeDirectory = [int64]0x10
+$script:RogGateAttributeReparsePoint = [int64]0x400
 
 function ConvertTo-RogGateWindowsPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -210,15 +222,81 @@ function Get-RogGateLexicalSafety {
     return New-RogGateSafetyResult -Safe $true -Reason '' -NormalizedBuildDir $normBuild -NormalizedAllowedRoot $normRoot
 }
 
+function Get-RogGateAttributeValue {
+    param($Attributes)
+
+    if ($null -eq $Attributes) {
+        return [int64]0
+    }
+    # Enum instances expose the underlying integer as value__. Reading that
+    # field does not re-parse the value as FileAttributes.
+    $type = $Attributes.GetType()
+    if ($type.IsEnum) {
+        $valueProp = $Attributes.PSObject.Properties['value__']
+        if ($null -ne $valueProp -and $null -ne $valueProp.Value) {
+            return [int64]$valueProp.Value
+        }
+    }
+    return [int64]$Attributes
+}
+
+function Test-RogGateAttributeBit {
+    param(
+        $Attributes,
+        [Parameter(Mandatory = $true)][int64]$Bit
+    )
+
+    $value = Get-RogGateAttributeValue -Attributes $Attributes
+    return (($value -band $Bit) -ne 0)
+}
+
+function Test-RogGateAttributeHasDirectory {
+    param($Attributes)
+    return Test-RogGateAttributeBit -Attributes $Attributes -Bit $script:RogGateAttributeDirectory
+}
+
+function Set-RogGateRawAttributes {
+    param(
+        [Parameter(Mandatory = $true)][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][int64]$Value
+    )
+
+    $bits = [uint32]($Value -band [uint32]::MaxValue)
+    if (Test-RogGateHostIsWindows) {
+        if (-not ('RogGateNativeAttributes' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class RogGateNativeAttributes {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool SetFileAttributes(string lpFileName, uint dwFileAttributes);
+}
+'@
+        }
+        $wrote = [RogGateNativeAttributes]::SetFileAttributes($LiteralPath, $bits)
+        if (-not $wrote) {
+            throw "SetFileAttributes failed for ${LiteralPath}."
+        }
+        return
+    }
+
+    # Non-Windows hosts have no kernel32. Enum.ToObject boxes the integer
+    # without PowerShell's validating FileAttributes cast.
+    $boxed = [Enum]::ToObject([System.IO.FileAttributes], [int64]$Value)
+    [System.IO.File]::SetAttributes($LiteralPath, $boxed)
+}
+
 function Test-RogGateItemReparsePoint {
     param($Item)
 
     if ($null -eq $Item) {
         return $false
     }
-    $reparse = [System.IO.FileAttributes]::ReparsePoint
-    if (($Item.Attributes -band $reparse) -ne 0) {
-        return $true
+    $attrProp = $Item.PSObject.Properties['Attributes']
+    if ($null -ne $attrProp -and $null -ne $attrProp.Value) {
+        if (Test-RogGateAttributeBit -Attributes $attrProp.Value -Bit $script:RogGateAttributeReparsePoint) {
+            return $true
+        }
     }
     $linkProp = $Item.PSObject.Properties['LinkType']
     if ($null -ne $linkProp -and -not [string]::IsNullOrEmpty([string]$linkProp.Value)) {
@@ -312,7 +390,7 @@ function Get-RogGateReparseViolations {
         Send-RogGateCollection -Items $found.ToArray()
         return
     }
-    $leafIsDir = ($leaf.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $leafIsDir = (Test-RogGateAttributeHasDirectory -Attributes $leaf.Attributes)
     if (-not $leafIsDir) {
         Send-RogGateCollection -Items $found.ToArray()
         return
@@ -328,7 +406,7 @@ function Get-RogGateReparseViolations {
                 $found.Add($entry.FullName)
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             }
@@ -384,13 +462,12 @@ function Assert-RogGateMayDelete {
 function Clear-RogGateReadOnlyAttribute {
     param([Parameter(Mandatory = $true)][string]$LiteralPath)
 
-    $attrs = [System.IO.File]::GetAttributes($LiteralPath)
-    $readOnly = [System.IO.FileAttributes]::ReadOnly
-    if (($attrs -band $readOnly) -eq 0) {
+    $attrs = Get-RogGateAttributeValue -Attributes ([System.IO.File]::GetAttributes($LiteralPath))
+    if (-not (Test-RogGateAttributeBit -Attributes $attrs -Bit $script:RogGateAttributeReadOnly)) {
         return
     }
-    $cleared = [System.IO.FileAttributes]([int]$attrs -band (-bnot [int]$readOnly))
-    [System.IO.File]::SetAttributes($LiteralPath, $cleared)
+    $cleared = $attrs -band (-bnot $script:RogGateAttributeReadOnly)
+    Set-RogGateRawAttributes -LiteralPath $LiteralPath -Value $cleared
 }
 
 # Remove-Item -Recurse and Directory.Delete(recursive) follow junctions.
@@ -406,7 +483,7 @@ function Remove-RogGateDirectoryNoFollow {
     }
 
     $info = Get-Item -LiteralPath $LiteralPath -Force
-    $isDir = ($info.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $info.Attributes)
     if (-not $isDir) {
         throw "Refusing to delete because BuildDir is not a directory: $LiteralPath"
     }
@@ -417,7 +494,7 @@ function Remove-RogGateDirectoryNoFollow {
         if (Test-RogGateItemReparsePoint -Item $entry) {
             throw "Refusing to delete through reparse point: $($entry.FullName)"
         }
-        $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+        $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
         if ($entryIsDir) {
             Remove-RogGateDirectoryNoFollow -LiteralPath $entry.FullName
         } else {
@@ -519,7 +596,7 @@ function Get-RogGateGitDirectory {
     if (Test-RogGateItemReparsePoint -Item $item) {
         return $null
     }
-    $isDir = ($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $item.Attributes)
     if ($isDir) {
         return $item.FullName
     }
@@ -676,7 +753,7 @@ function Get-RogGateWorkingTreeReparsePoints {
         Send-RogGateCollection -Items $found.ToArray()
         return
     }
-    $rootIsDir = ($rootItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $rootIsDir = (Test-RogGateAttributeHasDirectory -Attributes $rootItem.Attributes)
     if (-not $rootIsDir) {
         Send-RogGateCollection -Items $found.ToArray()
         return
@@ -698,7 +775,7 @@ function Get-RogGateWorkingTreeReparsePoints {
                 $found.Add($entry.FullName)
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if (-not $entryIsDir) {
                 continue
             }
@@ -848,7 +925,7 @@ function Get-RogGateTreeSizeBytes {
                 }
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             } else {
@@ -871,7 +948,7 @@ function Get-RogGateTopLevelDirectorySizes {
     }
 
     $rootInfo = Get-Item -LiteralPath $RootPath -Force
-    $rootIsDir = ($rootInfo.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $rootIsDir = (Test-RogGateAttributeHasDirectory -Attributes $rootInfo.Attributes)
     if (-not $rootIsDir) {
         throw "Build root is not a directory: $RootPath"
     }
@@ -879,7 +956,7 @@ function Get-RogGateTopLevelDirectorySizes {
     $result = New-Object 'System.Collections.Generic.List[object]'
     $dirInfo = New-Object System.IO.DirectoryInfo $rootInfo.FullName
     foreach ($entry in $dirInfo.EnumerateFileSystemInfos()) {
-        $isDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+        $isDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
         if (-not $isDir) {
             continue
         }
@@ -907,7 +984,21 @@ function Get-RogGateTopLevelDirectorySizes {
 
 function Write-RogGateError {
     param([Parameter(Mandatory = $true)][string]$Message)
+    $script:RogGateSawError = $true
     [Console]::Error.WriteLine("[ERROR] $Message")
+}
+
+function Resolve-RogGateFailureExit {
+    param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$Message
+    )
+
+    Write-RogGateError $Message
+    if ($ExitCode -eq 0) {
+        return 1
+    }
+    return $ExitCode
 }
 
 function Write-RogGateFreeSpaceReport {
@@ -1098,7 +1189,7 @@ function Get-RogGateFilesNoFollow {
             if (Test-RogGateItemReparsePoint -Item $entry) {
                 throw "Refusing to scan through reparse point: $($entry.FullName)"
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             } elseif (& $Predicate $entry) {
@@ -1511,6 +1602,27 @@ function Invoke-RogGateSelfTest {
         $directoryLinkKind = 'Junction'
     }
 
+    # 0x80000 is FILE_ATTRIBUTE_PINNED. Windows PowerShell 5.1's FileAttributes
+    # enum does not define it, so 524320 (0x80020) must stay an integer.
+    $attrThrew = $false
+    $highReparse = $false
+    $lowReparse = $true
+    try {
+        $enumHigh = [Enum]::ToObject([System.IO.FileAttributes], [int64]0x80420)
+        $enumLow = [Enum]::ToObject([System.IO.FileAttributes], [int64]0x80020)
+        $highRaw = Test-RogGateAttributeBit -Attributes ([int64]0x80420) -Bit $script:RogGateAttributeReparsePoint
+        $highEnum = Test-RogGateAttributeBit -Attributes $enumHigh -Bit $script:RogGateAttributeReparsePoint
+        $highItem = Test-RogGateItemReparsePoint -Item ([pscustomobject]@{ Attributes = $enumHigh })
+        $lowRaw = Test-RogGateAttributeBit -Attributes ([int64]0x80020) -Bit $script:RogGateAttributeReparsePoint
+        $lowEnum = Test-RogGateAttributeBit -Attributes $enumLow -Bit $script:RogGateAttributeReparsePoint
+        $lowItem = Test-RogGateItemReparsePoint -Item ([pscustomobject]@{ Attributes = $enumLow })
+        $highReparse = $highRaw -and $highEnum -and $highItem
+        $lowReparse = $lowRaw -or $lowEnum -or $lowItem
+    } catch {
+        $attrThrew = $true
+    }
+    Assert-RogGateSelfTest -Name 'raw attributes 0x80420 are reparse and 0x80020 are not, without throwing' -Condition ((-not $attrThrew) -and $highReparse -and (-not $lowReparse))
+
     $normalized = ConvertTo-RogGateWindowsPath -Path 'D:/build-mxr/foo/./bar'
     Assert-RogGateSelfTest -Name 'normalize slashes and dots' -Condition ($normalized -eq 'D:\build-mxr\foo\bar')
     $normalized = ConvertTo-RogGateWindowsPath -Path 'D:\build-mxr\foo\..\bar\'
@@ -1601,6 +1713,10 @@ function Invoke-RogGateSelfTest {
     $raisedDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=20', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
     $raisedDriveAccepted = ($raisedDrive.ExitCode -eq 1) -and ($raisedDrive.Text -match 'SourceDir not found') -and ($raisedDrive.Text -notmatch 'below the 10 GB floor')
     Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=20 is accepted and later checks still run' -Condition $raisedDriveAccepted
+
+    $buildProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SelfTestBuildExit', '2')
+    $buildExitOk = ($buildProbe.ExitCode -eq 2) -and ($buildProbe.Text -match 'Build failed \(exit 2\)') -and ($buildProbe.Text -match '\[ERROR\]')
+    Assert-RogGateSelfTest -Name 'stubbed build failure exits with the build code' -Condition $buildExitOk
 
     function Initialize-RogGateSelfTestRepo {
         param(
@@ -1762,7 +1878,7 @@ function Invoke-RogGateSelfTest {
         $worktreeDotGitText = ''
         if (Test-Path -LiteralPath $worktreeDotGit) {
             $dotGitItem = Get-Item -LiteralPath $worktreeDotGit -Force
-            $dotGitIsDir = ($dotGitItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $dotGitIsDir = (Test-RogGateAttributeHasDirectory -Attributes $dotGitItem.Attributes)
             $worktreeDotGitFile = (-not $dotGitIsDir) -and (-not (Test-RogGateItemReparsePoint -Item $dotGitItem))
             if ($worktreeDotGitFile) {
                 $worktreeDotGitText = [System.IO.File]::ReadAllText($dotGitItem.FullName)
@@ -1955,7 +2071,8 @@ function Invoke-RogGateSelfTest {
         $plainFile = Join-Path -Path $nested -ChildPath 'a.txt'
         [System.IO.File]::WriteAllBytes($plainFile, (New-Object byte[] 32))
         $plainItem = Get-Item -LiteralPath $plainFile -Force
-        $plainItem.Attributes = $plainItem.Attributes -bor [System.IO.FileAttributes]::ReadOnly
+        $plainBits = Get-RogGateAttributeValue -Attributes $plainItem.Attributes
+        Set-RogGateRawAttributes -LiteralPath $plainFile -Value ($plainBits -bor $script:RogGateAttributeReadOnly)
         $sibling = Join-Path -Path $fixture -ChildPath 'keep.txt'
         [System.IO.File]::WriteAllText($sibling, 'keep')
         Remove-RogGateDirectoryNoFollow -LiteralPath $plain
@@ -2123,7 +2240,7 @@ function Remove-RogGateFixture {
         }
         return
     }
-    $isDir = ($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $item.Attributes)
     if (-not $isDir) {
         Clear-RogGateReadOnlyAttribute -LiteralPath $item.FullName
         Remove-Item -LiteralPath $item.FullName -Force
@@ -2199,13 +2316,13 @@ function Invoke-RogGateMain {
     Write-Host 'Free space:'
     Write-RogGateFreeSpaceReport -Report $report
     if (-not $report.Ok) {
-        Write-RogGateError 'Free space pre-flight failed. Refusing to delete or build.'
+        $freeSpaceFailure = Resolve-RogGateFailureExit -ExitCode 1 -Message 'Free space pre-flight failed. Refusing to delete or build.'
         try {
             Write-RogGateLargestDirectories -Root $normRoot
         } catch {
             Write-RogGateError $_.Exception.Message
         }
-        exit 1
+        return $freeSpaceFailure
     }
 
     $safety = Get-RogGateDeletionSafety -BuildDir $normBuild -AllowedRoot $normRoot -ForbiddenRoot $script:RogGateForbiddenRoot
@@ -2263,15 +2380,13 @@ function Invoke-RogGateMain {
     Write-Host '[GATE] Checking cmake inside vcvarsall x86...'
     $cmakeProbe = Invoke-RogGateVcVarsCommand -CommandArguments @('cmake', '--version') -VcVarsAll $script:RogGateVcVarsAll
     if ($cmakeProbe -ne 0) {
-        Write-RogGateError "cmake --version failed inside vcvarsall x86 (exit $cmakeProbe). Refusing to delete or build."
-        exit $cmakeProbe
+        return (Resolve-RogGateFailureExit -ExitCode $cmakeProbe -Message "cmake --version failed inside vcvarsall x86 (exit $cmakeProbe). Refusing to delete or build.")
     }
     if ($Generator -eq 'NMake Makefiles') {
         Write-Host '[GATE] Checking nmake inside vcvarsall x86...'
         $nmakeProbe = Invoke-RogGateVcVarsCommand -CommandArguments @('nmake', '/?') -VcVarsAll $script:RogGateVcVarsAll -Quiet
         if ($nmakeProbe -ne 0) {
-            Write-RogGateError "nmake /? failed inside vcvarsall x86 (exit $nmakeProbe). Refusing to delete or build."
-            exit $nmakeProbe
+            return (Resolve-RogGateFailureExit -ExitCode $nmakeProbe -Message "nmake /? failed inside vcvarsall x86 (exit $nmakeProbe). Refusing to delete or build.")
         }
     }
 
@@ -2284,15 +2399,13 @@ function Invoke-RogGateMain {
     Write-Host "[GATE] Configure $($Generator) $Config"
     $configureCode = Invoke-RogGateVcVarsCommand -CommandArguments $configure -VcVarsAll $script:RogGateVcVarsAll
     if ($configureCode -ne 0) {
-        Write-RogGateError "CMake configure failed (exit $configureCode). Tests will not run."
-        exit $configureCode
+        return (Resolve-RogGateFailureExit -ExitCode $configureCode -Message "CMake configure failed (exit $configureCode). Tests will not run.")
     }
 
     Write-Host "[GATE] Build $Config"
     $buildCode = Invoke-RogGateVcVarsCommand -CommandArguments $buildCmd -VcVarsAll $script:RogGateVcVarsAll
     if ($buildCode -ne 0) {
-        Write-RogGateError "Build failed (exit $buildCode). Tests will not run."
-        exit $buildCode
+        return (Resolve-RogGateFailureExit -ExitCode $buildCode -Message "Build failed (exit $buildCode). Tests will not run.")
     }
 
     if ($SkipTests) {
@@ -2322,25 +2435,40 @@ function Invoke-RogGateMain {
     Write-Host '[GATE] CTest'
     $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll
     if ($testCode -ne 0) {
-        Write-RogGateError "CTest failed (exit $testCode)."
+        return (Resolve-RogGateFailureExit -ExitCode $testCode -Message "CTest failed (exit $testCode).")
     }
-    exit $testCode
+    return 0
 }
 
+$script:RogGateSawError = $false
+$gateCode = 0
 try {
     # Reject a threshold under 10 GB before self-test, git, delete, or build.
     Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
-    # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
-    if (-not $SelfTest) {
-        Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+    if ($PSBoundParameters.ContainsKey('SelfTestBuildExit')) {
+        # Same reporter the real build-failure path uses. Exit once, below, so
+        # Windows PowerShell 5.1 does not swallow the code inside try/catch.
+        $gateCode = Resolve-RogGateFailureExit -ExitCode $SelfTestBuildExit -Message "Build failed (exit $SelfTestBuildExit). Tests will not run."
+    } else {
+        # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
+        if (-not $SelfTest) {
+            Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+        }
+        if ($SelfTest) {
+            $gateCode = Invoke-RogGateSelfTest
+        } else {
+            $gateCode = Invoke-RogGateMain
+        }
     }
-    if ($SelfTest) {
-        $selfTestCode = Invoke-RogGateSelfTest
-        exit $selfTestCode
-    }
-    $gateCode = Invoke-RogGateMain
-    exit $gateCode
 } catch {
     Write-RogGateError $_.Exception.Message
-    exit 1
+    $gateCode = 1
 }
+if ($null -eq $gateCode) {
+    $gateCode = 0
+}
+$gateCode = [int]$gateCode
+if ($script:RogGateSawError -and $gateCode -eq 0) {
+    $gateCode = 1
+}
+exit $gateCode
