@@ -35,10 +35,10 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", error.what());
         return 3;
     }
-    const auto forbidden = mxh::test::e2e_forbidden_port_message(
+    const auto rejected = mxh::test::e2e_ports_reject_reason(
         ports.login, ports.agent, ports.map, ports.map12);
-    if (!forbidden.empty()) {
-        std::fprintf(stderr, "%s\n", forbidden.c_str());
+    if (!rejected.empty()) {
+        std::fprintf(stderr, "%s\n", rejected.c_str());
         return 3;
     }
 

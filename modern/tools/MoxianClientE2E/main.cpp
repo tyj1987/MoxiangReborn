@@ -155,7 +155,8 @@ struct CliArgs {
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
     bool login_host_explicit = false;
     // MXH_E2E_PORT_BASE, read at startup, replaces these when a port flag is
-    // omitted. 16001/17001/18001 are refused before any server starts.
+    // omitted. Resolved ports must be in 1024..65535. 16001/17001/18001 and
+    // 36001/37001/38001 are refused before any server starts.
     int login_port = mxh::test::kE2eDefaultLoginPort;
     int agent_port = mxh::test::kE2eDefaultAgentPort;
     int map_port = mxh::test::kE2eDefaultMapPort;
@@ -301,23 +302,16 @@ CliArgs parse_cli(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", error.what());
         std::exit(3);
     }
-    const int ports[] = {a.login_port, a.agent_port, a.map_port, a.map12_port};
-    for (const int port : ports) {
-        if (port < 1 || port > 65535) {
-            std::fprintf(stderr, "port must be in 1..65535\n");
-            std::exit(3);
-        }
+    const auto rejected = mxh::test::e2e_ports_reject_reason(
+        a.login_port, a.agent_port, a.map_port, a.map12_port);
+    if (!rejected.empty()) {
+        std::fprintf(stderr, "%s\n", rejected.c_str());
+        std::exit(3);
     }
     if (a.login_port == a.agent_port || a.login_port == a.map_port ||
         a.login_port == a.map12_port || a.agent_port == a.map_port ||
         a.agent_port == a.map12_port || a.map_port == a.map12_port) {
         std::fprintf(stderr, "login, agent, map and map12 ports must be distinct\n");
-        std::exit(3);
-    }
-    const auto forbidden = mxh::test::e2e_forbidden_port_message(
-        a.login_port, a.agent_port, a.map_port, a.map12_port);
-    if (!forbidden.empty()) {
-        std::fprintf(stderr, "%s\n", forbidden.c_str());
         std::exit(3);
     }
     return a;

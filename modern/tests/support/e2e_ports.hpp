@@ -6,7 +6,9 @@
 //   unset or empty -> login 26001, agent 27001, map 28001, map12 28002
 //   N              -> login N, agent N+1000, map N+2000, map12 N+2001
 // N=26001 reproduces the defaults. Flags are --login-port, --agent-port,
-// --map-port, and --map12-port. Ports 16001, 17001, and 18001 are refused.
+// --map-port, and --map12-port. Every resolved port, including N+2001, must
+// be in 1024..65535. Ports 16001, 17001, 18001, 36001, 37001, and 38001
+// are refused.
 
 #include <cerrno>
 #include <cstdlib>
@@ -20,7 +22,12 @@ inline constexpr int kE2eDefaultLoginPort = 26001;
 inline constexpr int kE2eDefaultAgentPort = 27001;
 inline constexpr int kE2eDefaultMapPort = 28001;
 inline constexpr int kE2eDefaultMap12Port = 28002;
-inline constexpr int kE2eForbiddenPorts[] = {16001, 17001, 18001};
+inline constexpr int kE2eMinPort = 1024;
+inline constexpr int kE2eMaxPort = 65535;
+inline constexpr int kE2eForbiddenPorts[] = {
+    16001, 17001, 18001,
+    36001, 37001, 38001,
+};
 
 struct E2ePorts {
     int login = kE2eDefaultLoginPort;
@@ -47,20 +54,22 @@ inline bool e2e_port_base_text_ok(const char* value) {
     return true;
 }
 
-inline E2ePorts e2e_ports_from_base(long base, const char* value_text) {
-    const long login = base;
-    const long agent = base + 1000;
-    const long map = base + 2000;
-    const long map12 = base + 2001;
-    const long derived[] = {login, agent, map, map12};
-    for (const long port : derived) {
-        if (port < 1 || port > 65535) {
-            throw std::runtime_error(
-                std::string(kE2ePortBaseEnv) + " is set to \"" + value_text +
-                "\" but derived port " + std::to_string(port) +
-                " is outside 1..65535");
-        }
+inline long e2e_derived_port(long base, long offset, const char* value_text) {
+    // Stay inside signed 32-bit before the range helper names the port.
+    // 2147483647 is INT_MAX; spelled out so a windows.h max macro cannot fire.
+    if (base < 0 || (offset > 0 && base > 2147483647L - offset)) {
+        throw std::runtime_error(
+            std::string(kE2ePortBaseEnv) + " is set to \"" + value_text +
+            "\" but a derived port is outside 1024..65535");
     }
+    return base + offset;
+}
+
+inline E2ePorts e2e_ports_from_base(long base, const char* value_text) {
+    const long login = e2e_derived_port(base, 0, value_text);
+    const long agent = e2e_derived_port(base, 1000, value_text);
+    const long map = e2e_derived_port(base, 2000, value_text);
+    const long map12 = e2e_derived_port(base, 2001, value_text);
     E2ePorts ports;
     ports.login = static_cast<int>(login);
     ports.agent = static_cast<int>(agent);
@@ -126,7 +135,38 @@ inline std::string e2e_forbidden_port_message(int login, int agent, int map, int
     }
     if (listed.empty()) return {};
     return "refusing forbidden MoxianClientE2E port(s): " + listed +
-           ". Ports 16001, 17001, and 18001 are not allowed";
+           ". Ports 16001, 17001, 18001, 36001, 37001, and 38001 are not allowed";
+}
+
+inline std::string e2e_port_range_message(int login, int agent, int map, int map12) {
+    struct NamedPort {
+        const char* name;
+        int port;
+    };
+    const NamedPort named[] = {
+        {"login", login},
+        {"agent", agent},
+        {"map", map},
+        {"map12", map12},
+    };
+    std::string listed;
+    for (const auto& item : named) {
+        if (item.port >= kE2eMinPort && item.port <= kE2eMaxPort) continue;
+        if (!listed.empty()) listed += ", ";
+        listed += item.name;
+        listed += '=';
+        listed += std::to_string(item.port);
+    }
+    if (listed.empty()) return {};
+    return "MoxianClientE2E port(s) outside 1024..65535: " + listed;
+}
+
+// Launcher and the direct harness path both use this. Forbidden ports win
+// over the range text; the two sets do not overlap.
+inline std::string e2e_ports_reject_reason(int login, int agent, int map, int map12) {
+    const auto forbidden = e2e_forbidden_port_message(login, agent, map, map12);
+    if (!forbidden.empty()) return forbidden;
+    return e2e_port_range_message(login, agent, map, map12);
 }
 
 }  // namespace mxh::test

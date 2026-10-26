@@ -25,7 +25,7 @@ TEST(E2ePorts, UnsetValueUsesDefaultPorts) {
         EXPECT_EQ(ports.agent, 27001);
         EXPECT_EQ(ports.map, 28001);
         EXPECT_EQ(ports.map12, 28002);
-        EXPECT_TRUE(mxh::test::e2e_forbidden_port_message(
+        EXPECT_TRUE(mxh::test::e2e_ports_reject_reason(
                         ports.login, ports.agent, ports.map, ports.map12)
                         .empty());
     }
@@ -60,11 +60,45 @@ TEST(E2ePorts, RejectsNonIntegerBase) {
     }
 }
 
-TEST(E2ePorts, RejectsDerivedPortOutsideRange) {
-    const auto message = message_of("64000");
-    EXPECT_NE(message.find("MXH_E2E_PORT_BASE"), std::string::npos) << message;
-    EXPECT_NE(message.find("64000"), std::string::npos) << message;
-    EXPECT_NE(message.find("66000"), std::string::npos) << message;
+TEST(E2ePorts, Rejects36001Group) {
+    const auto derived = mxh::test::e2e_ports_from_base_value("36001");
+    EXPECT_EQ(derived.login, 36001);
+    EXPECT_EQ(derived.agent, 37001);
+    EXPECT_EQ(derived.map, 38001);
+    EXPECT_EQ(derived.map12, 38002);
+    const auto derived_message = mxh::test::e2e_ports_reject_reason(
+        derived.login, derived.agent, derived.map, derived.map12);
+    EXPECT_NE(derived_message.find("login=36001"), std::string::npos) << derived_message;
+    EXPECT_NE(derived_message.find("agent=37001"), std::string::npos) << derived_message;
+    EXPECT_NE(derived_message.find("map=38001"), std::string::npos) << derived_message;
+    EXPECT_EQ(derived_message.find("map12=38002"), std::string::npos) << derived_message;
+
+    const auto overridden = mxh::test::resolve_e2e_cli_ports(
+        "26001", false, 0, true, 37001, false, 0, false, 0);
+    EXPECT_EQ(overridden.login, 26001);
+    EXPECT_EQ(overridden.agent, 37001);
+    const auto override_message = mxh::test::e2e_ports_reject_reason(
+        overridden.login, overridden.agent, overridden.map, overridden.map12);
+    EXPECT_NE(override_message.find("agent=37001"), std::string::npos) << override_message;
+    EXPECT_EQ(override_message.find("login=36001"), std::string::npos) << override_message;
+}
+
+TEST(E2ePorts, RejectsPortsOutside1024To65535) {
+    const auto low = mxh::test::e2e_ports_from_base_value("1000");
+    EXPECT_EQ(low.login, 1000);
+    const auto low_message = mxh::test::e2e_ports_reject_reason(
+        low.login, low.agent, low.map, low.map12);
+    EXPECT_NE(low_message.find("login=1000"), std::string::npos) << low_message;
+    EXPECT_NE(low_message.find("1024"), std::string::npos) << low_message;
+    EXPECT_EQ(low_message.find("agent=2000"), std::string::npos) << low_message;
+
+    const auto high = mxh::test::e2e_ports_from_base_value("64000");
+    EXPECT_EQ(high.map, 66000);
+    EXPECT_EQ(high.map12, 66001);
+    const auto high_message = mxh::test::e2e_ports_reject_reason(
+        high.login, high.agent, high.map, high.map12);
+    EXPECT_NE(high_message.find("map12=66001"), std::string::npos) << high_message;
+    EXPECT_NE(high_message.find("65535"), std::string::npos) << high_message;
 }
 
 TEST(E2ePorts, ExplicitPortsOverrideTheBase) {

@@ -12,8 +12,10 @@
 # with --login-port, --agent-port, --map-port, and --map12-port.
 # Unset or empty -> 26001 / 27001 / 28001 / 28002.
 # Set to N -> N / N+1000 / N+2000 / N+2001 (N=26001 matches the defaults).
-# The harness applies the same rule when those flags are omitted, and
-# refuses 16001, 17001, and 18001 before starting any server.
+# The harness applies the same rule when those flags are omitted.
+# Resolved ports must be in 1024..65535, including N+2001.
+# 16001, 17001, 18001, 36001, 37001, and 38001 are refused before
+# any server starts.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client_e2e main.cpp)
 target_include_directories(mxh_client_e2e PRIVATE
