@@ -48,7 +48,7 @@ add_library(mxh_ui STATIC
     cGuagen.cpp
     cGuageBar.cpp
     cListDialogEx.cpp
-    cMacroDialog.cpp
+    cmacrodialog.cpp
     cmakdial.cpp
     guildjoindialog.cpp
     charstatedialog.cpp
