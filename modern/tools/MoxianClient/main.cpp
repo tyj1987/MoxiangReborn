@@ -58,6 +58,7 @@
 #include "mxh/audio/bgm_player.hpp"
 #include "mxh/audio/sfx_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
+#include "mxh/compat/gx_map_script.hpp"
 #include "mxh/compat/ttb_tile_table.hpp"
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
@@ -581,6 +582,84 @@ static std::size_t npc_marker_slot(std::uint16_t kind) noexcept {
     }
 }
 
+namespace {
+
+std::string map_script_lookup_name(const mxh::compat::BmhmMap* descriptor,
+                                   std::uint16_t map_num) {
+    std::string name;
+    if (descriptor && descriptor->desc().map_file_name[0] != '\0') {
+        name = descriptor->desc().map_file_name;
+        const auto slash = name.find_last_of("/\\");
+        if (slash != std::string::npos) name.erase(0, slash + 1);
+    }
+    const auto ends_with_map = [](const std::string& value) {
+        if (value.size() < 4) return false;
+        const unsigned char dot = static_cast<unsigned char>(value[value.size() - 4]);
+        const unsigned char a = static_cast<unsigned char>(value[value.size() - 3]);
+        const unsigned char b = static_cast<unsigned char>(value[value.size() - 2]);
+        const unsigned char c = static_cast<unsigned char>(value[value.size() - 1]);
+        const auto lower = [](unsigned char ch) {
+            return (ch >= 'A' && ch <= 'Z') ? static_cast<unsigned char>(ch - 'A' + 'a') : ch;
+        };
+        return dot == '.' && lower(a) == 'm' && lower(b) == 'a' && lower(c) == 'p';
+    };
+    if (!ends_with_map(name)) name = std::to_string(map_num) + ".map";
+    return name;
+}
+
+enum class StorageRead { NotFound, Empty, Ok };
+
+// NotFound is a missing entry. Empty is a found 0-byte .map and must not
+// be reported as NotFound. A short read of a non-empty entry stays NotFound.
+StorageRead read_storage_bytes(I4DyuchiFileStorage* storage, const std::string& name,
+                               std::vector<std::uint8_t>& bytes) {
+    bytes.clear();
+    if (!storage || name.empty()) return StorageRead::NotFound;
+    std::vector<char> mutable_name(name.begin(), name.end());
+    mutable_name.push_back('\0');
+    void* file = storage->FSOpenFile(mutable_name.data(), FSFILE_ACCESSMODE_BINARY);
+    if (!file) return StorageRead::NotFound;
+    const auto size = storage->FSSeek(file, 0, FSFILE_SEEK_END);
+    storage->FSSeek(file, 0, FSFILE_SEEK_SET);
+    if (size == 0) {
+        storage->FSCloseFile(file);
+        return StorageRead::Empty;
+    }
+    bytes.resize(size);
+    const auto read = storage->FSRead(file, bytes.data(), size);
+    storage->FSCloseFile(file);
+    const auto presence = mxh::compat::classify_map_script_read(true, size, read, name);
+    if (presence != mxh::compat::GxMapScriptPresence::Present) {
+        // Short read logs WARN inside classify and comes back Absent,
+        // which is the same continue path as a missing file.
+        bytes.clear();
+        return presence == mxh::compat::GxMapScriptPresence::Empty
+                   ? StorageRead::Empty
+                   : StorageRead::NotFound;
+    }
+    return StorageRead::Ok;
+}
+
+// Header gate only. Absent keeps the <n>.hfl / <n>.stm load. Obfuscated
+// and non-GX_ (including a found 0-byte file) fail the load. A GX_ script
+// whose grammar does not parse logs a warning inside the gate and returns
+// an empty string so this stage continues.
+std::string rejected_map_script(I4DyuchiFileStorage* storage,
+                                const mxh::compat::BmhmMap* descriptor,
+                                std::uint16_t map_num) {
+    const auto name = map_script_lookup_name(descriptor, map_num);
+    std::vector<std::uint8_t> bytes;
+    const auto read = read_storage_bytes(storage, name, bytes);
+    const auto presence = read == StorageRead::Empty ? mxh::compat::GxMapScriptPresence::Empty
+                        : read == StorageRead::Ok ? mxh::compat::GxMapScriptPresence::Present
+                                                  : mxh::compat::GxMapScriptPresence::Absent;
+    const auto gate = mxh::compat::gate_map_script_load(presence, bytes, name);
+    if (!gate.fail_load) return {};
+    return gate.message.empty() ? ("Map script rejected: " + name) : gate.message;
+}
+
+}  // namespace
+
 // Main-thread staged world activation.  CPU descriptors and GPU resources
 // are intentionally committed one dependency stage per frame so the real
 // loading dialog keeps receiving/process­ing window messages.  The old
@@ -648,6 +727,11 @@ public:
             return Result::Pending;
         }
         if (stage_ == 2) {
+            if (const auto rejected = rejected_map_script(
+                    storage_, descriptor_ ? &*descriptor_ : nullptr, map_num_);
+                !rejected.empty()) {
+                return fail(rejected, error);
+            }
             terrain_ = std::make_unique<mxh::gx::TerrainScene>();
             const auto name = std::to_string(map_num_) + ".hfl";
             if (!terrain_->load(renderer_, storage_, name.c_str(), &stage_error_))
