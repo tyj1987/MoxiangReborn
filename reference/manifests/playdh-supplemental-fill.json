@@ -1,9 +1,10 @@
 {
   "schema": "mxh.playdh-supplemental-fill/1",
-  "note": "Names only, no content. sha256 is null until the entries are extracted read-only from the original client Map.pak on ROG; pak_writer.py refuses to pack an entry whose sha256 is null.",
-  "pak": "modern/data/PlayDH/zz_supplement.pak",
+  "note": "Names only, no content. The pak is never committed: it is built locally on ROG from the original client Map.pak by pak_writer.py and deploy verifies it against pakSha256. Entry sha256 and pakSha256 are null until that extraction; pak_writer.py refuses to pack an entry whose sha256 is null.",
+  "pak": "<PlayDH root>/zz_supplement.pak (generated locally on ROG, never committed)",
+  "pakSha256": null,
   "format": "96-byte original header (docs/formats/pak.md variant B)",
-  "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out modern/data/PlayDH/zz_supplement.pak --conflict-root modern/data/PlayDH",
+  "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out <PlayDH root>/zz_supplement.pak --conflict-root <PlayDH root>",
   "entries": [
     {
       "name": "12_plant_1.MOD",

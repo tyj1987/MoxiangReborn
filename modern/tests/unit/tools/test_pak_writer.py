@@ -88,6 +88,12 @@ class PakWriterTest(unittest.TestCase):
         db = pak_writer.write_pak(reordered, self.src, b)
         self.assertEqual(da, db)
         self.assertEqual(a.read_bytes(), b.read_bytes())
+        pinned = dict(self.manifest, pakSha256=da)
+        self.assertEqual(pak_writer.write_pak(pinned, self.src, self.tmp / "c.pak"), da)
+        pinned["pakSha256"] = "f" * 64
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "pakSha256"):
+            pak_writer.write_pak(pinned, self.src, self.tmp / "d.pak")
+        self.assertFalse((self.tmp / "d.pak").exists())
 
     def test_conflict_with_92_pak_is_case_insensitive_basename(self):
         root = self.tmp / "root"
@@ -150,6 +156,7 @@ class PakWriterTest(unittest.TestCase):
         doc = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(len(doc["entries"]), 73)
         self.assertEqual(set(doc["entries"][0]), {"name", "sourcePak", "sha256", "ticket"})
+        self.assertIn("pakSha256", doc)
         keys = {pak_writer._basename_key(e["name"]) for e in doc["entries"]}
         self.assertEqual(len(keys), 73)
 

@@ -29,6 +29,7 @@ Fails (exit 1, nothing left at --out) when:
     unpack_pak.read_entries).  The runtime falls back to basename
     lookup, first hit in mount order, so a shared basename would be
     shadowed or shadow another pak.  --out itself is skipped;
+  * manifest "pakSha256" is set and the built pak hashes differently;
   * read-back with unpack_pak is not the 96-byte layout only, or any
     entry differs from its input byte for byte.
 
@@ -159,6 +160,9 @@ def write_pak(manifest: dict, input_dir: Path, out: Path,
         if clashes:
             raise PakWriteError("basename already in a mounted pak: " + "; ".join(clashes))
     blob = build_pak_bytes(entries)
+    want_pak = manifest.get("pakSha256")
+    if want_pak and hashlib.sha256(blob).hexdigest() != str(want_pak).lower():
+        raise PakWriteError(f"built pak sha256 {hashlib.sha256(blob).hexdigest()} != manifest pakSha256 {want_pak}")
     out.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=".pak_writer.", dir=str(out.parent))
     try:

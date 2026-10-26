@@ -17,13 +17,14 @@ PlayDH 资源树（`modern/data/PlayDH/`，约 5135 个文件）**已提交到�
 - Map / Character / Effect / monster 四个超过 100 MB 的 `.pak` 走 Git LFS，
   其余文件为普通 Git blob（见 `.gitattributes`）；文件清单与哈希见
   `reference/manifests/playdh-current.sha256.json`
-- PlayDH 缺失、但原版客户端 Map.pak 中存在的条目，按已批准的方案打成
-  一个补充包 `modern/data/PlayDH/zz_supplement.pak`（原版 96 字节包头格式，
-  条目字节原样拷贝，不含解码表或密钥）。条目名单见
-  `reference/manifests/playdh-supplemental-fill.json`，由
-  `modern/tools/pak_writer.py` 可复现地生成。小于 50 MB 时作为普通 blob
-  提交，否则按 `.gitattributes` 走 LFS
-- 仓库不包含原版客户端（`D:\MX`）的其他资源、密钥或解码后的地图文本
+- 已提交的 PlayDH 内容保持现状，但**不构成先例**：今后不再向仓库提交
+  任何原版游戏字节（包括密钥和解码后的地图文本）
+- PlayDH 缺失、但原版客户端 Map.pak 中存在的条目，由
+  `modern/tools/pak_writer.py` 在本地从原版安装目录生成补充包
+  `zz_supplement.pak`（原版 96 字节包头格式，条目字节原样拷贝，不含解码表
+  或密钥）。该包**不提交到仓库**；仓库只保存条目名单、来源包、工单号以及
+  每条和整包的 sha256（`reference/manifests/playdh-supplemental-fill.json`），
+  部署时按 sha256 校验
 
 ## 代码协议
 
