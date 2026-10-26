@@ -15,9 +15,11 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findPlayDh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     auto base = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !base.empty();
          ++depth, base = base.parent_path()) {

@@ -18,6 +18,7 @@
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/interface_script.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -112,6 +113,7 @@ bool testDrawFn(void* ctx, void* /*sprite*/,
 }
 
 fs::path locate_playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto current = fs::absolute(fs::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {

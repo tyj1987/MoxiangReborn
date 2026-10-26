@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include "../support/playdh_env.hpp"
 
 TEST(SoundList, ParsesLegacyFieldsAndNullSentinel) {
     const std::string payload =
@@ -33,8 +34,11 @@ TEST(SoundList, RejectsNonSequentialIndex) {
 
 TEST(SoundList, LoadsRealPlayDhSoundListWhenAvailable) {
     std::filesystem::path path;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        path = *playdh_override / "Sound" / "SoundList.bin";
+    }
     auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8 && path.empty(); ++level) {
+    for (int level = 0; path.empty() && level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
             if (!first.is_directory()) continue;
             const auto direct = first.path() / "PlayDH" / "Sound" / "SoundList.bin";

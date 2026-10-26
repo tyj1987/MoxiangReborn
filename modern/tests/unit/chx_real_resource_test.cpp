@@ -25,6 +25,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
@@ -35,6 +36,8 @@ namespace {
 // if not found). Pattern mirrors findMapPack in hfl_height_field_test.cpp so
 // the same scratch symlink layout resolves everywhere.
 std::filesystem::path find_character_pak() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Character.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -49,6 +52,8 @@ std::filesystem::path find_character_pak() {
 }
 
 std::filesystem::path find_monster_list_bin() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "MonsterList.bin";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <windows.h>  // for GetModuleFileNameW to find resources relative to exe
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
@@ -16,6 +17,7 @@ namespace {
 // Returns the canonical modern/data/PlayDH directory,
 // locating the workspace by walking up from the test executable's path.
 std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     wchar_t buf[MAX_PATH];
     HMODULE h = GetModuleHandleW(nullptr);
     DWORD n = GetModuleFileNameW(h, buf, MAX_PATH);

@@ -6,6 +6,7 @@
 #include <limits>
 
 #include <gtest/gtest.h>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 
@@ -21,6 +22,8 @@ std::string table_text() {
 }
 
 std::filesystem::path playdh_exp_path() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "CharacterExpPoint.bin";
     auto root = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
         if (!std::filesystem::exists(root / "modern") || !std::filesystem::exists(root / "deploy")) continue;

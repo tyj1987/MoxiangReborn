@@ -3,10 +3,12 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include "../support/playdh_env.hpp"
 
 namespace {
 
 std::filesystem::path playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     auto cursor = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
         const auto candidate = cursor / "modern" / "data" / "PlayDH";

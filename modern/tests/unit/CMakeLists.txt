@@ -19,6 +19,16 @@
 target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_audio mxh_game gtest_main)
 
 include(GoogleTest)
+
+# MXH_PLAYDH_DIR contract. Header-only; no game data and no Win32.
+add_executable(mxh_playdh_env_tests
+    playdh_env_test.cpp
+)
+target_link_libraries(mxh_playdh_env_tests PRIVATE gtest_main)
+target_compile_features(mxh_playdh_env_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_playdh_env_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.

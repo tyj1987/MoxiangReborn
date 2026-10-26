@@ -19,6 +19,7 @@
 #include "mxh/ui/interface_script.hpp"
 
 #include "../../../third_party/nlohmann/json.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -27,6 +28,7 @@ namespace {
 // Locate PlayDH. In normal local runs this is a junction at
 // modern/data/PlayDH. For the harness we accept several fallbacks.
 fs::path locate_playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     std::error_code ec;
     auto current = fs::absolute(fs::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {

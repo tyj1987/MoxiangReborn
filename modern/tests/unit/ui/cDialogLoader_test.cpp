@@ -65,12 +65,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
 
 fs::path resolvePlayDHRoot() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
         return fs::path(env);
     }

@@ -6,9 +6,11 @@
 #include <cstring>
 #include <limits>
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path canonical_playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     auto base = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !base.empty(); ++depth) {
         for (const auto& root : {

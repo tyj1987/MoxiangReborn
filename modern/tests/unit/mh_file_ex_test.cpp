@@ -10,11 +10,13 @@
 #include <filesystem>
 #include <iterator>
 #include <vector>
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 std::filesystem::path find_current_playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     auto cursor = std::filesystem::current_path();
     for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
         const auto candidate = cursor / "modern" / "data" / "PlayDH";

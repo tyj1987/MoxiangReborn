@@ -1,6 +1,7 @@
 #include "mxh/compat/quest_string_catalog.hpp"
 
 #include <gtest/gtest.h>
+#include "../../support/playdh_env.hpp"
 
 TEST(QuestStringCatalog, ParsesMainAndSubquestText) {
     const auto result = mxh::compat::parse_quest_string_text(
@@ -21,8 +22,11 @@ TEST(QuestStringCatalog, ConvertsKnownBig5TitleToUnicode) {
 
 TEST(QuestStringCatalog, LoadsRealQuestStringResource) {
     std::filesystem::path path;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        path = *playdh_override / "Resource" / "QuestScript" / "QuestString.bin";
+    }
     auto root = std::filesystem::current_path();
-    for (int depth = 0; depth < 8 && !root.empty() && path.empty(); ++depth) {
+    for (int depth = 0; path.empty() && depth < 8 && !root.empty(); ++depth) {
         const auto candidate = root / "modern" / "data" / "PlayDH" /
                                "Resource" / "QuestScript" / "QuestString.bin";
         if (std::filesystem::is_regular_file(candidate)) path = candidate;

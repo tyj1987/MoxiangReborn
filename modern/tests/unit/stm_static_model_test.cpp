@@ -7,9 +7,12 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include "../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findMapPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Map.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -24,6 +27,8 @@ std::filesystem::path findMapPack() {
 }
 
 std::filesystem::path findMonsterPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "monster.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -38,6 +43,8 @@ std::filesystem::path findMonsterPack() {
 }
 
 std::filesystem::path findCharacterPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Character.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {

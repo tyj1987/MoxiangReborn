@@ -22,6 +22,7 @@
 #pragma comment(lib, "bcrypt.lib")
 
 #include "mxh/compat/mh_file_ex.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -190,6 +191,8 @@ fs::path find_repo_root() {
 }
 
 fs::path find_playdh_resource_dir() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource";
     static const char kPlayDhResourceU8[] =
         "\xE5\xA2\xA8\xE9\xA6\x99\xE3\x80\x90\xE6\xBA\x90\xE7\xA0\x81\xE9\x85\x8D\xE5\xA5\x97\xE8\xB5\x84\xE6\xBA\x90\xE3\x80\x91/PlayDH/Resource";
     fs::path current;
