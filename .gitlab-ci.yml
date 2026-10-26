@@ -21,6 +21,7 @@ workflow:
         - modern/tests/unit/tools/**/*
         - scripts/check-project-governance.py
         - .gitlab-ci.yml
+        - reference/manifests/**/*
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
       when: never
     - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
@@ -56,6 +57,7 @@ original_governance_and_python_tests:
     - python3 scripts/check-project-governance.py
     - python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
 
 original_lfs_integrity:
   extends: .linux_trusted
@@ -68,6 +70,25 @@ original_lfs_integrity:
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
   script:
     - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+
+# Warn-only extension of the MxhResourceReference gate. Exit 0 until
+# MXH_RESOURCE_REF_STRICT=1. Does not fetch LFS and does not read original
+# .map/.stm bytes; those are derived on ROG into the checked-in manifest.
+original_resource_reference_warn:
+  extends: .linux_trusted
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009"'
+  script:
+    - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+    - python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
+  artifacts:
+    when: always
+    paths:
+      - ci-resource-reference-report.json
+    reports:
+      codequality: ci-resource-reference-codequality.json
 
 unity_governance_and_python_tests:
   extends: .linux_trusted
