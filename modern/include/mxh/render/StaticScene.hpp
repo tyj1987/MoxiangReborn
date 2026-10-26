@@ -20,6 +20,13 @@ public:
                             I4DyuchiFileStorage* storage,
                             const char* stm_name,
                             std::string* error = nullptr);
+    // Preferred: bake STM vertices/collision with the terrain's centre
+    // (TerrainScene::mapCenter()). Map 10 / 21 = 25.0, Map 12 = 25.6.
+    [[nodiscard]] bool load(I4DyuchiGXRenderer* renderer,
+                            I4DyuchiFileStorage* storage,
+                            const char* stm_name,
+                            float map_center_x, float map_center_z,
+                            std::string* error = nullptr);
     void render();
     [[nodiscard]] std::uint32_t meshCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
@@ -36,6 +43,9 @@ public:
     // only correct for maps whose half-width * kSceneScale == 25.6 (Map 12
     // d.width = 51 200); Map 10 (d.width = 50 000) and Map 21 (d.width =
     // 50 000) drifted by 0.6 units until this setter existed.
+    // NOTE: vertices are baked at load(); calling this after a successful
+    // load with a different centre is ignored (and logged). Use the
+    // load(..., map_center_x, map_center_z) overload instead.
     void setMapCenter(float world_x, float world_z) noexcept;
 
 private:
