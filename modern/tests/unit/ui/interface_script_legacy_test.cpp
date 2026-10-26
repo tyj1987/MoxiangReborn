@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -42,18 +43,18 @@ fs::path locate_playdh() {
     return {};
 }
 
+// Repo goldens under the modern/ tree. MXH_SOURCE_DIR is that source root,
+// injected by CMake. Do not walk the working directory, and do not read
+// MXH_PLAYDH_ROOT: that variable is the PlayDH asset root, not these files.
 fs::path locate_golden_dir() {
+    const fs::path golden =
+        fs::path(MXH_SOURCE_DIR) / "tests" / "fixtures" / "interface_script";
     std::error_code ec;
-    auto current = fs::absolute(fs::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "tests" / "fixtures" / "interface_script";
-        std::error_code candidate_ec;
-        if (fs::is_directory(candidate, candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
+    if (!fs::is_directory(golden, ec)) {
+        throw std::runtime_error(
+            "Cannot locate fixture directory \"" + golden.string() + "\"");
     }
-    return {};
+    return golden;
 }
 
 void render_rect(std::ostringstream& os, const char* key,
@@ -243,7 +244,8 @@ TEST_P(InterfaceScriptLegacy, MatchesGolden) {
     fs::path playdh = locate_playdh();
     fs::path golden_dir = locate_golden_dir();
     ASSERT_FALSE(playdh.empty()) << "Cannot locate PlayDH/Image/InterfaceScript";
-    ASSERT_FALSE(golden_dir.empty()) << "Cannot locate fixture directory";
+    ASSERT_TRUE(fs::is_directory(golden_dir))
+        << "Cannot locate fixture directory \"" << golden_dir.string() << "\"";
 
     const std::string fname = GetParam();
     fs::path bin = playdh / "Image" / "InterfaceScript" / fname;

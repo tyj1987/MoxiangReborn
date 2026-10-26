@@ -101,6 +101,8 @@ gtest_add_tests(TARGET mxh_resource_parse_all_bin_tests
 add_executable(mxh_resource_payload_sha256_tests resource_payload_sha256_test.cpp)
 target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE mxh_compat gtest_main bcrypt)
 target_include_directories(mxh_resource_payload_sha256_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_resource_payload_sha256_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
 

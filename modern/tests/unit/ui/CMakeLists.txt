@@ -212,6 +212,10 @@ target_compile_definitions(mxh_dialog_atlas_tests PRIVATE
 add_test(NAME mxh_dialog_atlas_contract COMMAND mxh_dialog_atlas_tests)
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
+# Interface-script goldens live in the repo, not under PlayDH. The test
+# locates them from this source root and does not walk the working directory.
+target_compile_definitions(mxh_ui_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
 # cResourceManager_test uses its own small hand-written runner.  Keeping it in
 # mxh_ui_tests replaced GoogleTest's main(), so every registered UI gtest was

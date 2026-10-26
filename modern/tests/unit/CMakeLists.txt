@@ -199,6 +199,8 @@ target_link_libraries(mxh_tools_side_by_side_tests PRIVATE gtest_main)
 target_include_directories(mxh_tools_side_by_side_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide
 )
+target_compile_definitions(mxh_tools_side_by_side_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_tools_side_by_side_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
