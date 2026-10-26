@@ -9,6 +9,10 @@
     reconfigured when rog-gate.sha is missing or differs, or when CMakeCache.txt
     was generated with a different CMake generator.
 
+    Before any git operation, build, or delete, a sparse checkout that also
+    contains a junction or symlink is refused. Sparse alone, or a reparse point
+    alone, is allowed. There is no override.
+
     The host toolchain is vcvarsall.bat x86 (Hostx86/x86). The default generator
     is "NMake Makefiles", matching existing D:\build-mxr gate directories.
     "Ninja" is optional. This script does not change build-modern.bat / .ps1.
@@ -52,8 +56,8 @@
     Each override must be at least 10 GB. Overrides can only raise the floor.
 
 .PARAMETER SelfTest
-    Check path safety, generator decisions, drive selection, and free-space
-    thresholds without a compiler.
+    Check path safety, generator decisions, drive selection, free-space
+    thresholds, and the sparse-checkout reparse preflight without a compiler.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -81,6 +85,7 @@ $script:RogGateVcVarsAll = 'C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat'
 $script:RogGateNinja = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
 $script:RogGateForbiddenRoot = 'D:\MX'
 $script:RogGateStampName = 'rog-gate.sha'
+$script:RogGateSparsePreflightChecked = ''
 
 function ConvertTo-RogGateWindowsPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -498,6 +503,240 @@ function Assert-RogGateFreeSpaceFloor {
             throw "-DriveMinFreeGB ${key}=$value is below the 10 GB floor. Overrides can only raise the threshold."
         }
     }
+}
+
+function Get-RogGateGitDirectory {
+    param([Parameter(Mandatory = $true)][string]$Worktree)
+
+    # A linked worktree stores "gitdir: <path>" in a .git file. Do not follow a
+    # reparse point that happens to be named .git.
+    $dotGit = Join-Path -Path $Worktree -ChildPath '.git'
+    if (-not (Test-Path -LiteralPath $dotGit)) {
+        return $null
+    }
+    $item = Get-Item -LiteralPath $dotGit -Force -ErrorAction Stop
+    if (Test-RogGateItemReparsePoint -Item $item) {
+        return $null
+    }
+    $isDir = ($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    if ($isDir) {
+        return $item.FullName
+    }
+
+    $raw = [System.IO.File]::ReadAllText($item.FullName)
+    $gitdirMatch = [regex]::Match($raw, '(?m)^\s*gitdir:\s*(.+?)\s*$')
+    if (-not $gitdirMatch.Success) {
+        return $null
+    }
+    $gitdir = $gitdirMatch.Groups[1].Value.Trim().Replace('/', [System.IO.Path]::DirectorySeparatorChar)
+    if (-not [System.IO.Path]::IsPathRooted($gitdir)) {
+        $gitdir = Join-Path -Path $Worktree -ChildPath $gitdir
+    }
+    return [System.IO.Path]::GetFullPath($gitdir)
+}
+
+function Get-RogGateSparsePatternLines {
+    param([string]$LiteralPath)
+
+    $patterns = New-Object 'System.Collections.Generic.List[string]'
+    if ([string]::IsNullOrWhiteSpace($LiteralPath)) {
+        Send-RogGateCollection -Items $patterns.ToArray()
+        return
+    }
+    if (-not (Test-Path -LiteralPath $LiteralPath -PathType Leaf)) {
+        Send-RogGateCollection -Items $patterns.ToArray()
+        return
+    }
+    if (Test-RogGateLiteralReparsePoint -LiteralPath $LiteralPath) {
+        Send-RogGateCollection -Items $patterns.ToArray()
+        return
+    }
+    foreach ($line in @(Get-Content -LiteralPath $LiteralPath -ErrorAction Stop)) {
+        $text = ([string]$line).Trim()
+        if ($text.Length -eq 0 -or $text.StartsWith('#')) {
+            continue
+        }
+        $patterns.Add($text)
+    }
+    Send-RogGateCollection -Items $patterns.ToArray()
+}
+
+function Invoke-RogGateGitRead {
+    param(
+        [Parameter(Mandatory = $true)][string]$Worktree,
+        [Parameter(Mandatory = $true)][string[]]$GitArguments
+    )
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & git -C $Worktree @GitArguments 2>&1
+        $code = $LASTEXITCODE
+        if ($null -eq $code) {
+            $code = 1
+        }
+        $lines = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($item in @($output)) {
+            if ($null -eq $item) {
+                continue
+            }
+            if ($item -is [System.Management.Automation.ErrorRecord]) {
+                continue
+            }
+            $text = $item.ToString().Trim()
+            if ($text.Length -eq 0) {
+                continue
+            }
+            if ($text -match '^(?i)(fatal|error|warning):') {
+                continue
+            }
+            $lines.Add($text)
+        }
+        return [pscustomobject]@{
+            ExitCode = [int]$code
+            Text     = ($lines -join "`n")
+        }
+    } catch {
+        return [pscustomobject]@{
+            ExitCode = 1
+            Text     = ''
+        }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
+function Get-RogGateSparseCheckoutState {
+    param([Parameter(Mandatory = $true)][string]$Worktree)
+
+    # Sparse is enabled when any one of these is true: core.sparseCheckout is
+    # true, `git sparse-checkout list` reports patterns, or the worktree's
+    # info/sparse-checkout file exists and still has patterns. An explicit
+    # core.sparseCheckout=false leaves a leftover file inactive.
+    $evidence = New-Object 'System.Collections.Generic.List[string]'
+    $config = Invoke-RogGateGitRead -Worktree $Worktree -GitArguments @('config', '--get', 'core.sparseCheckout')
+    $configValue = ''
+    if ($config.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($config.Text)) {
+        $configLines = @($config.Text -split "`n")
+        $configValue = [string]$configLines[$configLines.Count - 1]
+    }
+    $configTrue = $configValue -match '^(?i)true$'
+    $configFalse = $configValue -match '^(?i)false$'
+    if ($configTrue) {
+        $evidence.Add('core.sparseCheckout=true')
+    }
+
+    $listed = Invoke-RogGateGitRead -Worktree $Worktree -GitArguments @('sparse-checkout', 'list')
+    $listedLines = @()
+    if ($listed.ExitCode -eq 0 -and -not [string]::IsNullOrWhiteSpace($listed.Text)) {
+        $listedLines = @($listed.Text -split "`n")
+    }
+    if ($listedLines.Count -gt 0) {
+        $shown = @($listedLines | Select-Object -First 8)
+        $evidence.Add('git sparse-checkout list reports: ' + ($shown -join ', '))
+    }
+
+    $sparseFile = ''
+    $gitDir = $null
+    try {
+        $gitDir = Get-RogGateGitDirectory -Worktree $Worktree
+    } catch {
+        $gitDir = $null
+    }
+    if (-not [string]::IsNullOrWhiteSpace($gitDir)) {
+        $sparseFile = Join-Path -Path (Join-Path -Path $gitDir -ChildPath 'info') -ChildPath 'sparse-checkout'
+        $filePatterns = @(Get-RogGateSparsePatternLines -LiteralPath $sparseFile)
+        if ($filePatterns.Count -gt 0 -and -not $configFalse) {
+            $evidence.Add("active sparse-checkout file: $sparseFile")
+        }
+    }
+
+    return [pscustomobject]@{
+        Active      = ($evidence.Count -gt 0)
+        SparseState = ($evidence -join '; ')
+        GitDir      = $gitDir
+        SparseFile  = $sparseFile
+    }
+}
+
+function Get-RogGateWorkingTreeReparsePoints {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    # Record every ReparsePoint and do not descend into it. Skip the root .git
+    # metadata directory; a .git junction or symlink is still reported.
+    $found = New-Object 'System.Collections.Generic.List[string]'
+    if (-not (Test-Path -LiteralPath $LiteralPath)) {
+        Send-RogGateCollection -Items $found.ToArray()
+        return
+    }
+    $rootItem = Get-Item -LiteralPath $LiteralPath -Force -ErrorAction Stop
+    if (Test-RogGateItemReparsePoint -Item $rootItem) {
+        $found.Add($rootItem.FullName)
+        Send-RogGateCollection -Items $found.ToArray()
+        return
+    }
+    $rootIsDir = ($rootItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    if (-not $rootIsDir) {
+        Send-RogGateCollection -Items $found.ToArray()
+        return
+    }
+
+    $rootFull = $rootItem.FullName.TrimEnd('\', '/')
+    $stack = New-Object 'System.Collections.Generic.Stack[string]'
+    $stack.Push($rootItem.FullName)
+    while ($stack.Count -gt 0) {
+        $dirPath = [string]$stack.Pop()
+        $dirInfo = New-Object System.IO.DirectoryInfo $dirPath
+        try {
+            $entries = @($dirInfo.EnumerateFileSystemInfos())
+        } catch {
+            throw "Cannot scan SourceDir for reparse points without following them: $dirPath. $($_.Exception.Message)"
+        }
+        foreach ($entry in $entries) {
+            if (Test-RogGateItemReparsePoint -Item $entry) {
+                $found.Add($entry.FullName)
+                continue
+            }
+            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            if (-not $entryIsDir) {
+                continue
+            }
+            $parentTrim = $dirPath.TrimEnd('\', '/')
+            if (($entry.Name -eq '.git') -and ($parentTrim -eq $rootFull)) {
+                continue
+            }
+            $stack.Push($entry.FullName)
+        }
+    }
+    Send-RogGateCollection -Items $found.ToArray()
+}
+
+function Assert-RogGateSparseReparsePreflight {
+    param([string]$SourceDir)
+
+    if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+        return
+    }
+    $full = $null
+    try {
+        $full = [System.IO.Path]::GetFullPath($SourceDir)
+    } catch {
+        return
+    }
+    if ($script:RogGateSparsePreflightChecked -eq $full) {
+        return
+    }
+    if (-not (Test-Path -LiteralPath $SourceDir -PathType Container)) {
+        return
+    }
+
+    $state = Get-RogGateSparseCheckoutState -Worktree $SourceDir
+    $reparses = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $SourceDir)
+    if ($state.Active -and $reparses.Count -gt 0) {
+        $paths = $reparses -join '; '
+        throw "SourceDir sparse checkout is enabled ($($state.SparseState)) and the working tree contains reparse points: $paths. Refusing to run git, build, or delete."
+    }
+    $script:RogGateSparsePreflightChecked = $full
 }
 
 function Get-RogGateDriveThresholdGB {
@@ -1213,6 +1452,220 @@ function Invoke-RogGateSelfTest {
     $raisedDriveAccepted = ($raisedDrive.ExitCode -eq 1) -and ($raisedDrive.Text -match 'SourceDir not found') -and ($raisedDrive.Text -notmatch 'below the 10 GB floor')
     Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=20 is accepted and later checks still run' -Condition $raisedDriveAccepted
 
+    function Initialize-RogGateSelfTestRepo {
+        param(
+            [Parameter(Mandatory = $true)][string]$Path,
+            [bool]$Sparse
+        )
+        New-Item -ItemType Directory -Path $Path -Force | Out-Null
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $null = & git -C $Path init -q 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                return $false
+            }
+            if (-not $Sparse) {
+                return $true
+            }
+            $null = & git -C $Path sparse-checkout set --no-cone '*' 2>&1
+            return ($LASTEXITCODE -eq 0)
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+    }
+    function Invoke-RogGateSelfTestGit {
+        param(
+            [Parameter(Mandatory = $true)][string]$Worktree,
+            [Parameter(Mandatory = $true)][string[]]$GitArguments
+        )
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $null = & git -C $Worktree @GitArguments 2>&1
+            $code = $LASTEXITCODE
+            if ($null -eq $code) {
+                $code = 1
+            }
+            return ([int]$code -eq 0)
+        } finally {
+            $ErrorActionPreference = $previous
+        }
+    }
+    function New-RogGateSelfTestReparseLink {
+        param(
+            [Parameter(Mandatory = $true)][string]$LinkPath,
+            [Parameter(Mandatory = $true)][string]$TargetPath
+        )
+        New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
+        $innerTarget = Join-Path -Path $TargetPath -ChildPath 'inner-target'
+        $innerLink = Join-Path -Path $TargetPath -ChildPath 'inner-link'
+        New-Item -ItemType Directory -Path $innerTarget -Force | Out-Null
+        try {
+            New-Item -ItemType SymbolicLink -Path $innerLink -Target $innerTarget -ErrorAction Stop | Out-Null
+        } catch {
+            if ($env:OS -eq 'Windows_NT') {
+                $null = & cmd.exe /d /c "mklink /J `"$innerLink`" `"$innerTarget`""
+            }
+        }
+        Set-Content -LiteralPath (Join-Path -Path $TargetPath -ChildPath 'marker.txt') -Value 'keep' -Encoding ASCII
+        $created = $false
+        try {
+            New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
+            $created = $true
+        } catch {
+            $created = $false
+        }
+        if ((-not $created) -and ($env:OS -eq 'Windows_NT')) {
+            $null = & cmd.exe /d /c "mklink /J `"$LinkPath`" `"$TargetPath`""
+            if ($LASTEXITCODE -eq 0) {
+                $created = $true
+            }
+        }
+        return $created
+    }
+    function Test-RogGatePreflightAllows {
+        param([Parameter(Mandatory = $true)][string]$Path)
+        $threw = $false
+        try {
+            Assert-RogGateSparseReparsePreflight -SourceDir $Path
+        } catch {
+            $threw = $true
+        }
+        return (-not $threw)
+    }
+
+    $preflightRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-sparse-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path $preflightRoot | Out-Null
+    try {
+        $neither = Join-Path -Path $preflightRoot -ChildPath 'neither'
+        $neitherReady = Initialize-RogGateSelfTestRepo -Path $neither -Sparse $false
+        $neitherState = Get-RogGateSparseCheckoutState -Worktree $neither
+        $neitherReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $neither)
+        $neitherPass = $neitherReady -and (-not $neitherState.Active) -and ($neitherReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $neither)
+        Assert-RogGateSelfTest -Name 'neither sparse checkout nor a junction passes' -Condition $neitherPass
+
+        $sparseOnly = Join-Path -Path $preflightRoot -ChildPath 'sparse-only'
+        $sparseReady = Initialize-RogGateSelfTestRepo -Path $sparseOnly -Sparse $true
+        $sparseState = Get-RogGateSparseCheckoutState -Worktree $sparseOnly
+        $sparseReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $sparseOnly)
+        $sparsePass = $sparseReady -and $sparseState.Active -and ($sparseState.SparseState -match 'core.sparseCheckout=true') -and ($sparseReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $sparseOnly)
+        Assert-RogGateSelfTest -Name 'sparse checkout alone passes' -Condition $sparsePass
+
+        $junctionOnly = Join-Path -Path $preflightRoot -ChildPath 'junction-only'
+        $junctionTarget = Join-Path -Path $preflightRoot -ChildPath 'junction-target'
+        $junctionReady = Initialize-RogGateSelfTestRepo -Path $junctionOnly -Sparse $false
+        $junctionLink = Join-Path -Path $junctionOnly -ChildPath 'jump'
+        $junctionLinked = New-RogGateSelfTestReparseLink -LinkPath $junctionLink -TargetPath $junctionTarget
+        $junctionState = Get-RogGateSparseCheckoutState -Worktree $junctionOnly
+        $junctionReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $junctionOnly)
+        $junctionSawLink = $false
+        $junctionFollowed = $false
+        foreach ($reparsePath in $junctionReparse) {
+            if ($reparsePath -eq (Get-Item -LiteralPath $junctionLink -Force).FullName) {
+                $junctionSawLink = $true
+            }
+            if ([string]$reparsePath -match 'inner-link') {
+                $junctionFollowed = $true
+            }
+        }
+        $junctionPass = $junctionReady -and $junctionLinked -and (-not $junctionState.Active) -and $junctionSawLink -and (-not $junctionFollowed) -and (Test-RogGatePreflightAllows -Path $junctionOnly)
+        Assert-RogGateSelfTest -Name 'junction alone passes' -Condition $junctionPass
+
+        $both = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction'
+        $bothTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction-target'
+        $bothReady = Initialize-RogGateSelfTestRepo -Path $both -Sparse $true
+        $bothLink = Join-Path -Path $both -ChildPath 'jump'
+        $bothLinked = New-RogGateSelfTestReparseLink -LinkPath $bothLink -TargetPath $bothTarget
+        $bothState = Get-RogGateSparseCheckoutState -Worktree $both
+        $bothReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $both)
+        $bothMessage = ''
+        $bothThrew = $false
+        try {
+            Assert-RogGateSparseReparsePreflight -SourceDir $both
+        } catch {
+            $bothThrew = $true
+            $bothMessage = $_.Exception.Message
+        }
+        $bothNamesPaths = ($bothReparse.Count -gt 0)
+        $bothFollowed = $false
+        foreach ($reparsePath in $bothReparse) {
+            if ($bothMessage -notmatch [regex]::Escape([string]$reparsePath)) {
+                $bothNamesPaths = $false
+            }
+            if ([string]$reparsePath -match 'inner-link') {
+                $bothFollowed = $true
+            }
+        }
+        $bothRejected = $bothReady -and $bothLinked -and $bothState.Active -and ($bothState.SparseState -match 'core.sparseCheckout=true') -and $bothThrew -and ($bothMessage -match 'sparse checkout is enabled') -and $bothNamesPaths -and (-not $bothFollowed) -and ($bothMessage -notmatch 'inner-link')
+        Assert-RogGateSelfTest -Name 'sparse checkout plus a junction is rejected' -Condition $bothRejected
+
+        $worktreeBase = Join-Path -Path $preflightRoot -ChildPath 'worktree'
+        $worktreeMain = Join-Path -Path $worktreeBase -ChildPath 'main'
+        $worktreeDir = Join-Path -Path $worktreeBase -ChildPath 'wt'
+        $worktreeTarget = Join-Path -Path $worktreeBase -ChildPath 'wt-target'
+        $worktreeReady = Initialize-RogGateSelfTestRepo -Path $worktreeMain -Sparse $false
+        Set-Content -LiteralPath (Join-Path -Path $worktreeMain -ChildPath 'README') -Value 'readme' -Encoding ASCII
+        $worktreeConfigured = (Invoke-RogGateSelfTestGit -Worktree $worktreeMain -GitArguments @('config', 'user.email', 'rog-gate@example.com')) -and (Invoke-RogGateSelfTestGit -Worktree $worktreeMain -GitArguments @('config', 'user.name', 'rog-gate'))
+        $worktreeCommitted = $worktreeConfigured -and (Invoke-RogGateSelfTestGit -Worktree $worktreeMain -GitArguments @('add', 'README')) -and (Invoke-RogGateSelfTestGit -Worktree $worktreeMain -GitArguments @('-c', 'commit.gpgsign=false', 'commit', '-q', '-m', 'init'))
+        $worktreeAdded = $worktreeCommitted -and (Invoke-RogGateSelfTestGit -Worktree $worktreeMain -GitArguments @('worktree', 'add', '--detach', $worktreeDir, 'HEAD'))
+        $worktreeSparse = $worktreeAdded -and (Invoke-RogGateSelfTestGit -Worktree $worktreeDir -GitArguments @('sparse-checkout', 'set', '--no-cone', '*'))
+        $worktreeDotGit = Join-Path -Path $worktreeDir -ChildPath '.git'
+        $worktreeDotGitFile = $false
+        $worktreeDotGitText = ''
+        if (Test-Path -LiteralPath $worktreeDotGit) {
+            $dotGitItem = Get-Item -LiteralPath $worktreeDotGit -Force
+            $dotGitIsDir = ($dotGitItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $worktreeDotGitFile = (-not $dotGitIsDir) -and (-not (Test-RogGateItemReparsePoint -Item $dotGitItem))
+            if ($worktreeDotGitFile) {
+                $worktreeDotGitText = [System.IO.File]::ReadAllText($dotGitItem.FullName)
+            }
+        }
+        $worktreeLink = Join-Path -Path $worktreeDir -ChildPath 'jump'
+        $worktreeLinked = $false
+        if ($worktreeSparse) {
+            $worktreeLinked = New-RogGateSelfTestReparseLink -LinkPath $worktreeLink -TargetPath $worktreeTarget
+        }
+        $worktreeGitDir = ''
+        if ($worktreeAdded) {
+            $resolvedGitDir = Get-RogGateGitDirectory -Worktree $worktreeDir
+            if ($null -ne $resolvedGitDir) {
+                $worktreeGitDir = [string]$resolvedGitDir
+            }
+        }
+        $worktreeLinkFull = ''
+        if ($worktreeLinked) {
+            $worktreeLinkFull = (Get-Item -LiteralPath $worktreeLink -Force).FullName
+        }
+        $worktreeMessage = ''
+        $worktreeThrew = $false
+        if ($worktreeLinked) {
+            try {
+                Assert-RogGateSparseReparsePreflight -SourceDir $worktreeDir
+            } catch {
+                $worktreeThrew = $true
+                $worktreeMessage = $_.Exception.Message
+            }
+        }
+        $worktreeRejected = $worktreeReady -and $worktreeSparse -and $worktreeDotGitFile -and ($worktreeDotGitText -match '(?m)^\s*gitdir:') -and $worktreeLinked -and $worktreeThrew -and ($worktreeMessage -match 'core.sparseCheckout=true') -and ($worktreeLinkFull.Length -gt 0) -and ($worktreeMessage -match [regex]::Escape($worktreeLinkFull)) -and ($worktreeMessage -match 'worktrees') -and ($worktreeMessage -notmatch 'inner-link') -and ($worktreeGitDir -match 'worktrees')
+        Assert-RogGateSelfTest -Name 'sparse worktree whose .git file is a gitdir pointer is rejected when it contains a junction' -Condition $worktreeRejected
+
+        $bothProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SourceDir', $both, '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
+        $bothLinkFull = ''
+        if ($bothLinked) {
+            $bothLinkFull = (Get-Item -LiteralPath $bothLink -Force).FullName
+        }
+        $markerPath = Join-Path -Path $bothTarget -ChildPath 'marker.txt'
+        $markerText = ''
+        if (Test-Path -LiteralPath $markerPath) {
+            $markerText = (Get-Content -LiteralPath $markerPath -Raw).Trim()
+        }
+        $bothProbeRejected = $bothLinked -and ($bothLinkFull.Length -gt 0) -and ($bothProbe.ExitCode -eq 1) -and ($bothProbe.Text -match 'sparse checkout is enabled') -and ($bothProbe.Text -match [regex]::Escape($bothLinkFull)) -and ($bothProbe.Text -match 'core.sparseCheckout=true') -and ($bothProbe.Text -notmatch 'rev-parse') -and ($bothProbe.Text -notmatch 'inner-link') -and ($markerText -eq 'keep')
+        Assert-RogGateSelfTest -Name 'sparse plus junction exits 1 before git rev-parse' -Condition $bothProbeRejected
+    } finally {
+        Remove-RogGateFixture -LiteralPath $preflightRoot
+    }
+
     $required = [int64]10GB
     $enough = @{ D = $required; E = $required }
     $passReport = Get-RogGateFreeSpaceReport -Drives @('D', 'E') -FreeBytesByDrive $enough -MinFreeGB 10 -Overrides @{}
@@ -1540,6 +1993,8 @@ function Invoke-RogGateMain {
     if (-not (Test-Path -LiteralPath $normSource -PathType Container)) {
         throw "SourceDir not found: $normSource"
     }
+    # Same gate as the script entry, before rev-parse, delete, or build.
+    Assert-RogGateSparseReparsePreflight -SourceDir $normSource
     $cmakeLists = Join-Path -Path (Join-Path -Path $normSource -ChildPath 'modern') -ChildPath 'CMakeLists.txt'
     if (-not (Test-Path -LiteralPath $cmakeLists)) {
         throw "modern/CMakeLists.txt not found under SourceDir: $cmakeLists"
@@ -1705,6 +2160,10 @@ function Invoke-RogGateMain {
 try {
     # Reject a threshold under 10 GB before self-test, git, delete, or build.
     Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
+    # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
+    if (-not $SelfTest) {
+        Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+    }
     if ($SelfTest) {
         $selfTestCode = Invoke-RogGateSelfTest
         exit $selfTestCode
