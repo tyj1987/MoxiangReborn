@@ -24,6 +24,21 @@ Mode 2 (pak_extract / --named):
 --dry-run applies to both modes and both header sizes.  It enumerates
 and validates entries, and creates no directories or files.
 
+--list, unpack, --dry-run, and --named share one layout detector.
+They do not decide the header from whether the uint32 at offset 4 is
+zero: both layouts are walked with the existing entry parsers.  A
+layout is valid only when every entry is in bounds and the walk ends
+exactly at the file length.  Exactly one valid layout is used.  Neither
+layout, or both, names the pak on stderr and exits 1.  An entry-count /
+file-length mismatch is the same failure.  Nothing is extracted: no
+output directory and no files, including under --dry-run.
+
+--list is the read-only form of that detector.  It prints the header
+kind, the uint32 at offset 4, the declared count, the parsed count, and
+one line per entry (start, data offset, name_len, real, total).  It
+does not resolve an output directory and it does not create anything.
+A layout error does not print a partial list.
+
 Two resolved locations are read-only (symlinks followed, ".." folded,
 case-insensitive on Windows).  The tool exits non-zero and writes
 nothing, including under --dry-run, when the output is either of them:
@@ -35,22 +50,40 @@ nothing, including under --dry-run, when the output is either of them:
   * the pak's own directory, or anything under it.  This still applies
     when the pak lives outside the original root.
 
-Two header variants, detected from dwFileItemNum at offset 4.
-Spec: docs/formats/pak.md.
+Two header variants.  No tool path selects one from the uint32 at
+offset 4.  Spec: docs/formats/pak.md.
 
-  Worktree (offset 4 != 0, e.g. PlayDH/Map.pak count 4192):
-    92-byte header, entries start at 92.  Advance by
+  Worktree (e.g. PlayDH/Map.pak, count 4192 at offset 4):
+    92-byte header, entries start at 92.  The count tried for this
+    layout is the uint32 at offset 4.  Advance by
     32 + nameLen + 1 + realSize.  Some totals are corrupt, so this
-    path does not step by dwTotalSize and does not require the file
-    to end on the last entry.
+    path does not step by dwTotalSize.  The layout is accepted only
+    when that walk ends on the last byte of the file.
 
-  Original (offset 4 == 0, e.g. client Map.pak count 11267):
-    96-byte header.  The entry count is the uint32 at offset 92.
+  Original (e.g. client Map.pak count 11267, and Titan/farm/pet whose
+  offset-4 field is 99/181/63):
+    96-byte header.  The entry count is the uint32 at offset 92,
+    not the field at offset 4.
     Entries start at 96.  Each entry is 32 bytes (total, real,
-    name_len, data_off, 16 zero bytes) + GBK name + NUL + data.
-    total == 32 + name_len + 1 + real, and the next entry is
-    cur + total.  Stop after that count.  EOF before the count, or
-    bytes left after it, is an error.
+    name_len, data_off, 16 zero bytes) + name bytes + NUL + data.
+    total must equal 32 + name_len + 1 + real.  The next entry is
+    cur + total.  data_off is this entry's own start, not the data
+    position.  Data starts at entry_start + 32 + name_len + 1.
+    Names are raw bytes (original samples are GBK).  GBK is used
+    only for the output filename, with a replacement fallback.
+    Truncated header, a count that cannot fit (minimum 33 bytes per
+    entry), total mismatch, entry or data past EOF, a missing NUL,
+    or bytes left after the last entry are errors.
+
+Either header: the process validates the whole archive before it
+creates the output directory.  On error it exits nonzero, reports
+parsed vs declared, and leaves no partial extract.
+
+Extracted payloads are the raw stored bytes.  They are not guaranteed
+to be plaintext, and this tool does not decode them.  Original-client
+.map entries carry a 4-byte length, a 20-byte per-file header, and an
+XOR-obfuscated body (8-byte rolling key; key derivation is not yet
+known).
 """
 
 from __future__ import annotations
@@ -81,10 +114,13 @@ DEFAULT_ORIGINAL_ROOT_WINDOWS = r"D:\MX"
 @dataclasses.dataclass
 class PakEntry:
     index: int
-    name: str           # e.g. "Map\\Map10.hfl" or "Character/man.chx"
+    name: str           # display name; 96-byte names are GBK with fallback
     real_size: int
     data_offset: int    # offset of data within the .pak (post header+name)
     entry_offset: int   # offset of the entry start within the .pak
+    name_bytes: bytes = b""  # on-disk name, no NUL; match on these
+    name_len: int = 0
+    total_size: int = 0      # on-disk total field
     sha256: str = ""
 
     @property
@@ -93,6 +129,11 @@ class PakEntry:
         # .pak (e.g. "Map\\Map0.bmhm").  Convert to '/' so the unpacked
         # tree is portable across Windows / POSIX tools.
         return self.name.replace("\\", "/")
+
+    @property
+    def match_key(self) -> bytes:
+        """Raw name bytes with '\\' folded to '/'.  Not the GBK decode."""
+        return self.name_bytes.replace(b"\\", b"/")
 
 
 @dataclasses.dataclass
@@ -300,35 +341,109 @@ def parse_pak(pak_path: str) -> tuple[bytes, int, int, int]:
     with open(pak_path, "rb") as f:
         pak_header = f.read(92)
     if len(pak_header) < 92:
-        raise ValueError(f"pak header too short: {pak_path}")
+        raise _pak_error(
+            f"truncated pak header: {pak_path} has {len(pak_header)} bytes, "
+            f"need 92",
+            parsed=0,
+            declared=0,
+            kind="92-byte",
+        )
     version, n_items, flag = struct.unpack("<III", pak_header[:12])
     if version != 1:
         raise ValueError(f"unknown pak version {version:#x} in {pak_path}")
     return pak_header, version, n_items, flag
 
 
-def _original_declared_count(pak_path: str) -> int:
-    """Entry count for an original-style pak (dwFileItemNum at offset 4 is 0).
+# Smallest original entry is a 32-byte header, an empty name, and one NUL.
+_MIN_ENTRY_BYTES = 33
+_MAX_ENTRY_COUNT = 1_000_000
 
-    The count is the uint32 at offset 92.  Entries themselves start at 96.
+
+def _pak_error(message: str, *, parsed: int, declared: int, kind: str) -> ValueError:
+    """Format error that always names parsed vs declared."""
+    return ValueError(
+        f"{message} (parsed {parsed} of declared {declared}, {kind} header)"
+    )
+
+
+def _decode_entry_name(raw: bytes, *, original: bool) -> str:
+    """Display name.  Original bytes stay on PakEntry.name_bytes.
+
+    96-byte names are GBK only here, and only for output.  A sequence GBK
+    cannot decode becomes U+FFFD and does not fail the archive.  92-byte
+    names stay latin-1, which keeps every byte.
+    """
+    if not original:
+        return raw.decode("latin-1", errors="replace")
+    try:
+        return raw.decode("gbk")
+    except UnicodeDecodeError:
+        return raw.decode("gbk", errors="replace")
+
+
+def _output_relative(entry: PakEntry) -> str:
+    """Path under the output directory, or a per-index fallback."""
+    rel = entry.canonical_name.replace("\\", "/").lstrip("/")
+    parts = [part for part in rel.split("/") if part not in ("", ".")]
+    if not parts or any(part == ".." for part in parts):
+        return f"unnamed_{entry.index:05d}.bin"
+    return "/".join(parts)
+
+
+def _original_declared_count(pak_path: str) -> int:
+    """Entry count for the 96-byte layout: the uint32 at offset 92.
+
+    Callers do not consult the uint32 at offset 4.  Entries start at 96.
     See docs/formats/pak.md.
     """
     pak_size = os.path.getsize(pak_path)
     if pak_size < 96:
-        raise ValueError(
-            "original-style pak (dwFileItemNum at offset 4 is 0) needs a "
-            f"96-byte header with the entry count at offset 92, but file "
-            f"size is {pak_size}"
+        raise _pak_error(
+            "truncated pak header: 96-byte layout needs the entry count at "
+            f"offset 92, but file size is {pak_size}",
+            parsed=0,
+            declared=0,
+            kind="96-byte",
         )
     with open(pak_path, "rb") as f:
         f.seek(92)
         raw = f.read(4)
     if len(raw) < 4:
-        raise ValueError(
-            "original-style pak (dwFileItemNum at offset 4 is 0) needs the "
-            f"entry count at offset 92, but only {len(raw)} byte(s) were read"
+        raise _pak_error(
+            "truncated pak header: 96-byte layout needs the entry count at "
+            f"offset 92, but only {len(raw)} byte(s) were read",
+            parsed=0,
+            declared=0,
+            kind="96-byte",
         )
     return struct.unpack("<I", raw)[0]
+
+
+def _check_original_count(pak_size: int, count: int) -> None:
+    """Reject a 96-byte count before any entry is yielded."""
+    if count == 0:
+        raise _pak_error(
+            "corrupt pak header: entry count at offset 92 is 0",
+            parsed=0,
+            declared=0,
+            kind="96-byte",
+        )
+    if count > _MAX_ENTRY_COUNT:
+        raise _pak_error(
+            f"entry count {count} is larger than the file allows",
+            parsed=0,
+            declared=count,
+            kind="96-byte",
+        )
+    body = pak_size - 96
+    if body // _MIN_ENTRY_BYTES < count:
+        raise _pak_error(
+            f"entry count {count} is larger than the file allows "
+            f"({body} bytes remain after the 96-byte header)",
+            parsed=0,
+            declared=count,
+            kind="96-byte",
+        )
 
 
 def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[PakEntry]:
@@ -336,13 +451,20 @@ def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[P
 
     Advance by the entry's total.  Exactly `count` entries must consume
     the file: EOF before that is "EOF arrived early"; leftover bytes are
-    "bytes remain after the declared count".
+    "bytes remain after the declared count".  data_off is not the data
+    position.  Name bytes are kept raw; GBK is display-only.
     """
+    _check_original_count(pak_size, count)
     cur = 96
     for index in range(count):
         remaining = pak_size - cur
+
+        def fail(message: str) -> ValueError:
+            return _pak_error(
+                message, parsed=index, declared=count, kind="96-byte")
+
         if remaining <= 0:
-            raise ValueError(
+            raise fail(
                 f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
                 f"declared count is {count} but no bytes remain "
                 f"(file size {pak_size})"
@@ -350,22 +472,24 @@ def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[P
         f.seek(cur)
         hdr = f.read(32)
         if len(hdr) < 32:
-            raise ValueError(
+            raise fail(
                 f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
                 f"entry header is 32 bytes but only {len(hdr)} byte(s) "
                 f"remain before EOF (declared count {count})"
             )
         (total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
             struct.unpack("<IIIIIIII", hdr))
+        # data_off is the entry start in original samples.  It is not
+        # where the payload lives, so it is not used as a seek target.
         expected_total = 32 + name_len + 1 + real
-        if total != expected_total:
-            raise ValueError(
+        if total != expected_total or total < _MIN_ENTRY_BYTES:
+            raise fail(
                 f"pak entry {index} at offset 0x{cur:x}: total={total} "
                 f"does not equal 32+name_len+1+real={expected_total} "
                 f"(name_len={name_len} real_size={real})"
             )
         if cur + total > pak_size:
-            raise ValueError(
+            raise fail(
                 f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
                 f"total={total} name_len={name_len} real_size={real} but "
                 f"only {remaining} byte(s) remain before EOF "
@@ -375,28 +499,22 @@ def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[P
         raw_name = f.read(name_len)
         nul = f.read(1)
         if len(raw_name) < name_len or len(nul) != 1:
-            raise ValueError(
+            raise fail(
                 f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
-                f"GBK filename needs {name_len + 1} bytes but the read "
+                f"filename needs {name_len + 1} bytes but the read "
                 f"fell short before EOF (declared count {count})"
             )
         if nul != b"\x00":
-            raise ValueError(
+            raise fail(
                 f"pak entry {index} at offset 0x{cur:x}: expected NUL after "
-                f"the GBK filename, got 0x{nul[0]:02x}"
+                f"the filename, got 0x{nul[0]:02x}"
             )
-        try:
-            name = raw_name.decode("gbk")
-        except UnicodeDecodeError as exc:
-            raise ValueError(
-                f"pak entry {index} at offset 0x{cur:x}: filename is not "
-                f"valid GBK ({exc})"
-            ) from exc
+        name = _decode_entry_name(raw_name, original=True)
         data_offset = cur + 32 + name_len + 1
         f.seek(data_offset)
         data = f.read(real)
         if len(data) < real:
-            raise ValueError(
+            raise fail(
                 f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
                 f"payload needs {real} bytes but only {len(data)} byte(s) "
                 f"remain before EOF (declared count {count})"
@@ -404,25 +522,119 @@ def _walk_original_entries(f: BinaryIO, pak_size: int, count: int) -> Iterable[P
         yield PakEntry(
             index=index,
             name=name,
+            name_bytes=raw_name,
+            name_len=name_len,
+            total_size=total,
             real_size=real,
             data_offset=data_offset,
             entry_offset=cur,
         )
         cur += total
     if cur != pak_size:
-        raise ValueError(
+        raise _pak_error(
             f"{pak_size - cur} byte(s) remain after the declared count "
-            f"{count} at offset 0x{cur:x} (file size {pak_size})"
+            f"{count} at offset 0x{cur:x} (file size {pak_size})",
+            parsed=count,
+            declared=count,
+            kind="96-byte",
         )
 
 
-def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
-    """Yield PakEntry in order.
+def _walk_worktree_entries(f: BinaryIO, pak_size: int,
+                           expected: int) -> Iterable[PakEntry]:
+    """92-byte header.  Start at 92 and advance by layout, not by total.
 
-    `expected` is dwFileItemNum at offset 4, not a guess.  Zero selects
-    the original 96-byte header (count at offset 92, entries at 96).
-    A non-zero value keeps the worktree walk below, unchanged: start at
-    92, stop at the declared count, and resync 4 bytes on a junk header.
+    A junk header still resyncs by 4 bytes.  Stopping before `expected`
+    entries is an error.  Bytes after the declared count are allowed.
+    A count that cannot fit, at 33 bytes per entry, fails before the walk.
+    """
+    body = pak_size - 92
+    if expected > _MAX_ENTRY_COUNT or body // _MIN_ENTRY_BYTES < expected:
+        raise _pak_error(
+            f"entry count {expected} is larger than the file allows "
+            f"({body} bytes remain after the 92-byte header)",
+            parsed=0,
+            declared=expected,
+            kind="92-byte",
+        )
+    cur = 92
+    index = 0
+    consecutive_junk = 0
+    while index < expected:
+        def fail(message: str) -> ValueError:
+            return _pak_error(
+                message, parsed=index, declared=expected, kind="92-byte")
+
+        if cur > pak_size or pak_size - cur < 32:
+            raise fail(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"entry header is 32 bytes but the file ends first"
+            )
+        f.seek(cur)
+        hdr = f.read(32)
+        if len(hdr) < 32:
+            raise fail(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"entry header is 32 bytes but only {len(hdr)} byte(s) remain"
+            )
+        (total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
+            struct.unpack("<IIIIIIII", hdr))
+        if name_len > 4096:
+            # Header at this offset is junk (probably the tail of the
+            # last real entry's data misinterpreted as a header).
+            # Skip 4 bytes and try the next 32-byte window.
+            cur += 4
+            consecutive_junk += 1
+            if consecutive_junk >= 8:
+                raise fail(
+                    f"walk stopped at pak entry {index} offset 0x{cur:x} "
+                    f"after {consecutive_junk} junk headers"
+                )
+            continue
+        consecutive_junk = 0
+        name_end = cur + 32 + name_len + 1
+        data_end = name_end + real
+        if name_end > pak_size or data_end > pak_size:
+            raise fail(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"name_len={name_len} real_size={real} but only "
+                f"{pak_size - cur} byte(s) remain before EOF"
+            )
+        f.seek(cur + 32)
+        raw_name = f.read(name_len + 1)
+        if len(raw_name) < name_len + 1:
+            raise fail(
+                f"EOF arrived early at pak entry {index} offset 0x{cur:x}: "
+                f"filename needs {name_len + 1} bytes"
+            )
+        name_bytes = raw_name.split(b"\x00", 1)[0]
+        name = _decode_entry_name(name_bytes, original=False)
+        yield PakEntry(
+            index=index,
+            name=name,
+            name_bytes=name_bytes,
+            name_len=name_len,
+            total_size=total,
+            real_size=real,
+            data_offset=cur + 32 + name_len + 1,
+            entry_offset=cur,
+        )
+        # Advance by the layout, not by total.  Some worktree totals are
+        # corrupt; stepping cur + total walks off the file.  There is no
+        # 4-byte alignment between entries.
+        cur = cur + 32 + (name_len + 1) + real
+        index += 1
+
+
+def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
+    """Yield entries from one caller-selected parser.
+
+    This does not look at the file's uint32 at offset 4.  ``expected == 0``
+    runs the 96-byte parser (count at offset 92, entries at 96).  Any
+    other value runs the 92-byte parser from offset 92 for that many
+    entries and does not require the walk to end at EOF.  --list, unpack,
+    --dry-run, and --named do not call this to choose a layout; they use
+    read_entries.
     """
     pak_size = os.path.getsize(pak_path)
     if expected == 0:
@@ -431,52 +643,151 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
             yield from _walk_original_entries(f, pak_size, count)
         return
     with open(pak_path, "rb") as f:
-        cur = 92
-        i = 0
-        consecutive_junk = 0
-        while i < expected and cur < pak_size - 33:
-            f.seek(cur)
-            hdr = f.read(32)
-            if len(hdr) < 32:
-                return
-            (_total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
-                struct.unpack("<IIIIIIII", hdr))
-            if name_len > 4096 or real > 0xFFFFFFFF:
-                # Header at this offset is junk (probably the tail of the
-                # last real entry's data misinterpreted as a header).
-                # Skip 4 bytes and try the next 32-byte window.  If we
-                # see three consecutive junk headers (12 bytes of dead
-                # space), the walk is over.
-                cur += 4
-                consecutive_junk += 1
-                if consecutive_junk >= 8:
-                    return
-                continue
-            consecutive_junk = 0
-            f.seek(cur + 32)
-            raw_name = f.read(name_len + 1)
-            if len(raw_name) < name_len + 1:
-                return
-            f.seek(cur + 32 + name_len + 1)
-            data = f.read(real)
-            if len(data) < real:
-                return
-            name = raw_name.split(b"\x00", 1)[0].decode("latin-1", errors="replace")
-            yield PakEntry(
-                index=i,
-                name=name,
-                real_size=real,
-                data_offset=cur + 32 + name_len + 1,
-                entry_offset=cur,
+        yield from _walk_worktree_entries(f, pak_size, expected)
+
+
+def read_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
+    """Resolve the one valid layout.  Returns (kind, offset4, declared, entries).
+
+    --list, unpack, --dry-run, and --named all use this.  The uint32 at
+    offset 4 is reported, not used as a switch.  Raises ValueError naming
+    ``pak_path`` when neither or both layouts are valid, or when the
+    entry count does not match the file length.  Callers must do this
+    before creating an output directory.  On success parsed == declared.
+    """
+    return list_pak_entries(pak_path)
+
+
+def _layout_end(entries: list[PakEntry], *, empty_end: int) -> int:
+    """Cursor after the last parsed entry, or `empty_end` when there are none."""
+    if not entries:
+        return empty_end
+    last = entries[-1]
+    return last.data_offset + last.real_size
+
+
+def _require_exact_end(entries: list[PakEntry], pak_size: int, declared: int,
+                       kind: str, *, empty_end: int) -> None:
+    """The walk already stayed in bounds.  It must also finish on EOF.
+
+    ``parsed`` is the number of entries the existing walker yielded.
+    A short table, bytes after the last entry, or a cursor past EOF is
+    an entry-count / file-length mismatch.
+    """
+    end = _layout_end(entries, empty_end=empty_end)
+    if len(entries) == declared and end == pak_size:
+        return
+    if end < pak_size:
+        message = (
+            f"{pak_size - end} byte(s) remain after the declared count "
+            f"{declared} at offset 0x{end:x} (file size {pak_size})"
+        )
+    elif end > pak_size:
+        message = (
+            f"walk ended at offset 0x{end:x}, past the end of the file "
+            f"(file size {pak_size})"
+        )
+    else:
+        message = (
+            f"parsed entry count {len(entries)} does not match "
+            f"declared count {declared}"
+        )
+    raise _pak_error(
+        message, parsed=len(entries), declared=declared, kind=kind)
+
+
+def _probe_92_byte(pak_path: str, pak_size: int,
+                   offset4: int) -> tuple[str, int, int, list[PakEntry]]:
+    """92-byte layout: count is the uint32 at offset 4, entries start at 92."""
+    declared = offset4
+    with open(pak_path, "rb") as f:
+        entries = list(_walk_worktree_entries(f, pak_size, declared))
+    _require_exact_end(
+        entries, pak_size, declared, "92-byte", empty_end=92)
+    return "92-byte", offset4, declared, entries
+
+
+def _probe_96_byte(pak_path: str, pak_size: int,
+                   offset4: int) -> tuple[str, int, int, list[PakEntry]]:
+    """96-byte layout: count is the uint32 at offset 92, entries start at 96."""
+    declared = _original_declared_count(pak_path)
+    with open(pak_path, "rb") as f:
+        entries = list(_walk_original_entries(f, pak_size, declared))
+    _require_exact_end(
+        entries, pak_size, declared, "96-byte", empty_end=96)
+    return "96-byte", offset4, declared, entries
+
+
+def list_pak_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
+    """Choose the layout for every tool path.  Returns (kind, offset4, declared, entries).
+
+    The uint32 at offset 4 is not a layout switch.  Original Titan, farm,
+    and pet archives store 99, 181, and 63 there and are still 96-byte
+    tables of 294, 244, and 1547 entries.  Both parsers are the existing
+    entry walkers.  A layout is kept only when every entry is in bounds
+    and the walk ends on the last byte of the file.  Exactly one such
+    layout is returned.  Zero or two raises ValueError naming
+    ``pak_path``.  read_entries is this function.
+    """
+    _header, _version, offset4, _flag = parse_pak(pak_path)
+    pak_size = os.path.getsize(pak_path)
+    valid: list[tuple[str, int, int, list[PakEntry]]] = []
+    failures: list[str] = []
+    for probe in (_probe_92_byte, _probe_96_byte):
+        try:
+            valid.append(probe(pak_path, pak_size, offset4))
+        except ValueError as exc:
+            failures.append(str(exc))
+    if len(valid) == 1:
+        kind, off, declared, entries = valid[0]
+        empty_end = 92 if kind == "92-byte" else 96
+        end = _layout_end(entries, empty_end=empty_end)
+        if len(entries) != declared or end != pak_size:
+            raise _pak_error(
+                f"{pak_path}: entry count does not match file length "
+                f"{pak_size}",
+                parsed=len(entries),
+                declared=declared,
+                kind=kind,
             )
-            # Advance by real_file_size only — matches modern
-            # modern/src/pack_file.cpp::open_buffer() line 117-126
-            # which uses `layout_advance = real_file_size` (the legacy
-            # 4DyuchiFileStorage reader does NOT 4-byte-align each
-            # entry).  Adding alignment padding here would walk the
-            # cursor off the end of the file on real .pak inputs.
-            cur = cur + 32 + (name_len + 1) + real
-            i += 1
+        return kind, off, declared, entries
+    if not valid:
+        detail = "; ".join(failures) if failures else "no layout could be read"
+        raise ValueError(
+            f"{pak_path}: neither 92-byte nor 96-byte layout is valid: {detail}"
+        )
+    kind_92, _off_92, declared_92, entries_92 = valid[0]
+    kind_96, _off_96, declared_96, entries_96 = valid[1]
+    raise ValueError(
+        f"{pak_path}: ambiguous pak header: both {kind_92} "
+        f"(parsed {len(entries_92)} of declared {declared_92}) and {kind_96} "
+        f"(parsed {len(entries_96)} of declared {declared_96}) layouts keep "
+        f"every entry in bounds and end at file length {pak_size}"
+    )
+
+
+def format_entry_line(entry: PakEntry) -> str:
+    return (
+        f"entry {entry.index} start=0x{entry.entry_offset:X} "
+        f"data=0x{entry.data_offset:X} name_len={entry.name_len} "
+        f"real={entry.real_size} total={entry.total_size} name={entry.name}"
+    )
+
+
+def format_pak_list(kind: str, offset4: int, declared: int,
+                    entries: list[PakEntry]) -> str:
+    lines = [
+        f"header: {kind}",
+        f"offset4: {offset4}",
+        f"declared: {declared}",
+        f"parsed: {len(entries)}",
+    ]
+    lines.extend(format_entry_line(entry) for entry in entries)
+    lines.append(
+        f"list: parsed {len(entries)} of declared {declared} "
+        f"(no files written)"
+    )
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -526,100 +837,76 @@ def hfl_header_ok(prefix: bytes) -> bool:
 # Mode 1 — legacy (preserve {i:05d}_{real}.bin naming)
 # ---------------------------------------------------------------------------
 
-def _unpack_legacy_original(pak_path: str, out_dir: str, *,
-                            dry_run: bool = False) -> int:
-    """Legacy writer for the original 96-byte header (count at offset 92)."""
-    pak_size = os.path.getsize(pak_path)
-    count = _original_declared_count(pak_path)
-    n_written = 0
-    with open(pak_path, "rb") as f:
-        for entry in _walk_original_entries(f, pak_size, count):
-            f.seek(entry.data_offset)
-            data = f.read(entry.real_size)
-            if len(data) != entry.real_size:
-                raise ValueError(
-                    f"EOF arrived early at pak entry {entry.index} offset "
-                    f"0x{entry.entry_offset:x}: payload needs {entry.real_size} "
-                    f"bytes but only {len(data)} byte(s) remain before EOF "
-                    f"(declared count {count})"
-                )
-            safe = f"{entry.index:05d}_{entry.real_size}.bin"
-            if not dry_run:
-                target = os.path.join(out_dir, safe)
-                with open(target, "wb") as out:
-                    out.write(data)
-            n_written += 1
-            if n_written <= 3 or n_written % 500 == 0:
-                tail = " (dry-run)" if dry_run else ""
-                print(
-                    f"  [{n_written}/{count}] {safe}  "
-                    f"({entry.real_size} bytes, name={entry.name[:40]!r}){tail}"
-                )
-    if dry_run:
-        print(f"dry-run: {n_written} entries (no files written)")
-    else:
-        print(f"wrote {n_written} entries")
-    return 0
+def _read_payload(f: BinaryIO, entry: PakEntry, *,
+                  declared: int, kind: str) -> bytes:
+    f.seek(entry.data_offset)
+    data = f.read(entry.real_size)
+    if len(data) != entry.real_size:
+        raise _pak_error(
+            f"EOF arrived early at pak entry {entry.index} offset "
+            f"0x{entry.entry_offset:x}: payload needs {entry.real_size} "
+            f"bytes but only {len(data)} byte(s) remain before EOF",
+            parsed=entry.index,
+            declared=declared,
+            kind=kind,
+        )
+    return data
+
+
+def _rollback(paths: list[Path]) -> None:
+    for path in reversed(paths):
+        try:
+            if path.is_file() or path.is_symlink():
+                path.unlink()
+        except OSError:
+            pass
 
 
 def unpack_legacy(pak_path: str, out_dir: str, *, dry_run: bool = False,
                   original_root: Optional[str] = None) -> int:
     """The original mode that writes entries as {i:05d}_{real}.bin.
 
-    dry_run enumerates and validates, and creates neither out_dir nor files.
-    original_root None resolves the CLI/env/Windows default.
+    The archive is validated before out_dir is created.  dry_run creates
+    neither out_dir nor files.  original_root None resolves the
+    CLI/env/Windows default.
     """
     if original_root is None:
         original_root = resolve_original_root()
     refuse_readonly_output(pak_path, out_dir, original_root)
+    _header, version, n_items, flag = parse_pak(pak_path)
+    kind, offset4, declared, entries = read_entries(pak_path)
+    print(f"version={version} n_items={n_items} flag={flag}")
+    print(f"header: {kind}")
+    print(f"offset4: {offset4}")
+    print(f"declared: {declared}")
+    print(f"parsed: {len(entries)}")
     if not dry_run:
         os.makedirs(out_dir, exist_ok=True)
-    _header, version, n_items, flag = parse_pak(pak_path)
-    print(f"version={version} n_items={n_items} flag={flag}")
-    if n_items == 0:
-        return _unpack_legacy_original(pak_path, out_dir, dry_run=dry_run)
-    cur = 92
-    n_written = 0
-    consecutive_junk = 0
-    with open(pak_path, "rb") as f:
-        i = 0
-        while i < n_items:
-            f.seek(cur)
-            hdr = f.read(32)
-            if len(hdr) < 32:
-                print(f"  !! fsfile header truncated at i={i} cur=0x{cur:x}")
-                break
-            (_total, real, name_len, _data_off, _f1, _f2, _f3, _f4) = (
-                struct.unpack("<IIIIIIII", hdr))
-            if name_len > 4096 or real > 0xFFFFFFFF:
-                cur += 4
-                consecutive_junk += 1
-                if consecutive_junk >= 8:
-                    print(f"  !! walk aborted after {consecutive_junk} junk headers")
-                    break
-                continue
-            consecutive_junk = 0
-            name = f.read(name_len + 1).split(b"\x00", 1)[0].decode(
-                "latin-1", errors="replace")
-            data = f.read(real)
-            safe = f"{i:05d}_{real}.bin"
-            if not dry_run:
-                target = os.path.join(out_dir, safe)
-                with open(target, "wb") as out:
-                    out.write(data)
-            n_written += 1
-            # Advance by real_file_size only — see walk_entries() note
-            # about the 4DyuchiFileStorage no-alignment convention.
-            cur = cur + 32 + (name_len + 1) + real
-            if n_written <= 3 or n_written % 500 == 0:
-                tail = " (dry-run)" if dry_run else ""
-                print(f"  [{n_written}/{n_items}] {safe}  "
-                      f"({real} bytes, name={name[:40]!r}){tail}")
-            i += 1
+    written: list[Path] = []
+    try:
+        with open(pak_path, "rb") as f:
+            for entry in entries:
+                data = _read_payload(f, entry, declared=declared, kind=kind)
+                safe = f"{entry.index:05d}_{entry.real_size}.bin"
+                if not dry_run:
+                    target = Path(out_dir) / safe
+                    with open(target, "wb") as out:
+                        out.write(data)
+                    written.append(target)
+                if entry.index < 3 or (entry.index + 1) % 500 == 0:
+                    tail = " (dry-run)" if dry_run else ""
+                    print(
+                        f"  [{entry.index + 1}/{declared}] {safe}  "
+                        f"({entry.real_size} bytes, "
+                        f"name={entry.name[:40]!r}){tail}"
+                    )
+    except Exception:
+        _rollback(written)
+        raise
     if dry_run:
-        print(f"dry-run: {n_written} entries (no files written)")
+        print(f"dry-run: {len(entries)} entries (no files written)")
     else:
-        print(f"wrote {n_written} entries")
+        print(f"wrote {len(entries)} entries")
     return 0
 
 
@@ -646,60 +933,71 @@ def pak_extract(pak_path: str, out_dir: str, *,
     refuse_readonly_output(pak_path, out_dir, original_root)
     t0 = time.monotonic()
     pak_size = os.path.getsize(pak_path)
-    _header, version, n_items, flag = parse_pak(pak_path)
+    _header, version, _n_items, _flag = parse_pak(pak_path)
+    # Validate every entry before creating out_dir.  A short read used to
+    # increment skipped_truncated and keep going; that wrote a partial tree.
+    kind, _offset4, entry_count, entries = read_entries(pak_path)
     accept = make_filter(filter_pattern)
-    # Offset 4 == 0 is the original header: the walk count lives at offset 92.
-    # A non-zero offset-4 count is the worktree header and stays as-is.
-    entry_count = _original_declared_count(pak_path) if n_items == 0 else n_items
     stats = PakStats(
         pak_path=str(Path(pak_path).resolve()),
         pak_size=pak_size,
         header_version=version,
         file_item_num=entry_count,
     )
+    print(f"header: {kind}")
+    print(f"declared: {entry_count}")
+    print(f"parsed: {len(entries)}")
 
     if not dry_run:
         os.makedirs(out_dir, exist_ok=True)
 
+    seen_raw: set[bytes] = set()
     seen_paths: set[str] = set()
-    with open(pak_path, "rb") as f:
-        for entry in walk_entries(pak_path, n_items):
-            stats.parsed += 1
-            if not accept(entry):
-                stats.skipped_filter += 1
-                continue
-            if not entry.canonical_name or entry.canonical_name in seen_paths:
-                stats.skipped_name_bad += 1
-                continue
-
-            f.seek(entry.data_offset)
-            data = f.read(entry.real_size)
-            if len(data) != entry.real_size:
-                stats.skipped_truncated += 1
-                continue
-
-            if entry.canonical_name.lower().endswith(".hfl"):
-                if not hfl_header_ok(data[:32]):
-                    stats.skipped_hfl_bad += 1
-                    if verify:
-                        print(f"  [skip-hfl-bad] {entry.canonical_name} "
-                              f"(first 32 bytes do not match HFL_DESC)")
+    written_paths: list[Path] = []
+    try:
+        with open(pak_path, "rb") as f:
+            for entry in entries:
+                stats.parsed += 1
+                if not accept(entry):
+                    stats.skipped_filter += 1
+                    continue
+                key = entry.match_key
+                if not key or key in seen_raw:
+                    stats.skipped_name_bad += 1
                     continue
 
-            entry.sha256 = hashlib.sha256(data).hexdigest()
-            stats.entries.append(entry)
-            seen_paths.add(entry.canonical_name)
+                data = _read_payload(
+                    f, entry, declared=entry_count, kind=kind)
+                rel = _output_relative(entry)
+                if rel in seen_paths:
+                    rel = f"unnamed_{entry.index:05d}.bin"
+                if entry.canonical_name.lower().endswith(".hfl"):
+                    if not hfl_header_ok(data[:32]):
+                        stats.skipped_hfl_bad += 1
+                        if verify:
+                            print(f"  [skip-hfl-bad] {entry.canonical_name} "
+                                  f"(first 32 bytes do not match HFL_DESC)")
+                        continue
 
-            if not dry_run:
-                target = Path(out_dir) / entry.canonical_name
-                target.parent.mkdir(parents=True, exist_ok=True)
-                with open(target, "wb") as out:
-                    out.write(data)
-            stats.written += 1
-            if stats.written <= 3 or stats.written % 1000 == 0:
-                tail = " (dry-run)" if dry_run else ""
-                print(f"  [{stats.written}/{entry_count}] "
-                      f"{entry.canonical_name}  ({entry.real_size} bytes){tail}")
+                entry.sha256 = hashlib.sha256(data).hexdigest()
+                stats.entries.append(entry)
+                seen_raw.add(key)
+                seen_paths.add(rel)
+
+                if not dry_run:
+                    target = Path(out_dir) / rel
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with open(target, "wb") as out:
+                        out.write(data)
+                    written_paths.append(target)
+                stats.written += 1
+                if stats.written <= 3 or stats.written % 1000 == 0:
+                    tail = " (dry-run)" if dry_run else ""
+                    print(f"  [{stats.written}/{entry_count}] "
+                          f"{rel}  ({entry.real_size} bytes){tail}")
+    except Exception:
+        _rollback(written_paths)
+        raise
 
     stats.elapsed_ms = int((time.monotonic() - t0) * 1000)
 
@@ -769,6 +1067,11 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="enumerate and validate only; create no directories "
                          "or files (legacy and --named, both header sizes)")
+    ap.add_argument("--list", action="store_true",
+                    help="print header kind, offset 4, declared count, "
+                         "parsed count, and per-entry offsets; write nothing. "
+                         "Try both header layouts and accept one only when "
+                         "its entry walk stays in bounds and ends at EOF")
     ap.add_argument("--manifest", action="store_true",
                     help="write manifest.json (only with --named)")
     ap.add_argument("--verify", action="store_true",
@@ -789,6 +1092,15 @@ def main() -> int:
         args.out = args.out_flag
 
     pak_path = args.pak
+    if args.list:
+        try:
+            kind, offset4, declared, entries = read_entries(pak_path)
+        except (ValueError, OSError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(format_pak_list(kind, offset4, declared, entries))
+        return 0
+
     try:
         original_root = resolve_original_root(args.original_root)
         out_dir = args.out or str(default_unpack_dir(pak_path, original_root))
@@ -800,18 +1112,22 @@ def main() -> int:
     print(f"unpacking {pak_path} -> {out_dir}")
     print(f"  size = {os.path.getsize(pak_path)} bytes")
 
-    if args.named:
-        stats = pak_extract(
-            pak_path, out_dir,
-            dry_run=args.dry_run,
-            write_manifest=args.manifest,
-            verify=args.verify,
-            filter_pattern=args.filter,
-            original_root=original_root,
-        )
-        return 0 if stats.written > 0 else 2
-    return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run,
-                         original_root=original_root)
+    try:
+        if args.named:
+            stats = pak_extract(
+                pak_path, out_dir,
+                dry_run=args.dry_run,
+                write_manifest=args.manifest,
+                verify=args.verify,
+                filter_pattern=args.filter,
+                original_root=original_root,
+            )
+            return 0 if stats.written > 0 else 2
+        return unpack_legacy(pak_path, out_dir, dry_run=args.dry_run,
+                             original_root=original_root)
+    except (ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

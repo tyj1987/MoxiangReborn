@@ -2,17 +2,26 @@
 //
 // Original source: 墨香【源码】\4DyuchiFileStorage\PackFile.cpp + typedef.h
 //
-// Two headers, selected by dwFileItemNum at offset 4. See docs/formats/pak.md.
+// Two headers. Both layouts are probed on every open. A layout is used
+// only when its entry walk ends at exact EOF and the other layout does
+// not. If neither walk validates, or both do, the pak is not loaded.
+// See docs/formats/pak.md.
 //
-//   Variant A (worktree, offset 4 != 0):
-//     [92 bytes] PACK_FILE_HEADER, then entries at offset 92.
+//   Variant A (worktree / PlayDH, 92-byte header):
+//     count = uint32 at offset 4, entries at offset 92.
 //     The loop advances by the on-disk layout, not by dwTotalSize.
+//     A count of 0 is not a validating walk.
 //
-//   Variant B (original client, offset 4 == 0):
-//     [96 bytes] header. The entry count is the uint32 at offset 92
-//     (original Map.pak: 0x2C03 = 11267). Entries start at offset 96
-//     and the next entry is at cur + dwTotalSize. A short or inconsistent
-//     header fails closed.
+//   Variant B (original client, 96-byte header):
+//     count = uint32 at offset 92 (original Map.pak: 0x2C03 = 11267).
+//     Entries start at offset 96 and the next entry is at cur + dwTotalSize.
+//     total must equal 32+name_len+1+real, a NUL follows the name, and the
+//     walk must end at EOF. A count of 0 is not a validating walk.
+//     A nonzero uint32 at offset 4 does not by itself select variant A.
+//
+// When the uint32 at offset 4 is 0 and neither walk validates, open still
+// runs the original-96 parser so the existing truncated, zero-count, and
+// overrun errors stay.
 //
 //   [92 bytes]  PACK_FILE_HEADER
 //     - dwVersion (u32) = CURRENT_VERSION = 0x00000001
@@ -84,6 +93,19 @@ static_assert(sizeof(PackFileDesc) == 32, "PackFileDesc must be 32 bytes");
 
 #pragma pack(pop)
 
+// Result of trying both entry walks. Exactly one true flag is a usable
+// header. Both true, or both false, means the pak is not loaded.
+struct PakLayoutProbe {
+    bool playdh92_exact_eof = false;
+    bool original96_exact_eof = false;
+};
+
+// PlayDH92: uint32 at offset 4, layout walk from offset 92.
+// Original96: uint32 at offset 92, strict walk from offset 96.
+// A count of 0 does not validate. Version must be 1.
+[[nodiscard]] PakLayoutProbe probe_pak_layouts(
+    std::span<const std::uint8_t> bytes) noexcept;
+
 struct PackEntry {
     std::string name;                       // e.g. "Map\\Map0.bmhm"
     std::uint32_t entry_offset = 0;         // position of this entry in .pak
@@ -110,10 +132,11 @@ public:
         std::vector<std::uint8_t> bytes, std::string* error = nullptr);
 
     [[nodiscard]] const PackFileHeader& header() const noexcept { return header_; }
-    // Variant A: dwFileItemNum at offset 4. Variant B (that field is 0):
-    // the number of entries actually parsed from the count at offset 92.
+    // PlayDH92: dwFileItemNum at offset 4. A successful original-96 open
+    // reports the number of entries parsed from the count at offset 92,
+    // including when the on-disk uint32 at offset 4 is a nonzero decoy.
     [[nodiscard]] std::uint32_t file_count() const noexcept {
-        if (header_.file_item_num == 0) {
+        if (report_parsed_count_ || header_.file_item_num == 0) {
             return static_cast<std::uint32_t>(entries_.size());
         }
         return header_.file_item_num;
@@ -129,14 +152,20 @@ public:
     [[nodiscard]] static bool is_pak(std::span<const std::uint8_t> bytes) noexcept;
 
 private:
-    // Offset 4 is 0. Count is at offset 92, entries start at 96.
-    // Returns null instead of a partial pack.
+    // Count at offset 4, entries at 92, advance by layout. May return a
+    // partial pack when the walk stops early and the cursor is still at EOF.
+    [[nodiscard]] static std::unique_ptr<PackFile> open_playdh_92(
+        std::vector<std::uint8_t> bytes, std::string* error);
+    // Count at offset 92, entries at 96. Returns null instead of a partial pack.
     [[nodiscard]] static std::unique_ptr<PackFile> open_original_96(
         std::vector<std::uint8_t> bytes, std::string* error);
 
     PackFileHeader header_{};
     std::vector<PackEntry> entries_;
     std::vector<std::uint8_t> raw_;
+    // Set on a successful original-96 open so file_count() ignores a decoy
+    // uint32 at offset 4. header().file_item_num stays the on-disk value.
+    bool report_parsed_count_ = false;
 };
 
 }  // namespace mxh::compat

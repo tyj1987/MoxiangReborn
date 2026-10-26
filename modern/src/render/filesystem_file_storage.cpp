@@ -3,10 +3,12 @@
 #include "mxh/log/mlog.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 
 namespace mxh::gx {
@@ -29,6 +31,12 @@ unsigned char fold_ascii(unsigned char c) noexcept {
     return c;
 }
 
+std::optional<PakFormatTier> tier_of(PakHeaderKind kind) noexcept {
+    if (kind == PakHeaderKind::PlayDh92) return PakFormatTier::PlayDh92;
+    if (kind == PakHeaderKind::Original96) return PakFormatTier::Original96;
+    return std::nullopt;
+}
+
 int tier_rank(PakFormatTier tier, const std::vector<PakFormatTier>& order) {
     for (std::size_t i = 0; i < order.size(); ++i) {
         if (order[i] == tier) return static_cast<int>(i);
@@ -49,19 +57,107 @@ std::string filename_utf8(const std::filesystem::path& path) {
 
 }  // namespace
 
-std::optional<PakFormatTier> classify_pak_header(const std::filesystem::path& path) {
+PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path) {
+    PakHeaderPrefix prefix;
+    errno = 0;
     std::ifstream in(path, std::ios::binary);
+    if (!in) {
+        const int saved = errno;
+        if (saved != 0) {
+            prefix.error = std::error_code(saved, std::generic_category()).message();
+        }
+        return prefix;
+    }
+    prefix.opened = true;
+    in.read(reinterpret_cast<char*>(prefix.bytes), static_cast<std::streamsize>(sizeof(prefix.bytes)));
+    const auto count = in.gcount();
+    if (count > 0) prefix.size = static_cast<std::size_t>(count);
+    return prefix;
+}
+
+namespace {
+
+bool read_u32_at(const std::vector<std::uint8_t>& bytes, std::size_t offset,
+                 std::uint32_t& out) {
+    if (offset > bytes.size() || bytes.size() - offset < sizeof(out)) return false;
+    std::memcpy(&out, bytes.data() + offset, sizeof(out));
+    return true;
+}
+
+std::optional<std::vector<std::uint8_t>> read_entire_file(
+    const std::filesystem::path& path) {
+    errno = 0;
+    std::ifstream in(path, std::ios::binary | std::ios::ate);
     if (!in) return std::nullopt;
-    unsigned char buf[8]{};
-    in.read(reinterpret_cast<char*>(buf), 8);
-    if (in.gcount() != 8) return std::nullopt;
-    const std::uint32_t count_at_offset_4 =
-        static_cast<std::uint32_t>(buf[4]) |
-        (static_cast<std::uint32_t>(buf[5]) << 8) |
-        (static_cast<std::uint32_t>(buf[6]) << 16) |
-        (static_cast<std::uint32_t>(buf[7]) << 24);
-    if (count_at_offset_4 != 0) return PakFormatTier::PlayDh92;
-    return PakFormatTier::Original96;
+    const auto end = in.tellg();
+    if (end < 0) return std::nullopt;
+    const auto size = static_cast<std::size_t>(end);
+    in.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (size > 0 &&
+        !in.read(reinterpret_cast<char*>(bytes.data()),
+                 static_cast<std::streamsize>(size))) {
+        return std::nullopt;
+    }
+    return bytes;
+}
+
+}  // namespace
+
+PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
+                                           PakHeaderOpener opener) {
+    const PakHeaderPrefix prefix = opener != nullptr ? opener(path)
+                                                     : read_pak_header_prefix(path);
+    PakHeaderClassification result;
+    if (!prefix.opened) {
+        result.kind = PakHeaderKind::CannotOpen;
+        result.open_error = prefix.error;
+        return result;
+    }
+    if (prefix.size < 8) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+
+    const auto bytes = read_entire_file(path);
+    if (!bytes) {
+        result.kind = PakHeaderKind::CannotOpen;
+        const int saved = errno;
+        if (saved != 0) {
+            result.open_error = std::error_code(saved, std::generic_category()).message();
+        }
+        return result;
+    }
+    if (bytes->size() < 8) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+
+    std::uint32_t count_at_offset_4 = 0;
+    if (!read_u32_at(*bytes, 4, count_at_offset_4)) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+    const auto probe = mxh::compat::probe_pak_layouts(*bytes);
+    result.playdh92_valid = probe.playdh92_exact_eof;
+    result.original96_valid = probe.original96_exact_eof;
+
+    std::uint32_t count_at_offset_92 = 0;
+    read_u32_at(*bytes, 92, count_at_offset_92);
+
+    if (result.playdh92_valid && !result.original96_valid) {
+        result.kind = PakHeaderKind::PlayDh92;
+        result.entry_count = count_at_offset_4;
+        return result;
+    }
+    if (result.original96_valid && !result.playdh92_valid) {
+        result.kind = PakHeaderKind::Original96;
+        result.entry_count = count_at_offset_92;
+        return result;
+    }
+    result.kind = PakHeaderKind::Unrecognized;
+    result.entry_count = 0;
+    return result;
 }
 
 bool pak_filename_less(std::string_view a, std::string_view b) noexcept {
@@ -158,13 +254,21 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     pack_names_.clear();
     std::error_code ec;
     std::vector<PakMountCandidate> classified;
-    std::vector<std::filesystem::path> unclassified;
+    struct SkippedPak {
+        std::filesystem::path path;
+        PakHeaderKind kind = PakHeaderKind::CannotOpen;
+        std::string open_error;
+    };
+    std::vector<SkippedPak> skipped;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
+        // Directories named *.pak are not archives. Only regular files are
+        // classified, so an open failure here is a file we could not read.
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (const auto tier = classify_pak_header(item.path())) {
+        const auto header = classify_pak_header(item.path(), header_opener_);
+        if (const auto tier = tier_of(header.kind)) {
             classified.push_back(PakMountCandidate{item.path(), *tier});
         } else {
-            unclassified.push_back(item.path());
+            skipped.push_back(SkippedPak{item.path(), header.kind, header.open_error});
         }
     }
     // Tier sequence comes from options_.pak_tier_order, not from this loop.
@@ -191,15 +295,34 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
         }
     };
     for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
-    // Shorter than 8 bytes: offset 4 cannot be read. Do not call
-    // PackFile::open (that would follow directory order). Warn and skip.
-    std::sort(unclassified.begin(), unclassified.end(),
-              [](const std::filesystem::path& a, const std::filesystem::path& b) {
-                  return pak_filename_less(filename_utf8(a), filename_utf8(b));
+    // Cannot-open, shorter-than-8, and unrecognized headers skip
+    // PackFile::open. They share the mount-order filename sort (UTF-8
+    // bytes of filename().u8string()).
+    std::sort(skipped.begin(), skipped.end(),
+              [](const SkippedPak& a, const SkippedPak& b) {
+                  return pak_filename_less(filename_utf8(a.path), filename_utf8(b.path));
               });
-    for (const auto& path : unclassified) {
-        const auto name = filename_utf8(path);
-        MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+    for (const auto& item : skipped) {
+        const auto name = filename_utf8(item.path);
+        switch (item.kind) {
+        case PakHeaderKind::CannotOpen:
+            if (item.open_error.empty()) {
+                MLOG_WARN("[pak] skipped '%s': cannot open", name.c_str());
+            } else {
+                MLOG_WARN("[pak] skipped '%s': cannot open (%s)",
+                          name.c_str(), item.open_error.c_str());
+            }
+            break;
+        case PakHeaderKind::ShorterThan8:
+            MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+            break;
+        case PakHeaderKind::Unrecognized:
+            MLOG_ERROR("[pak] ambiguous/unrecognized header: %s", name.c_str());
+            break;
+        case PakHeaderKind::PlayDh92:
+        case PakHeaderKind::Original96:
+            break;
+        }
     }
 
     std::string line = "[pak] mount order:";

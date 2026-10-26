@@ -18,6 +18,7 @@
     stm_static_model.cpp
     image_path_table.cpp
     map_change_catalog.cpp
+    gx_map_script.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC
@@ -435,6 +436,8 @@ target_include_directories(mxh_log PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}              # so log/mlog.cpp finds mlog.hpp
 )
 target_compile_features(mxh_log PUBLIC cxx_std_20)
+# gx_map_script.cpp logs through MLOG. mxh_log does not depend on mxh_compat.
+target_link_libraries(mxh_compat PUBLIC mxh_log)
 
 # -----------------------------------------------------------------------------
 # mxh_memory: High-performance memory pool (Phase 12.4)
