@@ -1,6 +1,7 @@
 # Moxian-Reborn 文档
 
 - [RESOURCE_FORMATS.md](RESOURCE_FORMATS.md)：资源格式与真实样本约束。
+- [formats/pak.md](formats/pak.md)：`.pak` 的两种包头和条目布局。
 - [MoxianProtocolDoc.md](MoxianProtocolDoc.md)：网络协议说明。
 - [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)：数据库 schema 与后端差异。
 - [KNOWN_BUGS.md](KNOWN_BUGS.md)：当前活动缺陷和外部阻塞。
