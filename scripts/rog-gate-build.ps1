@@ -58,6 +58,7 @@
 .PARAMETER SelfTest
     Check path safety, generator decisions, drive selection, free-space
     thresholds, and the sparse-checkout reparse preflight without a compiler.
+    On Windows, directory links in this self-test are NTFS junctions.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -1345,6 +1346,145 @@ function Write-RogGateHeader {
     Write-Host '==============================='
 }
 
+function Test-RogGateHostIsWindows {
+    # $IsWindows exists on PowerShell 6+. Windows PowerShell 5.1 only has $env:OS.
+    if (Test-Path -Path 'Variable:IsWindows') {
+        return [bool](Get-Variable -Name 'IsWindows' -ValueOnly)
+    }
+    return ($env:OS -eq 'Windows_NT')
+}
+
+function Get-RogGateSelfTestLinkType {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $item = Get-Item -LiteralPath $LiteralPath -Force -ErrorAction Stop
+    $prop = $item.PSObject.Properties['LinkType']
+    if ($null -ne $prop -and -not [string]::IsNullOrWhiteSpace([string]$prop.Value)) {
+        return [string]$prop.Value
+    }
+    # Windows PowerShell 5.1 does not surface LinkType. dir /al names the real
+    # NTFS object: <JUNCTION> or <SYMLINKD>.
+    if (-not (Test-RogGateHostIsWindows)) {
+        return ''
+    }
+    $parent = Split-Path -Path $item.FullName -Parent
+    $name = Split-Path -Path $item.FullName -Leaf
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $listing = & cmd.exe /d /c "dir /al `"$parent`"" 2>&1
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    foreach ($entry in @($listing)) {
+        if ($entry -is [System.Management.Automation.ErrorRecord]) {
+            continue
+        }
+        $text = [string]$entry
+        if ($text -notmatch '<(JUNCTION|SYMLINKD|SYMLINK)>') {
+            continue
+        }
+        $tag = $Matches[1]
+        $shown = ''
+        if ($text -match '<(?:JUNCTION|SYMLINKD|SYMLINK)>\s+(.*?)\s+\[') {
+            $shown = $Matches[1].Trim()
+        }
+        if ($shown -ne $name) {
+            continue
+        }
+        if ($tag -eq 'JUNCTION') {
+            return 'Junction'
+        }
+        return 'SymbolicLink'
+    }
+    return ''
+}
+
+function New-RogGateWindowsJunction {
+    param(
+        [Parameter(Mandatory = $true)][string]$LinkPath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    # mklink /J does not need Developer Mode. Try it before any symlink API so
+    # an elevated shell cannot silently substitute a symlink.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $null = & cmd.exe /d /c "mklink /J `"$LinkPath`" `"$TargetPath`"" 2>&1
+        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $LinkPath)) {
+            return $true
+        }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    try {
+        New-Item -ItemType Junction -Path $LinkPath -Value $TargetPath -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        try {
+            New-Item -ItemType Junction -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
+            return $true
+        } catch {
+            return $false
+        }
+    }
+}
+
+function New-RogGateSelfTestDirectoryLink {
+    param(
+        [Parameter(Mandatory = $true)][string]$LinkPath,
+        [Parameter(Mandatory = $true)][string]$TargetPath,
+        [ValidateSet('Auto', 'Junction', 'SymbolicLink')]
+        [string]$Kind = 'Auto'
+    )
+
+    if (-not (Test-Path -LiteralPath $TargetPath)) {
+        New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
+    }
+
+    $wantJunction = $false
+    if ($Kind -eq 'Junction') {
+        $wantJunction = $true
+    } elseif ($Kind -eq 'SymbolicLink') {
+        $wantJunction = $false
+    } else {
+        $wantJunction = Test-RogGateHostIsWindows
+    }
+
+    $created = $false
+    if ($wantJunction) {
+        $created = New-RogGateWindowsJunction -LinkPath $LinkPath -TargetPath $TargetPath
+    } else {
+        try {
+            New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
+            $created = $true
+        } catch {
+            try {
+                New-Item -ItemType SymbolicLink -Path $LinkPath -Value $TargetPath -ErrorAction Stop | Out-Null
+                $created = $true
+            } catch {
+                $created = $false
+            }
+        }
+    }
+
+    $linkType = ''
+    if ($created -and (Test-Path -LiteralPath $LinkPath)) {
+        $linkType = Get-RogGateSelfTestLinkType -LiteralPath $LinkPath
+    }
+    $expected = 'SymbolicLink'
+    if ($wantJunction) {
+        $expected = 'Junction'
+    }
+    return [pscustomobject]@{
+        Ok       = [bool]($created -and ($linkType -eq $expected))
+        Created  = [bool]$created
+        LinkType = [string]$linkType
+        Expected = [string]$expected
+    }
+}
+
 function Invoke-RogGateSelfTest {
     $script:RogGateSelfTestFailures = 0
 
@@ -1359,6 +1499,16 @@ function Invoke-RogGateSelfTest {
             Write-Host "[FAIL] $Name"
             $script:RogGateSelfTestFailures = $script:RogGateSelfTestFailures + 1
         }
+    }
+
+    function Write-RogGateSelfTestSkip {
+        param([Parameter(Mandatory = $true)][string]$Name)
+        Write-Host "[SKIP] $Name"
+    }
+
+    $directoryLinkKind = 'SymbolicLink'
+    if (Test-RogGateHostIsWindows) {
+        $directoryLinkKind = 'Junction'
     }
 
     $normalized = ConvertTo-RogGateWindowsPath -Path 'D:/build-mxr/foo/./bar'
@@ -1500,29 +1650,22 @@ function Invoke-RogGateSelfTest {
         New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
         $innerTarget = Join-Path -Path $TargetPath -ChildPath 'inner-target'
         $innerLink = Join-Path -Path $TargetPath -ChildPath 'inner-link'
-        New-Item -ItemType Directory -Path $innerTarget -Force | Out-Null
-        try {
-            New-Item -ItemType SymbolicLink -Path $innerLink -Target $innerTarget -ErrorAction Stop | Out-Null
-        } catch {
-            if ($env:OS -eq 'Windows_NT') {
-                $null = & cmd.exe /d /c "mklink /J `"$innerLink`" `"$innerTarget`""
-            }
-        }
+        $inner = New-RogGateSelfTestDirectoryLink -LinkPath $innerLink -TargetPath $innerTarget
         Set-Content -LiteralPath (Join-Path -Path $TargetPath -ChildPath 'marker.txt') -Value 'keep' -Encoding ASCII
-        $created = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
-            $created = $true
-        } catch {
-            $created = $false
+        $outer = New-RogGateSelfTestDirectoryLink -LinkPath $LinkPath -TargetPath $TargetPath
+        $linkType = [string]$outer.LinkType
+        return [pscustomobject]@{
+            Ok       = [bool]($inner.Ok -and $outer.Ok)
+            Created  = [bool]$outer.Created
+            LinkType = $linkType
         }
-        if ((-not $created) -and ($env:OS -eq 'Windows_NT')) {
-            $null = & cmd.exe /d /c "mklink /J `"$LinkPath`" `"$TargetPath`""
-            if ($LASTEXITCODE -eq 0) {
-                $created = $true
-            }
+    }
+    function Format-RogGateSelfTestLinkKind {
+        param([string]$LinkType)
+        if ([string]::IsNullOrWhiteSpace($LinkType)) {
+            return 'missing'
         }
-        return $created
+        return $LinkType
     }
     function Test-RogGatePreflightAllows {
         param([Parameter(Mandatory = $true)][string]$Path)
@@ -1543,20 +1686,22 @@ function Invoke-RogGateSelfTest {
         $neitherState = Get-RogGateSparseCheckoutState -Worktree $neither
         $neitherReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $neither)
         $neitherPass = $neitherReady -and (-not $neitherState.Active) -and ($neitherReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $neither)
-        Assert-RogGateSelfTest -Name 'neither sparse checkout nor a junction passes' -Condition $neitherPass
+        Assert-RogGateSelfTest -Name 'neither sparse checkout nor a junction passes (link=none)' -Condition $neitherPass
 
         $sparseOnly = Join-Path -Path $preflightRoot -ChildPath 'sparse-only'
         $sparseReady = Initialize-RogGateSelfTestRepo -Path $sparseOnly -Sparse $true
         $sparseState = Get-RogGateSparseCheckoutState -Worktree $sparseOnly
         $sparseReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $sparseOnly)
         $sparsePass = $sparseReady -and $sparseState.Active -and ($sparseState.SparseState -match 'core.sparseCheckout=true') -and ($sparseReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $sparseOnly)
-        Assert-RogGateSelfTest -Name 'sparse checkout alone passes' -Condition $sparsePass
+        Assert-RogGateSelfTest -Name 'sparse checkout alone passes (link=none)' -Condition $sparsePass
 
         $junctionOnly = Join-Path -Path $preflightRoot -ChildPath 'junction-only'
         $junctionTarget = Join-Path -Path $preflightRoot -ChildPath 'junction-target'
         $junctionReady = Initialize-RogGateSelfTestRepo -Path $junctionOnly -Sparse $false
         $junctionLink = Join-Path -Path $junctionOnly -ChildPath 'jump'
-        $junctionLinked = New-RogGateSelfTestReparseLink -LinkPath $junctionLink -TargetPath $junctionTarget
+        $junctionResult = New-RogGateSelfTestReparseLink -LinkPath $junctionLink -TargetPath $junctionTarget
+        $junctionLinked = [bool]$junctionResult.Ok
+        $junctionKind = Format-RogGateSelfTestLinkKind -LinkType $junctionResult.LinkType
         $junctionState = Get-RogGateSparseCheckoutState -Worktree $junctionOnly
         $junctionReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $junctionOnly)
         $junctionSawLink = $false
@@ -1569,14 +1714,16 @@ function Invoke-RogGateSelfTest {
                 $junctionFollowed = $true
             }
         }
-        $junctionPass = $junctionReady -and $junctionLinked -and (-not $junctionState.Active) -and $junctionSawLink -and (-not $junctionFollowed) -and (Test-RogGatePreflightAllows -Path $junctionOnly)
-        Assert-RogGateSelfTest -Name 'junction alone passes' -Condition $junctionPass
+        $junctionPass = $junctionReady -and $junctionLinked -and ($junctionKind -eq $directoryLinkKind) -and (-not $junctionState.Active) -and $junctionSawLink -and (-not $junctionFollowed) -and (Test-RogGatePreflightAllows -Path $junctionOnly)
+        Assert-RogGateSelfTest -Name ("junction alone passes (link={0})" -f $junctionKind) -Condition $junctionPass
 
         $both = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction'
         $bothTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction-target'
         $bothReady = Initialize-RogGateSelfTestRepo -Path $both -Sparse $true
         $bothLink = Join-Path -Path $both -ChildPath 'jump'
-        $bothLinked = New-RogGateSelfTestReparseLink -LinkPath $bothLink -TargetPath $bothTarget
+        $bothResult = New-RogGateSelfTestReparseLink -LinkPath $bothLink -TargetPath $bothTarget
+        $bothLinked = [bool]$bothResult.Ok
+        $bothKind = Format-RogGateSelfTestLinkKind -LinkType $bothResult.LinkType
         $bothState = Get-RogGateSparseCheckoutState -Worktree $both
         $bothReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $both)
         $bothMessage = ''
@@ -1597,8 +1744,8 @@ function Invoke-RogGateSelfTest {
                 $bothFollowed = $true
             }
         }
-        $bothRejected = $bothReady -and $bothLinked -and $bothState.Active -and ($bothState.SparseState -match 'core.sparseCheckout=true') -and $bothThrew -and ($bothMessage -match 'sparse checkout is enabled') -and $bothNamesPaths -and (-not $bothFollowed) -and ($bothMessage -notmatch 'inner-link')
-        Assert-RogGateSelfTest -Name 'sparse checkout plus a junction is rejected' -Condition $bothRejected
+        $bothRejected = $bothReady -and $bothLinked -and ($bothKind -eq $directoryLinkKind) -and $bothState.Active -and ($bothState.SparseState -match 'core.sparseCheckout=true') -and $bothThrew -and ($bothMessage -match 'sparse checkout is enabled') -and $bothNamesPaths -and (-not $bothFollowed) -and ($bothMessage -notmatch 'inner-link')
+        Assert-RogGateSelfTest -Name ("sparse checkout plus a junction is rejected (link={0})" -f $bothKind) -Condition $bothRejected
 
         $worktreeBase = Join-Path -Path $preflightRoot -ChildPath 'worktree'
         $worktreeMain = Join-Path -Path $worktreeBase -ChildPath 'main'
@@ -1623,8 +1770,11 @@ function Invoke-RogGateSelfTest {
         }
         $worktreeLink = Join-Path -Path $worktreeDir -ChildPath 'jump'
         $worktreeLinked = $false
+        $worktreeKind = 'missing'
         if ($worktreeSparse) {
-            $worktreeLinked = New-RogGateSelfTestReparseLink -LinkPath $worktreeLink -TargetPath $worktreeTarget
+            $worktreeResult = New-RogGateSelfTestReparseLink -LinkPath $worktreeLink -TargetPath $worktreeTarget
+            $worktreeLinked = [bool]$worktreeResult.Ok
+            $worktreeKind = Format-RogGateSelfTestLinkKind -LinkType $worktreeResult.LinkType
         }
         $worktreeGitDir = ''
         if ($worktreeAdded) {
@@ -1647,8 +1797,8 @@ function Invoke-RogGateSelfTest {
                 $worktreeMessage = $_.Exception.Message
             }
         }
-        $worktreeRejected = $worktreeReady -and $worktreeSparse -and $worktreeDotGitFile -and ($worktreeDotGitText -match '(?m)^\s*gitdir:') -and $worktreeLinked -and $worktreeThrew -and ($worktreeMessage -match 'core.sparseCheckout=true') -and ($worktreeLinkFull.Length -gt 0) -and ($worktreeMessage -match [regex]::Escape($worktreeLinkFull)) -and ($worktreeMessage -match 'worktrees') -and ($worktreeMessage -notmatch 'inner-link') -and ($worktreeGitDir -match 'worktrees')
-        Assert-RogGateSelfTest -Name 'sparse worktree whose .git file is a gitdir pointer is rejected when it contains a junction' -Condition $worktreeRejected
+        $worktreeRejected = $worktreeReady -and $worktreeSparse -and $worktreeDotGitFile -and ($worktreeDotGitText -match '(?m)^\s*gitdir:') -and $worktreeLinked -and ($worktreeKind -eq $directoryLinkKind) -and $worktreeThrew -and ($worktreeMessage -match 'core.sparseCheckout=true') -and ($worktreeLinkFull.Length -gt 0) -and ($worktreeMessage -match [regex]::Escape($worktreeLinkFull)) -and ($worktreeMessage -match 'worktrees') -and ($worktreeMessage -notmatch 'inner-link') -and ($worktreeGitDir -match 'worktrees')
+        Assert-RogGateSelfTest -Name ("sparse worktree whose .git file is a gitdir pointer is rejected when it contains a junction (link={0})" -f $worktreeKind) -Condition $worktreeRejected
 
         $bothProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SourceDir', $both, '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
         $bothLinkFull = ''
@@ -1660,8 +1810,58 @@ function Invoke-RogGateSelfTest {
         if (Test-Path -LiteralPath $markerPath) {
             $markerText = (Get-Content -LiteralPath $markerPath -Raw).Trim()
         }
-        $bothProbeRejected = $bothLinked -and ($bothLinkFull.Length -gt 0) -and ($bothProbe.ExitCode -eq 1) -and ($bothProbe.Text -match 'sparse checkout is enabled') -and ($bothProbe.Text -match [regex]::Escape($bothLinkFull)) -and ($bothProbe.Text -match 'core.sparseCheckout=true') -and ($bothProbe.Text -notmatch 'rev-parse') -and ($bothProbe.Text -notmatch 'inner-link') -and ($markerText -eq 'keep')
-        Assert-RogGateSelfTest -Name 'sparse plus junction exits 1 before git rev-parse' -Condition $bothProbeRejected
+        $bothProbeRejected = $bothLinked -and ($bothKind -eq $directoryLinkKind) -and ($bothLinkFull.Length -gt 0) -and ($bothProbe.ExitCode -eq 1) -and ($bothProbe.Text -match 'sparse checkout is enabled') -and ($bothProbe.Text -match [regex]::Escape($bothLinkFull)) -and ($bothProbe.Text -match 'core.sparseCheckout=true') -and ($bothProbe.Text -notmatch 'rev-parse') -and ($bothProbe.Text -notmatch 'inner-link') -and ($markerText -eq 'keep')
+        Assert-RogGateSelfTest -Name ("sparse plus junction exits 1 before git rev-parse (link={0})" -f $bothKind) -Condition $bothProbeRejected
+
+        if (Test-RogGateHostIsWindows) {
+            $mixed = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed'
+            $mixedJunctionTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed-junction-target'
+            $mixedSymlinkTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed-symlink-target'
+            $mixedReady = Initialize-RogGateSelfTestRepo -Path $mixed -Sparse $true
+            $mixedJunction = Join-Path -Path $mixed -ChildPath 'jump-junction'
+            $mixedJunctionResult = New-RogGateSelfTestReparseLink -LinkPath $mixedJunction -TargetPath $mixedJunctionTarget
+            $mixedJunctionKind = Format-RogGateSelfTestLinkKind -LinkType $mixedJunctionResult.LinkType
+            $mixedName = 'windows sparse checkout with a junction and a directory symlink'
+            if (-not ($mixedReady -and $mixedJunctionResult.Ok -and ($mixedJunctionKind -eq 'Junction'))) {
+                Assert-RogGateSelfTest -Name ("{0} (link={1})" -f $mixedName, $mixedJunctionKind) -Condition $false
+            } else {
+                $mixedInnerTarget = Join-Path -Path $mixedSymlinkTarget -ChildPath 'inner-target'
+                $mixedInnerLink = Join-Path -Path $mixedSymlinkTarget -ChildPath 'inner-link'
+                $mixedInner = New-RogGateSelfTestDirectoryLink -LinkPath $mixedInnerLink -TargetPath $mixedInnerTarget -Kind Junction
+                $mixedSymlink = Join-Path -Path $mixed -ChildPath 'jump-symlink'
+                $mixedSymlinkResult = New-RogGateSelfTestDirectoryLink -LinkPath $mixedSymlink -TargetPath $mixedSymlinkTarget -Kind SymbolicLink
+                $mixedSymlinkKind = Format-RogGateSelfTestLinkKind -LinkType $mixedSymlinkResult.LinkType
+                if (-not $mixedInner.Ok) {
+                    Assert-RogGateSelfTest -Name ("{0} (link={1}+{2})" -f $mixedName, $mixedJunctionKind, $mixedSymlinkKind) -Condition $false
+                } elseif (-not $mixedSymlinkResult.Created) {
+                    Write-RogGateSelfTestSkip -Name ("{0} (directory symlink not permitted)" -f $mixedName)
+                } elseif ($mixedSymlinkResult.LinkType -ne 'SymbolicLink') {
+                    Assert-RogGateSelfTest -Name ("{0} (link={1}+{2})" -f $mixedName, $mixedJunctionKind, $mixedSymlinkKind) -Condition $false
+                } else {
+                    $mixedState = Get-RogGateSparseCheckoutState -Worktree $mixed
+                    $mixedReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $mixed)
+                    $mixedMessage = ''
+                    $mixedThrew = $false
+                    try {
+                        Assert-RogGateSparseReparsePreflight -SourceDir $mixed
+                    } catch {
+                        $mixedThrew = $true
+                        $mixedMessage = $_.Exception.Message
+                    }
+                    $mixedJunctionFull = (Get-Item -LiteralPath $mixedJunction -Force).FullName
+                    $mixedSymlinkFull = (Get-Item -LiteralPath $mixedSymlink -Force).FullName
+                    $mixedNames = ($mixedMessage -match [regex]::Escape($mixedJunctionFull)) -and ($mixedMessage -match [regex]::Escape($mixedSymlinkFull))
+                    $mixedFollowed = $false
+                    foreach ($reparsePath in $mixedReparse) {
+                        if ([string]$reparsePath -match 'inner-link') {
+                            $mixedFollowed = $true
+                        }
+                    }
+                    $mixedOk = $mixedState.Active -and $mixedThrew -and ($mixedMessage -match 'sparse checkout is enabled') -and ($mixedMessage -match 'core.sparseCheckout=true') -and $mixedNames -and (-not $mixedFollowed) -and ($mixedMessage -notmatch 'inner-link')
+                    Assert-RogGateSelfTest -Name ("{0} (link=Junction+SymbolicLink)" -f $mixedName) -Condition $mixedOk
+                }
+            }
+        }
     } finally {
         Remove-RogGateFixture -LiteralPath $preflightRoot
     }
@@ -1768,20 +1968,10 @@ function Invoke-RogGateSelfTest {
         $linkedBuild = Join-Path -Path $fixture -ChildPath 'linked-build'
         New-Item -ItemType Directory -Path $linkedBuild | Out-Null
         $link = Join-Path -Path $linkedBuild -ChildPath 'jump'
-        $linkCreated = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $link -Target $outside -ErrorAction Stop | Out-Null
-            $linkCreated = $true
-        } catch {
-            if ($env:OS -eq 'Windows_NT') {
-                $null = & cmd.exe /d /c "mklink /J `"$link`" `"$outside`""
-                if ($LASTEXITCODE -eq 0) {
-                    $linkCreated = $true
-                }
-            }
-        }
-        if (-not $linkCreated) {
-            Assert-RogGateSelfTest -Name 'create a directory symlink or junction' -Condition $false
+        $dirLink = New-RogGateSelfTestDirectoryLink -LinkPath $link -TargetPath $outside
+        $dirLinkKind = Format-RogGateSelfTestLinkKind -LinkType $dirLink.LinkType
+        if (-not $dirLink.Ok) {
+            Assert-RogGateSelfTest -Name ("create a directory reparse point (link={0})" -f $dirLinkKind) -Condition $false
         } else {
             $violations = @(Get-RogGateReparseViolations -LiteralPath $linkedBuild)
             $sawLink = $false
@@ -1790,7 +1980,7 @@ function Invoke-RogGateSelfTest {
                     $sawLink = $true
                 }
             }
-            Assert-RogGateSelfTest -Name 'directory symlink is reported and not descended into' -Condition ($sawLink -and (Test-Path -LiteralPath $marker))
+            Assert-RogGateSelfTest -Name ("directory reparse point is reported and not descended into (link={0})" -f $dirLinkKind) -Condition ($sawLink -and (Test-Path -LiteralPath $marker) -and ($dirLinkKind -eq $directoryLinkKind))
 
             $fileLink = Join-Path -Path $linkedBuild -ChildPath 'file.link'
             $fileLinkOk = $true
@@ -1826,29 +2016,19 @@ function Invoke-RogGateSelfTest {
             $realChild = Join-Path -Path $real -ChildPath 'child'
             New-Item -ItemType Directory -Path $realChild | Out-Null
             $ancestorLink = Join-Path -Path $fixture -ChildPath 'ancestor-link'
-            $ancestorOk = $false
-            try {
-                New-Item -ItemType SymbolicLink -Path $ancestorLink -Target $real -ErrorAction Stop | Out-Null
-                $ancestorOk = $true
-            } catch {
-                if ($env:OS -eq 'Windows_NT') {
-                    $null = & cmd.exe /d /c "mklink /J `"$ancestorLink`" `"$real`""
-                    if ($LASTEXITCODE -eq 0) {
-                        $ancestorOk = $true
-                    }
-                }
-            }
-            if ($ancestorOk) {
+            $ancestorLinkResult = New-RogGateSelfTestDirectoryLink -LinkPath $ancestorLink -TargetPath $real
+            $ancestorKind = Format-RogGateSelfTestLinkKind -LinkType $ancestorLinkResult.LinkType
+            $sawAncestor = $false
+            if ($ancestorLinkResult.Ok) {
                 $via = Join-Path -Path $ancestorLink -ChildPath 'child'
                 $ancestorHits = @(Get-RogGateReparseViolations -LiteralPath $via)
-                $sawAncestor = $false
                 foreach ($hit in $ancestorHits) {
                     if ($hit -eq $ancestorLink) {
                         $sawAncestor = $true
                     }
                 }
-                Assert-RogGateSelfTest -Name 'ancestor symlink is refused before descent' -Condition $sawAncestor
             }
+            Assert-RogGateSelfTest -Name ("ancestor reparse point is refused before descent (link={0})" -f $ancestorKind) -Condition ($ancestorLinkResult.Ok -and $sawAncestor -and ($ancestorKind -eq $directoryLinkKind))
         }
 
         $sizeRoot = Join-Path -Path $fixture -ChildPath 'sizes'
@@ -1863,14 +2043,10 @@ function Invoke-RogGateSelfTest {
         [System.IO.File]::WriteAllBytes((Join-Path -Path $sizeOutside -ChildPath 'huge.bin'), (New-Object byte[] 20000))
         [System.IO.File]::WriteAllBytes((Join-Path -Path $sizeRoot -ChildPath 'readme.txt'), (New-Object byte[] 10000))
         $sizeJump = Join-Path -Path $sizeRoot -ChildPath 'jump'
-        $sizeLinkOk = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $sizeJump -Target $sizeOutside -ErrorAction Stop | Out-Null
-            New-Item -ItemType SymbolicLink -Path (Join-Path -Path $small -ChildPath 'out') -Target $sizeOutside -ErrorAction Stop | Out-Null
-            $sizeLinkOk = $true
-        } catch {
-            $sizeLinkOk = $false
-        }
+        $sizeJumpLink = New-RogGateSelfTestDirectoryLink -LinkPath $sizeJump -TargetPath $sizeOutside
+        $sizeSmallLink = New-RogGateSelfTestDirectoryLink -LinkPath (Join-Path -Path $small -ChildPath 'out') -TargetPath $sizeOutside
+        $sizeKind = '{0}+{1}' -f (Format-RogGateSelfTestLinkKind -LinkType $sizeJumpLink.LinkType), (Format-RogGateSelfTestLinkKind -LinkType $sizeSmallLink.LinkType)
+        $sizeLinkOk = $sizeJumpLink.Ok -and $sizeSmallLink.Ok -and ($sizeJumpLink.LinkType -eq $directoryLinkKind) -and ($sizeSmallLink.LinkType -eq $directoryLinkKind)
         if ($sizeLinkOk) {
             $sizes = @(Get-RogGateTopLevelDirectorySizes -RootPath $sizeRoot)
             $sawReadme = $false
@@ -1902,26 +2078,20 @@ function Invoke-RogGateSelfTest {
                 $ordered = ($sizes[0].Path -like '*big')
             }
             $sizeOk = (-not $sawReadme) -and $ordered -and ($bigBytes -eq 4000) -and ($smallBytes -eq 50) -and $smallReparse -and $jumpReparse -and ($jumpBytes -eq -1)
-            Assert-RogGateSelfTest -Name 'top-level sizes skip files and do not follow symlinks' -Condition $sizeOk
+            Assert-RogGateSelfTest -Name ("top-level sizes skip files and do not follow directory links (link={0})" -f $sizeKind) -Condition $sizeOk
         } else {
-            Assert-RogGateSelfTest -Name 'top-level sizes skip files and do not follow symlinks' -Condition $false
+            Assert-RogGateSelfTest -Name ("top-level sizes skip files and do not follow directory links (link={0})" -f $sizeKind) -Condition $false
         }
 
         $reparseRoot = Join-Path -Path $fixture -ChildPath 'reparse-root'
         $reparseTarget = Join-Path -Path $fixture -ChildPath 'reparse-target'
-        New-Item -ItemType Directory -Path $reparseTarget | Out-Null
-        $rootLinkOk = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $reparseRoot -Target $reparseTarget -ErrorAction Stop | Out-Null
-            $rootLinkOk = $true
-        } catch {
-            $rootLinkOk = $false
-        }
-        if ($rootLinkOk) {
-            $measureThrew = $false
+        $rootLink = New-RogGateSelfTestDirectoryLink -LinkPath $reparseRoot -TargetPath $reparseTarget
+        $rootKind = Format-RogGateSelfTestLinkKind -LinkType $rootLink.LinkType
+        $measureThrew = $false
+        if ($rootLink.Ok) {
             try { Get-RogGateTopLevelDirectorySizes -RootPath $reparseRoot } catch { $measureThrew = $true }
-            Assert-RogGateSelfTest -Name 'measuring a reparse build root is refused' -Condition $measureThrew
         }
+        Assert-RogGateSelfTest -Name ("measuring a reparse build root is refused (link={0})" -f $rootKind) -Condition ($rootLink.Ok -and ($rootKind -eq $directoryLinkKind) -and $measureThrew)
     } finally {
         Remove-RogGateFixture -LiteralPath $fixture
     }
