@@ -829,7 +829,9 @@ def main(argv: list[str] | None = None) -> int:
             f"references={len(document['references'])} "
             f"pakEntries={document['derivation']['pak'].get('entriesReadToEof')}"
         )
-        return 0 if document["derivation"]["status"] == "complete" else 0
+        # derive always exits 0. check is warn-only by design unless the
+        # strict switch is set.
+        return 0
 
     strict = strict_enabled(args.strict)
     report = check(_load_json(args.manifest), args.root, strict=strict)

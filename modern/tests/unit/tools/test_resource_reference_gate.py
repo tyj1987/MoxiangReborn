@@ -294,6 +294,20 @@ class ResourceReferenceGateTests(unittest.TestCase):
             self.assertIn("kept.hfl", names)
             self.assertIn("also.stm", names)
 
+    def test_derive_pak_header_zero_walks_all_11267_entries(self):
+        count = 11267
+        entries = [(f"e{i}.bin", b"x") for i in range(count - 1)]
+        entries.append(("zone.map", b"GX_MAP\nHEIGHT_FIELD\nkept.hfl\n"))
+        self.assertEqual(len(entries), count)
+        with tempfile.TemporaryDirectory() as directory:
+            pak = Path(directory) / "Map.pak"
+            pak.write_bytes(build_original_pak(entries, offset4=0))
+            manifest = gate.derive(None, pak)
+        pak_info = manifest["derivation"]["pak"]
+        self.assertEqual(pak_info["headerEntries"], 0)
+        self.assertEqual(pak_info["entriesReadToEof"], count)
+        self.assertIn("kept.hfl", {ref["name"] for ref in manifest["references"]})
+
     def test_pak_with_neither_or_both_layouts_is_an_error_and_skipped(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
