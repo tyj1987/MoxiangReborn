@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace mxh::compat { class PackFile; }
+namespace mxh::compat { class PackFile; struct PackEntry; }
 
 namespace mxh::gx {
 
@@ -127,6 +127,15 @@ public:
     [[nodiscard]] std::string describeSource(const char* name) const;
 
 private:
+    struct Location {
+        enum class Kind { None, Loose, Pak } kind = Kind::None;
+        std::filesystem::path loose;
+        std::size_t pack = 0;                           // index into packs_ / pack_names_
+        const mxh::compat::PackEntry* entry = nullptr;  // valid while packs_ is mounted
+    };
+    // The one shared resolver behind IsExistInFileStorage/FSOpenFile/describeSource.
+    Location locate(const char* name) const;
+
     ~FilesystemFileStorage() = default;
     std::filesystem::path resolve(const char* relative) const;
 
