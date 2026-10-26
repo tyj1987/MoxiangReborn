@@ -43,6 +43,8 @@ for (i = 0; i < size; ++i) {
 
 ## 2. `.pak` — 资源包（4DyuchiFileStorage）
 
+两种实际包头（92 字节 worktree / 96 字节原版）以 [formats/pak.md](formats/pak.md) 为准。下面的 16 字节草图不是现行读取器使用的布局。
+
 **用途**：模型/纹理/动画聚合（Effect.pak、Character.pak、Map.pak、Monster.pak、Npc.pak、Pet.pak、Titan.pak）。
 
 **来源**：`墨香【源码】\4DyuchiFileStorage\PackFile.cpp` + `typedef.h`

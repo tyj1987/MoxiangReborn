@@ -21,6 +21,7 @@ add_executable(mxh_client_tests
     char_make_options_test.cpp
     character_preview_controller_test.cpp
     map10_smoke.cpp
+    map10_smoke_endpoint_test.cpp
 )
 
 target_include_directories(mxh_client_tests PRIVATE

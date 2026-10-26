@@ -2,11 +2,21 @@
 //
 // Original source: 墨香【源码】\4DyuchiFileStorage\PackFile.cpp + typedef.h
 //
-// File layout (verified empirically from real .pak files):
+// Two headers, selected by dwFileItemNum at offset 4. See docs/formats/pak.md.
+//
+//   Variant A (worktree, offset 4 != 0):
+//     [92 bytes] PACK_FILE_HEADER, then entries at offset 92.
+//     The loop advances by the on-disk layout, not by dwTotalSize.
+//
+//   Variant B (original client, offset 4 == 0):
+//     [96 bytes] header. The entry count is the uint32 at offset 92
+//     (original Map.pak: 0x2C03 = 11267). Entries start at offset 96
+//     and the next entry is at cur + dwTotalSize. A short or inconsistent
+//     header fails closed.
 //
 //   [92 bytes]  PACK_FILE_HEADER
 //     - dwVersion (u32) = CURRENT_VERSION = 0x00000001
-//     - dwFileItemNum (u32) = number of entries
+//     - dwFileItemNum (u32) = number of entries, or 0 for variant B
 //     - dwFlag (u32)
 //     - dwCRC[4] (u32 × 4)  = all zeros in practice
 //     - dwReserved[16] (u32 × 16) = all zeros
@@ -48,6 +58,8 @@ namespace mxh::compat {
 #pragma pack(push, 1)
 
 // PACK_FILE_HEADER: sizeof = 92 bytes (with reserved[]).
+// Variant B stores its entry count in the next uint32 (file offset 92),
+// outside this struct. sizeof stays 92.
 struct PackFileHeader {
     std::uint32_t version;
     std::uint32_t file_item_num;
@@ -90,12 +102,22 @@ public:
     PackFile(PackFile&& other) noexcept;
     PackFile& operator=(PackFile&& other) noexcept;
 
-    [[nodiscard]] static std::unique_ptr<PackFile> open(const std::filesystem::path& path);
+    // `error`, when non-null, is cleared on success and set on failure.
+    // Existing callers omit it. Failure is still a null return.
+    [[nodiscard]] static std::unique_ptr<PackFile> open(
+        const std::filesystem::path& path, std::string* error = nullptr);
     [[nodiscard]] static std::unique_ptr<PackFile> open_buffer(
-        std::vector<std::uint8_t> bytes);
+        std::vector<std::uint8_t> bytes, std::string* error = nullptr);
 
     [[nodiscard]] const PackFileHeader& header() const noexcept { return header_; }
-    [[nodiscard]] std::uint32_t file_count() const noexcept { return header_.file_item_num; }
+    // Variant A: dwFileItemNum at offset 4. Variant B (that field is 0):
+    // the number of entries actually parsed from the count at offset 92.
+    [[nodiscard]] std::uint32_t file_count() const noexcept {
+        if (header_.file_item_num == 0) {
+            return static_cast<std::uint32_t>(entries_.size());
+        }
+        return header_.file_item_num;
+    }
     [[nodiscard]] std::size_t parsed_count() const noexcept { return entries_.size(); }
 
     [[nodiscard]] const PackEntry* find(std::string_view name) const noexcept;
@@ -107,6 +129,11 @@ public:
     [[nodiscard]] static bool is_pak(std::span<const std::uint8_t> bytes) noexcept;
 
 private:
+    // Offset 4 is 0. Count is at offset 92, entries start at 96.
+    // Returns null instead of a partial pack.
+    [[nodiscard]] static std::unique_ptr<PackFile> open_original_96(
+        std::vector<std::uint8_t> bytes, std::string* error);
+
     PackFileHeader header_{};
     std::vector<PackEntry> entries_;
     std::vector<std::uint8_t> raw_;

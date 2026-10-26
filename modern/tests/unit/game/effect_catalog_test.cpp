@@ -3,6 +3,8 @@
 #include <gtest/gtest.h>
 
 #include <windows.h>
+#include <chrono>
+#include <fstream>
 #include <set>
 
 namespace {
@@ -72,6 +74,33 @@ TEST(EffectCatalog, IndexesShippedEffectAssets) {
     EXPECT_TRUE(hasAnimationMotion);
     EXPECT_TRUE(hasDamageKind);
     EXPECT_TRUE(hasMoveDuration);
+}
+
+TEST(EffectCatalog, WarnsWhenEffectPakOpenFails) {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto root = std::filesystem::temp_directory_path() /
+        ("mxh-effect-pak-" + std::to_string(static_cast<long long>(stamp)));
+    std::filesystem::create_directories(root);
+    {
+        std::vector<unsigned char> header(96, 0);
+        header[0] = 1;
+        std::ofstream out(root / "Effect.pak", std::ios::binary);
+        ASSERT_TRUE(out);
+        out.write(reinterpret_cast<const char*>(header.data()),
+                  static_cast<std::streamsize>(header.size()));
+    }
+
+    testing::internal::CaptureStderr();
+    mxh::game::EffectCatalog catalog;
+    std::string error;
+    const bool opened = catalog.load(root, &error);
+    const std::string logged = testing::internal::GetCapturedStderr();
+
+    EXPECT_FALSE(opened);
+    EXPECT_EQ(error, "Effect.pak is not a valid PackFile");
+    EXPECT_NE(logged.find("Effect.pak"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("unsupported header"), std::string::npos) << logged;
+    std::filesystem::remove_all(root);
 }
 
 TEST(EffectCatalog, RejectsMissingRoot) {
