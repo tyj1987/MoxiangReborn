@@ -188,21 +188,64 @@ std::string unescape_json_string(std::string value) {
     return result;
 }
 
+bool is_json_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+// Files array only. Extra top-level objects (provenance) are ignored.
+std::optional<std::string> json_files_array(const std::string& json) {
+    const std::string token = "\"files\"";
+    std::size_t search = 0;
+    while (search < json.size()) {
+        const auto pos = json.find(token, search);
+        if (pos == std::string::npos) return std::nullopt;
+        std::size_t index = pos + token.size();
+        while (index < json.size() && is_json_space(json[index])) ++index;
+        if (index >= json.size() || json[index] != ':') {
+            search = pos + 1;
+            continue;
+        }
+        ++index;
+        while (index < json.size() && is_json_space(json[index])) ++index;
+        if (index >= json.size() || json[index] != '[') {
+            search = pos + 1;
+            continue;
+        }
+        int depth = 0;
+        bool in_string = false;
+        bool escape = false;
+        for (std::size_t cursor = index; cursor < json.size(); ++cursor) {
+            const char c = json[cursor];
+            if (in_string) {
+                if (escape) escape = false;
+                else if (c == '\\') escape = true;
+                else if (c == '"') in_string = false;
+                continue;
+            }
+            if (c == '"') {
+                in_string = true;
+                continue;
+            }
+            if (c == '[') ++depth;
+            else if (c == ']') {
+                --depth;
+                if (depth == 0) return json.substr(index, cursor - index + 1);
+            }
+        }
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
 std::optional<std::vector<ManifestEntry>> parse_manifest(const fs::path& path) {
     const std::string json = read_text(path);
     if (json.empty()) return std::nullopt;
-    const std::size_t files_key = json.find("\"files\"");
-    const std::size_t array_start = json.find('[', files_key);
-    const std::size_t array_end = json.rfind(']');
-    if (files_key == std::string::npos || array_start == std::string::npos ||
-        array_end == std::string::npos || array_end <= array_start) {
-        return std::nullopt;
-    }
-    const std::string files_json = json.substr(array_start, array_end - array_start + 1);
+    const auto files_json = json_files_array(json);
+    if (!files_json) return std::nullopt;
     const std::regex entry_pattern(
         R"re(\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*(\d+)\s*,\s*"size"\s*:\s*(\d+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})re");
     std::vector<ManifestEntry> entries;
-    for (std::sregex_iterator it(files_json.begin(), files_json.end(), entry_pattern), end;
+    for (std::sregex_iterator it(files_json->begin(), files_json->end(), entry_pattern), end;
          it != end; ++it) {
         ManifestEntry entry;
         entry.name = unescape_json_string((*it)[1].str());

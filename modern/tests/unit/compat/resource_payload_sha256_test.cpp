@@ -31,9 +31,19 @@ struct ManifestEntry {
     std::string sha256;
 };
 
+struct Provenance {
+    bool present = false;
+    std::string source_path;
+    std::string reader;
+    std::string reader_commit;
+    std::uint32_t verified_match = 0;
+    std::uint32_t verified_total = 0;
+};
+
 struct Manifest {
     std::string format;
     std::string source;
+    Provenance provenance;
     std::vector<ManifestEntry> files;
 };
 
@@ -76,6 +86,83 @@ std::optional<std::string> json_string_value(
     return unescape_json_string(match[1].str());
 }
 
+bool is_json_space(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+// Value of a top-level (or nested) key whose value is an array or object.
+// Bracket depth ignores the other bracket kind and skips strings, so a
+// sibling object such as provenance cannot swallow the files array.
+std::optional<std::string> json_bracket_value(
+    const std::string& json, std::string_view key, char open_ch, char close_ch) {
+    const std::string token = "\"" + std::string(key) + "\"";
+    std::size_t search = 0;
+    while (search < json.size()) {
+        const auto pos = json.find(token, search);
+        if (pos == std::string::npos) return std::nullopt;
+        std::size_t index = pos + token.size();
+        while (index < json.size() && is_json_space(json[index])) ++index;
+        if (index >= json.size() || json[index] != ':') {
+            search = pos + 1;
+            continue;
+        }
+        ++index;
+        while (index < json.size() && is_json_space(json[index])) ++index;
+        if (index >= json.size() || json[index] != open_ch) {
+            search = pos + 1;
+            continue;
+        }
+        int depth = 0;
+        bool in_string = false;
+        bool escape = false;
+        for (std::size_t cursor = index; cursor < json.size(); ++cursor) {
+            const char c = json[cursor];
+            if (in_string) {
+                if (escape) escape = false;
+                else if (c == '\\') escape = true;
+                else if (c == '"') in_string = false;
+                continue;
+            }
+            if (c == '"') {
+                in_string = true;
+                continue;
+            }
+            if (c == open_ch) ++depth;
+            else if (c == close_ch) {
+                --depth;
+                if (depth == 0) return json.substr(index, cursor - index + 1);
+            }
+        }
+        return std::nullopt;
+    }
+    return std::nullopt;
+}
+
+Provenance parse_provenance(const std::string& json) {
+    Provenance provenance;
+    const auto object = json_bracket_value(json, "provenance", '{', '}');
+    if (!object) return provenance;
+    provenance.present = true;
+    if (const auto source_path = json_string_value(*object, "source_path"))
+        provenance.source_path = *source_path;
+    if (const auto reader = json_string_value(*object, "reader"))
+        provenance.reader = *reader;
+    if (const auto reader_commit = json_string_value(*object, "reader_commit"))
+        provenance.reader_commit = *reader_commit;
+    const std::regex match_pattern(R"re("verified_match"\s*:\s*(\d+))re");
+    const std::regex total_pattern(R"re("verified_total"\s*:\s*(\d+))re");
+    std::smatch match;
+    try {
+        if (std::regex_search(*object, match, match_pattern))
+            provenance.verified_match = static_cast<std::uint32_t>(std::stoul(match[1].str()));
+        if (std::regex_search(*object, match, total_pattern))
+            provenance.verified_total = static_cast<std::uint32_t>(std::stoul(match[1].str()));
+    } catch (...) {
+        provenance.present = false;
+    }
+    return provenance;
+}
+
 std::optional<Manifest> parse_manifest(const fs::path& path) {
     const std::string json = read_text(path);
     if (json.empty()) return std::nullopt;
@@ -86,23 +173,16 @@ std::optional<Manifest> parse_manifest(const fs::path& path) {
         return std::nullopt;
     }
 
-    const std::size_t files_key = json.find("\"files\"");
-    const std::size_t array_start = json.find('[', files_key);
-    const std::size_t array_end = json.rfind(']');
-    if (files_key == std::string::npos || array_start == std::string::npos ||
-        array_end == std::string::npos || array_end <= array_start) {
-        return std::nullopt;
-    }
-
-    const std::string files_json =
-        json.substr(array_start, array_end - array_start + 1);
+    const auto files_json = json_bracket_value(json, "files", '[', ']');
+    if (!files_json) return std::nullopt;
     const std::regex entry_pattern(
         R"re(\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"type"\s*:\s*(\d+)\s*,\s*"size"\s*:\s*(\d+)\s*,\s*"sha256"\s*:\s*"([0-9a-fA-F]{64})"\s*\})re");
 
     Manifest manifest;
     manifest.format = *format;
     manifest.source = *source;
-    for (std::sregex_iterator it(files_json.begin(), files_json.end(), entry_pattern),
+    manifest.provenance = parse_provenance(json);
+    for (std::sregex_iterator it(files_json->begin(), files_json->end(), entry_pattern),
          end; it != end; ++it) {
         const auto& match = *it;
         ManifestEntry entry;
@@ -296,6 +376,38 @@ void run_manifest_verify(const std::string& manifest_name) {
 }
 
 }  // namespace
+
+TEST(MxhResourcePayloadSha256, DeployManifest_Keeps180AndRecordsProvenance) {
+    const auto manifest = parse_manifest(find_manifest("resource_payload_manifest_deploy.json"));
+    ASSERT_TRUE(manifest.has_value());
+    EXPECT_EQ(manifest->format, "moxian-payload-sha256-v1");
+    EXPECT_EQ(manifest->source, "deploy/server/Distribute/Resource");
+    EXPECT_EQ(manifest->files.size(), 180u);
+    ASSERT_TRUE(manifest->provenance.present);
+    EXPECT_EQ(manifest->provenance.source_path, "D:\\MX\\src\\SWorking\\Resource");
+    EXPECT_EQ(manifest->provenance.reader, "read_mh_bin in mh_file_ex.cpp");
+    EXPECT_EQ(manifest->provenance.reader_commit, "70bb2dd6");
+    EXPECT_EQ(manifest->provenance.verified_match, 180u);
+    EXPECT_EQ(manifest->provenance.verified_total, 180u);
+
+    const auto has_name = [&](const char* name) {
+        for (const auto& entry : manifest->files) {
+            if (entry.name == name) return true;
+        }
+        return false;
+    };
+    EXPECT_TRUE(has_name("BobusangInfo.bin"));
+    EXPECT_TRUE(has_name("Server/ItemMixList.bin"));
+    EXPECT_TRUE(has_name("PenaltyTime.bin"));
+
+    for (const char* name : {"resource_payload_manifest_playdh.json",
+                             "resource_payload_manifest_client.json"}) {
+        const auto other = parse_manifest(find_manifest(name));
+        ASSERT_TRUE(other.has_value()) << name;
+        EXPECT_FALSE(other->provenance.present) << name;
+        EXPECT_FALSE(other->files.empty()) << name;
+    }
+}
 
 TEST(MxhResourcePayloadSha256, VerifyManifest_Deploy) {
     run_manifest_verify("resource_payload_manifest_deploy.json");
