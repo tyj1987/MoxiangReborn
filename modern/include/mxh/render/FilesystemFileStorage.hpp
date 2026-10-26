@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
-#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -14,10 +14,10 @@ namespace mxh::compat { class PackFile; }
 
 namespace mxh::gx {
 
-// Header family of a direct-child .pak, classified by the uint32 at file
-// offset 4 (little-endian). Nonzero is the PlayDH 92-byte header; zero is
-// the original 96-byte header. The numeric value is the header size and is
-// what Initialize prints in the mount-order line.
+// Header family of a direct-child .pak. The numeric value is the header
+// size and is what Initialize prints in the mount-order line. Which family
+// a file belongs to is decided by classify_pak_header, not by the uint32
+// at offset 4 alone.
 enum class PakFormatTier : std::uint32_t {
     PlayDh92 = 92,
     Original96 = 96,
@@ -61,10 +61,57 @@ struct FilesystemFileStorageOptions {
     };
 };
 
-// Read the uint32 at offset 4. nullopt when the file is missing or shorter
-// than 8 bytes. Does not open the archive and does not depend on PackFile.
-[[nodiscard]] std::optional<PakFormatTier> classify_pak_header(
-    const std::filesystem::path& path);
+// First 8 bytes of a .pak, or an open failure. `opened == false` means the
+// file could not be opened. `error` is the OS reason when the platform
+// reported one (empty if it did not). This does not parse the archive and
+// does not call PackFile::open.
+struct PakHeaderPrefix {
+    bool opened = false;
+    std::string error;
+    unsigned char bytes[8]{};
+    std::size_t size = 0;
+};
+
+// Test seam. Production passes nullptr and reads with ifstream.
+// A substitute may refuse selected paths; other paths should call
+// read_pak_header_prefix so the bytes stay the real prefix.
+using PakHeaderOpener = PakHeaderPrefix (*)(const std::filesystem::path&);
+
+[[nodiscard]] PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path);
+
+// CannotOpen and ShorterThan8 are not tiers. PlayDh92 / Original96 match
+// PakFormatTier. Unrecognized is not a tier: the file is not loaded.
+// open_error is set only for CannotOpen, and only when a reason is available.
+enum class PakHeaderKind : std::uint8_t {
+    CannotOpen,
+    ShorterThan8,
+    PlayDh92,
+    Original96,
+    Unrecognized,
+};
+
+struct PakHeaderClassification {
+    PakHeaderKind kind = PakHeaderKind::CannotOpen;
+    std::string open_error;
+    // Entry count of the one validating walk. 0 when kind is not a tier.
+    std::uint32_t entry_count = 0;
+    // Both layouts are always attempted once the file is readable and at
+    // least 8 bytes. Exactly one true value selects PlayDh92 or Original96.
+    // Both true, or both false, selects Unrecognized.
+    bool playdh92_valid = false;
+    bool original96_valid = false;
+};
+
+// Try both entry walks via mxh::compat::probe_pak_layouts. PlayDh92 uses
+// the uint32 at offset 4 and the 92-byte layout walk. Original96 uses the
+// uint32 at offset 92 and the strict 96-byte walk. A count of 0 does not
+// validate. Exactly one walk that finishes at EOF selects that kind.
+// Neither or both is Unrecognized. `opener == nullptr` uses
+// read_pak_header_prefix for the open / short-header checks. Does not
+// open the archive via PackFile.
+[[nodiscard]] PakHeaderClassification classify_pak_header(
+    const std::filesystem::path& path,
+    PakHeaderOpener opener = nullptr);
 
 // Filename order used inside a tier. See FilesystemFileStorageOptions.
 [[nodiscard]] bool pak_filename_less(std::string_view a, std::string_view b) noexcept;
@@ -88,6 +135,12 @@ public:
         FilesystemFileStorageOptions options = {});
 
     const std::filesystem::path& root() const noexcept { return root_; }
+
+    // Test seam. Null restores the ifstream opener. Not a mount option:
+    // pak_tier_order and the constructor are unchanged.
+    void set_pak_header_opener_for_test(PakHeaderOpener opener) noexcept {
+        header_opener_ = opener;
+    }
 
     STDMETHODIMP QueryInterface(REFIID, void**) override;
     STDMETHODIMP_(ULONG) AddRef() override;
@@ -125,6 +178,7 @@ private:
     std::atomic<ULONG> ref_count_{1};
     std::filesystem::path root_;
     FilesystemFileStorageOptions options_{};
+    PakHeaderOpener header_opener_ = nullptr;
     std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
 };
 
