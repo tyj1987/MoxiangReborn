@@ -559,3 +559,35 @@ TEST(FilesystemFileStorage, Utf8PakNameSortAndLogAreStable) {
     EXPECT_EQ(read_entry(again, "shared.bin"), "from-yi");
     again->Release();
 }
+
+TEST(FilesystemFileStorage, SkipsPakShorterThanEightBytes) {
+    const TempDir dir("mxh-pak-short-");
+    // z_short is created first. Warn order must still be the filename
+    // order, and neither short file is passed to PackFile::open.
+    {
+        std::ofstream z(dir.path / "z_short.pak", std::ios::binary);
+        ASSERT_TRUE(z);
+        z.write("zz", 2);
+        std::ofstream a(dir.path / "a_short.pak", std::ios::binary);
+        ASSERT_TRUE(a);
+        a.write("abcd", 4);
+    }
+    write_playdh_pak(dir.path / "m_ok.pak", "shared.bin", "from-ok");
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(dir.path);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    const auto a_at = logged.find("a_short.pak");
+    const auto z_at = logged.find("z_short.pak");
+
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-ok");
+    EXPECT_NE(logged.find("header shorter than 8 bytes"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    ASSERT_NE(a_at, std::string::npos) << logged;
+    ASSERT_NE(z_at, std::string::npos) << logged;
+    EXPECT_LT(a_at, z_at) << logged;
+    EXPECT_NE(line.find("1=m_ok.pak(92)"), std::string::npos) << logged;
+    EXPECT_EQ(line.find("short.pak"), std::string::npos) << line;
+    storage->Release();
+}

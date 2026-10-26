@@ -128,6 +128,7 @@ gtest_add_tests(TARGET mxh_render_tests
     FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes
     FilesystemFileStorage.CrossTierResolutionFollowsConfiguredPriority
     FilesystemFileStorage.Utf8PakNameSortAndLogAreStable
+    FilesystemFileStorage.SkipsPakShorterThanEightBytes
     EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
     EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
     EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder

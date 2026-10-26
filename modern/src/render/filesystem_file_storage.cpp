@@ -188,7 +188,16 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
         }
     };
     for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
-    for (const auto& path : unclassified) try_open(path, std::nullopt);
+    // Shorter than 8 bytes: offset 4 cannot be read. Do not call
+    // PackFile::open (that would follow directory order). Warn and skip.
+    std::sort(unclassified.begin(), unclassified.end(),
+              [](const std::filesystem::path& a, const std::filesystem::path& b) {
+                  return pak_filename_less(filename_utf8(a), filename_utf8(b));
+              });
+    for (const auto& path : unclassified) {
+        const auto name = filename_utf8(path);
+        MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+    }
 
     std::string line = "[pak] mount order:";
     for (std::size_t i = 0; i < mounted.size(); ++i) {
