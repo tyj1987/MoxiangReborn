@@ -5,7 +5,8 @@
 // Two headers. Both layouts are probed on every open. A layout is used
 // only when its entry walk ends at exact EOF and the other layout does
 // not. If neither walk validates, or both do, the pak is not loaded.
-// See docs/formats/pak.md.
+// The probe and the open walk seek to entry headers and filenames.
+// Payloads stay on disk until read() / read_at(). See docs/formats/pak.md.
 //
 //   Variant A (worktree / PlayDH, 92-byte header):
 //     count = uint32 at offset 4, entries at offset 92.
@@ -64,6 +65,8 @@
 
 namespace mxh::compat {
 
+struct PakFileBytes;
+
 #pragma pack(push, 1)
 
 // PACK_FILE_HEADER: sizeof = 92 bytes (with reserved[]).
@@ -103,15 +106,36 @@ struct PakLayoutProbe {
 // PlayDH92: uint32 at offset 4, layout walk from offset 92.
 // Original96: uint32 at offset 92, strict walk from offset 96.
 // A count of 0 does not validate. Version must be 1.
+// The span overload only reads entry headers (and the original-96 NUL).
+// It does not require the caller to have skipped payloads itself.
 [[nodiscard]] PakLayoutProbe probe_pak_layouts(
     std::span<const std::uint8_t> bytes) noexcept;
+
+// Same decision as probe_pak_layouts, reading the file by seek.
+// Payloads are not read. `opened == false` means the file could not be
+// opened. `read_error` means a later header read failed.
+struct PakFileProbe {
+    PakLayoutProbe layout;
+    bool opened = false;
+    bool read_error = false;
+    std::string error;
+    std::uint64_t file_size = 0;
+    std::uint32_t count_at_offset_4 = 0;
+    std::uint32_t count_at_offset_92 = 0;
+    bool has_count_at_offset_92 = false;
+};
+
+[[nodiscard]] PakFileProbe probe_pak_file(const std::filesystem::path& path);
 
 struct PackEntry {
     std::string name;                       // e.g. "Map\\Map0.bmhm"
     std::uint32_t entry_offset = 0;         // position of this entry in .pak
     std::uint32_t data_offset = 0;          // position of file data in .pak
     std::uint32_t size = 0;                 // raw data size
-    std::span<const std::uint8_t> raw_view; // only valid while PackFile is open
+    // open_buffer() aliases bytes owned by that PackFile.
+    // open(path) does not retain payloads, so this span stays empty.
+    // Non-empty spans are valid only while that PackFile is alive.
+    std::span<const std::uint8_t> raw_view;
 };
 
 class PackFile {
@@ -147,22 +171,26 @@ public:
     [[nodiscard]] const std::vector<PackEntry>& entries() const noexcept { return entries_; }
 
     [[nodiscard]] std::vector<std::uint8_t> read(std::string_view name) const;
+    // True when the entry's payload range sits inside the archive and
+    // size > 0. This is the file-backed replacement for a non-empty raw_view.
+    [[nodiscard]] bool has_payload(const PackEntry& entry) const noexcept;
+    // Positional read of exactly `length` bytes at `offset`.
+    // Concurrent callers do not share a file pointer.
+    // `length == 0` succeeds. A range past EOF or a short read returns false.
+    [[nodiscard]] bool read_at(std::uint64_t offset, void* dst, std::size_t length) const;
     [[nodiscard]] std::vector<std::string> list_names() const;
 
     [[nodiscard]] static bool is_pak(std::span<const std::uint8_t> bytes) noexcept;
 
 private:
-    // Count at offset 4, entries at 92, advance by layout. May return a
-    // partial pack when the walk stops early and the cursor is still at EOF.
-    [[nodiscard]] static std::unique_ptr<PackFile> open_playdh_92(
-        std::vector<std::uint8_t> bytes, std::string* error);
-    // Count at offset 92, entries at 96. Returns null instead of a partial pack.
-    [[nodiscard]] static std::unique_ptr<PackFile> open_original_96(
-        std::vector<std::uint8_t> bytes, std::string* error);
-
     PackFileHeader header_{};
     std::vector<PackEntry> entries_;
-    std::vector<std::uint8_t> raw_;
+    // Whole-archive bytes only when the caller passed them to open_buffer.
+    // open(path) leaves this empty and reads through PakFileBytes instead.
+    std::vector<std::uint8_t> buffer_;
+    std::unique_ptr<PakFileBytes> file_;
+    std::uint64_t source_size_ = 0;
+    bool from_buffer_ = false;
     // Set on a successful original-96 open so file_count() ignores a decoy
     // uint32 at offset 4. header().file_item_num stays the on-disk value.
     bool report_parsed_count_ = false;

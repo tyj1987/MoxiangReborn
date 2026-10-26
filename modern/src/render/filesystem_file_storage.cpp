@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <cerrno>
-#include <cstring>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -16,10 +15,15 @@ namespace {
 struct OpenFile {
     explicit OpenFile(const std::filesystem::path& path)
         : stream(path, std::ios::binary) {}
-    explicit OpenFile(std::vector<std::uint8_t> packed)
-        : bytes(std::move(packed)) {}
+    // Pak entries are a window into the archive. FSRead seeks that window;
+    // the entry bytes are not copied at FSOpenFile.
+    OpenFile(mxh::compat::PackFile* pack, std::uint32_t data_offset, std::uint32_t entry_size)
+        : pack(pack), data_offset(data_offset), entry_size(entry_size), from_pak(true) {}
     std::ifstream stream;
-    std::vector<std::uint8_t> bytes;
+    mxh::compat::PackFile* pack = nullptr;
+    std::uint32_t data_offset = 0;
+    std::uint32_t entry_size = 0;
+    bool from_pak = false;
     std::size_t position = 0;
 };
 }
@@ -75,35 +79,6 @@ PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path) {
     return prefix;
 }
 
-namespace {
-
-bool read_u32_at(const std::vector<std::uint8_t>& bytes, std::size_t offset,
-                 std::uint32_t& out) {
-    if (offset > bytes.size() || bytes.size() - offset < sizeof(out)) return false;
-    std::memcpy(&out, bytes.data() + offset, sizeof(out));
-    return true;
-}
-
-std::optional<std::vector<std::uint8_t>> read_entire_file(
-    const std::filesystem::path& path) {
-    errno = 0;
-    std::ifstream in(path, std::ios::binary | std::ios::ate);
-    if (!in) return std::nullopt;
-    const auto end = in.tellg();
-    if (end < 0) return std::nullopt;
-    const auto size = static_cast<std::size_t>(end);
-    in.seekg(0);
-    std::vector<std::uint8_t> bytes(size);
-    if (size > 0 &&
-        !in.read(reinterpret_cast<char*>(bytes.data()),
-                 static_cast<std::streamsize>(size))) {
-        return std::nullopt;
-    }
-    return bytes;
-}
-
-}  // namespace
-
 PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
                                            PakHeaderOpener opener) {
     const PakHeaderPrefix prefix = opener != nullptr ? opener(path)
@@ -119,40 +94,29 @@ PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
         return result;
     }
 
-    const auto bytes = read_entire_file(path);
-    if (!bytes) {
+    // Header and entry-table walk only. The archive body stays on disk.
+    const auto probed = mxh::compat::probe_pak_file(path);
+    if (!probed.opened || probed.read_error) {
         result.kind = PakHeaderKind::CannotOpen;
-        const int saved = errno;
-        if (saved != 0) {
-            result.open_error = std::error_code(saved, std::generic_category()).message();
-        }
+        result.open_error = probed.error;
         return result;
     }
-    if (bytes->size() < 8) {
+    if (probed.file_size < 8) {
         result.kind = PakHeaderKind::ShorterThan8;
         return result;
     }
 
-    std::uint32_t count_at_offset_4 = 0;
-    if (!read_u32_at(*bytes, 4, count_at_offset_4)) {
-        result.kind = PakHeaderKind::ShorterThan8;
-        return result;
-    }
-    const auto probe = mxh::compat::probe_pak_layouts(*bytes);
-    result.playdh92_valid = probe.playdh92_exact_eof;
-    result.original96_valid = probe.original96_exact_eof;
-
-    std::uint32_t count_at_offset_92 = 0;
-    read_u32_at(*bytes, 92, count_at_offset_92);
+    result.playdh92_valid = probed.layout.playdh92_exact_eof;
+    result.original96_valid = probed.layout.original96_exact_eof;
 
     if (result.playdh92_valid && !result.original96_valid) {
         result.kind = PakHeaderKind::PlayDh92;
-        result.entry_count = count_at_offset_4;
+        result.entry_count = probed.count_at_offset_4;
         return result;
     }
     if (result.original96_valid && !result.playdh92_valid) {
         result.kind = PakHeaderKind::Original96;
-        result.entry_count = count_at_offset_92;
+        result.entry_count = probed.count_at_offset_92;
         return result;
     }
     result.kind = PakHeaderKind::Unrecognized;
@@ -362,9 +326,9 @@ FilesystemFileStorage::Location FilesystemFileStorage::locate(const char* name) 
     const std::string basename = std::filesystem::path(normalized).filename().string();
     for (std::size_t i = 0; i < packs_.size(); ++i) {
         const auto* entry = packs_[i]->find(normalized);
-        if ((!entry || entry->raw_view.empty()) && basename != normalized)
+        if ((!entry || !packs_[i]->has_payload(*entry)) && basename != normalized)
             entry = packs_[i]->find(basename);
-        if (entry && !entry->raw_view.empty()) {
+        if (entry && packs_[i]->has_payload(*entry)) {
             out.kind = Location::Kind::Pak;
             out.pack = i;
             out.entry = entry;
@@ -396,8 +360,8 @@ void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
         return nullptr;
     }
     if (where.kind == Location::Kind::Pak)
-        return new OpenFile(std::vector<std::uint8_t>(where.entry->raw_view.begin(),
-                                                      where.entry->raw_view.end()));
+        return new OpenFile(packs_[where.pack].get(), where.entry->data_offset,
+                            where.entry->size);
     return nullptr;
 }
 std::string FilesystemFileStorage::describeSource(const char* name) const {
@@ -415,12 +379,15 @@ std::uint32_t __stdcall FilesystemFileStorage::FSRead(
     void* handle, void* output, std::uint32_t bytes) {
     if (!handle || !output || bytes == 0) return 0;
     auto& file = *static_cast<OpenFile*>(handle);
-    if (!file.bytes.empty()) {
-        const auto available = file.bytes.size() - std::min(file.position, file.bytes.size());
-        const auto count = std::min<std::size_t>(bytes, available);
-        std::memcpy(output, file.bytes.data() + file.position, count);
+    if (file.from_pak) {
+        if (file.pack == nullptr || file.position > file.entry_size) return 0;
+        const auto available = static_cast<std::uint32_t>(file.entry_size - file.position);
+        const auto count = std::min(bytes, available);
+        if (count == 0) return 0;
+        const auto offset = static_cast<std::uint64_t>(file.data_offset) + file.position;
+        if (!file.pack->read_at(offset, output, count)) return 0;
         file.position += count;
-        return static_cast<std::uint32_t>(count);
+        return count;
     }
     auto& stream = file.stream;
     stream.read(static_cast<char*>(output), static_cast<std::streamsize>(bytes));
@@ -430,11 +397,12 @@ std::uint32_t __stdcall FilesystemFileStorage::FSSeek(
     void* handle, std::uint32_t offset, FSFILE_SEEK base) {
     if (!handle) return 0;
     auto& file = *static_cast<OpenFile*>(handle);
-    if (!file.bytes.empty()) {
-        std::size_t basePosition = 0;
-        if (base == FSFILE_SEEK_CUR) basePosition = file.position;
-        else if (base == FSFILE_SEEK_END) basePosition = file.bytes.size();
-        file.position = std::min(file.bytes.size(), basePosition + offset);
+    if (file.from_pak) {
+        std::size_t origin = 0;
+        if (base == FSFILE_SEEK_CUR) origin = file.position;
+        else if (base == FSFILE_SEEK_END) origin = file.entry_size;
+        file.position = std::min(static_cast<std::size_t>(file.entry_size),
+                                 origin + static_cast<std::size_t>(offset));
         return static_cast<std::uint32_t>(file.position);
     }
     auto& stream = file.stream;
