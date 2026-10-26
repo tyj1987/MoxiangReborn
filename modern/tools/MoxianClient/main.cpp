@@ -607,33 +607,50 @@ std::string map_script_lookup_name(const mxh::compat::BmhmMap* descriptor,
     return name;
 }
 
-bool read_storage_bytes(I4DyuchiFileStorage* storage, const std::string& name,
-                        std::vector<std::uint8_t>& bytes) {
-    if (!storage || name.empty()) return false;
+enum class StorageRead { NotFound, Empty, Ok };
+
+// NotFound is a missing entry. Empty is a found 0-byte .map and must not
+// be reported as NotFound. A short read of a non-empty entry stays NotFound.
+StorageRead read_storage_bytes(I4DyuchiFileStorage* storage, const std::string& name,
+                               std::vector<std::uint8_t>& bytes) {
+    bytes.clear();
+    if (!storage || name.empty()) return StorageRead::NotFound;
     std::vector<char> mutable_name(name.begin(), name.end());
     mutable_name.push_back('\0');
     void* file = storage->FSOpenFile(mutable_name.data(), FSFILE_ACCESSMODE_BINARY);
-    if (!file) return false;
+    if (!file) return StorageRead::NotFound;
     const auto size = storage->FSSeek(file, 0, FSFILE_SEEK_END);
     storage->FSSeek(file, 0, FSFILE_SEEK_SET);
+    if (size == 0) {
+        storage->FSCloseFile(file);
+        return StorageRead::Empty;
+    }
     bytes.resize(size);
-    const auto read = size ? storage->FSRead(file, bytes.data(), size) : 0;
+    const auto read = storage->FSRead(file, bytes.data(), size);
     storage->FSCloseFile(file);
-    return size != 0 && read == size;
+    if (read != size) {
+        bytes.clear();
+        return StorageRead::NotFound;
+    }
+    return StorageRead::Ok;
 }
 
-// Absent .map stays "not found" and the existing <n>.hfl / <n>.stm load
-// continues. A present script that is obfuscated or not GX_ text fails the
-// load; the parser does not return an empty map.
+// Header gate only. Absent keeps the <n>.hfl / <n>.stm load. Obfuscated
+// and non-GX_ (including a found 0-byte file) fail the load. A GX_ script
+// whose grammar does not parse logs a warning inside the gate and returns
+// an empty string so this stage continues.
 std::string rejected_map_script(I4DyuchiFileStorage* storage,
                                 const mxh::compat::BmhmMap* descriptor,
                                 std::uint16_t map_num) {
     const auto name = map_script_lookup_name(descriptor, map_num);
     std::vector<std::uint8_t> bytes;
-    if (!read_storage_bytes(storage, name, bytes)) return {};
-    const auto parsed = mxh::compat::parse_gx_map_script(bytes, name);
-    if (parsed.ok) return {};
-    return parsed.message.empty() ? ("Map script rejected: " + name) : parsed.message;
+    const auto read = read_storage_bytes(storage, name, bytes);
+    const auto presence = read == StorageRead::Empty ? mxh::compat::GxMapScriptPresence::Empty
+                        : read == StorageRead::Ok ? mxh::compat::GxMapScriptPresence::Present
+                                                  : mxh::compat::GxMapScriptPresence::Absent;
+    const auto gate = mxh::compat::gate_map_script_load(presence, bytes, name);
+    if (!gate.fail_load) return {};
+    return gate.message.empty() ? ("Map script rejected: " + name) : gate.message;
 }
 
 }  // namespace

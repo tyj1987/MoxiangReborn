@@ -48,4 +48,29 @@ struct GxMapParseResult {
 [[nodiscard]] GxMapParseResult parse_gx_map_script(
     std::span<const std::uint8_t> bytes, std::string_view name);
 
+// How the client found the .map entry. Empty is a found 0-byte file, not
+// a missing file.
+enum class GxMapScriptPresence : std::uint8_t {
+    Absent = 0,
+    Empty,
+    Present,
+};
+
+// Client load gate. The accept/reject decision is the file header only:
+// obfuscated, or not starting with "GX_" (including a found 0-byte file),
+// logs the same ERROR as parse_gx_map_script and sets fail_load.
+// A buffer that starts with "GX_" is accepted even when the grammar does
+// not parse. That case logs
+// `WARN [map] script parse incomplete: <name>` and fail_load stays false.
+// Absent logs nothing and does not fail.
+struct GxMapLoadGate {
+    bool fail_load = false;
+    std::string message;
+};
+
+[[nodiscard]] GxMapLoadGate gate_map_script_load(
+    GxMapScriptPresence presence,
+    std::span<const std::uint8_t> bytes,
+    std::string_view name);
+
 }  // namespace mxh::compat

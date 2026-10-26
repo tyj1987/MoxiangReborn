@@ -174,4 +174,32 @@ GxMapParseResult parse_gx_map_script(std::span<const std::uint8_t> bytes,
     return result;
 }
 
+GxMapLoadGate gate_map_script_load(GxMapScriptPresence presence,
+                                   std::span<const std::uint8_t> bytes,
+                                   std::string_view name) {
+    if (presence == GxMapScriptPresence::Absent) return {};
+    // A found 0-byte entry is malformed, not "file not found".
+    if (presence == GxMapScriptPresence::Empty) bytes = {};
+
+    // Header only. Grammar of a GX_ script must not reject the load.
+    if (is_obfuscated_map(bytes) || !starts_with_gx(bytes)) {
+        const auto parsed = parse_gx_map_script(bytes, name);
+        GxMapLoadGate gate;
+        gate.fail_load = !parsed.ok;
+        gate.message = parsed.message;
+        return gate;
+    }
+
+    GxMapScript script;
+    const auto text = std::string_view(
+        reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    if (!parse_plaintext(text, script)) {
+        std::ostringstream out;
+        out << "WARN [map] script parse incomplete: " << display_name(name);
+        const auto message = out.str();
+        MLOG_WARN("%s", message.c_str());
+    }
+    return {};
+}
+
 }  // namespace mxh::compat

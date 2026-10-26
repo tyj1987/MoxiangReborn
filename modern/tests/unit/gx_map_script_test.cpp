@@ -8,6 +8,8 @@
 #include <vector>
 
 using mxh::compat::GxMapReject;
+using mxh::compat::GxMapScriptPresence;
+using mxh::compat::gate_map_script_load;
 using mxh::compat::parse_gx_map_script;
 
 namespace {
@@ -151,4 +153,71 @@ TEST(GxMapScript, HandlesTinyBuffer) {
     EXPECT_EQ(at_24.reject, GxMapReject::Obfuscated);
     EXPECT_EQ(at_24.message,
               "ERROR [map] obfuscated .map not supported: edge.map (bytes=24)");
+}
+
+TEST(GxMapScript, GxGrammarFailureWarnsAndContinues) {
+    const auto unbalanced = bytes_of("GX_MAP { STATIC_MODEL 10.stm");
+    const auto bad_box = bytes_of("GX_METADATA { BOX_MAX nope 1 2 }");
+    const auto cases = std::vector<std::vector<std::uint8_t>>{unbalanced, bad_box};
+    for (const auto& bytes : cases) {
+        testing::internal::CaptureStderr();
+        const auto gate = gate_map_script_load(
+            GxMapScriptPresence::Present, bytes, "10.map");
+        const auto logged = testing::internal::GetCapturedStderr();
+        EXPECT_FALSE(gate.fail_load);
+        EXPECT_TRUE(gate.message.empty());
+        EXPECT_NE(logged.find("WARN [map] script parse incomplete: 10.map"),
+                  std::string::npos) << logged;
+        EXPECT_EQ(logged.find("ERROR [map]"), std::string::npos) << logged;
+    }
+
+    testing::internal::CaptureStderr();
+    const auto ok = gate_map_script_load(
+        GxMapScriptPresence::Present, bytes_of("GX_MAP{STATIC_MODEL a}"), "9.map");
+    const auto ok_log = testing::internal::GetCapturedStderr();
+    EXPECT_FALSE(ok.fail_load);
+    EXPECT_TRUE(ok.message.empty());
+    EXPECT_EQ(ok_log.find("WARN [map]"), std::string::npos) << ok_log;
+    EXPECT_EQ(ok_log.find("ERROR [map]"), std::string::npos) << ok_log;
+
+    // The parser itself still rejects the same grammar. The client gate
+    // is what turns that into a warning.
+    testing::internal::CaptureStderr();
+    const auto parsed = parse_gx_map_script(unbalanced, "10.map");
+    const auto parsed_log = testing::internal::GetCapturedStderr();
+    EXPECT_FALSE(parsed.ok);
+    EXPECT_EQ(parsed.reject, GxMapReject::Malformed);
+    EXPECT_NE(parsed_log.find("ERROR [map] malformed .map: 10.map (bytes="),
+              std::string::npos) << parsed_log;
+}
+
+TEST(GxMapScript, EmptyFileIsMalformedNotAbsent) {
+    testing::internal::CaptureStderr();
+    const auto absent = gate_map_script_load(
+        GxMapScriptPresence::Absent, {}, "0.map");
+    const auto absent_log = testing::internal::GetCapturedStderr();
+    EXPECT_FALSE(absent.fail_load);
+    EXPECT_TRUE(absent.message.empty());
+    EXPECT_EQ(absent_log.find("ERROR [map]"), std::string::npos) << absent_log;
+    EXPECT_EQ(absent_log.find("WARN [map]"), std::string::npos) << absent_log;
+
+    testing::internal::CaptureStderr();
+    const auto empty = gate_map_script_load(
+        GxMapScriptPresence::Empty, {}, "0.map");
+    const auto empty_log = testing::internal::GetCapturedStderr();
+    EXPECT_TRUE(empty.fail_load);
+    EXPECT_EQ(empty.message, "ERROR [map] malformed .map: 0.map (bytes=0)");
+    EXPECT_NE(empty_log.find(empty.message), std::string::npos) << empty_log;
+    EXPECT_EQ(empty_log.find("WARN [map]"), std::string::npos) << empty_log;
+
+    const auto obfuscated = obfuscated_map(80);
+    testing::internal::CaptureStderr();
+    const auto blocked = gate_map_script_load(
+        GxMapScriptPresence::Present, obfuscated, "10.map");
+    const auto blocked_log = testing::internal::GetCapturedStderr();
+    EXPECT_TRUE(blocked.fail_load);
+    EXPECT_EQ(blocked.message,
+              "ERROR [map] obfuscated .map not supported: 10.map (bytes=" +
+                  std::to_string(obfuscated.size()) + ")");
+    EXPECT_NE(blocked_log.find(blocked.message), std::string::npos) << blocked_log;
 }
