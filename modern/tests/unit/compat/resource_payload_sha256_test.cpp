@@ -38,12 +38,20 @@ struct Provenance {
     std::string reader_commit;
     std::uint32_t verified_match = 0;
     std::uint32_t verified_total = 0;
+    std::uint32_t manifest_entries = 0;
+    std::uint32_t removed_count = 0;
+};
+
+struct RemovedEntry {
+    std::string name;
+    std::string reason;
 };
 
 struct Manifest {
     std::string format;
     std::string source;
     Provenance provenance;
+    std::vector<RemovedEntry> removed;
     std::vector<ManifestEntry> files;
 };
 
@@ -149,18 +157,38 @@ Provenance parse_provenance(const std::string& json) {
         provenance.reader = *reader;
     if (const auto reader_commit = json_string_value(*object, "reader_commit"))
         provenance.reader_commit = *reader_commit;
-    const std::regex match_pattern(R"re("verified_match"\s*:\s*(\d+))re");
-    const std::regex total_pattern(R"re("verified_total"\s*:\s*(\d+))re");
-    std::smatch match;
+    const auto read_u32 = [&](const char* key, std::uint32_t& out) {
+        const std::regex pattern(std::string("\"") + key + "\"\\s*:\\s*(\\d+)");
+        std::smatch match;
+        if (!std::regex_search(*object, match, pattern)) return;
+        out = static_cast<std::uint32_t>(std::stoul(match[1].str()));
+    };
     try {
-        if (std::regex_search(*object, match, match_pattern))
-            provenance.verified_match = static_cast<std::uint32_t>(std::stoul(match[1].str()));
-        if (std::regex_search(*object, match, total_pattern))
-            provenance.verified_total = static_cast<std::uint32_t>(std::stoul(match[1].str()));
+        read_u32("verified_match", provenance.verified_match);
+        read_u32("verified_total", provenance.verified_total);
+        read_u32("manifest_entries", provenance.manifest_entries);
+        read_u32("removed_count", provenance.removed_count);
     } catch (...) {
         provenance.present = false;
     }
     return provenance;
+}
+
+std::optional<std::vector<RemovedEntry>> parse_removed(const std::string& json) {
+    const auto array = json_bracket_value(json, "removed", '[', ']');
+    if (!array) return std::vector<RemovedEntry>{};
+    const std::regex entry_pattern(
+        R"re(\{\s*"name"\s*:\s*"([^"]+)"\s*,\s*"reason"\s*:\s*"([^"]*)"\s*\})re");
+    std::vector<RemovedEntry> removed;
+    for (std::sregex_iterator it(array->begin(), array->end(), entry_pattern), end;
+         it != end; ++it) {
+        RemovedEntry entry;
+        entry.name = unescape_json_string((*it)[1].str());
+        entry.reason = unescape_json_string((*it)[2].str());
+        if (entry.name.empty() || entry.reason.empty()) return std::nullopt;
+        removed.push_back(std::move(entry));
+    }
+    return removed;
 }
 
 std::optional<Manifest> parse_manifest(const fs::path& path) {
@@ -182,6 +210,9 @@ std::optional<Manifest> parse_manifest(const fs::path& path) {
     manifest.format = *format;
     manifest.source = *source;
     manifest.provenance = parse_provenance(json);
+    const auto removed = parse_removed(json);
+    if (!removed) return std::nullopt;
+    manifest.removed = *removed;
     for (std::sregex_iterator it(files_json->begin(), files_json->end(), entry_pattern),
          end; it != end; ++it) {
         const auto& match = *it;
@@ -377,18 +408,20 @@ void run_manifest_verify(const std::string& manifest_name) {
 
 }  // namespace
 
-TEST(MxhResourcePayloadSha256, DeployManifest_Keeps180AndRecordsProvenance) {
+TEST(MxhResourcePayloadSha256, DeployManifest_Keeps178AndRecordsProvenance) {
     const auto manifest = parse_manifest(find_manifest("resource_payload_manifest_deploy.json"));
     ASSERT_TRUE(manifest.has_value());
     EXPECT_EQ(manifest->format, "moxian-payload-sha256-v1");
     EXPECT_EQ(manifest->source, "deploy/server/Distribute/Resource");
-    EXPECT_EQ(manifest->files.size(), 180u);
+    EXPECT_EQ(manifest->files.size(), 178u);
     ASSERT_TRUE(manifest->provenance.present);
     EXPECT_EQ(manifest->provenance.source_path, "D:\\MX\\src\\SWorking\\Resource");
     EXPECT_EQ(manifest->provenance.reader, "read_mh_bin in mh_file_ex.cpp");
     EXPECT_EQ(manifest->provenance.reader_commit, "70bb2dd6");
     EXPECT_EQ(manifest->provenance.verified_match, 180u);
     EXPECT_EQ(manifest->provenance.verified_total, 180u);
+    EXPECT_EQ(manifest->provenance.manifest_entries, 178u);
+    EXPECT_EQ(manifest->provenance.removed_count, 2u);
 
     const auto has_name = [&](const char* name) {
         for (const auto& entry : manifest->files) {
@@ -396,15 +429,29 @@ TEST(MxhResourcePayloadSha256, DeployManifest_Keeps180AndRecordsProvenance) {
         }
         return false;
     };
-    EXPECT_TRUE(has_name("BobusangInfo.bin"));
-    EXPECT_TRUE(has_name("Server/ItemMixList.bin"));
+    EXPECT_FALSE(has_name("BobusangInfo.bin"));
+    EXPECT_TRUE(has_name("Server/BobusangInfo.bin"));
+    EXPECT_FALSE(has_name("Server/ItemMixList.bin"));
+    EXPECT_TRUE(has_name("ItemMixList.bin"));
     EXPECT_TRUE(has_name("PenaltyTime.bin"));
+
+    ASSERT_EQ(manifest->removed.size(), 2u);
+    EXPECT_EQ(manifest->removed[0].name, "BobusangInfo.bin");
+    EXPECT_EQ(manifest->removed[0].reason,
+              "Root BobusangInfo.bin is not loaded. The original server code loads "
+              "resource/Server/BobusangInfo.bin at GameResourceManager.cpp:2130. "
+              "grep of modern/src for BobusangInfo.bin and BobusangInfo: no matches.");
+    EXPECT_EQ(manifest->removed[1].name, "Server/ItemMixList.bin");
+    EXPECT_EQ(manifest->removed[1].reason,
+              "Server/ItemMixList.bin has no loader in the original code. "
+              "grep of modern/src for Server/ItemMixList.bin and ItemMixList.bin: no matches.");
 
     for (const char* name : {"resource_payload_manifest_playdh.json",
                              "resource_payload_manifest_client.json"}) {
         const auto other = parse_manifest(find_manifest(name));
         ASSERT_TRUE(other.has_value()) << name;
         EXPECT_FALSE(other->provenance.present) << name;
+        EXPECT_TRUE(other->removed.empty()) << name;
         EXPECT_FALSE(other->files.empty()) << name;
     }
 }

@@ -192,7 +192,7 @@ bool is_json_space(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-// Files array only. Extra top-level objects (provenance) are ignored.
+// Files array only. Sibling provenance and removed lists are ignored.
 std::optional<std::string> json_files_array(const std::string& json) {
     const std::string token = "\"files\"";
     std::size_t search = 0;
