@@ -12,6 +12,19 @@ workflow:
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009" && $CI_OPEN_MERGE_REQUESTS'
       when: never
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+    # Feature-branch Python tooling only. The two long-lived branches are
+    # already decided above. An open merge request suppresses the branch
+    # pipeline so the same commit is not tested twice.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009"'
+      changes: &python_tooling_changes
+        - modern/tools/**/*
+        - modern/tests/unit/tools/**/*
+        - scripts/check-project-governance.py
+        - .gitlab-ci.yml
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
     - when: never
 
 variables:
@@ -32,6 +45,12 @@ original_governance_and_python_tests:
   rules:
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
   script:
     - python3 --version
     - python3 scripts/check-project-governance.py
