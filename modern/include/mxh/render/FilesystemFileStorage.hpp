@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
-#include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -61,10 +61,44 @@ struct FilesystemFileStorageOptions {
     };
 };
 
-// Read the uint32 at offset 4. nullopt when the file is missing or shorter
-// than 8 bytes. Does not open the archive and does not depend on PackFile.
-[[nodiscard]] std::optional<PakFormatTier> classify_pak_header(
-    const std::filesystem::path& path);
+// First 8 bytes of a .pak, or an open failure. `opened == false` means the
+// file could not be opened. `error` is the OS reason when the platform
+// reported one (empty if it did not). This does not parse the archive and
+// does not call PackFile::open.
+struct PakHeaderPrefix {
+    bool opened = false;
+    std::string error;
+    unsigned char bytes[8]{};
+    std::size_t size = 0;
+};
+
+// Test seam. Production passes nullptr and reads with ifstream.
+// A substitute may refuse selected paths; other paths should call
+// read_pak_header_prefix so the bytes stay the real prefix.
+using PakHeaderOpener = PakHeaderPrefix (*)(const std::filesystem::path&);
+
+[[nodiscard]] PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path);
+
+// CannotOpen and ShorterThan8 are not tiers. PlayDh92 / Original96 match
+// PakFormatTier. open_error is set only for CannotOpen, and only when a
+// reason is available.
+enum class PakHeaderKind : std::uint8_t {
+    CannotOpen,
+    ShorterThan8,
+    PlayDh92,
+    Original96,
+};
+
+struct PakHeaderClassification {
+    PakHeaderKind kind = PakHeaderKind::CannotOpen;
+    std::string open_error;
+};
+
+// Classify the uint32 at offset 4. `opener == nullptr` uses
+// read_pak_header_prefix. Does not open the archive via PackFile.
+[[nodiscard]] PakHeaderClassification classify_pak_header(
+    const std::filesystem::path& path,
+    PakHeaderOpener opener = nullptr);
 
 // Filename order used inside a tier. See FilesystemFileStorageOptions.
 [[nodiscard]] bool pak_filename_less(std::string_view a, std::string_view b) noexcept;
@@ -88,6 +122,12 @@ public:
         FilesystemFileStorageOptions options = {});
 
     const std::filesystem::path& root() const noexcept { return root_; }
+
+    // Test seam. Null restores the ifstream opener. Not a mount option:
+    // pak_tier_order and the constructor are unchanged.
+    void set_pak_header_opener_for_test(PakHeaderOpener opener) noexcept {
+        header_opener_ = opener;
+    }
 
     STDMETHODIMP QueryInterface(REFIID, void**) override;
     STDMETHODIMP_(ULONG) AddRef() override;
@@ -125,6 +165,7 @@ private:
     std::atomic<ULONG> ref_count_{1};
     std::filesystem::path root_;
     FilesystemFileStorageOptions options_{};
+    PakHeaderOpener header_opener_ = nullptr;
     std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
 };
 

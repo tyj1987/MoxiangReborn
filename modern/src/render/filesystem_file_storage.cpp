@@ -3,10 +3,12 @@
 #include "mxh/log/mlog.hpp"
 
 #include <algorithm>
+#include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 
 namespace mxh::gx {
@@ -29,6 +31,12 @@ unsigned char fold_ascii(unsigned char c) noexcept {
     return c;
 }
 
+std::optional<PakFormatTier> tier_of(PakHeaderKind kind) noexcept {
+    if (kind == PakHeaderKind::PlayDh92) return PakFormatTier::PlayDh92;
+    if (kind == PakHeaderKind::Original96) return PakFormatTier::Original96;
+    return std::nullopt;
+}
+
 int tier_rank(PakFormatTier tier, const std::vector<PakFormatTier>& order) {
     for (std::size_t i = 0; i < order.size(); ++i) {
         if (order[i] == tier) return static_cast<int>(i);
@@ -49,19 +57,47 @@ std::string filename_utf8(const std::filesystem::path& path) {
 
 }  // namespace
 
-std::optional<PakFormatTier> classify_pak_header(const std::filesystem::path& path) {
+PakHeaderPrefix read_pak_header_prefix(const std::filesystem::path& path) {
+    PakHeaderPrefix prefix;
+    errno = 0;
     std::ifstream in(path, std::ios::binary);
-    if (!in) return std::nullopt;
-    unsigned char buf[8]{};
-    in.read(reinterpret_cast<char*>(buf), 8);
-    if (in.gcount() != 8) return std::nullopt;
+    if (!in) {
+        const int saved = errno;
+        if (saved != 0) {
+            prefix.error = std::error_code(saved, std::generic_category()).message();
+        }
+        return prefix;
+    }
+    prefix.opened = true;
+    in.read(reinterpret_cast<char*>(prefix.bytes), static_cast<std::streamsize>(sizeof(prefix.bytes)));
+    const auto count = in.gcount();
+    if (count > 0) prefix.size = static_cast<std::size_t>(count);
+    return prefix;
+}
+
+PakHeaderClassification classify_pak_header(const std::filesystem::path& path,
+                                           PakHeaderOpener opener) {
+    const PakHeaderPrefix prefix = opener != nullptr ? opener(path)
+                                                     : read_pak_header_prefix(path);
+    PakHeaderClassification result;
+    if (!prefix.opened) {
+        result.kind = PakHeaderKind::CannotOpen;
+        result.open_error = prefix.error;
+        return result;
+    }
+    if (prefix.size < 8) {
+        result.kind = PakHeaderKind::ShorterThan8;
+        return result;
+    }
+    const unsigned char* buf = prefix.bytes;
     const std::uint32_t count_at_offset_4 =
         static_cast<std::uint32_t>(buf[4]) |
         (static_cast<std::uint32_t>(buf[5]) << 8) |
         (static_cast<std::uint32_t>(buf[6]) << 16) |
         (static_cast<std::uint32_t>(buf[7]) << 24);
-    if (count_at_offset_4 != 0) return PakFormatTier::PlayDh92;
-    return PakFormatTier::Original96;
+    result.kind = count_at_offset_4 != 0 ? PakHeaderKind::PlayDh92
+                                          : PakHeaderKind::Original96;
+    return result;
 }
 
 bool pak_filename_less(std::string_view a, std::string_view b) noexcept {
@@ -157,13 +193,21 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     packs_.clear();
     std::error_code ec;
     std::vector<PakMountCandidate> classified;
-    std::vector<std::filesystem::path> unclassified;
+    struct SkippedPak {
+        std::filesystem::path path;
+        PakHeaderKind kind = PakHeaderKind::CannotOpen;
+        std::string open_error;
+    };
+    std::vector<SkippedPak> skipped;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
+        // Directories named *.pak are not archives. Only regular files are
+        // classified, so an open failure here is a file we could not read.
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (const auto tier = classify_pak_header(item.path())) {
+        const auto header = classify_pak_header(item.path(), header_opener_);
+        if (const auto tier = tier_of(header.kind)) {
             classified.push_back(PakMountCandidate{item.path(), *tier});
         } else {
-            unclassified.push_back(item.path());
+            skipped.push_back(SkippedPak{item.path(), header.kind, header.open_error});
         }
     }
     // Tier sequence comes from options_.pak_tier_order, not from this loop.
@@ -188,15 +232,30 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
         }
     };
     for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
-    // Shorter than 8 bytes: offset 4 cannot be read. Do not call
-    // PackFile::open (that would follow directory order). Warn and skip.
-    std::sort(unclassified.begin(), unclassified.end(),
-              [](const std::filesystem::path& a, const std::filesystem::path& b) {
-                  return pak_filename_less(filename_utf8(a), filename_utf8(b));
+    // Cannot-open and shorter-than-8 both skip PackFile::open. They share
+    // the mount-order filename sort (UTF-8 bytes of filename().u8string()).
+    std::sort(skipped.begin(), skipped.end(),
+              [](const SkippedPak& a, const SkippedPak& b) {
+                  return pak_filename_less(filename_utf8(a.path), filename_utf8(b.path));
               });
-    for (const auto& path : unclassified) {
-        const auto name = filename_utf8(path);
-        MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+    for (const auto& item : skipped) {
+        const auto name = filename_utf8(item.path);
+        switch (item.kind) {
+        case PakHeaderKind::CannotOpen:
+            if (item.open_error.empty()) {
+                MLOG_WARN("[pak] skipped '%s': cannot open", name.c_str());
+            } else {
+                MLOG_WARN("[pak] skipped '%s': cannot open (%s)",
+                          name.c_str(), item.open_error.c_str());
+            }
+            break;
+        case PakHeaderKind::ShorterThan8:
+            MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
+            break;
+        case PakHeaderKind::PlayDh92:
+        case PakHeaderKind::Original96:
+            break;
+        }
     }
 
     std::string line = "[pak] mount order:";

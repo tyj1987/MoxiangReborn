@@ -131,6 +131,24 @@ std::string read_entry(mxh::gx::FilesystemFileStorage* storage, const char* name
     return bytes;
 }
 
+std::string utf8_filename(const std::filesystem::path& path) {
+    const auto u8 = path.filename().u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
+// directory_iterator keeps only regular files, so a directory named
+// x.pak never reaches classify. This opener is the portable cannot-open
+// seam: chmod is not reliable when the process is root or Administrator.
+mxh::gx::PakHeaderPrefix deny_locked_pak_headers(const std::filesystem::path& path) {
+    const auto name = utf8_filename(path);
+    if (name == "m_locked.pak" || name == "\xE4\xB9\x99.pak") {
+        mxh::gx::PakHeaderPrefix denied;
+        denied.error = "Permission denied";
+        return denied;
+    }
+    return mxh::gx::read_pak_header_prefix(path);
+}
+
 std::string mount_order_line(std::string_view logged) {
     const auto at = logged.find("[pak] mount order:");
     if (at == std::string_view::npos) return {};
@@ -311,10 +329,18 @@ TEST(FilesystemFileStorage, ClassifiesPakByOffset4) {
         out.write("pak", 3);
     }
 
-    EXPECT_EQ(mxh::gx::classify_pak_header(playdh), mxh::gx::PakFormatTier::PlayDh92);
-    EXPECT_EQ(mxh::gx::classify_pak_header(original), mxh::gx::PakFormatTier::Original96);
-    EXPECT_FALSE(mxh::gx::classify_pak_header(tiny).has_value());
-    EXPECT_FALSE(mxh::gx::classify_pak_header(dir.path / "missing.pak").has_value());
+    const auto playdh_header = mxh::gx::classify_pak_header(playdh);
+    const auto original_header = mxh::gx::classify_pak_header(original);
+    const auto tiny_header = mxh::gx::classify_pak_header(tiny);
+    const auto missing_header = mxh::gx::classify_pak_header(dir.path / "missing.pak");
+    EXPECT_EQ(playdh_header.kind, mxh::gx::PakHeaderKind::PlayDh92);
+    EXPECT_TRUE(playdh_header.open_error.empty());
+    EXPECT_EQ(original_header.kind, mxh::gx::PakHeaderKind::Original96);
+    EXPECT_TRUE(original_header.open_error.empty());
+    EXPECT_EQ(tiny_header.kind, mxh::gx::PakHeaderKind::ShorterThan8);
+    EXPECT_TRUE(tiny_header.open_error.empty());
+    EXPECT_EQ(missing_header.kind, mxh::gx::PakHeaderKind::CannotOpen);
+    EXPECT_FALSE(missing_header.open_error.empty());
 }
 
 TEST(FilesystemFileStorage, PakTierOrderFollowsConfiguredPriority) {
@@ -463,10 +489,10 @@ TEST(FilesystemFileStorage, CrossTierResolutionFollowsConfiguredPriority) {
     // must still prefer the PlayDH archive when both can be opened.
     write_original_pak(dir.path / "a_original.pak", "shared.bin", "from-96");
     write_playdh_pak(dir.path / "z_playdh.pak", "shared.bin", "from-92");
-    ASSERT_EQ(mxh::gx::classify_pak_header(dir.path / "a_original.pak"),
-              mxh::gx::PakFormatTier::Original96);
-    ASSERT_EQ(mxh::gx::classify_pak_header(dir.path / "z_playdh.pak"),
-              mxh::gx::PakFormatTier::PlayDh92);
+    ASSERT_EQ(mxh::gx::classify_pak_header(dir.path / "a_original.pak").kind,
+              mxh::gx::PakHeaderKind::Original96);
+    ASSERT_EQ(mxh::gx::classify_pak_header(dir.path / "z_playdh.pak").kind,
+              mxh::gx::PakHeaderKind::PlayDh92);
 
     if (!mxh::compat::PackFile::open(dir.path / "a_original.pak")) {
         GTEST_SKIP() << "96-byte original paks are not readable until "
@@ -581,13 +607,94 @@ TEST(FilesystemFileStorage, SkipsPakShorterThanEightBytes) {
     const auto a_at = logged.find("a_short.pak");
     const auto z_at = logged.find("z_short.pak");
 
+    const auto a_warn = logged.find(
+        "[pak] skipped 'a_short.pak': header shorter than 8 bytes");
+    const auto z_warn = logged.find(
+        "[pak] skipped 'z_short.pak': header shorter than 8 bytes");
+
     EXPECT_EQ(read_entry(storage, "shared.bin"), "from-ok");
     EXPECT_NE(logged.find("header shorter than 8 bytes"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("cannot open"), std::string::npos) << logged;
     EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    ASSERT_NE(a_warn, std::string::npos) << logged;
+    ASSERT_NE(z_warn, std::string::npos) << logged;
+    EXPECT_LT(a_warn, z_warn) << logged;
     ASSERT_NE(a_at, std::string::npos) << logged;
     ASSERT_NE(z_at, std::string::npos) << logged;
     EXPECT_LT(a_at, z_at) << logged;
     EXPECT_NE(line.find("1=m_ok.pak(92)"), std::string::npos) << logged;
     EXPECT_EQ(line.find("short.pak"), std::string::npos) << line;
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, SkipsPakThatCannotBeOpened) {
+    const TempDir dir("mxh-pak-locked-");
+    // Created out of warn order. Filename UTF-8 order must still be
+    // a_short, m_locked, z_short, then 乙 (E4 B9 99).
+    const std::string yi = "\xE4\xB9\x99.pak";
+    const auto yi_path = std::filesystem::path(
+        std::u8string(reinterpret_cast<const char8_t*>(yi.data()), yi.size()));
+    {
+        std::ofstream z(dir.path / "z_short.pak", std::ios::binary);
+        ASSERT_TRUE(z);
+        z.write("zz", 2);
+        std::ofstream a(dir.path / "a_short.pak", std::ios::binary);
+        ASSERT_TRUE(a);
+        a.write("abcd", 4);
+    }
+    write_playdh_pak(dir.path / "m_locked.pak", "locked-only.bin", "from-locked");
+    write_playdh_pak(dir.path / yi_path, "yi-only.bin", "from-yi");
+    write_playdh_pak(dir.path / "m_ok.pak", "shared.bin", "from-ok");
+    ASSERT_TRUE(std::filesystem::create_directory(dir.path / "not-a-file.pak"));
+
+    // The bytes are a real PlayDH pak. Without the seam this would mount.
+    EXPECT_EQ(mxh::gx::classify_pak_header(dir.path / "m_locked.pak").kind,
+              mxh::gx::PakHeaderKind::PlayDh92);
+    const auto denied = mxh::gx::classify_pak_header(
+        dir.path / "m_locked.pak", &deny_locked_pak_headers);
+    EXPECT_EQ(denied.kind, mxh::gx::PakHeaderKind::CannotOpen);
+    EXPECT_EQ(denied.open_error, "Permission denied");
+    const auto yi_denied = mxh::gx::classify_pak_header(
+        dir.path / yi_path, &deny_locked_pak_headers);
+    EXPECT_EQ(yi_denied.kind, mxh::gx::PakHeaderKind::CannotOpen);
+    EXPECT_EQ(yi_denied.open_error, "Permission denied");
+
+    auto* storage = new mxh::gx::FilesystemFileStorage(dir.path);
+    storage->set_pak_header_opener_for_test(&deny_locked_pak_headers);
+    testing::internal::CaptureStderr();
+    ASSERT_TRUE(storage->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+
+    const std::string a_warn =
+        "[pak] skipped 'a_short.pak': header shorter than 8 bytes";
+    const std::string locked_warn =
+        "[pak] skipped 'm_locked.pak': cannot open (Permission denied)";
+    const std::string z_warn =
+        "[pak] skipped 'z_short.pak': header shorter than 8 bytes";
+    const std::string yi_warn =
+        "[pak] skipped '" + yi + "': cannot open (Permission denied)";
+    const auto a_at = logged.find(a_warn);
+    const auto locked_at = logged.find(locked_warn);
+    const auto z_at = logged.find(z_warn);
+    const auto yi_at = logged.find(yi_warn);
+
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-ok");
+    EXPECT_TRUE(read_entry(storage, "locked-only.bin").empty());
+    EXPECT_TRUE(read_entry(storage, "yi-only.bin").empty());
+    EXPECT_EQ(logged.find("unsupported header"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("not-a-file.pak"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("a_short.pak': cannot open"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("z_short.pak': cannot open"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("m_locked.pak': header shorter"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find(yi + "': header shorter"), std::string::npos) << logged;
+    ASSERT_NE(a_at, std::string::npos) << logged;
+    ASSERT_NE(locked_at, std::string::npos) << logged;
+    ASSERT_NE(z_at, std::string::npos) << logged;
+    ASSERT_NE(yi_at, std::string::npos) << logged;
+    EXPECT_LT(a_at, locked_at) << logged;
+    EXPECT_LT(locked_at, z_at) << logged;
+    EXPECT_LT(z_at, yi_at) << logged;
+    EXPECT_EQ(line, "[pak] mount order: 1=m_ok.pak(92)") << logged;
     storage->Release();
 }
