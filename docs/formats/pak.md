@@ -11,13 +11,20 @@
 | 0 | `total`，uint32。下一条起点是 `cur + total` |
 | 4 | `real`，uint32，紧跟在文件名 NUL 之后的数据字节数 |
 | 8 | `name_len`，uint32，文件名字节数，不含结尾 NUL |
-| 12 | `data_off`，uint32 |
+| 12 | `data_off`，uint32。原版 `Map.pak` 里等于该条起点 `cur`，不是数据起点 |
 | 16 | 16 字节，原版样本里是 0 |
 | 32 | 文件名，`name_len` 字节 |
 | 32 + name_len | 1 字节 NUL |
 | 33 + name_len | `real` 字节数据 |
 
-变体 B 的单条满足 `total == 32 + name_len + 1 + real`。原版客户端 `Map.pak` 已测到的是条目数 `0x2C03 = 11267`，以及 `water.tif` 在偏移 `0x2AB31`（174897）。第 0 条的 `name_len`、`real`、`total` 待 ROG 实测。
+变体 B 的单条满足 `total == 32 + name_len + 1 + real`。`data_off` 记的是该条自己的起点，不是数据起点。
+
+原版客户端 `Map.pak` 只读实测（文件大小 1135536849 字节）：偏移 4 为 0，偏移 92 的条目数 `0x2C03 = 11267`，这 11267 条正好走到 EOF。
+
+- 第 0 条从 96 起。文件名是 GBK 的 `刨飘.dds`（`name_len = 8`）。`real = 174888`，`total = 174929`（`32 + 8 + 1 + 174888`）。`data_off = 96`。数据从 `96 + 32 + 8 + 1 = 137` 起。
+- 第 1 条是 `water.tif`。条目起点 `96 + 174929 = 175025 = 0x2ABB1`。`name_len = 9`，`real = 166508`，`total = 166550`（`32 + 9 + 1 + 166508`）。数据从 `0x2ABB1 + 42 = 175067 = 0x2ABDB` 起。`42 = 32 + 9 + 1`。
+
+早先文档和 PR #2 把 `water.tif` 的条目起点写成 `0x2AB31`。那是十六进制笔误，把 `0x2ABB1` 的 B 写成了 3，差 `0x80 = 128`。没有任何条目或数据从 `0x2AB31` 开始。
 
 原版文件名按 GBK 解码。worktree 路径仍按现有读取器的 latin-1 处理，不在这次改动里更换。
 
@@ -68,7 +75,7 @@
 
 `file_count()` 在变体 A 仍是偏移 4。变体 B 打开成功时等于偏移 92 的条数。`header().file_item_num` 始终是盘上的偏移 4，变体 B 为 0。
 
-单测在 `modern/tests/unit/pack_file_header_test.cpp`，目标 `mxh_pack_file_header_tests`。用合成包覆盖 92 字节包头、96 字节包头、截断包头、条目越过 EOF、条数大于文件能装下的量。合成样本自己的条目偏移写在测试里，不是原版 `Map.pak` 里测得的 `water.tif` 偏移 `0x2AB31`。不读取、不提交原版 `Map.pak`。
+单测在 `modern/tests/unit/pack_file_header_test.cpp`，目标 `mxh_pack_file_header_tests`。用合成包覆盖 92 字节包头、96 字节包头、截断包头、条目越过 EOF、条数大于文件能装下的量。96 字节样本的第 0 条用上面的 `name_len` / `real` / `total`，所以 `water.tif` 的条目起点是 `0x2ABB1`、数据起点是 `0x2ABDB`。样本不包含原版 pak，第 1 条正文也不是原版的 166508 字节。
 
 打不开时的日志不变：
 
