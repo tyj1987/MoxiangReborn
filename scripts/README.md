@@ -11,6 +11,7 @@ PowerShell 脚本用于现代化运维。
 | `verify-resource-profile.py` | 只读校验 ResourceProfileManifest、关键文件和 SHA-256 |
 | `gui-client-smoke.ps1` | 启动三服并验证客户端状态帧、地图依赖和 GUI 运行证据 |
 | `run-human-acceptance.ps1` | 原版 DX11 客户端人工验收；默认连接 PVE `192.168.2.244:16001`，不启动本机三服或数据库，不注入凭据或输入 |
+| `rog-gate-build.ps1` | ROG 试合入门禁：SHA 或 CMake 生成器变化时干净重建，核对磁盘和重解析点后再编译并跑 CTest |
 
 原版三服在 PVE 上使用 Login `16001`、Agent `17001`、Map `18001`。PVE 启动 `deploy/scripts/start_modern.ps1` 时须显式设置 `-AdvertisedAgentAddress 192.168.2.244`：LoginAck 使用该通告地址，默认 `127.0.0.1` 会让远程客户端登录后连接自身。Agent 到 Map 的地址由 PVE 内部部署配置决定。
 
@@ -40,6 +41,46 @@ python .\scripts\verify-resource-profile.py `
   .\reference\manifests\playdh-current.sha256.json `
   --root .\modern\data\PlayDH --profile-id playdh-current
 ```
+
+## ROG 试合入门禁 (`rog-gate-build.ps1`)
+
+Windows 构建机（ROG）上手动把 mainline 和 PR head 试合入后，用这个脚本编译并跑 CTest。构建目录如果还留着上一份 trial-merge SHA，或者 `CMakeCache.txt` 里的 `CMAKE_GENERATOR` 和这次不一致，测试会打到旧二进制。现网门禁目录（例如 `D:\build-mxr\pr20`）是 **x86（Hostx86/x86）+ NMake Makefiles**，不是 Ninja。
+
+本脚本不改 `build-modern.bat` / `build-modern.ps1`。那条路径仍用 Ninja，给仓库里的常规构建用。
+
+门禁行为：
+
+- `git -C SourceDir rev-parse HEAD` 必须等于 `-ExpectedSha`（完整 40 位）。不等就非 0 退出。
+- `-BuildDir` 解析后必须严格位于允许根之下（默认 `D:\build-mxr`，可用 `-AllowedBuildRoot` 改）。不能等于根本身，也不能是或位于 `D:\MX`。允许根不能是盘符根。
+- 删除前检查 BuildDir 自身、它的祖先，以及目录里的每一项。出现 junction、symlink 或其他重解析点就拒绝并退出，不跟随、不透过它删除。删除函数本身遇到重解析点也会停。
+- `BuildDir\rog-gate.sha` 缺失或和 ExpectedSha 不同，或者已有 `CMakeCache.txt` 的 `CMAKE_GENERATOR` 与 `-Generator` 不同，就整目录干净重建。印记只在本次构建成功之后写入。配置或编译失败则非 0 退出，不跑测试，也不写印记。
+- 跑 CTest 之前检查 BuildDir 里的测试可执行文件：至少 `*_tests.exe`，再加上 CTest `add_test` 登记且落在 BuildDir 里的 `.exe`。干净重建时，任一测试 exe 的修改时间早于本次构建开始就拒绝测试。印记已经对上本次 SHA 的增量构建允许旧时间戳。
+- CTest 命令是 `ctest --test-dir <BuildDir> -C <Config> --output-on-failure`，`-CtestArgs` 原样接在后面，退出码原样返回。`-SkipTests` 只编译并写印记。
+- 磁盘预检在删除、配置和编译之前。去重后检查 BuildDir 所在盘、SourceDir 所在盘，以及 **E:**。每块盘默认至少 `-MinFreeGB`（10）GB（1024^3 字节）。`-DriveMinFreeGB E=20,D=15` 按盘覆盖，没写到的盘仍用 `-MinFreeGB`。任一盘低于阈值就非 0 退出，并打印每块盘的剩余空间和允许根下最大的顶层目录。统计大小时不跟随重解析点。
+
+`-Generator` 默认 `NMake Makefiles`，也可以设为 `Ninja`。两种都先调用 `C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat x86`。Ninja 再传入与 `build-modern.bat` 相同的 `CMAKE_MAKE_PROGRAM`。`-WhatIf` 和 `-DryRun` 只做检查并打印将执行的动作。
+
+已有的 `D:\build-mxr\prNN` 目录第一次用这个脚本时还没有 `rog-gate.sha`，会按干净重建删掉。这是预期行为。
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\rog-gate-build.ps1 -SelfTest
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\rog-gate-build.ps1 `
+  -SourceDir E:\work\trial-merge `
+  -BuildDir D:\build-mxr\pr20 `
+  -ExpectedSha <40位SHA> `
+  -Config Debug
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\rog-gate-build.ps1 `
+  -SourceDir E:\work\trial-merge `
+  -BuildDir D:\build-mxr\pr20 `
+  -ExpectedSha <40位SHA> `
+  -Generator Ninja `
+  -DriveMinFreeGB E=20 `
+  -WhatIf
+```
+
+`-SelfTest` 不需要编译器。它检查路径安全、生成器判定、盘符去重和剩余空间阈值。
 
 ## 执行策略
 
