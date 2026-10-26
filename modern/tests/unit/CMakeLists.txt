@@ -25,6 +25,26 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_compat_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# 96-byte original pak header. Compiles pack_file.cpp directly so the
+# target does not pull the rest of mxh_compat (DX11 / Win32).
+add_executable(mxh_pack_file_header_tests
+    pack_file_header_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+)
+target_include_directories(mxh_pack_file_header_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_pack_file_header_tests PRIVATE gtest_main)
+target_compile_features(mxh_pack_file_header_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_pack_file_header_tests PRIVATE
+        _CRT_SECURE_NO_WARNINGS)
+endif()
+gtest_add_tests(TARGET mxh_pack_file_header_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pack_file_header_test_list)
+set_tests_properties(${mxh_pack_file_header_test_list} PROPERTIES
+    TIMEOUT 60)
+
 
 # -----------------------------------------------------------------------------
 # mxh_crypto tests ????HSEL stream cipher (Phase 3.2)
