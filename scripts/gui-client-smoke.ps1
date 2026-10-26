@@ -29,9 +29,11 @@
 
   Safety rules live in gui-client-smoke-ephemeral.ps1. Client exit-code
   handling is unchanged (any non-zero, including 4, fails the smoke).
-  MXH_GUI_SMOKE_RENDER_ENTITIES is still set here. MXH_FOG_DISABLE,
-  MXH_STM_LIGHTING and other render variables already in the process are
-  inherited by the client. --resource-root is still passed.
+  MXH_GUI_SMOKE_RENDER_ENTITIES is still set here. On PowerShell 7.4+
+  the client is started with an explicit copy of the process environment,
+  so MXH_FOG_DISABLE and MXH_STM_LIGHTING reach that process. The client
+  fog switch is MXH_FOG_DISABLE=1 (no command-line flag). --resource-root
+  is still passed.
 #>
 [CmdletBinding()]
 param(
@@ -74,8 +76,8 @@ if ($EphemeralLocalServer) {
     }
     # First line of script output. Also written to ephemeral.log below.
     Write-Output 'server=local-ephemeral'
-    . (Join-Path $PSScriptRoot 'gui-client-smoke-ephemeral.ps1')
 }
+. (Join-Path $PSScriptRoot 'gui-client-smoke-ephemeral.ps1')
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
@@ -271,9 +273,11 @@ try {
         & $dbTool exec --db $dbConfig $equipmentSchemaSql
         if ($LASTEXITCODE -ne 0) { throw "GUI smoke equipment schema setup failed" }
     }
-    # Client keeps the ambient environment so MXH_GUI_SMOKE_RENDER_ENTITIES,
-    # MXH_FOG_DISABLE, MXH_STM_LIGHTING and --resource-root (in $arguments)
-    # still reach mxh_client.exe. Do not pass -Environment on this Start-Process.
+    # Copy the process environment after the smoke variables are set, then
+    # hand that copy to the client. MXH_FOG_DISABLE (the only fog switch,
+    # read by getenv in the client) is included when the caller set it.
+    # PowerShell 7.4+ Start-Process -Environment replaces the block, so the
+    # copy must be the full environment. Older hosts keep inheritance.
     $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
     $env:MXH_GUI_SMOKE_EXIT = '1'
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
@@ -300,12 +304,24 @@ try {
         entities_opt_out_requested = [bool]$NoEntities
         mxh_gui_smoke_exit = '1'
         mxh_gui_smoke_render_entities = $(if ($entitiesEnabled) { '1' } else { '' })
+        mxh_fog_disable = $(if ([string]::IsNullOrEmpty($env:MXH_FOG_DISABLE)) { '' } else { [string]$env:MXH_FOG_DISABLE })
     }
     $captureMeta | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $runRoot 'capture-metadata.json') -Encoding utf8
     Write-Host "entities_enabled=$entitiesEnabled"
-    $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
-        -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
-        -WorkingDirectory $clientWorkingDir
+    $clientEnvironment = Copy-EphemeralProcessEnvironment
+    $clientHostVersion = $PSVersionTable.PSVersion
+    $passClientEnvironment = $null -ne $clientHostVersion -and (
+        $clientHostVersion.Major -gt 7 -or
+        ($clientHostVersion.Major -eq 7 -and $clientHostVersion.Minor -ge 4))
+    if ($passClientEnvironment) {
+        $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
+            -WorkingDirectory $clientWorkingDir -Environment $clientEnvironment
+    } else {
+        $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
+            -WorkingDirectory $clientWorkingDir
+    }
     if (-not $client.WaitForExit($effectiveTimeoutSeconds * 1000)) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
         throw "GUI client did not finish within ${effectiveTimeoutSeconds}s; log=$stderr"
@@ -317,6 +333,15 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
+    if ($env:MXH_FOG_DISABLE -eq '1') {
+        # MXH_FOG_DISABLE=1 skips EnableFog at draw time and logs
+        # "FOG diag bypass". The load line "map fog enabled ... (from BMHM)"
+        # is still emitted from the map descriptor, so its presence is not
+        # evidence that the bypass failed.
+        if (-not (Test-GuiSmokeFogBypassActive $log)) {
+            throw "GUI smoke MXH_FOG_DISABLE=1 did not reach the client (missing FOG diag bypass); log=$stderr"
+        }
+    }
     if ($AuditNpcDependencies) {
         $explorer = Join-Path $buildRoot 'tools\MoxianResourceExplorer\mxh_explorer.exe'
         if (-not (Test-Path -LiteralPath $explorer -PathType Leaf)) {
@@ -397,9 +422,29 @@ try {
     if ($npcCount -lt $MinimumNpcCount) {
         throw "GUI smoke received $npcCount NPCs, expected at least $MinimumNpcCount; log=$stderr"
     }
-    $monsterCount = ([regex]::Matches($log, 'CInGameState: MonsterAdd object_id=')).Count
+    $monsterLog = [string]$log
+    if ($EphemeralLocalServer) {
+        $mapLogPath = Join-Path $logDir 'map.out.log'
+    } else {
+        $mapLogPath = Join-Path $repoRoot 'deploy\runtime\modern\logs\map.out.log'
+    }
+    if (Test-Path -LiteralPath $mapLogPath) {
+        $monsterLog += "`n" + [string](Get-Content -LiteralPath $mapLogPath -Raw)
+    }
+    try {
+        $monsterCount = Get-GuiSmokeMonsterCount -LogText $monsterLog
+    } catch {
+        throw "$($_.Exception.Message); log=$stderr"
+    }
     if ($MapNumber -eq 10 -and $monsterCount -ne 228) {
         throw "GUI smoke received $monsterCount Map10 monsters, expected exactly 228; log=$stderr"
+    }
+    $entityTotals = @(Get-GuiSmokeEntityMonsterTotals -LogText $log)
+    if ($MapNumber -eq 10 -and $entityTotals.Count -gt 0) {
+        $entityMonsterTotal = [int](($entityTotals | Measure-Object -Maximum).Maximum)
+        if ($entityMonsterTotal -ne 228) {
+            throw "GUI smoke entity frame monster total $entityMonsterTotal, expected exactly 228; log=$stderr"
+        }
     }
     if ($FollowCamera) {
         foreach ($marker in @('[sky] original MOD loaded meshes=8/8 textures=8/8', '[terrain] player camera active', '[entity] original MonsterList loaded', '[entity] original animation active')) {

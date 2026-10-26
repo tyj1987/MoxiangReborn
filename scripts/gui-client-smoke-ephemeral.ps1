@@ -46,11 +46,33 @@ function Test-EphemeralSqliteDatabaseConfig {
     return [bool]($Value -match '(?i)(^|;)sqlite(;|$)|backend\s*=\s*sqlite\b')
 }
 
+function Find-EphemeralIpv4Addresses {
+    param([string]$Text)
+    # Exactly four dotted segments, each 0-255. The match cannot sit against
+    # a digit or '.' . A letter, '_' or '-' is also a boundary so a version
+    # token such as jdk-17.0.10.7-hotspot is not an address; digit and '.'
+    # alone would still accept 17.0.10.7 inside that name.
+    $found = @()
+    if ([string]::IsNullOrEmpty($Text)) { return $found }
+    foreach ($match in [regex]::Matches($Text, '(?<![0-9A-Za-z_.-])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9A-Za-z_.-])')) {
+        $valid = $true
+        foreach ($part in $match.Value.Split('.')) {
+            $number = 0
+            if (-not [int]::TryParse($part, [ref]$number) -or $number -lt 0 -or $number -gt 255) {
+                $valid = $false
+                break
+            }
+        }
+        if ($valid) { $found += $match.Value }
+    }
+    return $found
+}
+
 function Test-EphemeralNonLoopbackText {
     param([string]$Text)
     if ([string]::IsNullOrEmpty($Text)) { return $false }
-    foreach ($match in [regex]::Matches($Text, '(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])')) {
-        if ($match.Value -ne '127.0.0.1') { return $true }
+    foreach ($address in @(Find-EphemeralIpv4Addresses $Text)) {
+        if ($address -ne '127.0.0.1') { return $true }
     }
     if ($Text -match '(?i)(?<![A-Za-z0-9])localhost(?![A-Za-z0-9])') { return $true }
     if ($Text -match '(?<![A-Za-z0-9:])::1(?![A-Za-z0-9:])') { return $true }
@@ -464,4 +486,55 @@ function Invoke-EphemeralLocalCleanup {
         DbRemoved = [bool]$dbRemoved
         Line = $line
     }
+}
+
+function Get-GuiSmokeMonsterCount {
+    param([AllowEmptyString()][string]$LogText)
+    # CInGameState.cpp logs "MonsterAdd count=<monsters_.size()>" only when
+    # (size & 0x3F) == 0. The value is cumulative. A final partial batch
+    # (Map10's 193..228) is not logged, so the last client line is count=192.
+    # The population that must equal 228 is the mainline map line
+    # "[Map] sent N monster adds". The client milestones have to stop on the
+    # greatest multiple of 64 that is <= N. [entity] frame lines are not read
+    # here; they are optional and come from a different commit.
+    $milestones = @()
+    foreach ($match in [regex]::Matches([string]$LogText, 'CInGameState: MonsterAdd count=(\d+)')) {
+        $milestones += [int]$match.Groups[1].Value
+    }
+    $sent = @()
+    foreach ($match in [regex]::Matches([string]$LogText, '\[Map\] sent (\d+) monster adds')) {
+        $sent += [int]$match.Groups[1].Value
+    }
+    $lastMilestone = $null
+    if ($milestones.Count -gt 0) {
+        $lastMilestone = [int](($milestones | Measure-Object -Maximum).Maximum)
+    }
+    if ($sent.Count -gt 0) {
+        $population = [int](($sent | Measure-Object -Maximum).Maximum)
+        $expectedMilestone = $population - ($population % 64)
+        if ($expectedMilestone -gt 0 -and $lastMilestone -ne $expectedMilestone) {
+            throw "GUI smoke MonsterAdd count=$lastMilestone is not the cumulative 64-boundary $expectedMilestone for $population sent monsters"
+        }
+        return $population
+    }
+    if ($null -ne $lastMilestone) { return $lastMilestone }
+    return 0
+}
+
+function Get-GuiSmokeEntityMonsterTotals {
+    param([AllowEmptyString()][string]$LogText)
+    # monster=drawn/total/culled/skipped. The total is the second field.
+    # Mainline without the entity-visibility commit has none of these lines.
+    $totals = @()
+    foreach ($match in [regex]::Matches([string]$LogText, '\[entity\] frame .*monster=(\d+)/(\d+)/(\d+)/(\d+)')) {
+        $totals += [int]$match.Groups[2].Value
+    }
+    return $totals
+}
+
+function Test-GuiSmokeFogBypassActive {
+    param([AllowEmptyString()][string]$LogText)
+    # Render-time switch. The BMHM load line "map fog enabled ... (from BMHM)"
+    # is printed whether or not this bypass runs.
+    return [bool]([string]$LogText -match 'FOG diag bypass \(MXH_FOG_DISABLE=1\)')
 }

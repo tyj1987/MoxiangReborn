@@ -283,4 +283,23 @@ try {
     }
 }
 
+$jdkHome = 'C:\Program Files\Eclipse Adoptium\jdk-17.0.10.7-hotspot'
+$jdkPath = $jdkHome + '\bin;C:\Windows\system32'
+Assert-True (-not (Test-EphemeralNonLoopbackText $jdkHome)) 'JDK directory must not look like an IP'
+Assert-True (-not (Test-EphemeralNonLoopbackText $jdkPath)) 'JDK Path must not look like an IP'
+Assert-True (@(Find-EphemeralIpv4Addresses $jdkHome).Count -eq 0) 'JDK directory must not match an address'
+$jdkCase = New-ValidSafetyArgs
+$jdkCase.ServerEnvironment = @{ JAVA_HOME = $jdkHome; Path = $jdkPath }
+$jdkViolation = Get-EphemeralSafetyViolation @jdkCase
+Assert-True ([string]::IsNullOrEmpty($jdkViolation)) "JDK JAVA_HOME/Path rejected: $jdkViolation"
+$matchedAddresses = @(Find-EphemeralIpv4Addresses 'listen 127.0.0.1 and 10.0.0.5:16001')
+Assert-True ($matchedAddresses -contains '127.0.0.1') '127.0.0.1 must still match'
+Assert-True ($matchedAddresses -contains '10.0.0.5') '10.0.0.5:16001 must still match'
+Assert-True (-not (Test-EphemeralNonLoopbackText '127.0.0.1')) '127.0.0.1 stays loopback'
+Assert-True (Test-EphemeralNonLoopbackText '10.0.0.5:16001') '10.0.0.5 must stay non-loopback'
+Assert-True (-not (Test-EphemeralNonLoopbackText '1.2.3.4.5')) 'five octets are not one address'
+Assert-True (-not (Test-EphemeralNonLoopbackText '999.1.1.1')) 'octet above 255 is not an address'
+Assert-True (-not (Test-EphemeralNonLoopbackText '256.1.1.1')) '256 is not an octet'
+Assert-Rejects 'non-loopback' @{ ServerArguments = @('--bind-address', '10.0.0.5:16001') }
+
 Write-Output 'PASS: gui-client-smoke ephemeral safety checks'
