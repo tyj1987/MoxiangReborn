@@ -30,7 +30,10 @@ param(
     [string]$RunRoot = '',
     [int]$ClientTimeoutSeconds = 180,
     [string]$ExistingRunId = '',
-    [switch]$NoAutoExit
+    [switch]$NoAutoExit,
+    # Opt out of MXH_GUI_SMOKE_RENDER_ENTITIES. Map screenshots then omit
+    # monsters, NPCs and the player whenever MXH_GUI_SMOKE_EXIT=1.
+    [switch]$NoEntities
 )
 
 $ErrorActionPreference = 'Stop'
@@ -159,9 +162,47 @@ $clientEnv['MXH_DUMP_DIR'] = $dumpsDir
 # streamed 228 monsters.  Pass -NoAutoExit to keep the client in
 # Map10 for the full ClientTimeoutSeconds window (plan §6.5's
 # 10-minute stability gate).
-if (-not $NoAutoExit) {
-    $clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
+#
+# main.cpp skips the entity list when EXIT=1 and
+# MXH_GUI_SMOKE_RENDER_ENTITIES is not 1, so Map screenshots then
+# contain no monsters, NPCs or player.  Default the render flag on.
+# -NoEntities opts out.  -NoAutoExit clears EXIT; the client still
+# fills entities in that case, and entities_enabled records the
+# effective behavior so a terrain-only opt-out cannot be mistaken
+# for an entity capture.
+$smokeExit = -not $NoAutoExit
+if ($NoEntities) {
+    $renderEntities = $false
+} else {
+    $renderEntities = $true
 }
+if ($smokeExit) {
+    $clientEnv['MXH_GUI_SMOKE_EXIT'] = '1'
+} else {
+    [void]$clientEnv.Remove('MXH_GUI_SMOKE_EXIT')
+}
+if ($renderEntities) {
+    $clientEnv['MXH_GUI_SMOKE_RENDER_ENTITIES'] = '1'
+} else {
+    [void]$clientEnv.Remove('MXH_GUI_SMOKE_RENDER_ENTITIES')
+}
+$entitiesEnabled = -not ($smokeExit -and -not $renderEntities)
+if ($NoEntities -and -not $smokeExit) {
+    Write-Warning "-NoEntities does not suppress entities when -NoAutoExit is set; MXH_GUI_SMOKE_EXIT is unset, so the client still fills the entity list. entities_enabled=true."
+} elseif ($NoEntities) {
+    Write-Warning "Entity rendering disabled (-NoEntities). Map screenshots omit monsters, NPCs and the player."
+}
+$captureMeta = [ordered]@{
+    in_game_map = $true
+    map_number = $MapNumber
+    entities_enabled = [bool]$entitiesEnabled
+    entities_opt_out_requested = [bool]$NoEntities
+    mxh_gui_smoke_exit = $(if ($smokeExit) { '1' } else { '' })
+    mxh_gui_smoke_render_entities = $(if ($renderEntities) { '1' } else { '' })
+}
+$captureMetaJson = $captureMeta | ConvertTo-Json -Depth 4
+Set-Content -LiteralPath (Join-Path $runDir 'capture-metadata.json') -Value $captureMetaJson -Encoding utf8
+Set-Content -LiteralPath (Join-Path $evidenceDir 'capture-metadata.json') -Value $captureMetaJson -Encoding utf8
 # Character name is derived from the guid8 portion of the run id
 # so per-run accounts have a unique character in DB.  The legacy
 # client permits [A-Za-z0-9_] 4-16 chars, well within range.
@@ -240,6 +281,11 @@ $result = [ordered]@{
     resource_profile = $ResourceProfileId
     locale = $Locale
     map_number = $MapNumber
+    in_game_map = $true
+    entities_enabled = [bool]$entitiesEnabled
+    entities_opt_out_requested = [bool]$NoEntities
+    mxh_gui_smoke_exit = $(if ($smokeExit) { '1' } else { '' })
+    mxh_gui_smoke_render_entities = $(if ($renderEntities) { '1' } else { '' })
     ports = [ordered]@{ login = $LoginPort; agent = $AgentPort; map = $MapPort }
     backend = 'sqlite'
     test_account = [ordered]@{ name = $accountName; password = $passwordPlain }
@@ -270,6 +316,9 @@ $result = [ordered]@{
         'during the matching client process lifetime.  A black-frame or wrong-size .tga'
         'is reported as FAIL by the human acceptance step (see plan §6.1).'
         'test account is per-run and derived from the run id; reuse is safe across runs.'
+        'entities_enabled is the effective client behavior. Map screenshots include'
+        'monsters, NPCs and the player only when it is true. -NoEntities records false'
+        'on the auto-exit path so those frames cannot be used as entity evidence.'
     )
 }
 $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $runDir 'result.json') -Encoding utf8
@@ -277,6 +326,7 @@ $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $runDir 
 Write-Host "Capture run: $runId" -ForegroundColor Cyan
 Write-Host "  dir      : $runDir"
 Write-Host "  client   : pid=$($clientLog.pid) running=$($clientLog.running) exit=$($clientLog.exit_code)"
+Write-Host "  entities : enabled=$entitiesEnabled render_env=$(if ($renderEntities) { '1' } else { 'unset' }) smoke_exit=$(if ($smokeExit) { '1' } else { 'unset' })"
 Write-Host "  state frames: $($stateFrames.Count)"
 foreach ($frame in $stateFrames) {
     Write-Host "    - $($frame.Name) ($($frame.Length) bytes)"

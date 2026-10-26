@@ -6,13 +6,79 @@
 #include "mxh/render/IFileStorage.hpp"
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
+#include <string_view>
 #include <vector>
 
 namespace mxh::compat { class PackFile; }
 
 namespace mxh::gx {
+
+// Header family of a direct-child .pak, classified by the uint32 at file
+// offset 4 (little-endian). Nonzero is the PlayDH 92-byte header; zero is
+// the original 96-byte header. The numeric value is the header size and is
+// what Initialize prints in the mount-order line.
+enum class PakFormatTier : std::uint32_t {
+    PlayDh92 = 92,
+    Original96 = 96,
+};
+
+// One .pak considered for mounting. `path` is the archive; ordering uses
+// only its filename, not the directory.
+struct PakMountCandidate {
+    std::filesystem::path path;
+    PakFormatTier tier = PakFormatTier::PlayDh92;
+};
+
+// Pak tier priority for FilesystemFileStorage. This is the config item:
+// the mount loop does not hard-code which family wins.
+//
+// Loose files are always searched first and are not in this list. They
+// cannot be moved behind a pak by editing the vector.
+//
+// Default, highest priority first: PlayDH 92-byte paks, then original
+// 96-byte paks. The production client
+// (modern/tools/MoxianClient/main.cpp) constructs FilesystemFileStorage
+// with this default and does not pass an override. To mount original
+// paks before PlayDH paks, pass a FilesystemFileStorageOptions whose
+// pak_tier_order is {PakFormatTier::Original96, PakFormatTier::PlayDh92}.
+// That options value is the only change required.
+//
+// A tier omitted from the vector still mounts, after every listed tier.
+// Within one rank, filenames sort by the UTF-8 bytes of
+// path.filename().u8string() (C++17 returns std::string; C++20 returns
+// std::u8string, which is copied into std::string as raw bytes). ASCII
+// A-Z is folded to a-z. When that comparison ties, including names that
+// differ only in case such as Data.pak and data.pak, those same UTF-8
+// bytes decide, compared as unsigned char. Uppercase ASCII therefore
+// mounts first (0x41 < 0x61), so ABC.pak comes before abc.pak. A shorter
+// name that is a case-insensitive prefix of a longer one sorts first;
+// raw bytes are consulted only when the folded names have equal length.
+struct FilesystemFileStorageOptions {
+    std::vector<PakFormatTier> pak_tier_order{
+        PakFormatTier::PlayDh92,
+        PakFormatTier::Original96,
+    };
+};
+
+// Read the uint32 at offset 4. nullopt when the file is missing or shorter
+// than 8 bytes. Does not open the archive and does not depend on PackFile.
+[[nodiscard]] std::optional<PakFormatTier> classify_pak_header(
+    const std::filesystem::path& path);
+
+// Filename order used inside a tier. See FilesystemFileStorageOptions.
+[[nodiscard]] bool pak_filename_less(std::string_view a, std::string_view b) noexcept;
+
+[[nodiscard]] bool pak_mount_less(const PakMountCandidate& a,
+                                  const PakMountCandidate& b,
+                                  const std::vector<PakFormatTier>& tier_order);
+
+[[nodiscard]] std::vector<PakMountCandidate> order_pak_mounts(
+    std::vector<PakMountCandidate> candidates,
+    const std::vector<PakFormatTier>& tier_order);
 
 // Read-only I4DyuchiFileStorage backed by the PlayDH directory and its
 // original .pak archives.
@@ -20,7 +86,9 @@ namespace mxh::gx {
 // remains ref-counted so it can be passed directly to IRenderer::Create.
 class FilesystemFileStorage final : public I4DyuchiFileStorage {
 public:
-    explicit FilesystemFileStorage(std::filesystem::path root);
+    explicit FilesystemFileStorage(
+        std::filesystem::path root,
+        FilesystemFileStorageOptions options = {});
 
     const std::filesystem::path& root() const noexcept { return root_; }
 
@@ -64,6 +132,7 @@ private:
 
     std::atomic<ULONG> ref_count_{1};
     std::filesystem::path root_;
+    FilesystemFileStorageOptions options_{};
     std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
     std::vector<std::string> pack_names_;  // parallel to packs_
 };

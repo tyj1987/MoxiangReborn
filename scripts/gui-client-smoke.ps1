@@ -14,7 +14,10 @@ param(
     [switch]$ExerciseSkills,
     [switch]$RotateAppearance,
     [switch]$ExerciseCombat,
-    [switch]$ExerciseMovement
+    [switch]$ExerciseMovement,
+    # Opt out of MXH_GUI_SMOKE_RENDER_ENTITIES. This script always sets
+    # MXH_GUI_SMOKE_EXIT=1, so -NoEntities leaves the entity list empty.
+    [switch]$NoEntities
 )
 
 $ErrorActionPreference = 'Stop'
@@ -130,7 +133,28 @@ try {
     if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
     if ($ExerciseCombat) { $env:MXH_GUI_SMOKE_COMBAT = '1' }
     if ($ExerciseMovement) { $env:MXH_GUI_SMOKE_MOVEMENT = '1' }
-    if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
+    # EXIT=1 skips the entity list unless RENDER_ENTITIES=1. Default on
+    # even without -FollowCamera; -NoEntities is the terrain-only opt-out.
+    if ($NoEntities) {
+        Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue
+    } else {
+        $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1'
+    }
+    $entitiesEnabled = -not $NoEntities
+    if ($NoEntities) {
+        Write-Warning "Entity rendering disabled (-NoEntities). Map screenshots omit monsters, NPCs and the player."
+    }
+    $captureMeta = [ordered]@{
+        in_game_map = $true
+        map_number = $MapNumber
+        frame = "map$MapNumber.tga"
+        entities_enabled = [bool]$entitiesEnabled
+        entities_opt_out_requested = [bool]$NoEntities
+        mxh_gui_smoke_exit = '1'
+        mxh_gui_smoke_render_entities = $(if ($entitiesEnabled) { '1' } else { '' })
+    }
+    $captureMeta | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $runRoot 'capture-metadata.json') -Encoding utf8
+    Write-Host "entities_enabled=$entitiesEnabled"
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru `
         -WorkingDirectory $clientWorkingDir
@@ -272,7 +296,7 @@ try {
         & python (Join-Path $repoRoot 'scripts\verify-entity-frame.py') $frame
         if ($LASTEXITCODE -ne 0) { throw "GUI entity frame validation failed: $frame" }
     }
-    Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, monsters=$monsterCount, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
+    Write-Host "GUI_CLIENT_SMOKE PASS (map=$MapNumber, entities_enabled=$entitiesEnabled, monsters=$monsterCount, npcs=$npcCount, original BGM/create/select/game-in, evidence=$stderr, frame=$frame)" -ForegroundColor Green
 }
 finally {
     $registerInput = Join-Path $runRoot 'register.stdin'
