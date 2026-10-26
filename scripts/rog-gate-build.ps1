@@ -45,9 +45,11 @@
 
 .PARAMETER MinFreeGB
     Minimum free gibibytes (1024^3) required on every checked drive. Default 10.
+    10 GB is a hard floor; a lower value is rejected.
 
 .PARAMETER DriveMinFreeGB
     Per-drive overrides, for example E=20 or E=20,D=15. Drives not listed use -MinFreeGB.
+    Each override must be at least 10 GB. Overrides can only raise the floor.
 
 .PARAMETER SelfTest
     Check path safety, generator decisions, drive selection, and free-space
@@ -477,6 +479,25 @@ function ConvertTo-RogGateDriveOverrides {
         }
     }
     return $map
+}
+
+function Assert-RogGateFreeSpaceFloor {
+    param(
+        [Parameter(Mandatory = $true)][double]$MinFreeGB,
+        [string[]]$DriveMinFreeGB
+    )
+
+    # 10 GB is a hard floor. These parameters can only raise a drive's requirement.
+    if ($MinFreeGB -lt 10) {
+        throw "-MinFreeGB $MinFreeGB is below the 10 GB floor. Thresholds can only be raised."
+    }
+    $overrides = ConvertTo-RogGateDriveOverrides -Entries $DriveMinFreeGB
+    foreach ($key in @($overrides.Keys)) {
+        $value = [double]$overrides[$key]
+        if ($value -lt 10) {
+            throw "-DriveMinFreeGB ${key}=$value is below the 10 GB floor. Overrides can only raise the threshold."
+        }
+    }
 }
 
 function Get-RogGateDriveThresholdGB {
@@ -1170,6 +1191,28 @@ function Invoke-RogGateSelfTest {
     try { ConvertTo-RogGateDriveOverrides -Entries @('E') } catch { $badOverride = $true }
     Assert-RogGateSelfTest -Name 'drive override without a value is rejected' -Condition $badOverride
 
+    $floorScript = $PSCommandPath
+    $floorExe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    $floorSha = 'a' * 40
+    function Invoke-RogGateFloorProbe {
+        param([Parameter(Mandatory = $true)][string[]]$ProbeArguments)
+        $ErrorActionPreference = 'Continue'
+        $merged = & $floorExe -NoProfile -File $floorScript @ProbeArguments 2>&1
+        $code = $LASTEXITCODE
+        if ($null -eq $code) { $code = 1 }
+        $text = ((@($merged) | ForEach-Object { $_.ToString() }) -join "`n")
+        return [pscustomobject]@{ ExitCode = [int]$code; Text = $text }
+    }
+    $lowMin = Invoke-RogGateFloorProbe -ProbeArguments @('-MinFreeGB', '5', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
+    $lowMinRejected = ($lowMin.ExitCode -eq 1) -and ($lowMin.Text -match '-MinFreeGB 5 is below the 10 GB floor') -and ($lowMin.Text -notmatch 'SourceDir not found')
+    Assert-RogGateSelfTest -Name '-MinFreeGB 5 is rejected before any other work' -Condition $lowMinRejected
+    $lowDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=1', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
+    $lowDriveRejected = ($lowDrive.ExitCode -eq 1) -and ($lowDrive.Text -match '-DriveMinFreeGB E=1 is below the 10 GB floor') -and ($lowDrive.Text -notmatch 'SourceDir not found')
+    Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=1 is rejected before any other work' -Condition $lowDriveRejected
+    $raisedDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=20', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
+    $raisedDriveAccepted = ($raisedDrive.ExitCode -eq 1) -and ($raisedDrive.Text -match 'SourceDir not found') -and ($raisedDrive.Text -notmatch 'below the 10 GB floor')
+    Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=20 is accepted and later checks still run' -Condition $raisedDriveAccepted
+
     $required = [int64]10GB
     $enough = @{ D = $required; E = $required }
     $passReport = Get-RogGateFreeSpaceReport -Drives @('D', 'E') -FreeBytesByDrive $enough -MinFreeGB 10 -Overrides @{}
@@ -1184,16 +1227,6 @@ function Invoke-RogGateSelfTest {
         if ($row.Drive -eq 'D') { $dOk = [bool]$row.Ok }
     }
     Assert-RogGateSelfTest -Name 'one byte under the threshold fails that drive only' -Condition ((-not $lowReport.Ok) -and $eLow -and $dOk)
-
-    $overriddenFree = @{ D = [int64]5GB; E = [int64]5GB }
-    $overridden = Get-RogGateFreeSpaceReport -Drives @('D', 'E') -FreeBytesByDrive $overriddenFree -MinFreeGB 10 -Overrides (ConvertTo-RogGateDriveOverrides -Entries @('E=1'))
-    $ePass = $false
-    $dFail = $false
-    foreach ($row in @($overridden.Rows)) {
-        if ($row.Drive -eq 'E') { $ePass = [bool]$row.Ok }
-        if ($row.Drive -eq 'D') { $dFail = -not $row.Ok }
-    }
-    Assert-RogGateSelfTest -Name 'override can lower one drive without lowering the others' -Condition ((-not $overridden.Ok) -and $ePass -and $dFail)
 
     $missingFree = Get-RogGateFreeSpaceReport -Drives @('E') -FreeBytesByDrive @{} -MinFreeGB 10 -Overrides @{}
     Assert-RogGateSelfTest -Name 'missing free-space reading fails closed' -Condition (-not $missingFree.Ok)
@@ -1481,11 +1514,9 @@ function Remove-RogGateFixture {
 }
 
 function Invoke-RogGateMain {
+    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($BuildDir) -or [string]::IsNullOrWhiteSpace($ExpectedSha)) {
         throw '-SourceDir, -BuildDir, and -ExpectedSha are required.'
-    }
-    if ($MinFreeGB -le 0) {
-        throw '-MinFreeGB must be greater than 0.'
     }
     if ($Config -notmatch '^[A-Za-z][A-Za-z0-9_]*$') {
         throw "Invalid -Config: $Config"
@@ -1496,11 +1527,6 @@ function Invoke-RogGateMain {
     }
 
     $overrides = ConvertTo-RogGateDriveOverrides -Entries $DriveMinFreeGB
-    foreach ($key in @($overrides.Keys)) {
-        if ([double]$overrides[$key] -le 0) {
-            throw "Drive threshold for $key must be greater than 0."
-        }
-    }
     $targets = @(Get-RogGateTargetNames -TargetNames $Target)
 
     $lexical = Get-RogGateLexicalSafety -BuildDir $BuildDir -AllowedRoot $AllowedBuildRoot -ForbiddenRoot $script:RogGateForbiddenRoot
@@ -1677,6 +1703,8 @@ function Invoke-RogGateMain {
 }
 
 try {
+    # Reject a threshold under 10 GB before self-test, git, delete, or build.
+    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ($SelfTest) {
         $selfTestCode = Invoke-RogGateSelfTest
         exit $selfTestCode

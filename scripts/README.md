@@ -56,7 +56,7 @@ Windows 构建机（ROG）上手动把 mainline 和 PR head 试合入后，用�
 - `BuildDir\rog-gate.sha` 缺失或和 ExpectedSha 不同，或者已有 `CMakeCache.txt` 的 `CMAKE_GENERATOR` 与 `-Generator` 不同，就整目录干净重建。印记只在本次构建成功之后写入。配置或编译失败则非 0 退出，不跑测试，也不写印记。
 - 跑 CTest 之前检查 BuildDir 里的测试可执行文件：至少 `*_tests.exe`，再加上 CTest `add_test` 登记且落在 BuildDir 里的 `.exe`。干净重建时，任一测试 exe 的修改时间早于本次构建开始就拒绝测试。印记已经对上本次 SHA 的增量构建允许旧时间戳。
 - CTest 命令是 `ctest --test-dir <BuildDir> -C <Config> --output-on-failure`，`-CtestArgs` 原样接在后面，退出码原样返回。`-SkipTests` 只编译并写印记。
-- 磁盘预检在删除、配置和编译之前。去重后检查 BuildDir 所在盘、SourceDir 所在盘，以及 **E:**。每块盘默认至少 `-MinFreeGB`（10）GB（1024^3 字节）。`-DriveMinFreeGB E=20,D=15` 按盘覆盖，没写到的盘仍用 `-MinFreeGB`。任一盘低于阈值就非 0 退出，并打印每块盘的剩余空间和允许根下最大的顶层目录。统计大小时不跟随重解析点。
+- 磁盘预检在删除、配置和编译之前。去重后检查 BuildDir 所在盘、SourceDir 所在盘，以及 **E:**。10 GB（1024^3 字节）是硬下限。`-MinFreeGB` 和每一项 `-DriveMinFreeGB` 只能把阈值调高；低于 10 会立刻打印错误并以退出码 1 结束，不做后续检查。没单独覆盖的盘使用 `-MinFreeGB`（默认 10）。任一盘低于其阈值就非 0 退出，并打印每块盘的剩余空间和允许根下最大的顶层目录。统计大小时不跟随重解析点。
 
 `-Generator` 默认 `NMake Makefiles`，也可以设为 `Ninja`。两种都先调用 `C:\BuildTools\VC\Auxiliary\Build\vcvarsall.bat x86`。Ninja 再传入与 `build-modern.bat` 相同的 `CMAKE_MAKE_PROGRAM`。`-WhatIf` 和 `-DryRun` 只做检查并打印将执行的动作。
 
