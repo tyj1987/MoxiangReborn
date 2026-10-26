@@ -48,6 +48,11 @@ Categories
   used). There is no reliable reference-to-pak mapping, so any unresolved
   reference is treated as possibly inside any pointer pak. No conclusion,
   own counter; neither missing nor present.
+* ``pakIndexUnreadable`` — reason ``pak-index-unreadable``: no pointer pak,
+  but a real .pak under root fits neither the 92- nor 96-byte layout, so its
+  entries are unknown. Unresolved references are no conclusion, own counter,
+  listing the pak(s). With pointer paks present too, rows stay in
+  ``pakLfsPointer`` and list both pak sets.
 * ``caseMismatch`` — found only after case folding (Windows matching is
   case-insensitive). Counted as present, listed separately, severity minor.
 * ``extensionSubstituted`` — not found by name, but the same stem exists with
@@ -759,6 +764,8 @@ class _CheckoutIndex:
     without its last extension to the original-case names carrying it.
     ``pointers`` holds casefolded basenames of Git LFS pointer files and
     ``pointer_paks`` the original-case names of .pak files that are pointers.
+    ``unreadable_paks`` holds real .pak files whose entry table could not be
+    read (``_read_pak_entries`` returned None); their entries are unknown.
     A file is a pointer iff its content starts with ``LFS_PREFIX``; size is
     never used.
     """
@@ -768,6 +775,7 @@ class _CheckoutIndex:
         self.stems: dict[str, set[str]] = {}
         self.pointers: set[str] = set()
         self.pointer_paks: list[str] = []
+        self.unreadable_paks: list[str] = []
 
     def add(self, name: str) -> None:
         base = _basename(name)
@@ -783,9 +791,11 @@ class _CheckoutIndex:
             self.pointer_paks.append(base)
 
     @classmethod
-    def from_names(cls, names, pointer_names=(), pointer_paks=()) -> "_CheckoutIndex":
+    def from_names(cls, names, pointer_names=(), pointer_paks=(),
+                   unreadable_paks=()) -> "_CheckoutIndex":
         """Build an index without a filesystem (tests and offline harnesses)."""
         index = cls()
+        index.unreadable_paks.extend(_basename(n) for n in unreadable_paks)
         for name in names:
             index.add(name)
         for name in list(pointer_names) + list(pointer_paks):
@@ -816,6 +826,9 @@ def _checkout_index(root: Path) -> _CheckoutIndex:
         if path.suffix.casefold() == ".pak":
             read = _read_pak_entries(path)
             if read is None:
+                # Entries unknown: record it so refs that could be inside it
+                # become no conclusion (pak-index-unreadable), not missing.
+                index.unreadable_paks.append(path.name)
                 continue
             _header_count, entries = read
             for entry in entries:
@@ -846,12 +859,18 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
        (the manifest does not record the containing pak, and the same name
        family is spread across Map/Character/Effect/monster), so ANY
        unresolved reference is treated as possibly inside ANY pointer pak.
-       No conclusion: neither missing nor present;
+       No conclusion: neither missing nor present. If unreadable paks also
+       exist, the row stays in ``pakLfsPointer`` and lists both sets
+       (``paks`` and ``unreadablePaks``) so neither is hidden;
+    4b. otherwise, one or more real .pak files under root could not be read
+       (neither 92- nor 96-byte layout) -> ``pakIndexUnreadable`` (reason
+       ``pak-index-unreadable``, listing the paks). Same "could be inside
+       any" rule, same no-conclusion treatment;
     5. same stem with a different extension (``x.tga`` vs ``x.dds``) ->
        ``extensionSubstituted``: a fidelity gap, not found, not missing;
     6. otherwise -> ``missing``.
 
-    Step 4 precedes step 5 because with pointer paks the exact name may still
+    Steps 4/4b precede step 5 because with pointer paks the exact name may still
     be inside one, so an extension substitute is not yet a conclusion.
     """
     if manifest.get("schema") != MANIFEST_SCHEMA:
@@ -879,6 +898,7 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
     no_conclusion: list[dict] = []
     case_mismatch: list[dict] = []
     pak_lfs_pointer: list[dict] = []
+    pak_index_unreadable: list[dict] = []
     extension_substituted: list[dict] = []
     seen: set[str] = set()
 
@@ -976,6 +996,15 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
                 "via": ref.get("via", ""),
                 "reason": "pak-lfs-pointer",
                 "paks": sorted(index.pointer_paks, key=str.casefold),
+                "unreadablePaks": sorted(index.unreadable_paks, key=str.casefold),
+            })
+            continue
+        if index.unreadable_paks:
+            pak_index_unreadable.append({
+                "name": name,
+                "via": ref.get("via", ""),
+                "reason": "pak-index-unreadable",
+                "paks": sorted(index.unreadable_paks, key=str.casefold),
             })
             continue
         substitutes = sorted(index.stems.get(_stem_key(name), ()))
@@ -998,7 +1027,7 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
 
     if status == "partial":
         conclusion = "partial"
-    elif no_conclusion or pak_lfs_pointer:
+    elif no_conclusion or pak_lfs_pointer or pak_index_unreadable:
         conclusion = "no conclusion"
     elif missing or extension_substituted:
         conclusion = "warnings"
@@ -1014,6 +1043,7 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
             "referencedButNoOriginalFile": len(no_original),
             "noConclusion": len(no_conclusion),
             "pakLfsPointer": len(pak_lfs_pointer),
+            "pakIndexUnreadable": len(pak_index_unreadable),
             "caseMismatch": len(case_mismatch),
             "extensionSubstituted": len(extension_substituted),
         },
@@ -1022,6 +1052,7 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
         "referencedButNoOriginalFile": no_original,
         "noConclusion": no_conclusion,
         "pakLfsPointer": pak_lfs_pointer,
+        "pakIndexUnreadable": pak_index_unreadable,
         "caseMismatch": case_mismatch,
         "extensionSubstituted": extension_substituted,
         "excludedNotReferenced": {
@@ -1059,6 +1090,7 @@ def format_report(report: dict) -> str:
             f"referenced-but-no-original-file={report['counts']['referencedButNoOriginalFile']} "
             f"no-conclusion={report['counts']['noConclusion']} "
             f"pak-lfs-pointer={report['counts'].get('pakLfsPointer', 0)} "
+            f"pak-index-unreadable={report['counts'].get('pakIndexUnreadable', 0)} "
             f"case-mismatch={report['counts'].get('caseMismatch', 0)} "
             f"extension-substituted={report['counts'].get('extensionSubstituted', 0)}"
         ),
@@ -1082,6 +1114,8 @@ def format_report(report: dict) -> str:
         lines.append(f"no conclusion: {label}: {row['reason']}")
     for row in report.get("pakLfsPointer", []):
         lines.append(f"no conclusion (pak-lfs-pointer): {row['name']}")
+    for row in report.get("pakIndexUnreadable", []):
+        lines.append(f"no conclusion (pak-index-unreadable): {row['name']}")
     for row in report.get("extensionSubstituted", []):
         lines.append(
             f"extension-substituted: {row['name']} -> {', '.join(row['checkout'])} "
@@ -1119,6 +1153,21 @@ def _warnings(report: dict) -> list[tuple[str, str]]:
         lines.append((
             f"no conclusion (pak-lfs-pointer) for {len(pointer_rows)} reference(s): "
             f"pak(s) {paks} are Git LFS pointers; not missing, not a pass",
+            "info",
+        ))
+        unreadable = pointer_rows[0].get("unreadablePaks") or []
+        if unreadable:
+            lines.append((
+                f"pak index unreadable for {', '.join(unreadable)} as well; "
+                "those references are also covered by the pak-lfs-pointer no conclusion",
+                "info",
+            ))
+    unreadable_rows = report.get("pakIndexUnreadable", [])
+    if unreadable_rows:
+        lines.append((
+            f"no conclusion (pak-index-unreadable) for {len(unreadable_rows)} reference(s): "
+            f"pak index of {', '.join(unreadable_rows[0]['paks'])} could not be read; "
+            "not missing, not a pass",
             "info",
         ))
     for row in report.get("extensionSubstituted", []):

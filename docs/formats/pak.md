@@ -144,7 +144,9 @@ python modern/tools/unpack_pak.py D:\MX\client\Package\3DData\Map.pak --named --
 3. 该基名本身是指针文件：`noConclusion`（原有行为）。
 4. root 下有一个或多个指针 `.pak`：记入 `pakLfsPointer`（reason `pak-lfs-pointer`），单独计数，既不算 missing 也不算 present，结论为 no conclusion。
    规则：清单不记录引用属于哪个包，同一类名字也分散在 Map/Character/Effect/monster 中，没有可靠的引用→包映射，所以**任何未解析的引用都视为可能在任一指针包内**。因此只要有指针包，`missing` 不会出现；真实缺失要在真包上（ROG）判定。
+4b. 否则，若 root 下有真实 `.pak` 的条目表读不出（92/96 字节布局都不成立，`_read_pak_entries` 返回 None，并打印 ERROR 行）：记入 `pakIndexUnreadable`（reason `pak-index-unreadable`，列出这些包），同样按“可能在任一此类包内”处理，单独计数，不算 missing 也不算 present，结论为 no conclusion。
+   两类同时存在时：条目留在 `pakLfsPointer`，行内同时列出 `paks`（指针包）和 `unreadablePaks`（读不出的包），codequality 另有一条 info 说明读不出的包，两者都可见。
 5. 同主名、不同扩展名（如引用 `x.tga`，索引只有 `x.dds`）：不算找到，记入 `extensionSubstituted`（保真缺口，单独计数和 codequality 条目，severity minor），不算 missing。第 4 步在前，因为指针包里仍可能有原名文件。
 6. 其余：`missing`。
 
-报告原有字段（`counts.present/missing/referencedButNoOriginalFile/noConclusion` 及同名列表）保持不变，新增 `counts.pakLfsPointer/caseMismatch/extensionSubstituted` 和同名列表。
+报告原有字段（`counts.present/missing/referencedButNoOriginalFile/noConclusion` 及同名列表）保持不变，新增 `counts.pakLfsPointer/pakIndexUnreadable/caseMismatch/extensionSubstituted` 和同名列表。

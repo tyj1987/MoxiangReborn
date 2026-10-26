@@ -603,7 +603,7 @@ class LocalDecoderHookTests(unittest.TestCase):
         report = gate.check(manifest, self.tmp, pak=self.pak)
         self.assertEqual(set(report["counts"]),
                          {"present", "missing", "referencedButNoOriginalFile", "noConclusion",
-                          "pakLfsPointer", "caseMismatch", "extensionSubstituted"})
+                          "pakLfsPointer", "pakIndexUnreadable", "caseMismatch", "extensionSubstituted"})
         self.assertNotIn("localDecoder", report["counts"])
         self.assertNotIn("localDecoder", report)
         self.assertNotIn("local-decoder", gate.format_report(report))
@@ -689,6 +689,39 @@ class PakLfsPointerAndFidelityTests(unittest.TestCase):
             self.assertEqual(report["conclusion"], "warnings")
             issues = gate.codequality_report(report)
             self.assertTrue(any("extension-substituted" in i["description"] for i in issues))
+
+    def test_unreadable_pak_makes_unresolved_refs_pak_index_unreadable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            # Fits neither layout: count 5 at offset 4, garbage table.
+            (root / "Broken.pak").write_bytes(struct.pack("<III", 1, 5, 0) + b"\xff" * 120)
+            (root / "npc.pak").write_bytes(build_playdh_pak([("npc\\guard.mod", b"g")]))
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                report = gate.check(self.manifest(["lost.mod", "guard.mod"]), root)
+            self.assertIn("Broken.pak", stderr.getvalue())
+            self.assertEqual(report["counts"]["missing"], 0)
+            self.assertEqual(report["counts"]["present"], 1)
+            self.assertEqual(report["counts"]["pakIndexUnreadable"], 1)
+            row = report["pakIndexUnreadable"][0]
+            self.assertEqual((row["name"], row["reason"], row["paks"]),
+                             ("lost.mod", "pak-index-unreadable", ["Broken.pak"]))
+            self.assertEqual(report["conclusion"], "no conclusion")
+            issues = gate.codequality_report(report)
+            self.assertTrue(any("pak-index-unreadable" in i["description"] for i in issues))
+
+    def test_pointer_and_unreadable_paks_keep_both_visible(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Map.pak").write_bytes(LFS_POINTER)
+            (root / "Broken.pak").write_bytes(struct.pack("<III", 1, 5, 0) + b"\xff" * 120)
+            with redirect_stderr(io.StringIO()):
+                report = gate.check(self.manifest(["lost.mod"]), root)
+            self.assertEqual(report["counts"]["missing"], 0)
+            self.assertEqual(report["counts"]["pakLfsPointer"], 1)
+            self.assertEqual(report["counts"]["pakIndexUnreadable"], 0)
+            row = report["pakLfsPointer"][0]
+            self.assertEqual((row["paks"], row["unreadablePaks"]), (["Map.pak"], ["Broken.pak"]))
 
     def test_absent_without_pointer_pak_is_missing(self):
         with tempfile.TemporaryDirectory() as directory:
