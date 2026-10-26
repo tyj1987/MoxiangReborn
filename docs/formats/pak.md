@@ -17,7 +17,7 @@
 | 32 + name_len | 1 字节 NUL |
 | 33 + name_len | `real` 字节数据 |
 
-原版样本满足 `total == 32 + name_len + 1 + real`。客户端 `Map.pak` 第 0 条：`32 + 8 + 1 + 174888 = 174929 == total`。第 1 条因此在 `96 + 174929 = 175025 = 0x2AB31`，文件名是 `water.tif`。
+变体 B 的单条满足 `total == 32 + name_len + 1 + real`。原版客户端 `Map.pak` 已测到的是条目数 `0x2C03 = 11267`，以及 `water.tif` 在偏移 `0x2AB31`（174897）。第 0 条的 `name_len`、`real`、`total` 待 ROG 实测。
 
 原版文件名按 GBK 解码。worktree 路径仍按现有读取器的 latin-1 处理，不在这次改动里更换。
 
