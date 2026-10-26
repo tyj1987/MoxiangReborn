@@ -1,9 +1,9 @@
 // Synthetic .pak fixtures for the 92-byte and 96-byte headers.
 //
-// The original client Map.pak is not read and not required. The 96-byte
-// fixture reproduces the published sample: entry 0 is
-// 32 + 8 + 1 + 174888 bytes, so water.tif starts at
-// 96 + 174929 = 175025 = 0x2ABB1. 0x2AB31 is 174897 and is not that sum.
+// The original client Map.pak is not read and not required. water.tif in
+// that file was measured at 0x2AB31. This fixture does not reproduce that
+// offset: its entry 0 is 32 + 8 + 1 + 174888 bytes, so water.tif in the
+// synthetic sample starts at 96 + 174929 = 175025.
 // The count 0x2C03 = 11267 is used only as a declared count that cannot
 // fit in a tiny file.
 
@@ -174,14 +174,15 @@ TEST(PackFileHeader, Worktree92ShortFileStillReturnsPartial) {
     EXPECT_EQ(pack->parsed_count(), 0u);
 }
 
-TEST(PackFileHeader, Original96ByteHeaderWaterTifAtReferenceOffset) {
+TEST(PackFileHeader, Original96ByteHeaderSyntheticWaterOffset) {
     constexpr std::uint32_t kNameLen = 8;
     constexpr std::uint32_t kReal = 174888;
     constexpr std::uint32_t kTotal = 32u + kNameLen + 1u + kReal;
     static_assert(kTotal == 174929u);
-    constexpr std::uint32_t kWaterOffset = 96u + kTotal;
-    static_assert(kWaterOffset == 175025u);
-    static_assert(kWaterOffset == 0x2ABB1u);
+    // Where water.tif sits in this synthetic sample. The real original
+    // Map.pak measures that file at 0x2AB31; this layout is not that entry.
+    constexpr std::uint32_t kSyntheticWaterOffset = 96u + kTotal;
+    static_assert(kSyntheticWaterOffset == 175025u);
 
     std::vector<std::uint8_t> tile(kReal, 0xA5);
     tile.front() = 'T';
@@ -189,7 +190,7 @@ TEST(PackFileHeader, Original96ByteHeaderWaterTifAtReferenceOffset) {
     const std::vector<std::uint8_t> water{'W', 'A', 'T', 'E', 'R'};
     const auto bytes = make_original_pak(
         {{"map0.tga", tile}, {"water.tif", water}}, 2);
-    EXPECT_GT(bytes.size(), static_cast<std::size_t>(kWaterOffset));
+    EXPECT_GT(bytes.size(), static_cast<std::size_t>(kSyntheticWaterOffset));
     EXPECT_EQ(bytes[0], 1);
     EXPECT_EQ(bytes[4], 0);
     EXPECT_TRUE(PackFile::is_pak(bytes));
@@ -206,8 +207,8 @@ TEST(PackFileHeader, Original96ByteHeaderWaterTifAtReferenceOffset) {
     EXPECT_EQ(pack->entries()[0].entry_offset, 96u);
     EXPECT_EQ(pack->entries()[0].size, kReal);
     EXPECT_EQ(pack->entries()[1].name, "water.tif");
-    EXPECT_EQ(pack->entries()[1].entry_offset, kWaterOffset);
-    EXPECT_EQ(pack->entries()[1].data_offset, kWaterOffset + 32u + 9u + 1u);
+    EXPECT_EQ(pack->entries()[1].entry_offset, kSyntheticWaterOffset);
+    EXPECT_EQ(pack->entries()[1].data_offset, kSyntheticWaterOffset + 32u + 9u + 1u);
     EXPECT_EQ(pack->read("WATER.TIF"), water);
     const auto tile_back = pack->read("map0.tga");
     ASSERT_EQ(tile_back.size(), kReal);
@@ -219,7 +220,7 @@ TEST(PackFileHeader, Original96ByteHeaderWaterTifAtReferenceOffset) {
     ASSERT_NE(from_disk, nullptr) << error;
     const auto* water_entry = from_disk->find("water.tif");
     ASSERT_NE(water_entry, nullptr);
-    EXPECT_EQ(water_entry->entry_offset, 0x2ABB1u);
+    EXPECT_EQ(water_entry->entry_offset, kSyntheticWaterOffset);
 }
 
 TEST(PackFileHeader, Original96KeepsOnDiskNameBytes) {
