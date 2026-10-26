@@ -429,6 +429,9 @@ try {
     if ($log -match 'release visual gate failed: placeholderCount=(\d+) failedModelCount=(\d+)') {
         throw "GUI smoke visual gate failed for Map $MapNumber (placeholders=$($Matches[1]) failedModels=$($Matches[2])); log=$stderr"
     }
+    if ($log -match 'release visual gate failed: entitySceneThrow count=(\d+)') {
+        throw "GUI smoke entity scene threw $($Matches[1]) time(s) for Map $MapNumber; log=$stderr"
+    }
     $npcCount = ([regex]::Matches($log, 'CInGameState: NpcAdd ')).Count
     if ($npcCount -lt $MinimumNpcCount) {
         throw "GUI smoke received $npcCount NPCs, expected at least $MinimumNpcCount; log=$stderr"

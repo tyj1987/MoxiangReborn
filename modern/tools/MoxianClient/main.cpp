@@ -420,6 +420,10 @@ MapFogState g_mapFog;
 std::unique_ptr<mxh::gx::StaticScene> g_staticScene;
 std::unique_ptr<mxh::gx::SkyScene> g_skyScene;
 std::unique_ptr<mxh::gx::EntityScene> g_entityScene;
+// Count of exceptions swallowed by the per-frame entity sync/render block.
+// Non-zero in Release smoke (MXH_GUI_SMOKE_EXIT=1) fails the run (exit 4).
+std::uint32_t g_entitySceneThrowCount = 0;
+bool g_entitySceneSmokeFailed = false;
 // Character-select uses the same real model/catalog pipeline as GameIn, but
 // with a dedicated camera and no map dependency.  Keeping it separate avoids
 // a RenderBox/debug avatar and lets the map scene be replaced transactionally.
@@ -1836,11 +1840,36 @@ void renderFrame(HWND h) {
                 // Gribb-Hartmann plane extraction.
                 g_entityScene->setCameraFrustum(mxh::gx::Frustum(g_terrain->viewProj()));
                 g_entityScene->render();
+                static mxh::gx::EntityFrameStatsThrottle frameStatsThrottle;
+                const auto nowMs = static_cast<std::uint64_t>(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count());
+                const auto& frameStats = g_entityScene->frameStats();
+                if (frameStatsThrottle.shouldLog(frameStats, nowMs)) {
+                    MLOG_INFO("mxh_client: %s",
+                              mxh::gx::formatEntityFrameStats(frameStats).c_str());
+                }
             } catch (const std::exception& ex) {
-                MLOG_ERROR("mxh_client: entity scene block threw std::exception what=%s",
-                           ex.what());
+                ++g_entitySceneThrowCount;
+                MLOG_ERROR("mxh_client: entity scene block threw std::exception "
+                           "what=%s count=%u",
+                           ex.what(), g_entitySceneThrowCount);
+                if (mxh::gx::entitySceneThrowFailsSmoke(std::getenv("MXH_GUI_SMOKE_EXIT"))) {
+                    MLOG_ERROR("mxh_client: release visual gate failed: "
+                               "entitySceneThrow count=%u", g_entitySceneThrowCount);
+                    g_entitySceneSmokeFailed = true;
+                    mxh::client::g_running = false;
+                }
             } catch (...) {
-                MLOG_ERROR("mxh_client: entity scene block threw unknown C++ exception");
+                ++g_entitySceneThrowCount;
+                MLOG_ERROR("mxh_client: entity scene block threw unknown C++ exception "
+                           "count=%u", g_entitySceneThrowCount);
+                if (mxh::gx::entitySceneThrowFailsSmoke(std::getenv("MXH_GUI_SMOKE_EXIT"))) {
+                    MLOG_ERROR("mxh_client: release visual gate failed: "
+                               "entitySceneThrow count=%u", g_entitySceneThrowCount);
+                    g_entitySceneSmokeFailed = true;
+                    mxh::client::g_running = false;
+                }
             }
         }
         if (g_effectVisuals && g_inputTarget && g_inputTarget->is_in_game()) {
@@ -4516,5 +4545,10 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_bgmPlayer = nullptr;
     g_sfxPlayer = nullptr;
 
+    if (g_entitySceneSmokeFailed) {
+        MLOG_ERROR("mxh_client: exiting with smoke failure (entity scene threw %u times)",
+                   g_entitySceneThrowCount);
+        return 4;
+    }
     return 0;
 }
