@@ -5,6 +5,15 @@
   "pakSha256": null,
   "format": "96-byte original header (docs/formats/pak.md variant B)",
   "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out <PlayDH root>/zz_supplement.pak --conflict-root <PlayDH root>",
+  "workflow": "Per-ticket commits (TYJ-148..151) change only this file: entry sha256 values and the expected pakSha256. The pak itself is never committed.",
+  "acceptance": [
+    "pak_writer.py on ROG builds zz_supplement.pak with sha256 == pakSha256, twice, identical",
+    "pak_writer.py --conflict-root <PlayDH root> passes: no basename shared with the 7 PlayDH paks",
+    "resource_reference_gate.py check on the PlayDH root: no collision, missing_playdh_in_mx for the ticket's maps drops to 0",
+    "ROG gate (MSVC) CTest mxh_pak_writer_packfile_tests passes: PackFile sees only the 96-byte layout",
+    "client log [pak] mount order lists 8 paks with zz_supplement.pak last (this fill PR only; P1 stays at 7)",
+    "map smoke for 90/401/321 and the TYJ-151 maps loads with no FSOpenFile failure"
+  ],
   "entries": [
     {
       "name": "12_plant_1.MOD",
