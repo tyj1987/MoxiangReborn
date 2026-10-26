@@ -212,11 +212,12 @@ class PakExtractNamedModeTests(unittest.TestCase):
 
 def _write_original_pak(out_path: Path, entries: list[tuple[str, bytes]],
                         *, count: int | None = None, chop: int = 0,
-                        trailer: bytes = b"") -> bytes:
+                        trailer: bytes = b"", offset4: int = 0) -> bytes:
     """Write an original-style pak from the on-disk layout, not the parser.
 
-    96-byte header: version=1 at 0, n_items=0 at offset 4, entry count
-    uint32 at offset 92.  Entries start at 96.  Each entry is
+    96-byte header: version=1 at 0, ``offset4`` at offset 4 (0 unless a
+    caller is mimicking a nonzero field that is not the entry count),
+    entry count uint32 at offset 92.  Entries start at 96.  Each entry is
     total, real, name_len, data_off (uint32) + 16 zero bytes, then the
     GBK filename, a NUL, then the payload.  total = 32 + name_len + 1 +
     len(payload).  The next entry is immediately cur + total; no pad.
@@ -236,7 +237,7 @@ def _write_original_pak(out_path: Path, entries: list[tuple[str, bytes]],
         cursor += total
     declared = len(entries) if count is None else count
     header = bytearray(96)
-    struct.pack_into("<III", header, 0, 1, 0, 0)
+    struct.pack_into("<III", header, 0, 1, offset4, 0)
     struct.pack_into("<I", header, 92, declared)
     blob = bytes(header) + bytes(body) + trailer
     if chop:
@@ -1466,6 +1467,222 @@ class PakListTests(unittest.TestCase):
             self.assertNotIn("header: 96-byte", text)
             self.assertFalse((tdp / "out").exists())
             self.assertNotIn("Traceback", err)
+
+
+# Zero-filled 96-byte entries whose misaligned 92-byte walk of the decoy
+# count stays in bounds and stops short of EOF.  name_len=4, real=21.
+# Counts mimic original Titan / farm / pet (99→294, 181→244, 63→1547)
+# without those files.
+_DECOY_NAME = b"\x00" * 4
+_DECOY_PAYLOAD = b"\x00" * 21
+
+
+def _assert_list_names_pak(test: unittest.TestCase, pak: Path,
+                           text: str, err: str) -> None:
+    test.assertIn(pak.name, err)
+    test.assertNotIn("entry 0", text)
+    test.assertNotIn("header: 92-byte", text)
+    test.assertNotIn("header: 96-byte", text)
+    test.assertNotIn("Traceback", err)
+    test.assertNotIn("Traceback", text)
+
+
+class PakListLayoutTests(unittest.TestCase):
+    """--list picks the one layout that ends on the last byte."""
+
+    def test_list_playdh92_normal(self):
+        entries = [
+            ("Map/a.bin", b"aaa"),
+            ("Map/b.bin", b"bbbb"),
+            ("Map/c.bin", b"ccccc"),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "playdh92.pak")
+            _make_pak(entries, pak)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 3)
+            walked = list(unpack_pak.walk_entries(str(pak), 3))
+            self.assertEqual(len(walked), 3)
+            self.assertEqual(
+                walked[-1].data_offset + walked[-1].real_size, len(raw))
+            before = _tree(tdp)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 92-byte", text)
+            self.assertIn("offset4: 3", text)
+            self.assertIn("declared: 3", text)
+            self.assertIn("parsed: 3", text)
+            self.assertIn("entry 0 start=0x5C ", text)
+            self.assertIn("name=Map/c.bin", text)
+            self.assertEqual(
+                sum(1 for line in text.splitlines() if line.startswith("entry ")),
+                3)
+            self.assertIn("list: parsed 3 of declared 3", text)
+            self.assertNotIn("header: 96-byte", text)
+            self.assertEqual(_tree(tdp), before)
+            self.assertFalse((tdp / "out").exists())
+
+    def test_list_original96_nonzero_offset4_lists_full_count(self):
+        # Decoy field at offset 4, real count at offset 92.
+        cases = ((99, 294), (181, 244), (63, 1547))
+        for offset4, count in cases:
+            with self.subTest(offset4=offset4, count=count):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak = _src_pak(tdp, f"orig96-{offset4}.pak")
+                    _write_original_pak(
+                        pak,
+                        [(_DECOY_NAME, _DECOY_PAYLOAD)] * count,
+                        offset4=offset4,
+                    )
+                    raw = pak.read_bytes()
+                    self.assertEqual(struct.unpack_from("<I", raw, 4)[0], offset4)
+                    self.assertEqual(struct.unpack_from("<I", raw, 92)[0], count)
+                    # The old rule walks `offset4` entries from 92 and exits 0.
+                    # Those entries fit, and they do not consume the file.
+                    short = list(unpack_pak.walk_entries(str(pak), offset4))
+                    self.assertEqual(len(short), offset4)
+                    short_end = short[-1].data_offset + short[-1].real_size
+                    self.assertLess(short_end, len(raw))
+                    full = list(unpack_pak.walk_entries(str(pak), 0))
+                    self.assertEqual(len(full), count)
+                    self.assertEqual(
+                        full[-1].data_offset + full[-1].real_size, len(raw))
+                    self.assertEqual(full[0].entry_offset, 96)
+
+                    rc, text, err = _run_cli([str(pak), "--list"])
+                    self.assertEqual(rc, 0, err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"offset4: {offset4}", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertNotIn(f"declared: {offset4}", text)
+                    self.assertNotIn(
+                        f"list: parsed {offset4} of declared {offset4}", text)
+                    self.assertIn("entry 0 start=0x60 ", text)
+                    self.assertIn(f"entry {count - 1} ", text)
+                    self.assertEqual(
+                        sum(1 for line in text.splitlines()
+                            if line.startswith("entry ")),
+                        count)
+                    self.assertIn(
+                        f"list: parsed {count} of declared {count}", text)
+                    self.assertNotIn("Traceback", err)
+                    self.assertFalse((tdp / "out").exists())
+
+    def test_list_original96_offset4_zero(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "orig96-zero.pak")
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("tile.dds", b"tile-bytes"),
+                ("Map/zone.bin", b"zone"),
+            ])
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 3)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 96-byte", text)
+            self.assertIn("offset4: 0", text)
+            self.assertIn("declared: 3", text)
+            self.assertIn("parsed: 3", text)
+            self.assertIn("entry 0 start=0x60 ", text)
+            self.assertIn("name=water.tif", text)
+            self.assertEqual(
+                sum(1 for line in text.splitlines() if line.startswith("entry ")),
+                3)
+            self.assertNotIn("header: 92-byte", text)
+
+    def test_list_neither_layout_exits_nonzero(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            trailed = _src_pak(tdp, "trail92.pak")
+            _make_pak([
+                ("a.bin", b"aa"),
+                ("b.bin", b"bbb"),
+            ], trailed)
+            trailed.write_bytes(trailed.read_bytes() + b"\x01")
+            raw = trailed.read_bytes()
+            short = list(unpack_pak.walk_entries(str(trailed), 2))
+            self.assertEqual(len(short), 2)
+            self.assertLess(
+                short[-1].data_offset + short[-1].real_size, len(raw))
+            rc, text, err = _run_cli([str(trailed), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("remain", err)
+            _assert_list_names_pak(self, trailed, text, err)
+
+            counted = _src_pak(tdp, "count4.pak")
+            _make_pak([("only.bin", b"xyz")], counted, header_count=4)
+            rc, text, err = _run_cli([str(counted), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 4", err)
+            self.assertIn("larger than the file allows", err)
+            _assert_list_names_pak(self, counted, text, err)
+
+            chopped = _src_pak(tdp, "chopped.pak")
+            _make_pak([
+                ("a.bin", b"Y" * 40),
+                ("b.bin", b"Z" * 40),
+            ], chopped)
+            chopped.write_bytes(chopped.read_bytes()[:-10])
+            rc, text, err = _run_cli([str(chopped), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("parsed 1", err)
+            self.assertIn("declared 2", err)
+            self.assertIn("EOF arrived early", err)
+            _assert_list_names_pak(self, chopped, text, err)
+
+            trailed96 = _src_pak(tdp, "trail96.pak")
+            _write_original_pak(
+                trailed96, [("water.tif", b"pixels")], trailer=b"\xAB")
+            rc, text, err = _run_cli([str(trailed96), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("remain", err)
+            _assert_list_names_pak(self, trailed96, text, err)
+
+    def test_list_both_layouts_ambiguous_exits_nonzero(self):
+        # Two minimum-looking layouts share one byte string.
+        # 96-byte: count 2 at offset 92, two entries of name_len 29 and
+        # real 0.  92-byte: count 2 at offset 4.  Its second entry starts
+        # 29 bytes into the second 96-byte entry, reads real=0 and
+        # name_len=0 out of the zero padding and the zero name, and the
+        # 33-byte minimum entry consumes the file exactly.
+        name = b"\x00" * 29
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "ambiguous.pak")
+            _write_original_pak(
+                pak, [(name, b""), (name, b"")], offset4=2)
+            raw = pak.read_bytes()
+            self.assertEqual(len(raw), 220)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 2)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 2)
+            as_92 = list(unpack_pak.walk_entries(str(pak), 2))
+            self.assertEqual(len(as_92), 2)
+            self.assertEqual(
+                as_92[-1].data_offset + as_92[-1].real_size, len(raw))
+            as_96 = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(as_96), 2)
+            self.assertEqual(as_96[0].entry_offset, 96)
+            self.assertEqual(
+                as_96[-1].data_offset + as_96[-1].real_size, len(raw))
+
+            rc, text, err = _run_cli([str(pak), "--list", "--out", str(tdp / "out")])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("ambiguous", err)
+            self.assertIn("parsed 2 of declared 2", err)
+            self.assertIn(str(len(raw)), err)
+            _assert_list_names_pak(self, pak, text, err)
+            self.assertFalse((tdp / "out").exists())
 
 
 if __name__ == "__main__":

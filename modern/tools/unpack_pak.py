@@ -27,8 +27,13 @@ and validates entries, and creates no directories or files.
 --list is a read-only listing.  It prints the header kind, the uint32 at
 offset 4, the declared count, the parsed count, and one line per entry
 (start, data offset, name_len, real, total).  It does not resolve an
-output directory and it does not create anything.  A format error exits
-nonzero and prints parsed vs declared; it does not print a partial list.
+output directory and it does not create anything.  It does not decide
+the header from whether the uint32 at offset 4 is zero: both layouts
+are walked with the existing entry parsers.  A layout is valid only
+when every entry is in bounds and the walk ends exactly at the file
+length.  Exactly one valid layout is printed.  Neither layout, or both,
+names the pak on stderr and exits nonzero, with no partial list.  An
+entry-count / file-length mismatch is the same failure.
 
 Two resolved locations are read-only (symlinks followed, ".." folded,
 case-insensitive on Windows).  The tool exits non-zero and writes
@@ -41,14 +46,17 @@ nothing, including under --dry-run, when the output is either of them:
   * the pak's own directory, or anything under it.  This still applies
     when the pak lives outside the original root.
 
-Two header variants, detected from dwFileItemNum at offset 4.
+Two header variants.  Unpack and --dry-run still select from
+dwFileItemNum at offset 4.  --list tries both layouts and keeps one
+only when that walk ends on the last byte; see the --list paragraph.
 Spec: docs/formats/pak.md.
 
   Worktree (offset 4 != 0, e.g. PlayDH/Map.pak count 4192):
     92-byte header, entries start at 92.  Advance by
     32 + nameLen + 1 + realSize.  Some totals are corrupt, so this
-    path does not step by dwTotalSize and does not require the file
-    to end on the last entry.
+    path does not step by dwTotalSize.  Unpack does not require the
+    file to end on the last entry.  --list does, when it accepts this
+    layout.
 
   Original (offset 4 == 0, e.g. client Map.pak count 11267):
     96-byte header.  The entry count is the uint32 at offset 92.
@@ -635,9 +643,11 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
 
 
 def read_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
-    """Validate the whole pak.  Returns (kind, offset4, declared, entries).
+    """Validate the whole pak for unpack.  Returns (kind, offset4, declared, entries).
 
-    Raises before any caller writes a file.  On success parsed == declared.
+    Unpack still selects the layout from the uint32 at offset 4.  --list
+    uses list_pak_entries, which tries both layouts.  Raises before any
+    caller writes a file.  On success parsed == declared.
     """
     _header, _version, offset4, _flag = parse_pak(pak_path)
     entries = list(walk_entries(pak_path, offset4))
@@ -655,6 +665,114 @@ def read_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
             kind=kind,
         )
     return kind, offset4, declared, entries
+
+
+def _layout_end(entries: list[PakEntry], *, empty_end: int) -> int:
+    """Cursor after the last parsed entry, or `empty_end` when there are none."""
+    if not entries:
+        return empty_end
+    last = entries[-1]
+    return last.data_offset + last.real_size
+
+
+def _require_exact_end(entries: list[PakEntry], pak_size: int, declared: int,
+                       kind: str, *, empty_end: int) -> None:
+    """The walk already stayed in bounds.  It must also finish on EOF.
+
+    ``parsed`` is the number of entries the existing walker yielded.
+    A short table, bytes after the last entry, or a cursor past EOF is
+    an entry-count / file-length mismatch.
+    """
+    end = _layout_end(entries, empty_end=empty_end)
+    if len(entries) == declared and end == pak_size:
+        return
+    if end < pak_size:
+        message = (
+            f"{pak_size - end} byte(s) remain after the declared count "
+            f"{declared} at offset 0x{end:x} (file size {pak_size})"
+        )
+    elif end > pak_size:
+        message = (
+            f"walk ended at offset 0x{end:x}, past the end of the file "
+            f"(file size {pak_size})"
+        )
+    else:
+        message = (
+            f"parsed entry count {len(entries)} does not match "
+            f"declared count {declared}"
+        )
+    raise _pak_error(
+        message, parsed=len(entries), declared=declared, kind=kind)
+
+
+def _probe_92_byte(pak_path: str, pak_size: int,
+                   offset4: int) -> tuple[str, int, int, list[PakEntry]]:
+    """92-byte layout: count is the uint32 at offset 4, entries start at 92."""
+    declared = offset4
+    with open(pak_path, "rb") as f:
+        entries = list(_walk_worktree_entries(f, pak_size, declared))
+    _require_exact_end(
+        entries, pak_size, declared, "92-byte", empty_end=92)
+    return "92-byte", offset4, declared, entries
+
+
+def _probe_96_byte(pak_path: str, pak_size: int,
+                   offset4: int) -> tuple[str, int, int, list[PakEntry]]:
+    """96-byte layout: count is the uint32 at offset 92, entries start at 96."""
+    declared = _original_declared_count(pak_path)
+    with open(pak_path, "rb") as f:
+        entries = list(_walk_original_entries(f, pak_size, declared))
+    _require_exact_end(
+        entries, pak_size, declared, "96-byte", empty_end=96)
+    return "96-byte", offset4, declared, entries
+
+
+def list_pak_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
+    """Choose the layout for --list.  Returns (kind, offset4, declared, entries).
+
+    The uint32 at offset 4 is not a layout switch.  Original Titan, farm,
+    and pet archives store 99, 181, and 63 there and are still 96-byte
+    tables of 294, 244, and 1547 entries.  Both parsers are the ones
+    unpack already uses.  A layout is kept only when every entry is in
+    bounds and the walk ends on the last byte of the file.  Exactly one
+    such layout is returned.  Zero or two raises ValueError naming
+    ``pak_path``.
+    """
+    _header, _version, offset4, _flag = parse_pak(pak_path)
+    pak_size = os.path.getsize(pak_path)
+    valid: list[tuple[str, int, int, list[PakEntry]]] = []
+    failures: list[str] = []
+    for probe in (_probe_92_byte, _probe_96_byte):
+        try:
+            valid.append(probe(pak_path, pak_size, offset4))
+        except ValueError as exc:
+            failures.append(str(exc))
+    if len(valid) == 1:
+        kind, off, declared, entries = valid[0]
+        empty_end = 92 if kind == "92-byte" else 96
+        end = _layout_end(entries, empty_end=empty_end)
+        if len(entries) != declared or end != pak_size:
+            raise _pak_error(
+                f"{pak_path}: entry count does not match file length "
+                f"{pak_size}",
+                parsed=len(entries),
+                declared=declared,
+                kind=kind,
+            )
+        return kind, off, declared, entries
+    if not valid:
+        detail = "; ".join(failures) if failures else "no layout could be read"
+        raise ValueError(
+            f"{pak_path}: neither 92-byte nor 96-byte layout is valid: {detail}"
+        )
+    kind_92, _off_92, declared_92, entries_92 = valid[0]
+    kind_96, _off_96, declared_96, entries_96 = valid[1]
+    raise ValueError(
+        f"{pak_path}: ambiguous pak header: both {kind_92} "
+        f"(parsed {len(entries_92)} of declared {declared_92}) and {kind_96} "
+        f"(parsed {len(entries_96)} of declared {declared_96}) layouts keep "
+        f"every entry in bounds and end at file length {pak_size}"
+    )
 
 
 def format_entry_line(entry: PakEntry) -> str:
@@ -960,7 +1078,9 @@ def main() -> int:
                          "or files (legacy and --named, both header sizes)")
     ap.add_argument("--list", action="store_true",
                     help="print header kind, offset 4, declared count, "
-                         "parsed count, and per-entry offsets; write nothing")
+                         "parsed count, and per-entry offsets; write nothing. "
+                         "Try both header layouts and accept one only when "
+                         "its entry walk stays in bounds and ends at EOF")
     ap.add_argument("--manifest", action="store_true",
                     help="write manifest.json (only with --named)")
     ap.add_argument("--verify", action="store_true",
@@ -983,7 +1103,7 @@ def main() -> int:
     pak_path = args.pak
     if args.list:
         try:
-            kind, offset4, declared, entries = read_entries(pak_path)
+            kind, offset4, declared, entries = list_pak_entries(pak_path)
         except (ValueError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
