@@ -93,6 +93,10 @@
 - `FilesystemFileStorage::Initialize`（`modern/src/render/filesystem_file_storage.cpp`）对 `PackFile::open` 失败的 `.pak` 打 `MLOG_WARN`，写明路径和 `unsupported header / not a pak`，然后跳过，继续扫目录。
 - `EffectCatalog::load`（`modern/src/game/effect_catalog.cpp`）失败返回，不是跳过，同样打 `MLOG_WARN`。`error` 仍是 `Effect.pak is not a valid PackFile`，函数仍返回 false。
 
+## 解出的字节
+
+`unpack_pak.py` 写出的是包里原样存放的字节，不保证是明文，也不做解码。原版客户端的 `.map` 条目带有 4 字节长度、20 字节的逐文件头，以及用 8 字节滚动密钥 XOR 混淆的正文。密钥如何推导还不知道。
+
 ## 输出目录
 
 原资源目录只读。受保护的范围有两层，都会先解析成真实路径（跟随符号链接，折叠 `..`；Windows 上不区分大小写）：

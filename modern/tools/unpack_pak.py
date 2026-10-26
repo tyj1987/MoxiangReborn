@@ -66,6 +66,12 @@ Spec: docs/formats/pak.md.
 Either header: the process validates the whole archive before it
 creates the output directory.  On error it exits nonzero, reports
 parsed vs declared, and leaves no partial extract.
+
+Extracted payloads are the raw stored bytes.  They are not guaranteed
+to be plaintext, and this tool does not decode them.  Original-client
+.map entries carry a 4-byte length, a 20-byte per-file header, and an
+XOR-obfuscated body (8-byte rolling key; key derivation is not yet
+known).
 """
 
 from __future__ import annotations
