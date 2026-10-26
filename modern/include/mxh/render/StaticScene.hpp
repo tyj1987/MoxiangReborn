@@ -35,6 +35,9 @@ public:
     // true when the .vcl existed but its size did not match the STM
     // vertex total (colours were NOT applied; release smoke must fail).
     [[nodiscard]] bool vertexColorMismatch() const noexcept;
+    // True when the original-look path was active but <map>.vcl was absent
+    // (drawn white; release smoke must fail).
+    [[nodiscard]] bool vertexColorMissing() const noexcept;
     // True when STM meshes were built with the original .vcl vertex-colour
     // path (default). False with MXH_STM_LIGHTING=fixed (non-original).
     [[nodiscard]] bool vertexColorPathEnabled() const noexcept;

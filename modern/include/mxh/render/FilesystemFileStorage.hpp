@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "mxh/render/IFileStorage.hpp"
 
 #include <atomic>
@@ -50,6 +53,11 @@ public:
     BOOL __stdcall BeginLogging(char*, std::uint32_t) override;
     BOOL __stdcall EndLogging() override;
 
+    // Modern diagnostic: where FSOpenFile(name) would read from, using the
+    // same lookup order. "loose:<path>", "pak:<pak file name>", or "" when
+    // the file is not in this storage.
+    [[nodiscard]] std::string describeSource(const char* name) const;
+
 private:
     ~FilesystemFileStorage() = default;
     std::filesystem::path resolve(const char* relative) const;
@@ -57,6 +65,7 @@ private:
     std::atomic<ULONG> ref_count_{1};
     std::filesystem::path root_;
     std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
+    std::vector<std::string> pack_names_;  // parallel to packs_
 };
 
 }  // namespace mxh::gx

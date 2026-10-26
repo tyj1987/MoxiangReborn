@@ -71,11 +71,13 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     std::uint32_t, std::uint32_t, std::uint32_t, FILE_ACCESS_METHOD) {
     if (!std::filesystem::is_directory(root_)) return FALSE;
     packs_.clear();
+    pack_names_.clear();
     std::error_code ec;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
         if (auto pack = mxh::compat::PackFile::open(item.path())) {
             packs_.push_back(std::move(pack));
+            pack_names_.push_back(item.path().filename().string());
         } else {
             const auto pak_path = item.path().string();
             MLOG_WARN("[pak] skipped '%s': unsupported header / not a pak",
@@ -127,6 +129,19 @@ void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
         if (!bytes.empty()) return new OpenFile(std::move(bytes));
     }
     return nullptr;
+}
+std::string FilesystemFileStorage::describeSource(const char* name) const {
+    const auto path = resolve(name);
+    if (!path.empty() && std::filesystem::is_regular_file(path)) return "loose:" + path.string();
+    if (!name || !*name) return {};
+    std::string normalized(name);
+    std::replace(normalized.begin(), normalized.end(), '/', '\\');
+    const std::string basename = std::filesystem::path(normalized).filename().string();
+    for (std::size_t i = 0; i < packs_.size(); ++i) {
+        if (packs_[i]->find(normalized) || (basename != normalized && packs_[i]->find(basename)))
+            return "pak:" + (i < pack_names_.size() ? pack_names_[i] : std::string("?"));
+    }
+    return {};
 }
 int __stdcall FilesystemFileStorage::FSScanf(void*, char*, ...) { return 0; }
 std::uint32_t __stdcall FilesystemFileStorage::FSRead(

@@ -673,13 +673,18 @@ public:
                 return fail("Static scene load failed (" + name + "): " + stage_error_, error);
             if (static_scene_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
                 return fail("Static scene contains " + std::to_string(static_scene_->unresolvedTextureCount()) + " unresolved textures", error);
-            if (static_scene_->vertexColorMismatch()) {
-                // Misaligned .vcl colours are never applied (StaticScene falls
-                // back to white); a release smoke must not pass silently.
-                MLOG_ERROR("mxh_client: release visual gate failed: stmVclMismatch map=%d",
-                           static_cast<int>(map_num_));
+            if (static_scene_->vertexColorMismatch() || static_scene_->vertexColorMissing()) {
+                // Original-look path without usable .vcl colours (missing or
+                // misaligned -> white). Outside smoke mode StaticScene has
+                // already logged WARN/ERROR; a release smoke must fail.
+                const char* gate = static_scene_->vertexColorMismatch() ? "stmVclMismatch"
+                                                                         : "stmVclMissing";
                 const char* smokeExit = std::getenv("MXH_GUI_SMOKE_EXIT");
-                if (smokeExit && smokeExit[0] && smokeExit[0] != '0') {
+                const bool smoke = smokeExit && smokeExit[0] && smokeExit[0] != '0';
+                if (smoke || static_scene_->vertexColorMismatch())
+                    MLOG_ERROR("mxh_client: release visual gate failed: %s map=%d",
+                               gate, static_cast<int>(map_num_));
+                if (smoke) {
                     g_stmVclSmokeFailed = true;
                     mxh::client::g_running = false;
                 }
@@ -4446,6 +4451,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_bgmPlayer = nullptr;
     g_sfxPlayer = nullptr;
 
-    if (g_stmVclSmokeFailed) return 5;  // release visual gate: stmVclMismatch
+    if (g_stmVclSmokeFailed) return 5;  // release visual gate: stmVclMismatch/stmVclMissing
     return 0;
 }

@@ -4,6 +4,7 @@
 #include "mxh/compat/stm_static_model.hpp"
 #include "mxh/compat/stm_vertex_color.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/render/FilesystemFileStorage.hpp"
 #include "mxh/render/IFileStorage.hpp"
 #include "mxh/render/IRenderer.hpp"
 #include "dx11/texture_loader.hpp"
@@ -105,6 +106,7 @@ struct StaticScene::Impl {
     float map_center_z = static_center::kLegacyMapCenter;
     bool baked = false;
     bool vcl_mismatch = false;
+    bool vcl_missing = false;
     bool vcl_path = false;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
@@ -131,6 +133,7 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     impl_->renderer = renderer;
     impl_->unresolved_textures = 0;
     impl_->vcl_mismatch = false;
+    impl_->vcl_missing = false;
     impl_->vcl_path = false;
     std::vector<std::uint8_t> bytes;
     mxh::compat::StmStaticModel scene;
@@ -180,11 +183,20 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         std::vector<std::uint8_t> vclBytes;
         const bool present = readStorageFile(storage, vclName.c_str(), vclBytes);
         vcl = mxh::compat::assign_stm_vertex_colors(infos, present ? &vclBytes : nullptr);
-        MLOG_INFO("[static] vcl loaded=%u vertices=%u matched=%s",
-                  static_cast<unsigned>(vcl.loaded_bytes),
+        std::string source;
+        if (present) {
+            if (auto* fs = dynamic_cast<FilesystemFileStorage*>(storage))
+                source = fs->describeSource(vclName.c_str());
+            if (source.empty()) source = "storage:" + vclName;
+        } else {
+            source = "missing:" + vclName;
+        }
+        MLOG_INFO("[static] vcl source=%s bytes=%u vertices=%u matched=%s",
+                  source.c_str(), static_cast<unsigned>(vcl.loaded_bytes),
                   static_cast<unsigned>(vcl.expected_vertices),
                   vcl.matched() ? "yes" : "no");
         if (vcl.status == mxh::compat::StmVclStatus::Missing) {
+            impl_->vcl_missing = true;
             MLOG_WARN("[static] vcl missing: %s (vertex colours default to white, as legacy memset 0xff)",
                       vclName.c_str());
         } else if (vcl.status == mxh::compat::StmVclStatus::Mismatch) {
@@ -257,6 +269,7 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
 }
 
 bool StaticScene::vertexColorMismatch() const noexcept { return impl_->vcl_mismatch; }
+bool StaticScene::vertexColorMissing() const noexcept { return impl_->vcl_missing; }
 bool StaticScene::vertexColorPathEnabled() const noexcept { return impl_->vcl_path; }
 
 void StaticScene::render() {
