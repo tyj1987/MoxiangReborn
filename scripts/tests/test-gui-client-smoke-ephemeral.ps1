@@ -34,6 +34,13 @@ Assert-True ($mainText.Contains('& $serverScript -Mode stop')) 'default stop lin
 Assert-True ($mainText.Contains("'--resource-root'")) 'resource-root argument missing'
 Assert-True ($mainText.Contains('MXH_GUI_SMOKE_RENDER_ENTITIES')) 'render entities env missing'
 Assert-True ($mainText.Contains('if ($null -ne $exitCode -and $exitCode -ne 0)')) 'client exit-code check changed'
+Assert-True ($mainText.Contains('$clientLoginPort = ''16001''')) 'switch-off login port must stay 16001'
+Assert-True ($mainText.Contains('$clientMapPort = ''18001''')) 'switch-off map port must stay 18001'
+Assert-True ($mainText.Contains('$clientLoginPort = [string]$ephemeralPortPlan.LoginPort')) 'switch-on login port must follow PortBase'
+Assert-True ($mainText.Contains('Get-EphemeralPortInUseViolation -Ports @($ephemeralPortPlan.Ports)')) 'port check must cover the whole PortBase plan'
+Assert-True ($mainText.Contains('if ($serverProcess.HasExited)')) 'startup loop must check HasExited'
+Assert-True ($mainText.Contains('EphemeralLocalServer requires PowerShell 7.4 or newer')) 'pwsh 7.4 gate missing'
+Assert-True (-not $mainText.Contains('Get-EphemeralClientEndpointViolation')) 'client fallback intercept must be gone'
 Assert-True ($mainText.Contains('do not call start_modern.ps1')) 'header should say ephemeral mode does not call start_modern'
 $helperText = [IO.File]::ReadAllText($helper)
 Assert-True (-not $helperText.Contains('Start-Process')) 'helper must not start processes'
@@ -102,8 +109,12 @@ Assert-True ($mapArgs -notcontains '--legacy') 'map command must match start_mod
 Assert-True ($agentArgs -contains '--legacy') 'agent command must include --legacy'
 Assert-True ($loginArgs -contains '--legacy') 'login command must include --legacy'
 Assert-True ($mapArgs -notcontains '0.0.0.0') 'map must not bind 0.0.0.0'
-Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--map-server') + 1] -eq '127.0.0.1:18001') 'agent map endpoint'
+Assert-True ($mapArgs[[array]::IndexOf($mapArgs, '--port') + 1] -eq '28001') 'default map port follows 26001+2000'
+Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--port') + 1] -eq '27001') 'default agent port follows 26001+1000'
+Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--port') + 1] -eq '26001') 'default login port is 26001'
+Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--map-server') + 1] -eq '127.0.0.1:28001') 'agent map endpoint'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--agent-addr') + 1] -eq '127.0.0.1') 'login advertised agent'
+Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--agent-port') + 1] -eq '27001') 'login must not keep the 7001 agent default'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--bind-address') + 1] -eq '127.0.0.1') 'login bind'
 Assert-True ($spec.RegisterDatabaseArgument -eq ('sqlite;path=' + $file)) 'register db argument'
 Assert-True ($spec.DatabaseConfig -eq ('backend=sqlite;path=' + $file)) 'server database config'
@@ -175,5 +186,101 @@ if (Test-Path -LiteralPath $stdoutPath2) { $stdoutLines2 = @(Get-Content -Litera
 Assert-True ($proc2.ExitCode -ne 0) 'missing build without the switch must still fail'
 Assert-True (@($stdoutLines2 | Where-Object { $_ -eq 'server=local-ephemeral' }).Count -eq 0) 'default path printed server=local-ephemeral'
 Remove-Item -LiteralPath $stdoutPath2, $stderrPath2 -Force -ErrorAction SilentlyContinue
+
+$defaultPlan = Resolve-EphemeralPortPlan -Base 26001
+Assert-True ($defaultPlan.LoginPort -eq 26001 -and $defaultPlan.AgentPort -eq 27001 -and $defaultPlan.MapPort -eq 28001) 'default port plan'
+Assert-True ((@($defaultPlan.Ports) -join ',') -eq '26001,27001,28001') 'plan must list login, agent, and map'
+
+$customPlan = Resolve-EphemeralPortPlan -Base 26011
+$customDir = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+$customSpec = New-EphemeralServerLaunchSpec `
+    -MapExecutable 'C:\build\mxh_map_server_CHINA.exe' `
+    -AgentExecutable 'C:\build\mxh_agent_server_CHINA.exe' `
+    -LoginExecutable 'C:\build\mxh_login_server.exe' `
+    -MapNumber 10 `
+    -ResourceRoot 'C:\playdh' -ServerResourceRoot 'C:\playdh\Resource\Server' `
+    -DatabaseDirectory $customDir `
+    -LoginPort $customPlan.LoginPort -AgentPort $customPlan.AgentPort -MapPort $customPlan.MapPort `
+    -ClientArguments @('--login-host', '127.0.0.1', '--login-port', ([string]$customPlan.LoginPort))
+$customAgent = @($customSpec.Processes[1].Arguments)
+$customLogin = @($customSpec.Processes[2].Arguments)
+$customMap = @($customSpec.Processes[0].Arguments)
+Assert-True ($customMap[[array]::IndexOf($customMap, '--port') + 1] -eq '28011') 'custom map listen'
+Assert-True ($customAgent[[array]::IndexOf($customAgent, '--map-server') + 1] -eq '127.0.0.1:28011') 'custom agent map-server'
+Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-addr') + 1] -eq '127.0.0.1') 'custom login agent address'
+Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-port') + 1] -eq '27011') 'custom login agent port'
+Assert-True ($customLogin[[array]::IndexOf($customLogin, '--port') + 1] -eq '26011') 'custom login listen'
+
+foreach ($reservedBase in @(16001, 15001, 14001, 36001, 35001, 34001, 36101, 35101, 34101, 36102, 36103)) {
+    $reservedMessage = ''
+    try {
+        Resolve-EphemeralPortPlan -Base $reservedBase | Out-Null
+    } catch {
+        $reservedMessage = $_.Exception.Message
+    }
+    Assert-True ($reservedMessage -like 'ephemeral safety: reserved-port *') "base $reservedBase was '$reservedMessage'"
+}
+$rangeMessage = ''
+try { Resolve-EphemeralPortPlan -Base 64000 | Out-Null } catch { $rangeMessage = $_.Exception.Message }
+Assert-True ($rangeMessage -like 'ephemeral safety: port-out-of-range 64000*') "range message was '$rangeMessage'"
+
+$reservedSpecMessage = ''
+try {
+    New-EphemeralServerLaunchSpec `
+        -MapExecutable 'C:\build\mxh_map_server_CHINA.exe' `
+        -AgentExecutable 'C:\build\mxh_agent_server_CHINA.exe' `
+        -LoginExecutable 'C:\build\mxh_login_server.exe' `
+        -MapNumber 10 -ResourceRoot 'C:\playdh' -ServerResourceRoot 'C:\playdh\Resource\Server' `
+        -DatabaseDirectory $customDir `
+        -LoginPort 16001 -AgentPort 27001 -MapPort 28001 `
+        -ClientArguments @('--login-host', '127.0.0.1') | Out-Null
+} catch {
+    $reservedSpecMessage = $_.Exception.Message
+}
+Assert-True ($reservedSpecMessage -like '*reserved-port 16001*') "spec reserved message was '$reservedSpecMessage'"
+
+function Assert-OccupiedPlanPort([int]$OccupiedPort) {
+    $holder = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse('127.0.0.1'), $OccupiedPort)
+    $holder.Start()
+    try {
+        $violation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
+        Assert-True ($violation -eq "ephemeral safety: port-in-use $OccupiedPort") "occupied $OccupiedPort reported '$violation'"
+    } finally {
+        $holder.Stop()
+    }
+}
+Assert-OccupiedPlanPort ([int]$customPlan.LoginPort)
+Assert-OccupiedPlanPort ([int]$customPlan.AgentPort)
+Assert-OccupiedPlanPort ([int]$customPlan.MapPort)
+$anyHolder = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Any, [int]$customPlan.MapPort)
+$anyHolder.Start()
+try {
+    $anyViolation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
+    Assert-True ($anyViolation -eq "ephemeral safety: port-in-use $($customPlan.MapPort)") "0.0.0.0 listener reported '$anyViolation'"
+} finally {
+    $anyHolder.Stop()
+}
+$freeViolation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
+Assert-True ([string]::IsNullOrEmpty($freeViolation)) "free plan rejected: $freeViolation"
+
+$dead = Start-Process -FilePath $shell -ArgumentList @('-NoProfile', '-Command', 'exit 7') -PassThru
+if (-not $dead.WaitForExit(10000)) { throw 'readiness fixture did not exit' }
+$dead.Refresh()
+$deadFailure = Get-EphemeralReadinessFailure -Servers @([pscustomobject]@{
+    Name = 'login'; Process = $dead; Port = [int]$customPlan.LoginPort; Stderr = 'C:\login.err.log'
+})
+Assert-True ($deadFailure -eq 'login exited during startup (exit=7; see C:\login.err.log)') "HasExited readiness was '$deadFailure'"
+
+$alive = Start-Process -FilePath $shell -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 30') -PassThru
+try {
+    $aliveFailure = Get-EphemeralReadinessFailure -Servers @([pscustomobject]@{
+        Name = 'agent'; Process = $alive; Port = [int]$customPlan.AgentPort
+    })
+    Assert-True ($aliveFailure -eq "agent did not accept connections on 127.0.0.1:$($customPlan.AgentPort)") "listening readiness was '$aliveFailure'"
+} finally {
+    if (Get-Process -Id $alive.Id -ErrorAction SilentlyContinue) {
+        Stop-Process -Id $alive.Id -Force -ErrorAction SilentlyContinue
+    }
+}
 
 Write-Output 'PASS: gui-client-smoke ephemeral safety checks'

@@ -221,6 +221,83 @@ function Resolve-EphemeralServerExecutable {
     throw "Missing $Configuration executable: $FileName (checked $($candidates -join '; '))"
 }
 
+function Get-EphemeralReservedPorts {
+    # Modern defaults, the r18 triple, and the r2 map range.
+    return @(16001, 17001, 18001, 36001, 37001, 38001, 36101, 37101, 38101, 38102, 38103)
+}
+
+function Resolve-EphemeralPortPlan {
+    param([Parameter(Mandatory)][int]$Base)
+    # login = base, agent = base+1000, map = base+2000.
+    if ($Base -lt 1 -or ($Base + 2000) -gt 65535) {
+        throw "ephemeral safety: port-out-of-range $Base"
+    }
+    $login = $Base
+    $agent = $Base + 1000
+    $map = $Base + 2000
+    $reserved = Get-EphemeralReservedPorts
+    foreach ($port in @($login, $agent, $map)) {
+        if ($reserved -contains $port) {
+            throw "ephemeral safety: reserved-port $port"
+        }
+    }
+    [pscustomobject]@{
+        LoginPort = $login
+        AgentPort = $agent
+        MapPort = $map
+        Ports = @($login, $agent, $map)
+    }
+}
+
+function Test-EphemeralPortOccupied {
+    param([Parameter(Mandatory)][int]$Port)
+    # Bind 127.0.0.1 only. A listener on 0.0.0.0 still occupies this address.
+    $listener = $null
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse('127.0.0.1'), $Port)
+        try { $listener.ExclusiveAddressUse = $true } catch {}
+        $listener.Start()
+        return $false
+    } catch {
+        return $true
+    } finally {
+        if ($null -ne $listener) {
+            try { $listener.Stop() } catch {}
+        }
+    }
+}
+
+function Get-EphemeralPortInUseViolation {
+    param([Parameter(Mandatory)][int[]]$Ports)
+    foreach ($port in @($Ports)) {
+        if (Test-EphemeralPortOccupied -Port $port) {
+            return "ephemeral safety: port-in-use $port"
+        }
+    }
+    return $null
+}
+
+function Get-EphemeralReadinessFailure {
+    param([Parameter(Mandatory)]$Servers)
+    foreach ($server in @($Servers)) {
+        $proc = $server.Process
+        if ($null -ne $proc) {
+            try { $proc.Refresh() } catch {}
+            if ($proc.HasExited) {
+                $stderr = [string]$server.Stderr
+                $suffix = ''
+                if (-not [string]::IsNullOrWhiteSpace($stderr)) { $suffix = "; see $stderr" }
+                return "$($server.Name) exited during startup (exit=$($proc.ExitCode)$suffix)"
+            }
+        }
+        $port = [int]$server.Port
+        if (-not (Test-EphemeralLoopbackPort -Port $port)) {
+            return "$($server.Name) did not accept connections on 127.0.0.1:${port}"
+        }
+    }
+    return $null
+}
+
 function New-EphemeralServerLaunchSpec {
     param(
         [Parameter(Mandatory)][string]$MapExecutable,
@@ -231,12 +308,21 @@ function New-EphemeralServerLaunchSpec {
         [Parameter(Mandatory)][string]$ServerResourceRoot,
         [Parameter(Mandatory)][string]$DatabaseDirectory,
         [string]$ResourceProfileId = 'playdh-current',
-        [int]$LoginPort = 16001,
-        [int]$AgentPort = 17001,
-        [int]$MapPort = 18001,
+        [int]$LoginPort = 26001,
+        [int]$AgentPort = 27001,
+        [int]$MapPort = 28001,
         [hashtable]$ProcessEnvironment = @{},
         [Parameter(Mandatory)][string[]]$ClientArguments
     )
+    $reserved = Get-EphemeralReservedPorts
+    foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
+        if ($port -lt 1 -or $port -gt 65535) {
+            throw "ephemeral safety: port-out-of-range $port"
+        }
+        if ($reserved -contains $port) {
+            throw "ephemeral safety: reserved-port $port"
+        }
+    }
 
     # Command line matches deploy/scripts/start_modern.ps1 $processes
     # (map / agent / login, about lines 363-379). BindAddress there defaults

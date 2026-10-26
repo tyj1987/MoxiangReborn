@@ -11,8 +11,21 @@
   when the run ends. Requires PowerShell 7 (Start-Process -Environment,
   same as start_modern.ps1).
 
-  ROG example:
+  ROG example (PowerShell 7.4+). Default ports are 26001/27001/28001,
+  not 16001/17001/18001 and not the r18/r2 ranges:
     pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\gui-client-smoke.ps1 -EphemeralLocalServer -BuildDir modern\build
+
+  mxh_client dials only --login-host/--login-port. With the switch on,
+  that login port is EphemeralPortBase (default 26001) and --login-host
+  stays 127.0.0.1. With the switch off, the client arguments stay
+  127.0.0.1:16001 and --map-port 18001. Agent host:port is not a client
+  socket: login puts it in LoginAck (--agent-addr 127.0.0.1 and
+  --agent-port on the login process; the login binary otherwise
+  advertises port 7001). The client does not open a map socket; the
+  agent dials --map-server 127.0.0.1:<map port>. --map-port is only
+  logged by mxh_client and follows the same map port when the switch
+  is on. --agent-port is not parsed by today's client and is still
+  passed so a later build can see the configured agent port.
 
   Safety rules live in gui-client-smoke-ephemeral.ps1. Client exit-code
   handling is unchanged (any non-zero, including 4, fails the smoke).
@@ -41,11 +54,24 @@ param(
     # MXH_GUI_SMOKE_EXIT=1, so -NoEntities leaves the entity list empty.
     [switch]$NoEntities,
     # Loopback-only throwaway login/agent/map. Does not call start_modern.ps1.
-    [switch]$EphemeralLocalServer
+    [switch]$EphemeralLocalServer,
+    # login=base, agent=base+1000, map=base+2000. Ignored unless -EphemeralLocalServer.
+    # Default avoids 16001/17001/18001, 36001/37001/38001 and 36101/37101/38101-38103.
+    [ValidateRange(1, 65533)]
+    [int]$EphemeralPortBase = 26001
 )
 
 $ErrorActionPreference = 'Stop'
 if ($EphemeralLocalServer) {
+    # Start-Process -Environment requires Windows PowerShell's successor 7.4.
+    # Checked before dot-sourcing so an older host fails with this message
+    # and does not change the switch-off path.
+    $ephemeralHostVersion = $PSVersionTable.PSVersion
+    if ($null -eq $ephemeralHostVersion -or $ephemeralHostVersion.Major -lt 7 -or
+        ($ephemeralHostVersion.Major -eq 7 -and $ephemeralHostVersion.Minor -lt 4)) {
+        Write-Output "EphemeralLocalServer requires PowerShell 7.4 or newer (Start-Process -Environment). Found $ephemeralHostVersion."
+        exit 1
+    }
     # First line of script output. Also written to ephemeral.log below.
     Write-Output 'server=local-ephemeral'
     . (Join-Path $PSScriptRoot 'gui-client-smoke-ephemeral.ps1')
@@ -102,10 +128,18 @@ $previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
 $previousGuiSmokeMovement = $env:MXH_GUI_SMOKE_MOVEMENT
 
 try {
+    $clientLoginPort = '16001'
+    $clientMapPort = '18001'
+    $ephemeralPortPlan = $null
+    if ($EphemeralLocalServer) {
+        $ephemeralPortPlan = Resolve-EphemeralPortPlan -Base $EphemeralPortBase
+        $clientLoginPort = [string]$ephemeralPortPlan.LoginPort
+        $clientMapPort = [string]$ephemeralPortPlan.MapPort
+    }
     $arguments = @(
         '--login-host', '127.0.0.1',
-        '--login-port', '16001',
-        '--map-port', '18001',
+        '--login-port', $clientLoginPort,
+        '--map-port', $clientMapPort,
         '--username', 'test',
         '--password-env', 'MXH_GUI_SMOKE_PASSWORD',
         '--auto-login',
@@ -118,6 +152,11 @@ try {
         '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
+    if ($EphemeralLocalServer) {
+        # Today's parser ignores this flag. LoginAck carries the agent
+        # endpoint; the flag is here for a build that starts honoring it.
+        $arguments += @('--agent-port', [string]$ephemeralPortPlan.AgentPort)
+    }
     if ($EphemeralLocalServer) {
         # Safety gate before any process, including the optional python audit.
         $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot
@@ -138,8 +177,12 @@ try {
             -ResourceRoot $layout.ResourceRoot -ServerResourceRoot $layout.ServerResourceRoot `
             -ResourceProfileId $layout.ResourceProfileId `
             -DatabaseDirectory $plannedDbDirectory `
+            -LoginPort $ephemeralPortPlan.LoginPort -AgentPort $ephemeralPortPlan.AgentPort -MapPort $ephemeralPortPlan.MapPort `
             -ProcessEnvironment (Copy-EphemeralProcessEnvironment) `
             -ClientArguments $arguments
+        # Before any server process. A listener on 0.0.0.0 would still accept 127.0.0.1.
+        $portInUse = Get-EphemeralPortInUseViolation -Ports @($ephemeralPortPlan.Ports)
+        if ($portInUse) { throw $portInUse }
     }
     if ($AuditMapDependencies) {
         $dependencyAudit = Join-Path $repoRoot 'modern\tools\audit_map_dependencies.py'
@@ -163,6 +206,7 @@ try {
         $ephemeralDatabaseConfigTouched = $true
         & $dbTool migrate --db-env MXH_DATABASE_CONFIG
         if ($LASTEXITCODE -ne 0) { throw "ephemeral database migration failed with exit code $LASTEXITCODE" }
+        $ephemeralStarted = @()
         foreach ($item in @($ephemeralSpec.Processes)) {
             $serverStdout = Join-Path $logDir "$($item.Name).out.log"
             $serverStderr = Join-Path $logDir "$($item.Name).err.log"
@@ -172,15 +216,18 @@ try {
                 -RedirectStandardOutput $serverStdout -RedirectStandardError $serverStderr `
                 -PassThru -WindowStyle Hidden -Environment $procEnv
             [void]$ephemeralServerPids.Add([int]$serverProcess.Id)
+            $ephemeralStarted += [pscustomobject]@{
+                Name = $item.Name; Process = $serverProcess; Port = [int]$item.Port; Stderr = $serverStderr
+            }
             Start-Sleep -Milliseconds 500
-            if ($serverProcess.HasExited) { throw "$($item.Name) exited during startup (see $serverStderr)" }
-        }
-        Start-Sleep -Seconds 1
-        foreach ($item in @($ephemeralSpec.Processes)) {
-            if (-not (Test-EphemeralLoopbackPort -Port ([int]$item.Port))) {
-                throw "ephemeral server port is not healthy: $($item.Port)"
+            $serverProcess.Refresh()
+            if ($serverProcess.HasExited) {
+                throw "$($item.Name) exited during startup (exit=$($serverProcess.ExitCode); see $serverStderr)"
             }
         }
+        Start-Sleep -Seconds 1
+        $readinessFailure = Get-EphemeralReadinessFailure -Servers $ephemeralStarted
+        if ($readinessFailure) { throw $readinessFailure }
         $dbConfig = $ephemeralSpec.RegisterDatabaseArgument
     } else {
         & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
