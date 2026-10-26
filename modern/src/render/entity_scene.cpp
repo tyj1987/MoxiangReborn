@@ -1,6 +1,7 @@
 #include "mxh/render/EntityScene.hpp"
 
 #include "mxh/render/frustum.hpp"
+#include "mxh/render/EntityFrameStats.hpp"
 
 #include "mxh/compat/chx_model.hpp"
 #include "mxh/compat/anm_motion.hpp"
@@ -259,6 +260,7 @@ struct EntityScene::Impl {
     std::vector<ScenePlayer> remote_players;
     std::optional<Frustum> frustum;
     std::uint32_t culled_instances = 0;
+    EntityFrameStats frame_stats;
     // Cached (X, Z) half-extent in scaled world units. Pushed by
     // setMapCenter() once per frame from TerrainScene::mapCenter() so the
     // entity / placeholder render path re-centres its vertices by the same
@@ -796,7 +798,9 @@ void EntityScene::clearEffects() noexcept {
 void EntityScene::render() {
     if (!impl_->renderer) return;
     impl_->culled_instances = 0;
-    const auto renderPlayer = [this](const ScenePlayer& player,
+    impl_->frame_stats.reset();
+    auto& stats = impl_->frame_stats;
+    const auto renderPlayer = [this, &stats](const ScenePlayer& player,
                                      bool alwaysRender) {
         // Player is always rendered: it sits at the camera's focal point
         // and any p-vertex test would put it right on the near plane,
@@ -823,6 +827,7 @@ void EntityScene::render() {
                                    tz + radius};
                 if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
                     ++impl_->culled_instances;
+                    stats.culled(EntityFrameKind::Player);
                     return;
                 }
             }
@@ -832,6 +837,9 @@ void EntityScene::render() {
                 mesh->SetWorldTransform(&world);
                 impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
             }
+            stats.drawn(EntityFrameKind::Player);
+        } else {
+            stats.skipped(EntityFrameKind::Player);
         }
     };
     if (impl_->local_player) {
@@ -845,7 +853,12 @@ void EntityScene::render() {
     for (const auto& entity : impl_->instances) {
         auto* model = impl_->loadModel(entity.visual_kind, nullptr,
                                        entity.type, entity.object_id);
-        if (!model) continue;
+        const auto frameKind = entity.type == SceneEntityType::Npc
+            ? EntityFrameKind::Npc : EntityFrameKind::Monster;
+        if (!model) {
+            stats.skipped(frameKind);
+            continue;
+        }
         // World transform is a pure translation (no rotation, no scale),
         // so the world-space AABB is the local AABB translated by the
         // (x, y, z) world position. Apply the frustum p-vertex test
@@ -863,6 +876,7 @@ void EntityScene::render() {
                                tz + radius};
             if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
                 ++impl_->culled_instances;
+                stats.culled(frameKind);
                 continue;
             }
         }
@@ -873,12 +887,16 @@ void EntityScene::render() {
             mesh->SetWorldTransform(&world);
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
         }
+        stats.drawn(frameKind);
     }
     for (const auto& effect : impl_->effect_instances) {
         if (effect.chx_name.empty()) continue;
         auto* model = impl_->loadModel(0, nullptr, SceneEntityType::Monster,
                                        effect.object_id, effect.chx_name);
-        if (!model) continue;
+        if (!model) {
+            stats.skipped(EntityFrameKind::Effect);
+            continue;
+        }
         const float tx = effect.world_x * kSceneScale - impl_->map_center_x;
         const float ty = effect.world_y * kSceneScale - model->minimum.y;
         const float tz = effect.world_z * kSceneScale - impl_->map_center_z;
@@ -890,6 +908,7 @@ void EntityScene::render() {
             const VECTOR3 wmax{tx + radius, model->maximum.y + ty, tz + radius};
             if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
                 ++impl_->culled_instances;
+                stats.culled(EntityFrameKind::Effect);
                 continue;
             }
         }
@@ -904,11 +923,19 @@ void EntityScene::render() {
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0,
                                               nullptr, 0, 0, 0, 0);
         }
+        stats.drawn(EntityFrameKind::Effect);
     }
     if (!impl_->placeholder_rendering_enabled) return;
     for (const auto& placeholder : impl_->placeholder_visuals) {
         VECTOR3 oct[8]{};
         fillPlaceholderOct(placeholder, oct);
+        const auto phKind = placeholder.kind == PlaceholderKind::Npc
+            ? EntityFrameKind::Npc
+            : (placeholder.kind == PlaceholderKind::Monster
+                ? EntityFrameKind::Monster : EntityFrameKind::Player);
+        // The failed model was counted as skipped above; the debug
+        // placeholder pass turns it into drawn/culled instead.
+        stats.unskip(phKind);
         const bool alwaysRender = impl_->local_player &&
             placeholder.object_id == impl_->local_player->object_id;
         if (!alwaysRender && impl_->frustum) {
@@ -916,10 +943,12 @@ void EntityScene::render() {
             const VECTOR3 wmax{oct[6].x, oct[6].y, oct[6].z};
             if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
                 ++impl_->culled_instances;
+                stats.culled(phKind);
                 continue;
             }
         }
         impl_->renderer->RenderBox(oct, placeholderArgb(placeholder.kind));
+        stats.drawn(phKind);
     }
 }
 
@@ -956,6 +985,9 @@ std::uint32_t EntityScene::npcInstanceCount() const noexcept {
 }
 std::uint32_t EntityScene::culledInstanceCount() const noexcept {
     return impl_->culled_instances;
+}
+const EntityFrameStats& EntityScene::frameStats() const noexcept {
+    return impl_->frame_stats;
 }
 std::uint32_t EntityScene::failedModelCount() const noexcept {
     return impl_->failed_load_count;
