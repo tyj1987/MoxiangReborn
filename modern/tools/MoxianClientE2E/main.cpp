@@ -97,6 +97,8 @@
 #include "mxh/server/quest_script_loader.hpp"
 #include "mxh/game/npc_role.hpp"
 
+#include "../../tests/support/playdh_env.hpp"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -107,6 +109,7 @@
 #include <cstring>
 #include <filesystem>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -187,27 +190,9 @@ std::string resolve_server_exe(const char* argv0,
 }
 
 std::filesystem::path find_e2e_playdh_root(const std::string& map_exe) {
-    std::error_code ec;
-    std::vector<std::filesystem::path> bases;
-    bases.push_back(std::filesystem::current_path(ec));
-    auto base = std::filesystem::absolute(std::filesystem::path(map_exe), ec).parent_path();
-    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        bases.push_back(base);
-        const auto parent = base.parent_path();
-        if (parent == base) break;
-        base = parent;
-    }
-    for (const auto& candidate_base : bases) {
-        for (const auto& root : {
-                 candidate_base / "modern" / "data" / "PlayDH",
-                 candidate_base / "data" / "PlayDH"}) {
-            if (std::filesystem::exists(root / "Resource" / "Server") &&
-                std::filesystem::exists(root / "Image" / "InterfaceScript")) {
-                return std::filesystem::weakly_canonical(root, ec);
-            }
-        }
-    }
-    return {};
+    // MXH_PLAYDH_ROOT replaces the upward search. A set value that is empty
+    // or not a directory throws; it must not fall back or be skipped.
+    return mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
 }
 
 CliArgs parse_cli(int argc, char** argv) {
@@ -579,7 +564,13 @@ int run_e2e(const CliArgs& cli) {
         LOG("WSAStartup failed (err=%d)", rc);
         return 1;
     }
-    const auto e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    std::filesystem::path e2e_playdh_root;
+    try {
+        e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    } catch (const std::runtime_error& error) {
+        LOG("%s", error.what());
+        return 3;
+    }
     if (e2e_playdh_root.empty()) {
         LOG("unable to locate canonical PlayDH root for MapServer");
         return 3;
@@ -743,7 +734,13 @@ int run_e2e(const CliArgs& cli) {
     // servers so GameIn exercises the real UI/effect dependency gate rather
     // than falling back to a headless "root missing" path.
     {
-        const auto root = find_e2e_playdh_root(cli.map_exe);
+        std::filesystem::path root;
+        try {
+            root = find_e2e_playdh_root(cli.map_exe);
+        } catch (const std::runtime_error& error) {
+            LOG("%s", error.what());
+            return 3;
+        }
         if (!root.empty()) {
             engine.SetPlaydhRoot(root);
             LOG("using explicit PlayDH root: %s",

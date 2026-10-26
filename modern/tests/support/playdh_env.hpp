@@ -1,18 +1,21 @@
 #pragma once
 
 // Test-only PlayDH location. Production code must not include this header.
+// MoxianClientE2E is a test harness and may include it.
 //
 // MXH_PLAYDH_ROOT, when set, is the PlayDH root and replaces every upward
 // search. Unset leaves the caller's existing walk unchanged.
 // Set but empty, missing, or not a directory fails with a message that names
 // MXH_PLAYDH_ROOT and the path (callers are test helpers; the exception
-// fails the test).
+// fails the test). The value is never treated as optional: a bad setting
+// does not fall through to the upward search.
 
 #include <cstdlib>
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace mxh::test {
 
@@ -36,6 +39,72 @@ inline std::optional<std::filesystem::path> playdh_dir_from_env_value(const char
 // PlayDH root from MXH_PLAYDH_ROOT, or nullopt when the variable is unset.
 inline std::optional<std::filesystem::path> playdh_dir_override() {
     return playdh_dir_from_env_value(std::getenv(kPlayDhRootEnv));
+}
+
+// MoxianClientE2E marker search. `ec` is the same error_code the historical
+// walk passed to weakly_canonical after current_path/absolute.
+inline std::filesystem::path find_marked_e2e_playdh_root(
+    const std::vector<std::filesystem::path>& bases,
+    std::error_code& ec) {
+    for (const auto& candidate_base : bases) {
+        for (const auto& root : {
+                 candidate_base / "modern" / "data" / "PlayDH",
+                 candidate_base / "data" / "PlayDH"}) {
+            if (std::filesystem::exists(root / "Resource" / "Server") &&
+                std::filesystem::exists(root / "Image" / "InterfaceScript")) {
+                return std::filesystem::weakly_canonical(root, ec);
+            }
+        }
+    }
+    return {};
+}
+
+inline std::filesystem::path canonical_playdh_override(const std::filesystem::path& path) {
+    std::error_code ec;
+    const auto canonical = std::filesystem::weakly_canonical(path, ec);
+    if (!ec && !canonical.empty()) return canonical;
+    return path;
+}
+
+// `env_value` nullptr keeps the marker search over `bases`. Any other value
+// is the only candidate: empty, missing, or not a directory throws and does
+// not consult `bases`.
+inline std::filesystem::path resolve_e2e_playdh_root(
+    const char* env_value,
+    const std::vector<std::filesystem::path>& bases) {
+    if (const auto override_dir = playdh_dir_from_env_value(env_value)) {
+        return canonical_playdh_override(*override_dir);
+    }
+    std::error_code ec;
+    return find_marked_e2e_playdh_root(bases, ec);
+}
+
+// Upward search used when MXH_PLAYDH_ROOT is unset. cwd first, then eight
+// parents of the map executable. Either base may hold modern/data/PlayDH
+// or data/PlayDH, and both marker directories must exist.
+inline std::filesystem::path search_e2e_playdh_from_map_exe(
+    const std::filesystem::path& map_exe) {
+    std::error_code ec;
+    std::vector<std::filesystem::path> bases;
+    bases.push_back(std::filesystem::current_path(ec));
+    auto base = std::filesystem::absolute(map_exe, ec).parent_path();
+    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
+        bases.push_back(base);
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    return find_marked_e2e_playdh_root(bases, ec);
+}
+
+// Live MXH_PLAYDH_ROOT, read only through playdh_dir_override(). A set value
+// that is not an existing directory throws before the upward search.
+inline std::filesystem::path find_e2e_playdh_root_from_map_exe(
+    const std::filesystem::path& map_exe) {
+    if (const auto override_dir = playdh_dir_override()) {
+        return canonical_playdh_override(*override_dir);
+    }
+    return search_e2e_playdh_from_map_exe(map_exe);
 }
 
 }  // namespace mxh::test
