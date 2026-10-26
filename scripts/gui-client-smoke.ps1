@@ -1,4 +1,26 @@
-﻿[CmdletBinding()]
+﻿<#
+.SYNOPSIS
+  GUI client smoke against the modern login/agent/map stack.
+
+.DESCRIPTION
+  Default (no -EphemeralLocalServer): unchanged. This script calls
+  deploy/scripts/start_modern.ps1, which only mutates servers on VM112.
+
+  -EphemeralLocalServer: do not call start_modern.ps1. This script starts
+  login/agent/map itself, loopback only, sqlite only, and stops those PIDs
+  when the run ends. Requires PowerShell 7 (Start-Process -Environment,
+  same as start_modern.ps1).
+
+  ROG example:
+    pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\gui-client-smoke.ps1 -EphemeralLocalServer -BuildDir modern\build
+
+  Safety rules live in gui-client-smoke-ephemeral.ps1. Client exit-code
+  handling is unchanged (any non-zero, including 4, fails the smoke).
+  MXH_GUI_SMOKE_RENDER_ENTITIES is still set here. MXH_FOG_DISABLE,
+  MXH_STM_LIGHTING and other render variables already in the process are
+  inherited by the client. --resource-root is still passed.
+#>
+[CmdletBinding()]
 param(
     [string]$BuildDir = '',
     [ValidateSet('Debug', 'Release')]
@@ -17,10 +39,17 @@ param(
     [switch]$ExerciseMovement,
     # Opt out of MXH_GUI_SMOKE_RENDER_ENTITIES. This script always sets
     # MXH_GUI_SMOKE_EXIT=1, so -NoEntities leaves the entity list empty.
-    [switch]$NoEntities
+    [switch]$NoEntities,
+    # Loopback-only throwaway login/agent/map. Does not call start_modern.ps1.
+    [switch]$EphemeralLocalServer
 )
 
 $ErrorActionPreference = 'Stop'
+if ($EphemeralLocalServer) {
+    # First line of script output. Also written to ephemeral.log below.
+    Write-Output 'server=local-ephemeral'
+    . (Join-Path $PSScriptRoot 'gui-client-smoke-ephemeral.ps1')
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
@@ -37,6 +66,18 @@ $runId = [Guid]::NewGuid().ToString('N')
 $runRoot = Join-Path $buildRoot "runtime\gui-smoke\$runId"
 $logDir = Join-Path $runRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$ephemeralLog = $null
+$ephemeralServerPids = [System.Collections.Generic.List[int]]::new()
+$ephemeralDbDirectory = $null
+$ephemeralSpec = $null
+$ephemeralCleanupFailed = $false
+$ephemeralCleanupLine = $null
+$ephemeralPreviousDatabaseConfig = $null
+$ephemeralDatabaseConfigTouched = $false
+if ($EphemeralLocalServer) {
+    $ephemeralLog = Join-Path $logDir 'ephemeral.log'
+    Set-Content -LiteralPath $ephemeralLog -Value 'server=local-ephemeral' -Encoding utf8NoBOM
+}
 $stdout = Join-Path $logDir 'client.out.log'
 $stderr = Join-Path $logDir 'client.err.log'
 $characterName = 'GUI' + $runId.Substring(0, 10)
@@ -61,6 +102,45 @@ $previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
 $previousGuiSmokeMovement = $env:MXH_GUI_SMOKE_MOVEMENT
 
 try {
+    $arguments = @(
+        '--login-host', '127.0.0.1',
+        '--login-port', '16001',
+        '--map-port', '18001',
+        '--username', 'test',
+        '--password-env', 'MXH_GUI_SMOKE_PASSWORD',
+        '--auto-login',
+        '--auto-create',
+        '--character-name', $characterName,
+        '--save-frame', $frame,
+        '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
+        '--smoke-settle-frames', '20',
+        '--exit-after-gamein',
+        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
+    )
+    if ($FollowCamera) { $arguments += '--follow-camera' }
+    if ($EphemeralLocalServer) {
+        # Safety gate before any process, including the optional python audit.
+        $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot
+        $mapExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe'
+        $agentExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianAgentServer' -FileName 'mxh_agent_server_CHINA.exe'
+        $loginExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianLoginServer' -FileName 'mxh_login_server.exe'
+        $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+        if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+            $dbTool = Join-Path $buildRoot ("tools\MoxianDbTool\$Configuration\mxh_db_tool.exe")
+        }
+        if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+            throw "Missing database tool required for isolated GUI smoke: $dbTool"
+        }
+        $plannedDbDirectory = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+        $ephemeralSpec = New-EphemeralServerLaunchSpec `
+            -MapExecutable $mapExe -AgentExecutable $agentExe -LoginExecutable $loginExe `
+            -MapNumber $MapNumber `
+            -ResourceRoot $layout.ResourceRoot -ServerResourceRoot $layout.ServerResourceRoot `
+            -ResourceProfileId $layout.ResourceProfileId `
+            -DatabaseDirectory $plannedDbDirectory `
+            -ProcessEnvironment (Copy-EphemeralProcessEnvironment) `
+            -ClientArguments $arguments
+    }
     if ($AuditMapDependencies) {
         $dependencyAudit = Join-Path $repoRoot 'modern\tools\audit_map_dependencies.py'
         $dependencyOutput = Join-Path $runRoot 'map-dependencies.txt'
@@ -70,15 +150,49 @@ try {
             throw "GUI smoke static map dependency gate failed for Map $MapNumber; report=$dependencyOutput"
         }
     }
-    & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
-    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
-    if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
-        $dbTool = Join-Path $buildRoot ("tools\MoxianDbTool\$Configuration\mxh_db_tool.exe")
+    if ($EphemeralLocalServer) {
+        New-Item -ItemType Directory -Force -Path $ephemeralSpec.DatabaseDirectory | Out-Null
+        $ephemeralDbDirectory = $ephemeralSpec.DatabaseDirectory
+        if ($ephemeralLog) {
+            foreach ($item in @($ephemeralSpec.Processes)) {
+                Add-Content -LiteralPath $ephemeralLog -Value "$($item.Name): $($item.Executable) $($item.Arguments -join ' ')" -Encoding utf8
+            }
+        }
+        $ephemeralPreviousDatabaseConfig = [Environment]::GetEnvironmentVariable('MXH_DATABASE_CONFIG', 'Process')
+        [Environment]::SetEnvironmentVariable('MXH_DATABASE_CONFIG', $ephemeralSpec.DatabaseConfig, 'Process')
+        $ephemeralDatabaseConfigTouched = $true
+        & $dbTool migrate --db-env MXH_DATABASE_CONFIG
+        if ($LASTEXITCODE -ne 0) { throw "ephemeral database migration failed with exit code $LASTEXITCODE" }
+        foreach ($item in @($ephemeralSpec.Processes)) {
+            $serverStdout = Join-Path $logDir "$($item.Name).out.log"
+            $serverStderr = Join-Path $logDir "$($item.Name).err.log"
+            $procEnv = Copy-EphemeralEnvironmentForProcess -Source $ephemeralSpec.Environment -ProcessName $item.Name
+            $serverProcess = Start-Process -FilePath $item.Executable -ArgumentList @($item.Arguments) `
+                -WorkingDirectory (Split-Path -Parent $item.Executable) `
+                -RedirectStandardOutput $serverStdout -RedirectStandardError $serverStderr `
+                -PassThru -WindowStyle Hidden -Environment $procEnv
+            [void]$ephemeralServerPids.Add([int]$serverProcess.Id)
+            Start-Sleep -Milliseconds 500
+            if ($serverProcess.HasExited) { throw "$($item.Name) exited during startup (see $serverStderr)" }
+        }
+        Start-Sleep -Seconds 1
+        foreach ($item in @($ephemeralSpec.Processes)) {
+            if (-not (Test-EphemeralLoopbackPort -Port ([int]$item.Port))) {
+                throw "ephemeral server port is not healthy: $($item.Port)"
+            }
+        }
+        $dbConfig = $ephemeralSpec.RegisterDatabaseArgument
+    } else {
+        & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
+        $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+        if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+            $dbTool = Join-Path $buildRoot ("tools\MoxianDbTool\$Configuration\mxh_db_tool.exe")
+        }
+        if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+            throw "Missing database tool required for isolated GUI smoke: $dbTool"
+        }
+        $dbConfig = 'sqlite;path=' + (Join-Path $dataRoot 'moxian.db')
     }
-    if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
-        throw "Missing database tool required for isolated GUI smoke: $dbTool"
-    }
-    $dbConfig = 'sqlite;path=' + (Join-Path $dataRoot 'moxian.db')
     # PowerShell's native stdin pipeline can encode the string as UTF-16 on
     # some hosts, which makes the DB tool receive embedded NULs and reject an
     # otherwise valid password.  Use an explicit ASCII fixture and redirect
@@ -110,22 +224,9 @@ try {
         & $dbTool exec --db $dbConfig $equipmentSchemaSql
         if ($LASTEXITCODE -ne 0) { throw "GUI smoke equipment schema setup failed" }
     }
-    $arguments = @(
-        '--login-host', '127.0.0.1',
-        '--login-port', '16001',
-        '--map-port', '18001',
-        '--username', 'test',
-        '--password-env', 'MXH_GUI_SMOKE_PASSWORD',
-        '--auto-login',
-        '--auto-create',
-        '--character-name', $characterName,
-        '--save-frame', $frame,
-        '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
-        '--smoke-settle-frames', '20',
-        '--exit-after-gamein',
-        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
-    )
-    if ($FollowCamera) { $arguments += '--follow-camera' }
+    # Client keeps the ambient environment so MXH_GUI_SMOKE_RENDER_ENTITIES,
+    # MXH_FOG_DISABLE, MXH_STM_LIGHTING and --resource-root (in $arguments)
+    # still reach mxh_client.exe. Do not pass -Environment on this Start-Process.
     $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
     $env:MXH_GUI_SMOKE_EXIT = '1'
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
@@ -329,5 +430,25 @@ finally {
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }
-    & $serverScript -Mode stop
+    if ($EphemeralLocalServer) {
+        if ($ephemeralDatabaseConfigTouched) {
+            if ($null -eq $ephemeralPreviousDatabaseConfig) {
+                Remove-Item Env:MXH_DATABASE_CONFIG -ErrorAction SilentlyContinue
+            } else {
+                [Environment]::SetEnvironmentVariable('MXH_DATABASE_CONFIG', $ephemeralPreviousDatabaseConfig, 'Process')
+            }
+        }
+        $recordedPids = $ephemeralServerPids.ToArray()
+        $ephemeralCleanup = Invoke-EphemeralLocalCleanup -ProcessIds $recordedPids `
+            -DatabaseDirectory $ephemeralDbDirectory -LogFile $ephemeralLog
+        if (-not $ephemeralCleanup.Ok) {
+            $ephemeralCleanupFailed = $true
+            $ephemeralCleanupLine = $ephemeralCleanup.Line
+        }
+    } else {
+        & $serverScript -Mode stop
+    }
+}
+if ($ephemeralCleanupFailed) {
+    throw "ephemeral cleanup verification failed: $ephemeralCleanupLine"
 }
