@@ -45,6 +45,11 @@ param(
 
     [switch]$FollowCamera,
 
+    # Opt out of MXH_GUI_SMOKE_RENDER_ENTITIES. This script always sets
+    # MXH_GUI_SMOKE_EXIT=1, so -NoEntities leaves monsters, NPCs and the
+    # player out of the Map frame.
+    [switch]$NoEntities,
+
     [string]$CharacterName = '',
 
     [string]$CharacterNamePrefix = 'HA',
@@ -96,7 +101,28 @@ $prevRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
 $env:MXH_GUI_SMOKE_PASSWORD = $Password
 $env:MXH_GUI_SMOKE_EXIT = '1'
 $env:MXH_STATE_FRAMES_DIR = $FramesDir
-if ($FollowCamera) { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1' }
+# EXIT=1 skips the entity list unless RENDER_ENTITIES=1. Default on so
+# Map frames are not empty of monsters, NPCs and the player.
+if ($NoEntities) {
+    Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue
+} else {
+    $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1'
+}
+$entitiesEnabled = -not $NoEntities
+if ($NoEntities) {
+    Write-Warning "Entity rendering disabled (-NoEntities). Map screenshots omit monsters, NPCs and the player."
+}
+$captureMeta = [ordered]@{
+    in_game_map = $true
+    map_number = $MapNumber
+    frame = "map$MapNumber.tga"
+    entities_enabled = [bool]$entitiesEnabled
+    entities_opt_out_requested = [bool]$NoEntities
+    mxh_gui_smoke_exit = '1'
+    mxh_gui_smoke_render_entities = $(if ($entitiesEnabled) { '1' } else { '' })
+}
+$captureMeta | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $FramesDir 'capture-metadata.json') -Encoding utf8
+Write-Host "entities_enabled=$entitiesEnabled"
 
 $clientOutLog = Join-Path $FramesDir 'client.out.log'
 $clientErrLog = Join-Path $FramesDir 'client.err.log'

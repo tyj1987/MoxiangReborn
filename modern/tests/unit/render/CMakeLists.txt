@@ -122,6 +122,17 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
     FilesystemFileStorage.MountsOriginalMapPack
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
+    FilesystemFileStorage.WarnsAndSkipsPakThatFailsToOpen
+    FilesystemFileStorage.DefaultPakTierOrderIsPlayDhThenOriginal
+    FilesystemFileStorage.ClassifiesPakByOffset4
+    FilesystemFileStorage.PakTierOrderFollowsConfiguredPriority
+    FilesystemFileStorage.CaseOnlyNameTieBreakIsRawBytes
+    FilesystemFileStorage.ResolvesSameEntryByPakNameOrder
+    FilesystemFileStorage.LooseFileOverridesMountedPaks
+    FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes
+    FilesystemFileStorage.CrossTierResolutionFollowsConfiguredPriority
+    FilesystemFileStorage.Utf8PakNameSortAndLogAreStable
+    FilesystemFileStorage.SkipsPakShorterThanEightBytes
     EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
     EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
     EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder
