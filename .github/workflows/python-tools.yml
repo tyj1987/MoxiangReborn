@@ -6,8 +6,7 @@
 #   paths 与该 job 的 changes（锚点 python_tooling_changes）同一组，并加上本文件。
 #   GitLab 写成 modern/tools/**/* 与 modern/tests/unit/tools/**/*；
 #   GitHub 用 ** 即可匹配子目录。
-# - 镜像：.linux_trusted 的 python:3.12-alpine3.22
-#   （GitLab 另钉 sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322）。
+# - 镜像与 .linux_trusted 的 image 字段逐字相同，含 digest。
 # - 该 job 没有 before_script，也没有依赖安装。下面测试步骤的四条命令与 script 逐字一致。
 # - 顶层 variables PYTHONDONTWRITEBYTECODE=1、GIT_LFS_SKIP_SMUDGE=1 在此 job 同样设置。
 # - Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
@@ -32,7 +31,7 @@ jobs:
   original_governance_and_python_tests:
     runs-on: ubuntu-latest
     container:
-      image: python:3.12-alpine3.22
+      image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
     defaults:
       run:
         shell: sh
@@ -43,6 +42,9 @@ jobs:
       - name: Checkout pull request merge ref
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           apk add --no-cache git ca-certificates
           git init
