@@ -1,16 +1,32 @@
-# 与 GitLab CI job `original_governance_and_python_tests` 保持同步（见 .gitlab-ci.yml）。
-# 改脚本、镜像或 paths 时，两边一起改。
+# 与 GitLab CI 保持同步（见 .gitlab-ci.yml）。改脚本、镜像或 paths 时，两边一起改。
 #
-# 对应关系：
-# - 触发：pull_request 且目标分支为 codex/reorg-original-20261009。
+# original_governance_and_python_tests
+# - pull_request 且目标分支为 codex/reorg-original-20261009。
 #   paths 与该 job 的 changes（锚点 python_tooling_changes）同一组，并加上本文件。
-#   GitLab 写成 modern/tools/**/* 与 modern/tests/unit/tools/**/*；
-#   GitHub 用 ** 即可匹配子目录。
+#   GitLab 写成 **/*；GitHub 用 ** 即可匹配子目录。
+# - push 到 codex/reorg-original-20261009 没有 paths 过滤，对应
+#   CI_COMMIT_BRANCH == 该分支时无 changes 也会跑。
 # - 镜像与 .linux_trusted 的 image 字段逐字相同，含 digest。
-# - 该 job 没有 before_script，也没有依赖安装。下面测试步骤的四条命令与 script 逐字一致。
-# - 顶层 variables PYTHONDONTWRITEBYTECODE=1、GIT_LFS_SKIP_SMUDGE=1 在此 job 同样设置。
-# - Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
-#   只在容器里装 git 拉下 PR 的 merge ref。这不是 GitLab script 的一部分。
+# - 该 job 没有 before_script。测试步骤的命令与 script 逐字一致。
+# - 顶层 variables PYTHONDONTWRITEBYTECODE=1、GIT_LFS_SKIP_SMUDGE=1 同样设置。
+#
+# original_resource_reference_warn
+# - GitLab rules：该分支的流水线，以及目标分支为该分支的 merge request。没有 changes 过滤。
+#   GitHub 的 pull_request.paths 作用到整个 workflow，不能只过滤其中一个 job，
+#   所以 pull_request 上这个 job 与上面的 paths 一起触发。
+#   push 到 codex/reorg-original-20261009 没有 paths 过滤，对应 CI_COMMIT_BRANCH 规则。
+# - 镜像同样钉 .linux_trusted 的 digest。命令与 script 逐字一致。
+# - 该 job 没有 allow_failure。只警告来自工具：未设置 MXH_RESOURCE_REF_STRICT 时
+#   check 的退出码为 0；MXH_RESOURCE_REF_STRICT=1 或 --strict 才把缺失或无结论变成失败。
+#   这里不设置该变量，也不使用 continue-on-error。continue-on-error 会把 unittest 失败
+#   一并放过去，和 GitLab 不一致。GitLab 若写成 allow_failure: true，才对应
+#   continue-on-error: true。
+# - GitLab artifacts / codequality 不在这里上传：job 在 Alpine 容器内，不能跑
+#   需要 glibc Node 的 upload-artifact。
+#
+# Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
+# 只在容器里装 git。pull_request 拉 merge ref；push 按 GITHUB_SHA 取本次提交，
+# 避免连续合并时拉到分支尖上后一个提交。这不是 GitLab script 的一部分。
 
 name: original_governance_and_python_tests
 
@@ -23,6 +39,9 @@ on:
       - scripts/check-project-governance.py
       - .gitlab-ci.yml
       - .github/workflows/python-tools.yml
+      - reference/manifests/**
+  push:
+    branches: [codex/reorg-original-20261009]
 
 permissions:
   contents: read
@@ -53,9 +72,16 @@ jobs:
           askpass=$(mktemp)
           printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
           chmod 700 "$askpass"
-          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
-          rm -f "$askpass"
-          git checkout --detach refs/remotes/origin/pr
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
 
       - name: original_governance_and_python_tests
         run: |
@@ -63,3 +89,45 @@ jobs:
           python3 scripts/check-project-governance.py
           python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
           python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+
+  original_resource_reference_warn:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
+    defaults:
+      run:
+        shell: sh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          apk add --no-cache git ca-certificates
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: original_resource_reference_warn
+        run: |
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+          python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
