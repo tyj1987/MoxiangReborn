@@ -12,8 +12,9 @@ Where each step runs
   ``reference/manifests/original-resource-references.json``. It does not copy
   game bytes into the repo.
 * ``check`` runs in CI and on any checkout. It compares that manifest to the
-  checkout. Until ``derive`` has been run, the result is ``no conclusion``
-  and is never reported as a pass.
+  checkout. A derivation that has not been run is ``no conclusion``. A
+  derivation whose status is ``partial`` is a partial conclusion. Neither
+  is reported as a pass.
 
 Categories
 ----------
@@ -22,8 +23,10 @@ Categories
 * ``referencedButNoOriginalFile`` — the original data names the file, but no
   original bytes exist. Informational, not a defect. Known members include
   Map17 ``tile_17_mou_a_01..09.tga``, ``test4`` and ``Monster_203.bin``.
-* ``no conclusion`` — derivation has not been run, a container could not be
-  parsed, or a checkout file is only a Git LFS pointer. Never a pass.
+* ``partial`` — ``derive`` recorded status partial. Warned, never a pass.
+  Unparsed containers are still listed under no conclusion.
+* ``no conclusion`` — derivation has not been run, or a checkout file is
+  only a Git LFS pointer. Never a pass.
 
 Height fields 0, 4, 23, 24, 32, 33, 34, 94 and tile tables 0, 3, 4, 23, 24,
 32, 33, 34, 94, 198 are not referenced by the original and are never reported
@@ -365,17 +368,26 @@ def _iter_files(root: Path):
             yield Path(directory) / filename
 
 
-def _read_pak_entries(pak_path: Path) -> tuple[int, list]:
-    """Walk a pak to EOF. The header count is not the stopping condition.
+def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
+    """Return the offset-4 field and the entries of the one valid layout.
 
-    The worktree PlayDH/Map.pak header says 4192 entries. The original
-    D:/MX/client/Package/3DData/Map.pak continues to EOF and reads 11267
-    entries. ``walk_entries`` already stops on an invalid layout; passing a
-    high cap lets that EOF walk finish.
+    ``unpack_pak.read_entries`` walks both layouts and keeps the single walk
+    that ends at EOF.  92-byte PlayDH: count is the uint32 at offset 4,
+    entries start at 92.  96-byte original: count is the uint32 at offset
+    92, entries start at 96.  Original Map.pak stores 0 at offset 4 and the
+    real count (11267) at offset 92.  Both layouts, or neither, prints one
+    ERROR line naming the pak and the caller skips it.  The count passed to
+    the walker is the layout's own field, never an inflated cap.
     """
-    _header, _version, header_count, _flag = unpack_pak.parse_pak(str(pak_path))
-    entries = list(unpack_pak.walk_entries(str(pak_path), max(int(header_count), 1_000_000)))
-    return int(header_count), entries
+    try:
+        _kind, offset4, _declared, entries = unpack_pak.read_entries(str(pak_path))
+    except (OSError, ValueError, struct.error) as exc:
+        detail = str(exc)
+        if str(pak_path) not in detail:
+            detail = f"{pak_path}: {detail}"
+        print(f"ERROR: {detail}", file=sys.stderr)
+        return None
+    return int(offset4), entries
 
 
 def _pak_bytes(pak_path: Path, entry) -> bytes:
@@ -420,15 +432,17 @@ def _build_source_index(source: Path | None, pak: Path | None) -> tuple[_BlobInd
     if pak:
         if is_lfs_pointer(pak):
             raise ValueError(f"refusing to derive references from a Git LFS pointer: {pak}")
-        header_count, entries = _read_pak_entries(pak)
-        pak_info["headerEntries"] = header_count
-        pak_info["entriesReadToEof"] = len(entries)
-        for entry in entries:
-            index.add(entry.canonical_name, None, None)
-            index.add(entry.name, None, None)
-        # Keep entry objects so referenced containers can be loaded once.
-        pak_info["entries"] = entries
-        pak_info["pakPath"] = pak
+        read = _read_pak_entries(pak)
+        if read is not None:
+            header_count, entries = read
+            pak_info["headerEntries"] = header_count
+            pak_info["entriesReadToEof"] = len(entries)
+            for entry in entries:
+                index.add(entry.canonical_name, None, None)
+                index.add(entry.name, None, None)
+            # Keep entry objects so referenced containers can be loaded once.
+            pak_info["entries"] = entries
+            pak_info["pakPath"] = pak
     return index, pak_info
 
 
@@ -572,10 +586,10 @@ def _checkout_index(root: Path) -> tuple[set[str], set[str]]:
             continue
         present.add(key)
         if path.suffix.casefold() == ".pak":
-            try:
-                _header_count, entries = _read_pak_entries(path)
-            except (OSError, ValueError, struct.error):
+            read = _read_pak_entries(path)
+            if read is None:
                 continue
+            _header_count, entries = read
             for entry in entries:
                 present.add(_casefold_name(entry.canonical_name))
     return present, pointers
@@ -608,12 +622,20 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
             "defect": False,
         })
 
-    if status != "complete":
+    if status == "not-run":
         no_conclusion.append({
             "name": "",
             "reason": (
                 "original .map/.stm derivation has not been completed on the machine "
                 "that has the original files; no conclusion, not a pass"
+            ),
+        })
+    elif status not in {"complete", "partial"}:
+        no_conclusion.append({
+            "name": "",
+            "reason": (
+                f"original .map/.stm derivation status {status!r} is not complete; "
+                "no conclusion, not a pass"
             ),
         })
     for item in derivation.get("unparsed") or []:
@@ -664,7 +686,9 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
     for name in known:
         add_no_original(name, "known referenced-by-original name; no original file exists")
 
-    if no_conclusion:
+    if status == "partial":
+        conclusion = "partial"
+    elif no_conclusion:
         conclusion = "no conclusion"
     elif missing:
         conclusion = "warnings"
@@ -733,6 +757,8 @@ def warning_lines(report: dict) -> list[str]:
     lines: list[str] = []
     if report["conclusion"] == "no conclusion":
         lines.append("resource reference check has no conclusion; this is not a pass")
+    elif report["conclusion"] == "partial":
+        lines.append("resource reference check is partial; this is not a pass")
     for row in report["missing"]:
         lines.append(f"missing referenced resource {row['name']}")
     for row in report["noConclusion"]:
