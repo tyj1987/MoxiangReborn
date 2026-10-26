@@ -12,7 +12,7 @@
 
 ## 当前状态校准（2026-10-19）
 
-原版资源与代码验证基线为 `dda3a2ea442796f6477b6dd5eb85a381e992ccc2`；最新部署与打包门禁已在该提交绑定，启动前资源预检已在 VM112 独立 stage 复核并于缺失 `Monster_203.bin` 前置阻断。精确资源阻塞以最新回执为准：HFL 22、TTB 18、Map17 使用纹理 9，Map203 服务端 `Monster_203.bin` 1；Map203 的 161 个准确纹理已由同源原始包准入，依赖审计 0 缺失；但真实服务启动又确认 `Resource/Server/Monster_203.bin` 缺失，运行门禁仍阻塞，回执见 `docs/evidence/original-map203-runtime-resource-gate-20261017.json` 与最新启动前预检回执 `docs/evidence/original-map203-runtime-resource-gate-20261019-r2.json`；精确来源扫描见 `docs/evidence/original-monster203-source-scan-20261019.json`。当前提交还完成了 VM112 真实 MSSQL Map10→Map12 切图、Map12 新会话和地图号持久化，回执见 `docs/evidence/original-pve-mapchange-current-20261019.json`；资源镜像回执见 `docs/evidence/original-vm112-resource-mirror-gate-20261019.json`。本文以下历史段落不覆盖当前数量和提交绑定。
+原版资源与代码验证基线为 `dda3a2ea442796f6477b6dd5eb85a381e992ccc2`；最新部署与打包门禁已在该提交绑定，启动前资源预检已在 VM112 独立 stage 复核并于缺失 `Monster_203.bin` 前置阻断。精确资源阻塞以最新回执为准：当时写作 HFL 22、TTB 18、Map17 使用纹理 9，Map203 服务端 `Monster_203.bin` 1。2026-10-24 更正：HFL 0、4、23、24、32、33、34、94 与 TTB 0、3、4、23、24、32、33、34、94、198 未被原版引用，不再作为缺失列表；Map17 九张纹理是 `.tga` 且原文件不存在，连同 `Monster_203.bin` 只作信息，不另造新的 22/18 合计。Map203 的 161 个准确纹理已由同源原始包准入，依赖审计 0 缺失；但真实服务启动又确认 `Resource/Server/Monster_203.bin` 缺失，运行门禁仍阻塞，回执见 `docs/evidence/original-map203-runtime-resource-gate-20261017.json` 与最新启动前预检回执 `docs/evidence/original-map203-runtime-resource-gate-20261019-r2.json`；精确来源扫描见 `docs/evidence/original-monster203-source-scan-20261019.json`。当前提交还完成了 VM112 真实 MSSQL Map10→Map12 切图、Map12 新会话和地图号持久化，回执见 `docs/evidence/original-pve-mapchange-current-20261019.json`；资源镜像回执见 `docs/evidence/original-vm112-resource-mirror-gate-20261019.json`。本文以下历史段落不覆盖当前数量和提交绑定。
 
 ## 2026-10-15 当前源码阶段回执：原版商店链已在 PVE 闭合
 

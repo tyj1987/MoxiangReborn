@@ -204,11 +204,12 @@
       "bytes": 1135536849,
       "parsedEntries": 0,
       "exactEntryMatches": 0,
-      "note": "different package header; retained as unparsed candidate"
+      "note": "different package header; retained as unparsed candidate. parsedEntries 0 is a header-count stop, not proof the archive is empty: this original pak reads 11267 entries to EOF."
     }
   ],
   "tool": "modern/tools/unpack_pak.py walk_entries",
-  "decision": "No exact Map17 or Map203 texture entry was found; no copy, rename, substitution, or admission performed.",
+  "decision": "No exact Map17 or Map203 texture entry was found; no copy, rename, substitution, or admission performed. See extensionAndPakCorrection: the Map17 targets were .dds, and the original D:/MX pak was left unparsed at header count.",
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): this search used the wrong extension (.dds). Map17's original HFL references tile_17_mou_a_01..09.tga. It also used the wrong pak: the worktree PlayDH/Map.pak, whose header has 4192 entries, not the original D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. The original pak row above has parsedEntries 0 because walk_entries stopped on the header; that is not an empty archive. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect.",
   "releaseReady": false,
   "remainingExactBlockers": {
     "map17MissingUsedTextures": 9,
