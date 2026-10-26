@@ -20,7 +20,7 @@ target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_audio mxh_game gte
 
 include(GoogleTest)
 
-# MXH_PLAYDH_DIR contract. Header-only; no game data and no Win32.
+# MXH_PLAYDH_ROOT contract. Header-only; no game data and no Win32.
 add_executable(mxh_playdh_env_tests
     playdh_env_test.cpp
 )

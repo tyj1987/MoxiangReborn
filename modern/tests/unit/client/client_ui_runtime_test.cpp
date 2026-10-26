@@ -273,9 +273,6 @@ TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
 
 std::filesystem::path find_playdh_root() {
     if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    if (const char* configured = std::getenv("MXH_PLAYDH_ROOT")) {
-        return std::filesystem::path(configured);
-    }
     std::filesystem::path cursor = std::filesystem::current_path();
     for (int depth = 0; depth < 8; ++depth) {
         const auto candidate = cursor / "modern" / "data" / "PlayDH";

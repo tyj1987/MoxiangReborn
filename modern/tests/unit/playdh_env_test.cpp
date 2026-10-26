@@ -24,17 +24,17 @@ TEST(PlayDhEnv, UnsetValueLeavesSearchToTheCaller) {
     EXPECT_FALSE(mxh::test::playdh_dir_from_env_value(nullptr).has_value());
 }
 
-TEST(PlayDhEnv, EmptyValueNamesTheVariable) {
+TEST(PlayDhEnv, EmptyValueNamesTheVariableAndPath) {
     const auto message = message_of("");
-    EXPECT_NE(message.find("MXH_PLAYDH_DIR"), std::string::npos);
-    EXPECT_NE(message.find("empty"), std::string::npos);
+    EXPECT_NE(message.find("MXH_PLAYDH_ROOT"), std::string::npos);
+    EXPECT_NE(message.find("\"\""), std::string::npos);
 }
 
 TEST(PlayDhEnv, MissingDirectoryNamesTheVariableAndPath) {
-    const char* missing = "/tmp/mxh-playdh-dir-does-not-exist";
+    const char* missing = "/tmp/mxh-playdh-root-does-not-exist";
     std::filesystem::remove_all(missing);
     const auto message = message_of(missing);
-    EXPECT_NE(message.find("MXH_PLAYDH_DIR"), std::string::npos);
+    EXPECT_NE(message.find("MXH_PLAYDH_ROOT"), std::string::npos);
     EXPECT_NE(message.find(missing), std::string::npos);
 }
 
@@ -46,7 +46,8 @@ TEST(PlayDhEnv, FilePathIsNotADirectory) {
     }
     const auto message = message_of(file.string().c_str());
     std::filesystem::remove(file);
-    EXPECT_NE(message.find("MXH_PLAYDH_DIR"), std::string::npos);
+    EXPECT_NE(message.find("MXH_PLAYDH_ROOT"), std::string::npos);
+    EXPECT_NE(message.find(file.string()), std::string::npos);
 }
 
 TEST(PlayDhEnv, ExistingDirectoryIsUsed) {
@@ -60,7 +61,7 @@ TEST(PlayDhEnv, ExistingDirectoryIsUsed) {
 }
 
 TEST(PlayDhEnv, ProcessEnvironmentMatchesValueParser) {
-    const char* env = std::getenv(mxh::test::kPlayDhDirEnv);
+    const char* env = std::getenv(mxh::test::kPlayDhRootEnv);
     if (env == nullptr) {
         EXPECT_FALSE(mxh::test::playdh_dir_override().has_value());
         return;
@@ -75,8 +76,9 @@ TEST(PlayDhEnv, ProcessEnvironmentMatchesValueParser) {
     }
     try {
         mxh::test::playdh_dir_override();
-        FAIL() << "MXH_PLAYDH_DIR was set to a missing directory and did not fail";
+        FAIL() << "MXH_PLAYDH_ROOT was set to a missing directory and did not fail";
     } catch (const std::runtime_error& error) {
-        EXPECT_NE(std::string(error.what()).find("MXH_PLAYDH_DIR"), std::string::npos);
+        EXPECT_NE(std::string(error.what()).find("MXH_PLAYDH_ROOT"), std::string::npos);
+        EXPECT_NE(std::string(error.what()).find(env), std::string::npos);
     }
 }

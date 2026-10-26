@@ -73,9 +73,6 @@ namespace {
 
 fs::path resolvePlayDHRoot() {
     if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
-        return fs::path(env);
-    }
     #ifdef MXH_PLAYDH_ROOT_TS
     return fs::path(MXH_PLAYDH_ROOT_TS);
     #endif
@@ -83,8 +80,8 @@ fs::path resolvePlayDHRoot() {
     //   C:\moxiang\modern\data\PlayDH
     // 老位置 (M-R2 之前用, 现已废弃):
     //   C:\moxiang\墨香【源码配套资源】/PlayDH
-    // Test 1-9 默认走 modern/data, 但允许 MXH_PLAYDH_ROOT env var 覆盖
-    // (CI / portable run 也能用).
+    // Test 1-9 默认走 modern/data. MXH_PLAYDH_ROOT is read once in
+    // mxh::test::playdh_dir_override().
     std::error_code ec;
     auto current = fs::absolute(fs::current_path(ec), ec);
     for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
