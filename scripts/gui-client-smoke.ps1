@@ -333,14 +333,15 @@ try {
         throw "GUI client exited with code $exitCode; log=$stderr"
     }
     $log = Get-Content -LiteralPath $stderr -Raw
+    # MXH_FOG_DISABLE=1 skips EnableFog and logs "FOG diag bypass".
+    # The BMHM load line "map fog enabled ... (from BMHM)" is printed either way.
+    $fogBypassActive = Test-GuiSmokeFogBypassActive $log
     if ($env:MXH_FOG_DISABLE -eq '1') {
-        # MXH_FOG_DISABLE=1 skips EnableFog at draw time and logs
-        # "FOG diag bypass". The load line "map fog enabled ... (from BMHM)"
-        # is still emitted from the map descriptor, so its presence is not
-        # evidence that the bypass failed.
-        if (-not (Test-GuiSmokeFogBypassActive $log)) {
+        if (-not $fogBypassActive) {
             throw "GUI smoke MXH_FOG_DISABLE=1 did not reach the client (missing FOG diag bypass); log=$stderr"
         }
+    } elseif ($fogBypassActive) {
+        throw "GUI smoke fog is on but the client logged FOG diag bypass (MXH_FOG_DISABLE=1); log=$stderr"
     }
     if ($AuditNpcDependencies) {
         $explorer = Join-Path $buildRoot 'tools\MoxianResourceExplorer\mxh_explorer.exe'

@@ -45,12 +45,22 @@ $mainText = [IO.File]::ReadAllText($main)
 Assert-True (-not $mainText.Contains('CInGameState: MonsterAdd object_id=')) 'smoke script still matches object_id='
 Assert-True ($mainText.Contains('Get-GuiSmokeMonsterCount -LogText $monsterLog')) 'smoke script must count the combined log'
 Assert-True ($mainText.Contains('Get-GuiSmokeEntityMonsterTotals -LogText $log')) 'entity total is a second assertion'
-Assert-True ($mainText.Contains('Test-GuiSmokeFogBypassActive $log')) 'fog-off round must require the bypass line'
+Assert-True ($mainText.Contains('Test-GuiSmokeFogBypassActive $log')) 'fog rounds must inspect the bypass line'
+Assert-True ($mainText.Contains('GUI smoke fog is on but the client logged FOG diag bypass (MXH_FOG_DISABLE=1)')) 'fog-on round must fail if the bypass line appears'
 Assert-True ($mainText.Contains('-Environment $clientEnvironment')) 'client process must receive the environment copy'
 Assert-True ($mainText.Contains('map.out.log')) 'map send line is read from map.out.log'
 
-$fogOnOnly = 'mxh_client: map fog enabled start=1.0 end=30000.0 density=1.00 color=0xff000000 (from BMHM)'
-Assert-True (-not (Test-GuiSmokeFogBypassActive $fogOnOnly)) 'BMHM fog line alone is not the bypass'
+$fogOff = @'
+mxh_client: map fog enabled start=1.0 end=30000.0 density=1.00 color=0xff000000 (from BMHM)
+mxh_client: FOG diag bypass (MXH_FOG_DISABLE=1); skipping EnableFog (BMHM band start=1.0 end=30000.0 density=1.00 color=0xff000000 would have been applied)
+'@
+$fogOn = @'
+mxh_client: map fog enabled start=1.0 end=30000.0 density=1.00 color=0xff000000 (from BMHM)
+mxh_client: staged GameLoading complete map=10
+'@
+Assert-True (Test-GuiSmokeFogBypassActive $fogOff) 'fog-off log must contain the bypass line'
 Assert-True (Test-GuiSmokeFogBypassActive $fixture) 'fixture bypass line must count as fog off'
+Assert-True (-not (Test-GuiSmokeFogBypassActive $fogOn)) 'fog-on log must not contain the bypass line'
+Assert-True (-not ($fogOn.Contains('FOG diag bypass (MXH_FOG_DISABLE=1)'))) 'fog-on sample must stay free of the bypass line'
 
 Write-Output 'PASS: gui-client-smoke monster and fog log checks'
