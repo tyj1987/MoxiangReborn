@@ -340,5 +340,99 @@ class ResourceReferenceGateTests(unittest.TestCase):
             self.assertEqual(manifest["references"], [])
 
 
+
+def synthetic_obfuscated_map(byte2: int, body_len: int = 256, seed: int = 7) -> bytes:
+    """Fake 4+20-byte header and random body. Not game data, not decoded."""
+    import random
+    rng = random.Random(seed)
+    body = bytes(rng.randrange(256) for _ in range(body_len))
+    header = bytearray(rng.randrange(256) for _ in range(20))
+    header[2] = byte2
+    payload = bytes(header) + body
+    return struct.pack("<I", 4 + len(payload)) + payload
+
+
+class ObfuscatedMapReasonTests(unittest.TestCase):
+    def test_synthetic_obfuscated_map_is_classified(self):
+        data = synthetic_obfuscated_map(0x5A)
+        self.assertTrue(gate.is_obfuscated_map(data))
+        self.assertFalse(gate.is_obfuscated_map(data[:-1]))
+        # Length field must cover the whole entry, not just the bytes after it.
+        wrong = struct.pack("<I", len(data) - 4) + data[4:]
+        self.assertFalse(gate.is_obfuscated_map(wrong))
+
+    def test_mostly_printable_obfuscated_body_is_still_classified(self):
+        import random
+        rng = random.Random(3)
+        payload = bytes(rng.randrange(256) for _ in range(20)) + bytes(
+            rng.randrange(0x20, 0x7F) for _ in range(512))
+        data = struct.pack("<I", 4 + len(payload)) + payload
+        self.assertTrue(gate.is_obfuscated_map(data))
+
+    def test_plaintext_gx_map_is_not_obfuscated(self):
+        text = b"GX_MAP\r\nHEIGHT_FIELD terrain.hfl\r\n"
+        data = struct.pack("<I", 4 + len(text)) + text
+        self.assertFalse(gate.is_obfuscated_map(b"GX_" + data[3:]))
+        self.assertFalse(gate.is_obfuscated_map(data))
+
+    def test_derive_reason_and_summary_hold_no_header_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "1.map").write_bytes(synthetic_obfuscated_map(0x5A, seed=1))
+            (source / "2.map").write_bytes(synthetic_obfuscated_map(0x11, seed=2))
+            (source / "3.map").write_bytes(b"\x00\xff" * 40)
+            (source / "0.map").write_text(map_text(), encoding="latin-1")
+            (source / "terrain.hfl").write_bytes(build_hfl(["a.tga"], 0))
+            (source / "town.stm").write_bytes(build_stm(["wall.TGA"]))
+            stats: dict = {}
+            manifest = gate.derive(source, None, local_header_stats=stats)
+        derivation = manifest["derivation"]
+        reasons = {item["name"]: item["reason"] for item in derivation["unparsed"]}
+        self.assertEqual(reasons, {
+            "1.map": gate.OBFUSCATED_MAP_REASON,
+            "2.map": gate.OBFUSCATED_MAP_REASON,
+            "3.map": gate.NO_MARKERS_REASON,
+        })
+        for item in derivation["unparsed"]:
+            self.assertEqual(set(item), {"name", "reason"})
+        self.assertEqual(derivation["unparsedSummary"], {
+            "total": 3,
+            "byReason": {gate.NO_MARKERS_REASON: 1, gate.OBFUSCATED_MAP_REASON: 2},
+        })
+        self.assertIn("terrain.hfl", {ref["name"] for ref in manifest["references"]})
+        self.assertEqual(sum(stats.values()), 2)
+        rendered = json.dumps(manifest)
+        self.assertNotIn("headerByte", rendered)
+        self.assertNotIn("Byte2", rendered)
+
+    def test_check_keeps_obfuscated_maps_as_no_conclusion(self):
+        manifest = {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {"status": "partial", "unparsed": [
+                {"name": "1.map", "reason": gate.OBFUSCATED_MAP_REASON},
+                {"name": "2.map", "reason": gate.OBFUSCATED_MAP_REASON},
+            ]},
+            "references": [],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            report = gate.check(manifest, Path(directory))
+        self.assertEqual(report["counts"]["noConclusion"], 2)
+
+    def test_local_header_stats_flag_is_opt_in_and_stdout_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "src"
+            source.mkdir()
+            (source / "1.map").write_bytes(synthetic_obfuscated_map(0x5A))
+            out = Path(directory) / "m.json"
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                gate.main(["derive", "--source", str(source), "--output", str(out)])
+            self.assertNotIn("header byte", buf.getvalue())
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                gate.main(["derive", "--source", str(source), "--output", str(out), "--local-header-stats"])
+            self.assertIn("local-only", buf.getvalue())
+            self.assertNotIn("header", out.read_text(encoding="utf-8").lower().replace("headerentries", ""))
+
 if __name__ == "__main__":
     unittest.main()
