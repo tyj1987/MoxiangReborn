@@ -9,6 +9,12 @@
 // MXH_PLAYDH_ROOT and the path (callers are test helpers; the exception
 // fails the test). The value is never treated as optional: a bad setting
 // does not fall through to the upward search.
+//
+// The E2E resolver also requires the upward-search markers under that
+// directory: Resource/Server and Image/InterfaceScript. A missing marker
+// throws, names MXH_PLAYDH_ROOT, the path, and each missing marker, and
+// does not fall back. Other callers of playdh_dir_override() stay on the
+// directory check only.
 
 #include <cstdlib>
 #include <filesystem>
@@ -41,6 +47,46 @@ inline std::optional<std::filesystem::path> playdh_dir_override() {
     return playdh_dir_from_env_value(std::getenv(kPlayDhRootEnv));
 }
 
+// Same relative markers the upward search accepts. Labels use '/' so the
+// error text is identical on MSVC and libstdc++.
+struct E2ePlayDhMarker {
+    const char* first;
+    const char* second;
+    const char* label;
+};
+
+inline constexpr E2ePlayDhMarker kE2ePlayDhMarkers[] = {
+    {"Resource", "Server", "Resource/Server"},
+    {"Image", "InterfaceScript", "Image/InterfaceScript"},
+};
+
+inline bool e2e_playdh_marker_exists(const std::filesystem::path& root,
+                                     const E2ePlayDhMarker& marker) {
+    return std::filesystem::exists(root / marker.first / marker.second);
+}
+
+inline bool e2e_playdh_has_markers(const std::filesystem::path& root) {
+    for (const auto& marker : kE2ePlayDhMarkers) {
+        if (!e2e_playdh_marker_exists(root, marker)) return false;
+    }
+    return true;
+}
+
+// Throws when the env directory is missing a marker the upward search
+// requires. Does not search elsewhere.
+inline void require_e2e_playdh_markers(const std::filesystem::path& root) {
+    std::string missing;
+    for (const auto& marker : kE2ePlayDhMarkers) {
+        if (e2e_playdh_marker_exists(root, marker)) continue;
+        if (!missing.empty()) missing += ", ";
+        missing += marker.label;
+    }
+    if (missing.empty()) return;
+    throw std::runtime_error(
+        std::string(kPlayDhRootEnv) + " is set to \"" + root.string() +
+        "\" but required marker(s) are missing: " + missing);
+}
+
 // MoxianClientE2E marker search. `ec` is the same error_code the historical
 // walk passed to weakly_canonical after current_path/absolute.
 inline std::filesystem::path find_marked_e2e_playdh_root(
@@ -50,8 +96,7 @@ inline std::filesystem::path find_marked_e2e_playdh_root(
         for (const auto& root : {
                  candidate_base / "modern" / "data" / "PlayDH",
                  candidate_base / "data" / "PlayDH"}) {
-            if (std::filesystem::exists(root / "Resource" / "Server") &&
-                std::filesystem::exists(root / "Image" / "InterfaceScript")) {
+            if (e2e_playdh_has_markers(root)) {
                 return std::filesystem::weakly_canonical(root, ec);
             }
         }
@@ -67,12 +112,13 @@ inline std::filesystem::path canonical_playdh_override(const std::filesystem::pa
 }
 
 // `env_value` nullptr keeps the marker search over `bases`. Any other value
-// is the only candidate: empty, missing, or not a directory throws and does
-// not consult `bases`.
+// is the only candidate. Empty, missing, not a directory, or missing
+// Resource/Server or Image/InterfaceScript throws and does not consult `bases`.
 inline std::filesystem::path resolve_e2e_playdh_root(
     const char* env_value,
     const std::vector<std::filesystem::path>& bases) {
     if (const auto override_dir = playdh_dir_from_env_value(env_value)) {
+        require_e2e_playdh_markers(*override_dir);
         return canonical_playdh_override(*override_dir);
     }
     std::error_code ec;
@@ -98,10 +144,12 @@ inline std::filesystem::path search_e2e_playdh_from_map_exe(
 }
 
 // Live MXH_PLAYDH_ROOT, read only through playdh_dir_override(). A set value
-// that is not an existing directory throws before the upward search.
+// that is not an existing directory, or that lacks Resource/Server or
+// Image/InterfaceScript, throws before the upward search.
 inline std::filesystem::path find_e2e_playdh_root_from_map_exe(
     const std::filesystem::path& map_exe) {
     if (const auto override_dir = playdh_dir_override()) {
+        require_e2e_playdh_markers(*override_dir);
         return canonical_playdh_override(*override_dir);
     }
     return search_e2e_playdh_from_map_exe(map_exe);

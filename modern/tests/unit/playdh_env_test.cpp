@@ -63,6 +63,30 @@ std::filesystem::path make_marked_playdh(const std::filesystem::path& root) {
     return root;
 }
 
+void expect_e2e_marker_failure(const std::filesystem::path& env_dir,
+                               const std::filesystem::path& fallback_base,
+                               const std::vector<const char*>& missing,
+                               const std::vector<const char*>& not_missing) {
+    const auto text = env_dir.string();
+    try {
+        const auto resolved = mxh::test::resolve_e2e_playdh_root(
+            text.c_str(), {fallback_base});
+        ADD_FAILURE() << "expected MXH_PLAYDH_ROOT marker error, resolved "
+                      << resolved.string();
+        return;
+    } catch (const std::runtime_error& error) {
+        const std::string message = error.what();
+        EXPECT_NE(message.find("MXH_PLAYDH_ROOT"), std::string::npos) << message;
+        EXPECT_NE(message.find(text), std::string::npos) << message;
+        for (const char* marker : missing) {
+            EXPECT_NE(message.find(marker), std::string::npos) << message;
+        }
+        for (const char* marker : not_missing) {
+            EXPECT_EQ(message.find(marker), std::string::npos) << message;
+        }
+    }
+}
+
 }  // namespace
 
 TEST(PlayDhEnv, UnsetValueLeavesSearchToTheCaller) {
@@ -130,8 +154,7 @@ TEST(PlayDhEnv, ProcessEnvironmentMatchesValueParser) {
 
 TEST(PlayDhEnv, E2EExistingEnvDirectorySkipsFallback) {
     ScratchDir scratch("mxh-e2e-playdh-env-used");
-    const auto env_dir = scratch.path() / "from-env";
-    std::filesystem::create_directories(env_dir);
+    const auto env_dir = make_marked_playdh(scratch.path() / "from-env");
     const auto fallback_base = scratch.path() / "fallback";
     const auto fallback_root = make_marked_playdh(
         fallback_base / "modern" / "data" / "PlayDH");
@@ -142,6 +165,35 @@ TEST(PlayDhEnv, E2EExistingEnvDirectorySkipsFallback) {
               std::filesystem::weakly_canonical(env_dir));
     EXPECT_NE(std::filesystem::weakly_canonical(resolved),
               std::filesystem::weakly_canonical(fallback_root));
+}
+
+TEST(PlayDhEnv, E2EEnvDirectoryMissingOneMarkerDoesNotFallBack) {
+    ScratchDir scratch("mxh-e2e-playdh-one-marker");
+    const auto fallback_base = scratch.path() / "fallback";
+    make_marked_playdh(fallback_base / "modern" / "data" / "PlayDH");
+
+    const auto missing_server = scratch.path() / "missing-server";
+    std::filesystem::create_directories(missing_server / "Image" / "InterfaceScript");
+    expect_e2e_marker_failure(missing_server, fallback_base,
+                              {"Resource/Server"},
+                              {"Image/InterfaceScript"});
+
+    const auto missing_interface = scratch.path() / "missing-interface";
+    std::filesystem::create_directories(missing_interface / "Resource" / "Server");
+    expect_e2e_marker_failure(missing_interface, fallback_base,
+                              {"Image/InterfaceScript"},
+                              {"Resource/Server"});
+}
+
+TEST(PlayDhEnv, E2EEnvDirectoryMissingBothMarkersDoesNotFallBack) {
+    ScratchDir scratch("mxh-e2e-playdh-no-markers");
+    const auto fallback_base = scratch.path() / "fallback";
+    make_marked_playdh(fallback_base / "modern" / "data" / "PlayDH");
+    const auto env_dir = scratch.path() / "empty-playdh";
+    std::filesystem::create_directories(env_dir);
+    expect_e2e_marker_failure(env_dir, fallback_base,
+                              {"Resource/Server", "Image/InterfaceScript"},
+                              {});
 }
 
 TEST(PlayDhEnv, E2EMissingEnvDirectoryDoesNotFallBack) {
