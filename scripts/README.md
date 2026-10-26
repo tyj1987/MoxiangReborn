@@ -11,7 +11,7 @@ PowerShell 脚本用于现代化运维。
 | `verify-resource-profile.py` | 只读校验 ResourceProfileManifest、关键文件和 SHA-256 |
 | `gui-client-smoke.ps1` | 启动三服并验证客户端状态帧、地图依赖和 GUI 运行证据 |
 | `run-human-acceptance.ps1` | 原版 DX11 客户端人工验收；默认连接 PVE `192.168.2.244:16001`，不启动本机三服或数据库，不注入凭据或输入 |
-| `rog-gate-build.ps1` | ROG 试合入门禁：SHA 或 CMake 生成器变化时干净重建，核对磁盘和重解析点后再编译并跑 CTest |
+| `rog-gate-build.ps1` | ROG 试合入门禁：SHA 或 CMake 生成器变化时干净重建；稀疏检出里若有重解析点则直接拒绝；核对磁盘后再编译并跑 CTest |
 
 原版三服在 PVE 上使用 Login `16001`、Agent `17001`、Map `18001`。PVE 启动 `deploy/scripts/start_modern.ps1` 时须显式设置 `-AdvertisedAgentAddress 192.168.2.244`：LoginAck 使用该通告地址，默认 `127.0.0.1` 会让远程客户端登录后连接自身。Agent 到 Map 的地址由 PVE 内部部署配置决定。
 
@@ -50,6 +50,7 @@ Windows 构建机（ROG）上手动把 mainline 和 PR head 试合入后，用�
 
 门禁行为：
 
+- 在任何 git 操作、编译或删除之前（和 10 GB 磁盘下限同一处）检查 SourceDir。稀疏检出已启用，并且工作区里有 junction、symlink 或其他重解析点时，打印稀疏状态和这些路径，退出码 1。没有跳过开关。只有稀疏检出，或只有重解析点，允许继续。稀疏判定满足任一即可：`git config --get core.sparseCheckout` 为 true，`git sparse-checkout list` 列出模式，或 git 目录里的 `info/sparse-checkout` 存在且仍有模式。`.git` 是文件时按 `gitdir:` 解析，不跟随重解析点。扫描工作区时遇到重解析点就记下路径并停止下探。原因是 ROG 上 git 2.55 在稀疏 worktree 里 checkout 会穿过 junction，删掉另一个目录里的文件。
 - `git -C SourceDir rev-parse HEAD` 必须等于 `-ExpectedSha`（完整 40 位）。不等就非 0 退出。
 - `-BuildDir` 解析后必须严格位于允许根之下（默认 `D:\build-mxr`，可用 `-AllowedBuildRoot` 改）。不能等于根本身，也不能是或位于 `D:\MX`。允许根不能是盘符根。
 - 删除前检查 BuildDir 自身、它的祖先，以及目录里的每一项。出现 junction、symlink 或其他重解析点就拒绝并退出，不跟随、不透过它删除。删除函数本身遇到重解析点也会停。
