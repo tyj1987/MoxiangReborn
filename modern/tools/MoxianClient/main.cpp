@@ -39,6 +39,7 @@
 #include "mxh/render/FilesystemFileStorage.hpp"
 #include "mxh/render/TerrainScene.hpp"
 #include "mxh/render/StaticScene.hpp"
+#include "mxh/compat/stm_vertex_color.hpp"
 #include "mxh/render/SkyScene.hpp"
 #include "mxh/render/EntityScene.hpp"
 #include "mxh/client/CharacterPreviewController.hpp"
@@ -673,20 +674,29 @@ public:
                 return fail("Static scene load failed (" + name + "): " + stage_error_, error);
             if (static_scene_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
                 return fail("Static scene contains " + std::to_string(static_scene_->unresolvedTextureCount()) + " unresolved textures", error);
-            if (static_scene_->vertexColorMismatch() || static_scene_->vertexColorMissing()) {
-                // Original-look path without usable .vcl colours (missing or
-                // misaligned -> white). Outside smoke mode StaticScene has
-                // already logged WARN/ERROR; a release smoke must fail.
-                const char* gate = static_scene_->vertexColorMismatch() ? "stmVclMismatch"
-                                                                         : "stmVclMissing";
-                const char* smokeExit = std::getenv("MXH_GUI_SMOKE_EXIT");
-                const bool smoke = smokeExit && smokeExit[0] && smokeExit[0] != '0';
-                if (smoke || static_scene_->vertexColorMismatch())
-                    MLOG_ERROR("mxh_client: release visual gate failed: %s map=%d",
-                               gate, static_cast<int>(map_num_));
-                if (smoke) {
-                    g_stmVclSmokeFailed = true;
-                    mxh::client::g_running = false;
+            {
+                // No silent degradation of the original-look STM vertex-colour
+                // path (missing/misaligned .vcl, colour stream not built, vcl
+                // shader unavailable). StaticScene / dx11 already logged
+                // WARN/ERROR; a release smoke must fail.
+                auto& diag = mxh::compat::stm_vcl_render_diagnostics();
+                mxh::compat::StmVclGateInput gateIn;
+                gateIn.vertex_color_path = static_scene_->vertexColorPathEnabled();
+                gateIn.vcl_mismatch = static_scene_->vertexColorMismatch();
+                gateIn.vcl_missing = static_scene_->vertexColorMissing();
+                gateIn.buffer_mismatch = diag.buffer_mismatch.load();
+                gateIn.shader_failed = diag.shader_failed.load();
+                if (const char* gate = mxh::compat::stm_vcl_gate_failure(gateIn)) {
+                    const char* smokeExit = std::getenv("MXH_GUI_SMOKE_EXIT");
+                    const bool smoke = smokeExit && smokeExit[0] && smokeExit[0] != '0';
+                    const bool missingOnly = std::strcmp(gate, "stmVclMissing") == 0;
+                    if (smoke || !missingOnly)
+                        MLOG_ERROR("mxh_client: release visual gate failed: %s map=%d",
+                                   gate, static_cast<int>(map_num_));
+                    if (smoke) {
+                        g_stmVclSmokeFailed = true;
+                        mxh::client::g_running = false;
+                    }
                 }
             }
             mark(progress, 5);
@@ -4451,6 +4461,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_bgmPlayer = nullptr;
     g_sfxPlayer = nullptr;
 
-    if (g_stmVclSmokeFailed) return 5;  // release visual gate: stmVclMismatch/stmVclMissing
+    if (g_stmVclSmokeFailed) return 5;  // release visual gate: stmVcl{Mismatch,Missing,BufferMismatch,ShaderFailed}
     return 0;
 }

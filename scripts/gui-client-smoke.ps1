@@ -167,7 +167,7 @@ try {
     $exitCode = $client.ExitCode
     if ($null -ne $exitCode -and $exitCode -ne 0) {
         $earlyLog = Get-Content -LiteralPath $stderr -Raw -ErrorAction SilentlyContinue
-        if ($earlyLog -match 'release visual gate failed: (stmVclMismatch|stmVclMissing)') {
+        if ($earlyLog -match 'release visual gate failed: (stmVclMismatch|stmVclMissing|stmVclBufferMismatch|stmVclShaderFailed)') {
             throw "GUI smoke visual gate failed for Map $MapNumber ($($Matches[1]), exit=$exitCode); log=$stderr"
         }
         throw "GUI client exited with code $exitCode; log=$stderr"
@@ -243,8 +243,8 @@ try {
     if ($ExerciseMovement -and $log -notmatch 'GUI_SMOKE_MOVEMENT_CONFIRMED') {
         throw "GUI smoke movement exercise did not receive an authoritative position change; log=$stderr"
     }
-    if ($log -match 'release visual gate failed: (stmVclMismatch|stmVclMissing)') {
-        throw "GUI smoke visual gate failed for Map $MapNumber ($($Matches[1]): .vcl missing or size does not match STM vertex total); log=$stderr"
+    if ($log -match 'release visual gate failed: (stmVclMismatch|stmVclMissing|stmVclBufferMismatch|stmVclShaderFailed)') {
+        throw "GUI smoke visual gate failed for Map $MapNumber ($($Matches[1]): .vcl missing/mismatched, colour stream not built, or vcl shader unavailable); log=$stderr"
     }
     if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
         throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"

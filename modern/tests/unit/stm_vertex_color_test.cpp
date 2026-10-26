@@ -118,3 +118,27 @@ TEST(StmVertexColor, RealMap10VclMatchesStm) {
     EXPECT_EQ(r.loaded_bytes, 318016u);
     EXPECT_EQ(r.status, StmVclStatus::Matched);
 }
+
+TEST(StmVertexColor, BufferDecisionFlagsCountMismatch) {
+    EXPECT_EQ(stm_vcl_buffer_decision(0, 10), StmVclBufferDecision::None);
+    EXPECT_EQ(stm_vcl_buffer_decision(10, 10), StmVclBufferDecision::Build);
+    EXPECT_EQ(stm_vcl_buffer_decision(9, 10), StmVclBufferDecision::Mismatch);
+    EXPECT_EQ(stm_vcl_buffer_decision(11, 10), StmVclBufferDecision::Mismatch);
+}
+
+TEST(StmVertexColor, GateFailureNamesAndPriority) {
+    StmVclGateInput in;
+    in.vertex_color_path = true;
+    EXPECT_EQ(stm_vcl_gate_failure(in), nullptr);
+    in.shader_failed = true;
+    EXPECT_STREQ(stm_vcl_gate_failure(in), "stmVclShaderFailed");
+    in.buffer_mismatch = 2;
+    EXPECT_STREQ(stm_vcl_gate_failure(in), "stmVclBufferMismatch");
+    in.vcl_missing = true;
+    EXPECT_STREQ(stm_vcl_gate_failure(in), "stmVclMissing");
+    in.vcl_mismatch = true;
+    EXPECT_STREQ(stm_vcl_gate_failure(in), "stmVclMismatch");
+    // MXH_STM_LIGHTING=fixed (non-original): never gated.
+    in.vertex_color_path = false;
+    EXPECT_EQ(stm_vcl_gate_failure(in), nullptr);
+}

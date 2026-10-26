@@ -62,7 +62,16 @@ bool MeshObject::finalizeVB() {
         return false;
     }
 
-    if (!m_vertexColors.empty() && m_vertexColors.size() == m_vertices.size()) {
+    const auto colorDecision =
+        mxh::compat::stm_vcl_buffer_decision(m_vertexColors.size(), m_vertices.size());
+    if (colorDecision == mxh::compat::StmVclBufferDecision::Mismatch) {
+        // No silent degradation: the STM colour stream cannot be built.
+        MLOG_ERROR("[mesh] STM vertex-color count mismatch: colors=%u vertices=%u; "
+                   "no colour stream built (stmVclBufferMismatch)",
+                   static_cast<unsigned>(m_vertexColors.size()),
+                   static_cast<unsigned>(m_vertices.size()));
+        ++mxh::compat::stm_vcl_render_diagnostics().buffer_mismatch;
+    } else if (colorDecision == mxh::compat::StmVclBufferDecision::Build) {
         D3D11_BUFFER_DESC cbd{};
         cbd.Usage     = D3D11_USAGE_IMMUTABLE;
         cbd.ByteWidth = static_cast<UINT>(m_vertexColors.size() * sizeof(std::uint32_t));
@@ -70,8 +79,9 @@ bool MeshObject::finalizeVB() {
         D3D11_SUBRESOURCE_DATA cinit{};
         cinit.pSysMem = m_vertexColors.data();
         if (FAILED(dev->CreateBuffer(&cbd, &cinit, &m_colorBuffer))) {
-            MLOG_ERROR("[mesh] CreateBuffer vertex-color VB failed");
+            MLOG_ERROR("[mesh] CreateBuffer vertex-color VB failed (stmVclBufferMismatch)");
             m_colorBuffer.Reset();
+            ++mxh::compat::stm_vcl_render_diagnostics().buffer_mismatch;
         }
     }
 

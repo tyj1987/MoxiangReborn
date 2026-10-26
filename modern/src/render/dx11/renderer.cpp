@@ -374,6 +374,14 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     // terrain/entity meshes keep the lit layout/shader below untouched.
     const bool stmVertexColor = mesh->hasVertexColors() && m_meshShaders.psStmVcl &&
                                 m_meshShaders.vsStmVcl && m_meshShaders.ilStmVcl;
+    if (mesh->hasVertexColors() && !stmVertexColor) {
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            MLOG_ERROR("[renderer] STM vertex-color mesh drawn with lit fallback: "
+                       "vcl shader variant unavailable (stmVclShaderFailed)");
+        }
+    }
     if (stmVertexColor) {
         ID3D11Buffer* vbs[2] = {vb, mesh->colorBuffer()};
         UINT strides[2] = {static_cast<UINT>(sizeof(MeshObject::Vertex)),

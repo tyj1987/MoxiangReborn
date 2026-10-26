@@ -15,6 +15,7 @@
 // B, G, R, A.
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <span>
@@ -100,6 +101,45 @@ inline StmVclAssignment assign_stm_vertex_colors(std::span<const StmVclMeshInfo>
         cursor += meshes[i].vertex_count;
     }
     return out;
+}
+
+// ---- Render-side no-silent-degradation contract (DX-free decision logic) ----
+
+// MeshObject::finalizeVB: whether to build the STM colour stream.
+enum class StmVclBufferDecision { None, Build, Mismatch };
+inline constexpr StmVclBufferDecision stm_vcl_buffer_decision(std::size_t colors,
+                                                              std::size_t vertices) noexcept {
+    if (colors == 0) return StmVclBufferDecision::None;
+    return colors == vertices ? StmVclBufferDecision::Build : StmVclBufferDecision::Mismatch;
+}
+
+// Process-wide counters set by the DX11 backend (MeshObject / MeshShaders)
+// and read by the client smoke gate.
+struct StmVclRenderDiagnostics {
+    std::atomic<unsigned> buffer_mismatch{0};   // finalizeVB built no colour stream
+    std::atomic<bool> shader_failed{false};     // vsStmVcl/psStmVcl/ilStmVcl unavailable
+};
+inline StmVclRenderDiagnostics& stm_vcl_render_diagnostics() noexcept {
+    static StmVclRenderDiagnostics d;
+    return d;
+}
+
+struct StmVclGateInput {
+    bool vertex_color_path = false;  // original look (not MXH_STM_LIGHTING=fixed)
+    bool vcl_mismatch = false;
+    bool vcl_missing = false;
+    unsigned buffer_mismatch = 0;
+    bool shader_failed = false;
+};
+// Name of the failed release visual gate, or nullptr. Only the original-look
+// vertex-colour path is gated; fixed lighting never fails these gates.
+inline constexpr const char* stm_vcl_gate_failure(const StmVclGateInput& in) noexcept {
+    if (!in.vertex_color_path) return nullptr;
+    if (in.vcl_mismatch) return "stmVclMismatch";
+    if (in.vcl_missing) return "stmVclMissing";
+    if (in.buffer_mismatch != 0) return "stmVclBufferMismatch";
+    if (in.shader_failed) return "stmVclShaderFailed";
+    return nullptr;
 }
 
 } // namespace mxh::compat

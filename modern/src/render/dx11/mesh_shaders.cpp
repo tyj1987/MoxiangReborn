@@ -1,6 +1,7 @@
 // mxh/render/dx11/mesh_shaders.cpp
 // HLSL shaders for IDIMeshObject rendering.
 #include "mesh_shaders.hpp"
+#include "mxh/compat/stm_vertex_color.hpp"
 
 #include <d3dcompiler.h>
 
@@ -340,9 +341,10 @@ bool MeshShaders::init(ID3D11Device* device) {
                                                      vsVcl->GetBufferSize(), &ilStmVcl));
         }
         if (!ok) {
-            MLOG_WARN("[mesh-shader] STM vertex-color variant unavailable: %s",
+            MLOG_ERROR("[mesh-shader] STM vertex-color variant unavailable (stmVclShaderFailed): %s",
                       vclErr ? static_cast<const char*>(vclErr->GetBufferPointer()) : "create failed");
             vsStmVcl.Reset(); psStmVcl.Reset(); ilStmVcl.Reset();
+            mxh::compat::stm_vcl_render_diagnostics().shader_failed = true;
         }
     }
 
