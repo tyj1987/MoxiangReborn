@@ -539,6 +539,18 @@ class LocalDecoderHookTests(unittest.TestCase):
                        "--local-decoder", str(self.plugin_path)])
         self.assertIn("localDecoder", json.loads(out.read_text(encoding="utf-8"))["derivation"])
 
+    def test_local_decoder_without_pak_is_refused(self):
+        plugin = gate.load_local_decoder(self.plugin_path)
+        with self.assertRaises(gate.LocalDecoderError):
+            gate.derive(self.tmp, None, local_decoder=plugin)
+        out = self.tmp / "nopak.json"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                gate.main(["derive", "--source", str(self.tmp), "--output", str(out),
+                           "--local-decoder", str(self.plugin_path)])
+        self.assertNotEqual(ctx.exception.code, 0)
+        self.assertFalse(out.exists())
+
     def test_plugin_inside_repo_is_refused(self):
         with self.assertRaises(gate.LocalDecoderError):
             gate.load_local_decoder(SCRIPT)

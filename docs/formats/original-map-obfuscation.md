@@ -22,7 +22,7 @@
 ## 本地解码插件钩子（resource_reference_gate）
 仓库只提供可插拔钩子和合成测试，不含解码器、密钥推导、密钥字节或密钥表。结论可以入库，解码能力不入库。
 
-- 加载方式只有两种：`derive --local-decoder <仓库外的 .py>` 或环境变量 `MXH_LOCAL_MAP_DECODER`。没有默认搜索路径；位于仓库目录树内的路径一律拒绝。CI 不传这两者；`check` 从不加载插件。
+- 加载方式只有两种：`derive --local-decoder <仓库外的 .py>` 或环境变量 `MXH_LOCAL_MAP_DECODER`。没有默认搜索路径；位于仓库目录树内的路径一律拒绝。CI 不传这两者；`check` 从不加载插件。用插件时必须同时给 `--pak`，否则报错退出，保证每份本地结论都记录了源 pak 的 SHA-256。
 - 插件契约：模块提供 `DECODER_VERSION: str` 与 `decode_map(name: str, data: bytes) -> bytes | None`。返回明文 map 字节，或 `None`（例如没有密钥）。derive 把明文交给现有的 `parse_map_references` 与 `.hfl` / `.stm` 后续解析，与明文 map 完全相同。
 - 清单标记：
   - 来自解码 map 的每条引用（含其 `.hfl` / `.stm` 子引用）带 `derivedBy: "local-decoder"`。

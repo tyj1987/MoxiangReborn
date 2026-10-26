@@ -594,6 +594,10 @@ def derive(source: Path | None, pak: Path | None = None,
     recorded. References from decoded maps carry ``derivedBy:
     "local-decoder"``.
     """
+    if local_decoder is not None and pak is None:
+        raise LocalDecoderError(
+            "--local-decoder requires --pak: local-decoder conclusions must record the "
+            "source pak SHA-256 so check --pak can verify them")
     index, pak_info = _build_source_index(source, pak)
     references: list[dict] = []
     excluded: list[dict] = []
@@ -1042,6 +1046,9 @@ def main(argv: list[str] | None = None) -> int:
         header_stats: dict[int, int] | None = {} if args.local_header_stats else None
         decoder_path = resolve_local_decoder_path(args.local_decoder)
         decoder = None
+        if decoder_path is not None and args.pak is None:
+            parser.error(f"--local-decoder (or {LOCAL_DECODER_ENV}) requires --pak so the "
+                         "manifest records the source pak SHA-256")
         if decoder_path is not None:
             try:
                 decoder = load_local_decoder(decoder_path)
