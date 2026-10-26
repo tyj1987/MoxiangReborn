@@ -81,6 +81,21 @@ def build_original_pak(entries: list[tuple[str | bytes, bytes]], *,
     return bytes(header) + bytes(body) + trailer
 
 
+def build_playdh_pak(entries: list[tuple[str, bytes]]) -> bytes:
+    """92-byte PlayDH layout: count u32 at offset 4, entries from offset 92.
+
+    Each entry: 32-byte header (total, real, name_len, then zeros), name,
+    NUL, data. Synthetic bytes only.
+    """
+    out = bytearray(struct.pack("<III", 1, len(entries), 0)) + b"\x00" * (92 - 12)
+    for name, data in entries:
+        name_b = name.encode("latin-1")
+        total = 32 + len(name_b) + 1 + len(data)
+        out += struct.pack("<IIIIIIII", total, len(data), len(name_b), 0, 0, 0, 0, 0)
+        out += name_b + b"\x00" + data
+    return bytes(out)
+
+
 def write_fixture_manifest(directory: Path, manifest: dict) -> dict:
     """Persist a manifest in the test temp dir and read that file back."""
     path = directory / "manifest.json"
@@ -587,9 +602,109 @@ class LocalDecoderHookTests(unittest.TestCase):
                     "references": [{"name": "a.tga", "via": "1.map", "section": "x", "originalExists": True}]}
         report = gate.check(manifest, self.tmp, pak=self.pak)
         self.assertEqual(set(report["counts"]),
-                         {"present", "missing", "referencedButNoOriginalFile", "noConclusion"})
+                         {"present", "missing", "referencedButNoOriginalFile", "noConclusion",
+                          "pakLfsPointer", "caseMismatch", "extensionSubstituted"})
+        self.assertNotIn("localDecoder", report["counts"])
         self.assertNotIn("localDecoder", report)
         self.assertNotIn("local-decoder", gate.format_report(report))
+
+
+class PakLfsPointerAndFidelityTests(unittest.TestCase):
+    """TYJ-147: pointer paks, case-only matches and extension swaps."""
+
+    @staticmethod
+    def manifest(names: list[str]) -> dict:
+        return {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {"status": "complete", "unparsed": []},
+            "references": [
+                {"name": name, "via": "town.map", "section": "GX_OBJECT", "originalExists": True}
+                for name in names
+            ],
+            "knownReferencedNoOriginalFile": [],
+        }
+
+    def test_pointer_detection_is_by_content_not_size(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "big.pak").write_bytes(LFS_POINTER + b"x" * 4096)
+            (root / "tiny.pak").write_bytes(b"version 1")
+            self.assertTrue(gate.is_lfs_pointer(root / "big.pak"))
+            self.assertFalse(gate.is_lfs_pointer(root / "tiny.pak"))
+
+    def test_pointer_pak_makes_unresolved_refs_pak_lfs_pointer_not_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Map.pak").write_bytes(LFS_POINTER)
+            (root / "npc.pak").write_bytes(build_playdh_pak([("data\\npc\\guard.mod", b"g")]))
+            report = gate.check(self.manifest(["inside_map.hfl", "guard.mod"]), root)
+            self.assertEqual(report["counts"]["missing"], 0)
+            self.assertEqual(report["counts"]["pakLfsPointer"], 1)
+            self.assertEqual(report["counts"]["present"], 1)
+            row = report["pakLfsPointer"][0]
+            self.assertEqual((row["name"], row["reason"]), ("inside_map.hfl", "pak-lfs-pointer"))
+            self.assertEqual(row["paks"], ["Map.pak"])
+            self.assertNotIn("inside_map.hfl", {r["name"] for r in report["present"]})
+            self.assertEqual(report["conclusion"], "no conclusion")
+            issues = gate.codequality_report(report)
+            self.assertTrue(any("pak-lfs-pointer" in i["description"] for i in issues))
+            self.assertFalse(any(i["severity"] == "major" for i in issues))
+
+    def test_real_pak_entry_is_found(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Effect.pak").write_bytes(build_playdh_pak([
+                ("effect\\fire.dds", b"f"), ("effect\\smoke.tga", b"s"),
+            ]))
+            report = gate.check(self.manifest(["fire.dds", "smoke.tga"]), root)
+            self.assertEqual(report["counts"]["present"], 2)
+            self.assertEqual(report["counts"]["missing"], 0)
+            self.assertEqual(report["counts"]["caseMismatch"], 0)
+            self.assertEqual(report["conclusion"], "clean")
+
+    def test_case_only_match_is_found_and_listed_minor(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "npc.pak").write_bytes(build_playdh_pak([("npc\\Guard_A.TGA", b"g")]))
+            report = gate.check(self.manifest(["guard_a.tga"]), root)
+            self.assertEqual(report["counts"]["present"], 1)
+            self.assertEqual(report["counts"]["caseMismatch"], 1)
+            row = report["caseMismatch"][0]
+            self.assertEqual((row["reason"], row["severity"]), ("case-mismatch", "minor"))
+            self.assertEqual(row["checkout"], ["Guard_A.TGA"])
+            issues = gate.codequality_report(report)
+            self.assertEqual([i["severity"] for i in issues if "case-mismatch" in i["description"]], ["minor"])
+
+    def test_tga_vs_dds_is_extension_substituted_not_found_not_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Map.pak").write_bytes(build_playdh_pak([("map\\106_wall00.dds", b"w")]))
+            report = gate.check(self.manifest(["106_wall00.tga"]), root)
+            self.assertEqual(report["counts"]["present"], 0)
+            self.assertEqual(report["counts"]["missing"], 0)
+            self.assertEqual(report["counts"]["extensionSubstituted"], 1)
+            row = report["extensionSubstituted"][0]
+            self.assertEqual((row["name"], row["reason"]), ("106_wall00.tga", "extension-substituted"))
+            self.assertEqual(row["checkout"], ["106_wall00.dds"])
+            self.assertEqual(report["conclusion"], "warnings")
+            issues = gate.codequality_report(report)
+            self.assertTrue(any("extension-substituted" in i["description"] for i in issues))
+
+    def test_absent_without_pointer_pak_is_missing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "npc.pak").write_bytes(build_playdh_pak([("npc\\other.mod", b"o")]))
+            report = gate.check(self.manifest(["gone.mod"]), root)
+            self.assertEqual([r["name"] for r in report["missing"]], ["gone.mod"])
+            self.assertEqual(report["counts"]["pakLfsPointer"], 0)
+            self.assertEqual(report["counts"]["extensionSubstituted"], 0)
+
+    def test_existing_count_fields_are_kept(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = gate.check(self.manifest([]), Path(directory))
+            for key in ("present", "missing", "referencedButNoOriginalFile", "noConclusion"):
+                self.assertIn(key, report["counts"])
+
 
 if __name__ == "__main__":
     unittest.main()

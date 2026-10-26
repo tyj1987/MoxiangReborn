@@ -42,6 +42,17 @@ Categories
   manifest; CI must not pass it.
 * ``no conclusion`` — derivation has not been run, or a checkout file is
   only a Git LFS pointer. Never a pass.
+* ``pakLfsPointer`` — reason ``pak-lfs-pointer``: a reference is not in the
+  index and one or more .pak files under root are Git LFS pointers (content
+  starts with ``version https://git-lfs.github.com/spec/v1``; size is not
+  used). There is no reliable reference-to-pak mapping, so any unresolved
+  reference is treated as possibly inside any pointer pak. No conclusion,
+  own counter; neither missing nor present.
+* ``caseMismatch`` — found only after case folding (Windows matching is
+  case-insensitive). Counted as present, listed separately, severity minor.
+* ``extensionSubstituted`` — not found by name, but the same stem exists with
+  another extension (``x.tga`` vs ``x.dds``). A fidelity gap: not found, not
+  counted as missing, own counter and codequality entry (minor).
 
 Height fields 0, 4, 23, 24, 32, 33, 34, 94 and tile tables 0, 3, 4, 23, 24,
 32, 33, 34, 94, 198 are not referenced by the original and are never reported
@@ -740,26 +751,76 @@ def _absorb(references: list[dict], excluded: list[dict], refs: list[dict],
         have.add(key)
 
 
-def _checkout_index(root: Path) -> tuple[set[str], set[str]]:
-    """Return (real basenames, lfs-pointer basenames), both casefolded."""
-    present: set[str] = set()
-    pointers: set[str] = set()
+class _CheckoutIndex:
+    """Names the checkout has, keyed casefolded, original case kept.
+
+    ``names`` maps a casefolded basename to every original-case spelling seen
+    (loose files and real .pak entries). ``stems`` maps a casefolded name
+    without its last extension to the original-case names carrying it.
+    ``pointers`` holds casefolded basenames of Git LFS pointer files and
+    ``pointer_paks`` the original-case names of .pak files that are pointers.
+    A file is a pointer iff its content starts with ``LFS_PREFIX``; size is
+    never used.
+    """
+
+    def __init__(self) -> None:
+        self.names: dict[str, set[str]] = {}
+        self.stems: dict[str, set[str]] = {}
+        self.pointers: set[str] = set()
+        self.pointer_paks: list[str] = []
+
+    def add(self, name: str) -> None:
+        base = _basename(name)
+        if not base:
+            return
+        self.names.setdefault(base.casefold(), set()).add(base)
+        self.stems.setdefault(_stem_key(base), set()).add(base)
+
+    def add_pointer(self, name: str) -> None:
+        base = _basename(name)
+        self.pointers.add(base.casefold())
+        if base.casefold().endswith(".pak"):
+            self.pointer_paks.append(base)
+
+    @classmethod
+    def from_names(cls, names, pointer_names=(), pointer_paks=()) -> "_CheckoutIndex":
+        """Build an index without a filesystem (tests and offline harnesses)."""
+        index = cls()
+        for name in names:
+            index.add(name)
+        for name in list(pointer_names) + list(pointer_paks):
+            index.add_pointer(name)
+        return index
+
+
+def _stem_key(name: str) -> str:
+    base = _basename(name).casefold()
+    return base.rsplit(".", 1)[0] if "." in base else base
+
+
+def _checkout_index(root: Path) -> _CheckoutIndex:
+    """Index loose files and real .pak entries under ``root``.
+
+    LFS pointer files (content starts with ``LFS_PREFIX``) are recorded as
+    pointers; a pointer .pak has no readable entries, so it is recorded in
+    ``pointer_paks`` and its entries stay unknown.
+    """
+    index = _CheckoutIndex()
     if not root.is_dir():
-        return present, pointers
+        return index
     for path in _iter_files(root):
-        key = path.name.casefold()
         if is_lfs_pointer(path):
-            pointers.add(key)
+            index.add_pointer(path.name)
             continue
-        present.add(key)
+        index.add(path.name)
         if path.suffix.casefold() == ".pak":
             read = _read_pak_entries(path)
             if read is None:
                 continue
             _header_count, entries = read
             for entry in entries:
-                present.add(_casefold_name(entry.canonical_name))
-    return present, pointers
+                index.add(entry.canonical_name)
+    return index
 
 
 def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = None) -> dict:
@@ -767,13 +828,39 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
 
     ``pak`` is only hashed, to verify ``derivation.localDecoder``.
     """
+    return check_index(manifest, _checkout_index(root), strict=strict, pak=pak)
+
+
+def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
+                pak: Path | None = None) -> dict:
+    """``check`` against a prebuilt checkout index.
+
+    Resolution order for a reference whose original exists:
+
+    1. exact-case basename in the index -> ``present``;
+    2. same name after case folding only -> ``present`` and also listed in
+       ``caseMismatch`` (severity minor; Windows matching is case-insensitive);
+    3. the basename itself is an LFS pointer file -> ``noConclusion``;
+    4. one or more .pak files under root are LFS pointers -> ``pakLfsPointer``
+       (reason ``pak-lfs-pointer``). There is no reliable ref-to-pak mapping
+       (the manifest does not record the containing pak, and the same name
+       family is spread across Map/Character/Effect/monster), so ANY
+       unresolved reference is treated as possibly inside ANY pointer pak.
+       No conclusion: neither missing nor present;
+    5. same stem with a different extension (``x.tga`` vs ``x.dds``) ->
+       ``extensionSubstituted``: a fidelity gap, not found, not missing;
+    6. otherwise -> ``missing``.
+
+    Step 4 precedes step 5 because with pointer paks the exact name may still
+    be inside one, so an extension substitute is not yet a conclusion.
+    """
     if manifest.get("schema") != MANIFEST_SCHEMA:
         raise ValueError("unsupported resource-reference manifest schema")
     derivation = manifest.get("derivation") or {}
     status = derivation.get("status", "not-run")
     known = list(manifest.get("knownReferencedNoOriginalFile") or KNOWN_NO_ORIGINAL)
     references = list(manifest.get("references") or [])
-    present_names, pointer_names = _checkout_index(root)
+    pointer_names = index.pointers
     local_info = derivation.get("localDecoder")
     local_state: str | None = None
     if isinstance(local_info, dict):
@@ -790,6 +877,9 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
     missing: list[dict] = []
     no_original: list[dict] = []
     no_conclusion: list[dict] = []
+    case_mismatch: list[dict] = []
+    pak_lfs_pointer: list[dict] = []
+    extension_substituted: list[dict] = []
     seen: set[str] = set()
 
     def add_no_original(name: str, reason: str, via: str = "") -> None:
@@ -859,9 +949,18 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
                 "reason": "reference has no originalExists result; no conclusion, not a pass",
             })
             continue
-        if key in present_names:
+        spellings = index.names.get(key)
+        if spellings:
             seen.add(key)
             present.append({"name": name, "via": ref.get("via", "")})
+            if _basename(name) not in spellings:
+                case_mismatch.append({
+                    "name": name,
+                    "via": ref.get("via", ""),
+                    "checkout": sorted(spellings),
+                    "reason": "case-mismatch",
+                    "severity": "minor",
+                })
             continue
         if key in pointer_names:
             seen.add(key)
@@ -871,6 +970,23 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
             })
             continue
         seen.add(key)
+        if index.pointer_paks:
+            pak_lfs_pointer.append({
+                "name": name,
+                "via": ref.get("via", ""),
+                "reason": "pak-lfs-pointer",
+                "paks": sorted(index.pointer_paks, key=str.casefold),
+            })
+            continue
+        substitutes = sorted(index.stems.get(_stem_key(name), ()))
+        if substitutes:
+            extension_substituted.append({
+                "name": name,
+                "via": ref.get("via", ""),
+                "checkout": substitutes,
+                "reason": "extension-substituted",
+            })
+            continue
         missing.append({
             "name": name,
             "via": ref.get("via", ""),
@@ -882,9 +998,9 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
 
     if status == "partial":
         conclusion = "partial"
-    elif no_conclusion:
+    elif no_conclusion or pak_lfs_pointer:
         conclusion = "no conclusion"
-    elif missing:
+    elif missing or extension_substituted:
         conclusion = "warnings"
     else:
         conclusion = "clean"
@@ -897,11 +1013,17 @@ def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = N
             "missing": len(missing),
             "referencedButNoOriginalFile": len(no_original),
             "noConclusion": len(no_conclusion),
+            "pakLfsPointer": len(pak_lfs_pointer),
+            "caseMismatch": len(case_mismatch),
+            "extensionSubstituted": len(extension_substituted),
         },
         "present": present,
         "missing": missing,
         "referencedButNoOriginalFile": no_original,
         "noConclusion": no_conclusion,
+        "pakLfsPointer": pak_lfs_pointer,
+        "caseMismatch": case_mismatch,
+        "extensionSubstituted": extension_substituted,
         "excludedNotReferenced": {
             "hfl": [f"{number}.hfl" for number in NOT_REFERENCED_HFL],
             "ttb": [f"{number}.ttb" for number in NOT_REFERENCED_TTB],
@@ -935,7 +1057,10 @@ def format_report(report: dict) -> str:
             f"counts: present={report['counts']['present']} "
             f"missing={report['counts']['missing']} "
             f"referenced-but-no-original-file={report['counts']['referencedButNoOriginalFile']} "
-            f"no-conclusion={report['counts']['noConclusion']}"
+            f"no-conclusion={report['counts']['noConclusion']} "
+            f"pak-lfs-pointer={report['counts'].get('pakLfsPointer', 0)} "
+            f"case-mismatch={report['counts'].get('caseMismatch', 0)} "
+            f"extension-substituted={report['counts'].get('extensionSubstituted', 0)}"
         ),
         "derive runs on ROG; CI only checks the checked-in manifest",
     ]
@@ -955,6 +1080,15 @@ def format_report(report: dict) -> str:
     for row in report["noConclusion"]:
         label = row["name"] or "(gate)"
         lines.append(f"no conclusion: {label}: {row['reason']}")
+    for row in report.get("pakLfsPointer", []):
+        lines.append(f"no conclusion (pak-lfs-pointer): {row['name']}")
+    for row in report.get("extensionSubstituted", []):
+        lines.append(
+            f"extension-substituted: {row['name']} -> {', '.join(row['checkout'])} "
+            "(fidelity gap, not found)"
+        )
+    for row in report.get("caseMismatch", []):
+        lines.append(f"case-mismatch: {row['name']} -> {', '.join(row['checkout'])} (minor, found)")
     for row in report["present"]:
         lines.append(f"present: {row['name']}")
     lines.append(
@@ -965,28 +1099,52 @@ def format_report(report: dict) -> str:
 
 
 def warning_lines(report: dict) -> list[str]:
-    lines: list[str] = []
+    return [text for text, _severity in _warnings(report)]
+
+
+def _warnings(report: dict) -> list[tuple[str, str]]:
+    lines: list[tuple[str, str]] = []
     if report["conclusion"] == "no conclusion":
-        lines.append("resource reference check has no conclusion; this is not a pass")
+        lines.append(("resource reference check has no conclusion; this is not a pass", "info"))
     elif report["conclusion"] == "partial":
-        lines.append("resource reference check is partial; this is not a pass")
+        lines.append(("resource reference check is partial; this is not a pass", "info"))
     for row in report["missing"]:
-        lines.append(f"missing referenced resource {row['name']}")
+        lines.append((f"missing referenced resource {row['name']}", "major"))
     for row in report["noConclusion"]:
         if row["name"]:
-            lines.append(f"no conclusion for {row['name']}")
+            lines.append((f"no conclusion for {row['name']}", "info"))
+    pointer_rows = report.get("pakLfsPointer", [])
+    if pointer_rows:
+        paks = ", ".join(pointer_rows[0].get("paks", []))
+        lines.append((
+            f"no conclusion (pak-lfs-pointer) for {len(pointer_rows)} reference(s): "
+            f"pak(s) {paks} are Git LFS pointers; not missing, not a pass",
+            "info",
+        ))
+    for row in report.get("extensionSubstituted", []):
+        lines.append((
+            f"extension-substituted referenced resource {row['name']} "
+            f"(checkout has {', '.join(row['checkout'])})",
+            "minor",
+        ))
+    for row in report.get("caseMismatch", []):
+        lines.append((
+            f"case-mismatch referenced resource {row['name']} "
+            f"(checkout has {', '.join(row['checkout'])})",
+            "minor",
+        ))
     return lines
 
 
 def codequality_report(report: dict) -> list[dict]:
     issues = []
-    for text in warning_lines(report):
+    for text, severity in _warnings(report):
         fingerprint = hashlib.sha256(text.encode("utf-8")).hexdigest()
         issues.append({
             "description": text,
             "check_name": "MxhResourceReference",
             "fingerprint": fingerprint,
-            "severity": "major" if text.startswith("missing ") else "info",
+            "severity": severity,
             "location": {
                 "path": "reference/manifests/original-resource-references.json",
                 "lines": {"begin": 1},
