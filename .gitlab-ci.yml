@@ -56,6 +56,7 @@ original_governance_and_python_tests:
     - python3 --version
     - python3 scripts/check-project-governance.py
     - python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_pak_writer.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
 

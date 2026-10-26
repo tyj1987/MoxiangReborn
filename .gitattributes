@@ -23,3 +23,8 @@ modern/data/PlayDH/Map.pak filter=lfs diff=lfs merge=lfs -text
 modern/data/PlayDH/Character.pak filter=lfs diff=lfs merge=lfs -text
 modern/data/PlayDH/Effect.pak filter=lfs diff=lfs merge=lfs -text
 modern/data/PlayDH/monster.pak filter=lfs diff=lfs merge=lfs -text
+
+# Supplemental original-layout pak (reference/manifests/playdh-supplemental-fill.json,
+# built by modern/tools/pak_writer.py). Expected well under 50 MB, so it is a
+# plain blob covered by the PlayDH -text rule above. If it ever reaches 50 MB,
+# add: modern/data/PlayDH/zz_supplement.pak filter=lfs diff=lfs merge=lfs -text
