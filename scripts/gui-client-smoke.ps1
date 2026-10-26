@@ -34,13 +34,21 @@
   so MXH_FOG_DISABLE and MXH_STM_LIGHTING reach that process. The client
   fog switch is MXH_FOG_DISABLE=1 (no command-line flag). --resource-root
   is still passed.
+
+.PARAMETER TimeoutSeconds
+  Seconds to wait for the GUI client process to exit. Default 90.
+  On the gate machine a Map10 scene with 228 monsters can still be
+  running at 20s; 90s covers both fog-off and fog-on. -ExerciseCombat
+  still raises a shorter value to 180 and -ExerciseMovement raises a
+  shorter value to 60. If the wait expires, the thrown error says
+  "timeout" and prints the seconds actually used.
 #>
 [CmdletBinding()]
 param(
     [string]$BuildDir = '',
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Debug',
-    [int]$TimeoutSeconds = 20,
+    [int]$TimeoutSeconds = 90,
     [ValidateRange(0, 65535)]
     [int]$MapNumber = 10,
     [int]$MinimumNpcCount = 0,
@@ -324,7 +332,7 @@ try {
     }
     if (-not $client.WaitForExit($effectiveTimeoutSeconds * 1000)) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
-        throw "GUI client did not finish within ${effectiveTimeoutSeconds}s; log=$stderr"
+        throw "GUI client timeout: process still running after ${effectiveTimeoutSeconds}s; log=$stderr"
     }
     $client.WaitForExit()
     $client.Refresh()

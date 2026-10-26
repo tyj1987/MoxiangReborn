@@ -42,6 +42,10 @@ Assert-True ($mainText.Contains('if ($serverProcess.HasExited)')) 'startup loop 
 Assert-True ($mainText.Contains('EphemeralLocalServer requires PowerShell 7.4 or newer')) 'pwsh 7.4 gate missing'
 Assert-True (-not $mainText.Contains('Get-EphemeralClientEndpointViolation')) 'client fallback intercept must be gone'
 Assert-True ($mainText.Contains('do not call start_modern.ps1')) 'header should say ephemeral mode does not call start_modern'
+$timeoutParam = @($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'TimeoutSeconds' })
+Assert-True ($timeoutParam.Count -eq 1) 'TimeoutSeconds parameter missing'
+Assert-True ($timeoutParam[0].DefaultValue.Extent.Text -eq '90') "TimeoutSeconds default must be 90, got $($timeoutParam[0].DefaultValue.Extent.Text)"
+Assert-True ($mainText.Contains('GUI client timeout: process still running after ${effectiveTimeoutSeconds}s')) 'timeout failure must say timeout and print the seconds used'
 $helperText = [IO.File]::ReadAllText($helper)
 Assert-True (-not $helperText.Contains('Start-Process')) 'helper must not start processes'
 Assert-True (-not $helperText.Contains('start_modern.ps1"') ) 'helper must not invoke start_modern'
