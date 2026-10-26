@@ -1766,5 +1766,151 @@ class PakUnpackLayoutTests(unittest.TestCase):
                         self.assertIn(needle, err)
 
 
+class NameFilterTests(unittest.TestCase):
+    """--filter writes only matching entries for both pak layouts.
+
+    Patterns are case-insensitive regexes on the canonical path and on
+    the basename.  ``^10\\.stm$`` matches ``Map\\\\10.STM`` and does not
+    match ``110.stm``.  No original game bytes.
+    """
+
+    _ENTRIES = [
+        ("Map\\10.STM", b"stm-10"),
+        ("water.tif", b"water"),
+        ("Map\\10.VCL", b"vcl-10"),
+        ("11.stm", b"stm-11"),
+        ("110.stm", b"stm-110"),
+    ]
+
+    def _pak(self, root: Path, layout: str) -> tuple[Path, int]:
+        pak = _src_pak(root, f"{layout}.pak")
+        entries = list(self._ENTRIES)
+        if layout == "96":
+            entries.append(("水面.tif", b"surface"))
+            _write_original_pak(pak, entries)
+        else:
+            _make_pak(entries, pak)
+        return pak, len(entries)
+
+    def test_predicate_is_case_insensitive_basename_and_keeps_path_regex(self):
+        entry = unpack_pak.PakEntry(
+            index=0, name="Map\\10.STM", real_size=1,
+            data_offset=0, entry_offset=0)
+        accept = unpack_pak.make_filter([r"^10\.stm$", r"^10\.vcl$"])
+        self.assertTrue(accept(entry))
+        for name in ("11.stm", "110.stm", "water.tif", "Map\\110.stm"):
+            other = unpack_pak.PakEntry(
+                index=1, name=name, real_size=1,
+                data_offset=0, entry_offset=0)
+            self.assertFalse(accept(other), name)
+        self.assertTrue(unpack_pak.make_filter(r"^Map/")(entry))
+        character = unpack_pak.PakEntry(
+            index=2, name="Character\\man.chx", real_size=1,
+            data_offset=0, entry_offset=0)
+        self.assertFalse(unpack_pak.make_filter(r"^Map/")(character))
+        self.assertTrue(unpack_pak.make_filter(None)(entry))
+        self.assertTrue(unpack_pak.make_filter([])(entry))
+
+    def test_both_layouts_write_only_filtered_entries(self):
+        for layout, kind in (("92", "92-byte"), ("96", "96-byte")):
+            with self.subTest(layout=layout):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak, count = self._pak(tdp, layout)
+                    got_kind, _offset4, declared, entries = unpack_pak.read_entries(
+                        str(pak))
+                    self.assertEqual(got_kind, kind)
+                    self.assertEqual(declared, count)
+                    self.assertEqual(len(entries), count)
+                    self.assertIn("water.tif", [e.name for e in entries])
+
+                    named = tdp / "named"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--manifest", "--out", str(named),
+                        "--filter", r"^10\.stm$",
+                        "--filter", r"^10\.vcl$",
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(err, "")
+                    self.assertEqual(_tree(named), [
+                        "Map",
+                        "Map/10.STM",
+                        "Map/10.VCL",
+                        "manifest.json",
+                    ])
+                    self.assertEqual((named / "Map" / "10.STM").read_bytes(), b"stm-10")
+                    self.assertEqual((named / "Map" / "10.VCL").read_bytes(), b"vcl-10")
+                    manifest = json.loads(
+                        (named / "manifest.json").read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        [item["name"] for item in manifest["entries"]],
+                        ["Map/10.STM", "Map/10.VCL"])
+                    self.assertEqual(manifest["stats"]["written"], 2)
+                    self.assertEqual(manifest["stats"]["skipped_filter"], count - 2)
+                    self.assertNotIn("water.tif", _tree(named))
+                    self.assertNotIn("11.stm", _tree(named))
+                    self.assertNotIn("110.stm", _tree(named))
+                    self.assertNotIn("水面.tif", _tree(named))
+
+                    legacy = tdp / "legacy"
+                    rc, text, err = _run_cli([
+                        str(pak), "--out", str(legacy),
+                        "--filter", r"^10\.stm$",
+                        "--filter", r"^10\.vcl$",
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(
+                        sorted(p.name for p in legacy.iterdir()),
+                        ["00000_6.bin", "00002_6.bin"])
+                    self.assertEqual((legacy / "00000_6.bin").read_bytes(), b"stm-10")
+                    self.assertEqual((legacy / "00002_6.bin").read_bytes(), b"vcl-10")
+
+                    untouched = tdp / "all"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--out", str(untouched),
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    files = {p.name for p in untouched.rglob("*") if p.is_file()}
+                    self.assertEqual(files, {
+                        "10.STM", "water.tif", "10.VCL", "11.stm", "110.stm",
+                        *({"水面.tif"} if layout == "96" else set()),
+                    })
+
+    def test_filter_miss_writes_nothing_and_exits_nonzero(self):
+        for layout in ("92", "96"):
+            for extra in ([], ["--named", "--manifest"]):
+                with self.subTest(layout=layout, extra=tuple(extra)):
+                    with tempfile.TemporaryDirectory() as td:
+                        tdp = Path(td)
+                        pak, _count = self._pak(tdp, layout)
+                        out = tdp / "none"
+                        before = _tree(pak.parent)
+                        rc, text, err = _run_cli([
+                            str(pak), "--out", str(out),
+                            "--filter", r"^missing\.bin$",
+                            *extra,
+                        ])
+                        self.assertEqual(rc, 2, text + err)
+                        self.assertIn("matched no entries", err)
+                        self.assertIn(str(pak), err)
+                        self.assertIn("Nothing was written", err)
+                        self.assertFalse(out.exists(), _tree(tdp))
+                        self.assertEqual(_tree(pak.parent), before)
+                        self.assertNotIn("Traceback", err)
+
+    def test_list_still_prints_every_entry_when_filter_is_set(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak, count = self._pak(tdp, "96")
+            rc, text, err = _run_cli([
+                str(pak), "--list", "--filter", r"^10\.stm$",
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("name=water.tif", text)
+            self.assertIn("10.STM", text)
+            self.assertIn(f"parsed: {count}", text)
+            self.assertFalse((tdp / "out").exists())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
