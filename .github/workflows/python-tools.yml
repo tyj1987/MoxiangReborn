@@ -1,0 +1,63 @@
+# 与 GitLab CI job `original_governance_and_python_tests` 保持同步（见 .gitlab-ci.yml）。
+# 改脚本、镜像或 paths 时，两边一起改。
+#
+# 对应关系：
+# - 触发：pull_request 且目标分支为 codex/reorg-original-20261009。
+#   paths 与该 job 的 changes（锚点 python_tooling_changes）同一组，并加上本文件。
+#   GitLab 写成 modern/tools/**/* 与 modern/tests/unit/tools/**/*；
+#   GitHub 用 ** 即可匹配子目录。
+# - 镜像：.linux_trusted 的 python:3.12-alpine3.22
+#   （GitLab 另钉 sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322）。
+# - 该 job 没有 before_script，也没有依赖安装。下面测试步骤的四条命令与 script 逐字一致。
+# - 顶层 variables PYTHONDONTWRITEBYTECODE=1、GIT_LFS_SKIP_SMUDGE=1 在此 job 同样设置。
+# - Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
+#   只在容器里装 git 拉下 PR 的 merge ref。这不是 GitLab script 的一部分。
+
+name: original_governance_and_python_tests
+
+on:
+  pull_request:
+    branches: [codex/reorg-original-20261009]
+    paths:
+      - modern/tools/**
+      - modern/tests/unit/tools/**
+      - scripts/check-project-governance.py
+      - .gitlab-ci.yml
+      - .github/workflows/python-tools.yml
+
+permissions:
+  contents: read
+
+jobs:
+  original_governance_and_python_tests:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine3.22
+    defaults:
+      run:
+        shell: sh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          apk add --no-cache git ca-certificates
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+          rm -f "$askpass"
+          git checkout --detach refs/remotes/origin/pr
+
+      - name: original_governance_and_python_tests
+        run: |
+          python3 --version
+          python3 scripts/check-project-governance.py
+          python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
