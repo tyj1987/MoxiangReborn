@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <fstream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <system_error>
@@ -17,10 +18,11 @@ struct OpenFile {
         : stream(path, std::ios::binary) {}
     // Pak entries are a window into the archive. FSRead seeks that window;
     // the entry bytes are not copied at FSOpenFile.
-    OpenFile(mxh::compat::PackFile* pack, std::uint32_t data_offset, std::uint32_t entry_size)
-        : pack(pack), data_offset(data_offset), entry_size(entry_size), from_pak(true) {}
+    OpenFile(std::shared_ptr<mxh::compat::PackFile> pack, std::uint32_t data_offset,
+             std::uint32_t entry_size)
+        : pack(std::move(pack)), data_offset(data_offset), entry_size(entry_size), from_pak(true) {}
     std::ifstream stream;
-    mxh::compat::PackFile* pack = nullptr;
+    std::shared_ptr<mxh::compat::PackFile> pack;
     std::uint32_t data_offset = 0;
     std::uint32_t entry_size = 0;
     bool from_pak = false;
@@ -249,7 +251,7 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
             if (tier) {
                 mounted.push_back(MountedPak{filename_utf8(path), *tier});
             }
-            packs_.push_back(std::move(pack));
+            packs_.push_back(std::shared_ptr<mxh::compat::PackFile>(std::move(pack)));
             // Same UTF-8 bytes as the "[pak] mount order" line, same order.
             pack_names_.push_back(filename_utf8(path));
         } else {
@@ -359,8 +361,9 @@ void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
         MLOG_WARN("[fs] loose file exists but cannot open: %s", loose_path.c_str());
         return nullptr;
     }
+    // shared_ptr: Initialize clears packs_ on every remount, and the destructor drops it.
     if (where.kind == Location::Kind::Pak)
-        return new OpenFile(packs_[where.pack].get(), where.entry->data_offset,
+        return new OpenFile(packs_[where.pack], where.entry->data_offset,
                             where.entry->size);
     return nullptr;
 }

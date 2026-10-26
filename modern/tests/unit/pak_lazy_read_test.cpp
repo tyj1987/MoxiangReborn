@@ -513,6 +513,24 @@ TEST(FilesystemFileStorage, SyntheticLayoutsKeepMountOrder) {
     storage->Release();
 }
 
+TEST(FilesystemFileStorage, OpenHandleReadsAfterInitializeClearsPacks) {
+    const TempDir dir("mxh-pak-lazy-lifetime-");
+    write_bytes(dir.path() / "keep.pak",
+                make_worktree_pak({{"keep.bin", {'K', 'E', 'E', 'P'}}}, 1));
+    auto* storage = new mxh::gx::FilesystemFileStorage(dir.path());
+    ASSERT_TRUE(storage->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    char name[] = "keep.bin";
+    void* file = storage->FSOpenFile(name, mxh::gx::FSFILE_ACCESSMODE_BINARY);
+    ASSERT_NE(file, nullptr);
+    // Second Initialize clears packs_ and mounts a new PackFile.
+    ASSERT_TRUE(storage->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    char bytes[4]{};
+    EXPECT_EQ(storage->FSRead(file, bytes, 4), 4u);
+    EXPECT_EQ(std::string(bytes, 4), "KEEP");
+    EXPECT_TRUE(storage->FSCloseFile(file));
+    storage->Release();
+}
+
 TEST(FilesystemFileStorage, ThreeLargePaksStayWithinPeakBudget) {
     const auto before = peak_rss();
     if (!before.ok) {

@@ -196,7 +196,9 @@ private:
     std::filesystem::path root_;
     FilesystemFileStorageOptions options_{};
     PakHeaderOpener header_opener_ = nullptr;
-    std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
+    // shared_ptr so an FSOpenFile handle keeps its PackFile alive when
+    // Initialize() clears this vector on every mount.
+    std::vector<std::shared_ptr<mxh::compat::PackFile>> packs_;
     std::vector<std::string> pack_names_;  // parallel to packs_
 };
 
