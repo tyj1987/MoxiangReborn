@@ -11,6 +11,7 @@ no data file is checked in.  Keep FIXTURE in sync with the C++ table.
 from __future__ import annotations
 
 import hashlib
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -35,11 +36,15 @@ def main(argv: list[str]) -> int:
         rows = []
         for name, size in FIXTURE:
             data = lcg_bytes(size)
-            path = Path(tmp) / name
+            path = Path(tmp) / "in" / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(data)
             rows.append({"name": name, "sha256": hashlib.sha256(data).hexdigest()})
-        pak_writer.write_pak({"entries": rows}, Path(tmp), out)
+        # pak_writer refuses repo/build trees; write outside, then copy.
+        built = Path(tmp) / "out" / "fixture.pak"
+        pak_writer.write_pak({"entries": rows}, Path(tmp) / "in", built)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(built, out)
     return 0
 
 

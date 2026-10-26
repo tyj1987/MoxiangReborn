@@ -160,6 +160,50 @@ class PakWriterTest(unittest.TestCase):
         keys = {pak_writer._basename_key(e["name"]) for e in doc["entries"]}
         self.assertEqual(len(keys), 73)
 
+    def test_refuses_output_in_git_tree_and_tool_repo(self):
+        work = self.tmp / "work"
+        (work / ".git").mkdir(parents=True)
+        out = work / "sub" / "zz_supplement.pak"
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "git working tree"):
+            pak_writer.write_pak(self.manifest, self.src, out)
+        self.assertFalse(out.parent.exists() and any(out.parent.iterdir()))
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "inside the repository"):
+            pak_writer.write_pak(self.manifest, self.src,
+                                 pak_writer.TOOL_REPO / "build" / "zz_supplement.pak")
+
+    def test_refuses_symlink_into_repo(self):
+        work = self.tmp / "work"
+        (work / ".git").mkdir(parents=True)
+        link = self.tmp / "link"
+        try:
+            link.symlink_to(work, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("symlinks unavailable")
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "git working tree"):
+            pak_writer.write_pak(self.manifest, self.src, link / "zz_supplement.pak")
+        self.assertEqual(list(work.iterdir()), [work / ".git"])
+
+    def test_forbidden_roots_arg_and_env(self):
+        root = self.tmp / "deploy"
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "forbidden root"):
+            pak_writer.write_pak(self.manifest, self.src, root / "x.pak", forbidden_roots=[str(root)])
+        old = os.environ.get(pak_writer.FORBIDDEN_ENV)
+        os.environ[pak_writer.FORBIDDEN_ENV] = str(root)
+        try:
+            with self.assertRaisesRegex(pak_writer.PakWriteError, "forbidden root"):
+                pak_writer.write_pak(self.manifest, self.src, root / "x.pak")
+        finally:
+            if old is None:
+                os.environ.pop(pak_writer.FORBIDDEN_ENV)
+            else:
+                os.environ[pak_writer.FORBIDDEN_ENV] = old
+
+    def test_original_root_path_function(self):
+        for path in (r"D:\MX", r"d:\mx\client\Package", "D:/MX/x.pak", "d:/Mx/"):
+            self.assertTrue(pak_writer.is_original_root(path), path)
+        for path in (r"D:\MX2", r"D:\work\MX", "C:/MX", "D:/MXH"):
+            self.assertFalse(pak_writer.is_original_root(path), path)
+
     def _manifest_file(self) -> Path:
         path = self.tmp / "manifest.json"
         path.write_text(json.dumps(self.manifest), encoding="utf-8")

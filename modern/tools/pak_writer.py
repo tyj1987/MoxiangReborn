@@ -30,6 +30,10 @@ Fails (exit 1, nothing left at --out) when:
     lookup, first hit in mount order, so a shared basename would be
     shadowed or shadow another pak.  --out itself is skipped;
   * manifest "pakSha256" is set and the built pak hashes differently;
+  * --out (resolved real path, so symlinks and junctions count) is in a
+    git working tree, inside the repository that holds this tool, under
+    D:\\MX (any case, either slash), or under a forbidden root given by
+    --forbidden-root or MXH_PAK_WRITER_FORBIDDEN_ROOTS (os.pathsep list);
   * read-back with unpack_pak is not the 96-byte layout only, or any
     entry differs from its input byte for byte.
 
@@ -52,6 +56,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import unpack_pak  # noqa: E402
 
 HEADER_SIZE = 96
+FORBIDDEN_ENV = "MXH_PAK_WRITER_FORBIDDEN_ROOTS"
+TOOL_REPO = Path(__file__).resolve().parents[2]
 DESC_SIZE = 32
 
 
@@ -105,6 +111,39 @@ def existing_basenames(roots: list[Path], skip: Path | None = None) -> dict[str,
     return seen
 
 
+def _fold(path: str) -> str:
+    return path.replace("\\", "/").rstrip("/").casefold()
+
+
+def is_under(path: str, root: str) -> bool:
+    """Case-insensitive, slash-agnostic prefix test on whole components."""
+    p, r = _fold(path), _fold(root)
+    return p == r or p.startswith(r + "/")
+
+
+def is_original_root(path: str) -> bool:
+    return is_under(path, "D:/MX")
+
+
+def forbidden_output_reason(out: Path, extra_roots: list[str] | None = None) -> str | None:
+    """Why --out may not be written, or None.  Checks the resolved parent."""
+    parent = Path(os.path.realpath(out.parent))
+    if is_original_root(str(parent)) or is_original_root(str(out.parent)):
+        return f"{out} is under the original root D:\\MX"
+    roots = list(extra_roots or [])
+    roots += [r for r in os.environ.get(FORBIDDEN_ENV, "").split(os.pathsep) if r]
+    for root in roots:
+        real = os.path.realpath(root)
+        if is_under(str(parent), real) or is_under(str(parent), root):
+            return f"{out} is under forbidden root {root}"
+    if is_under(str(parent), str(TOOL_REPO)):
+        return f"{out} is inside the repository {TOOL_REPO}"
+    for candidate in (parent, *parent.parents):
+        if (candidate / ".git").exists():
+            return f"{out} is inside the git working tree {candidate}"
+    return None
+
+
 def load_inputs(manifest: dict, input_dir: Path) -> list[tuple[str, bytes]]:
     rows = manifest.get("entries")
     if not isinstance(rows, list) or not rows:
@@ -150,8 +189,12 @@ def verify_pak(pak_path: Path, entries: list[tuple[str, bytes]]) -> None:
 
 
 def write_pak(manifest: dict, input_dir: Path, out: Path,
-              conflict_roots: list[Path] | None = None) -> str:
+              conflict_roots: list[Path] | None = None,
+              forbidden_roots: list[str] | None = None) -> str:
     """Write, verify and return the pak sha256.  Leaves nothing on failure."""
+    reason = forbidden_output_reason(out, forbidden_roots)
+    if reason:
+        raise PakWriteError("refusing to write: " + reason)
     entries = load_inputs(manifest, input_dir)
     if conflict_roots:
         seen = existing_basenames(conflict_roots, skip=out)
@@ -184,10 +227,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--conflict-root", action="append", type=Path, default=[],
                         help="directory whose top-level .pak entries must not share a basename")
+    parser.add_argument("--forbidden-root", action="append", default=[],
+                        help=f"never write under this directory (also {FORBIDDEN_ENV})")
     args = parser.parse_args(argv)
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-        digest = write_pak(manifest, args.input_dir, args.out, args.conflict_root)
+        digest = write_pak(manifest, args.input_dir, args.out, args.conflict_root,
+                           args.forbidden_root)
     except (OSError, ValueError, struct.error) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
