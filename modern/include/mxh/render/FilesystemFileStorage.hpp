@@ -23,12 +23,24 @@ enum class PakFormatTier : std::uint32_t {
     Original96 = 96,
 };
 
-// One .pak considered for mounting. `path` is the archive; ordering uses
-// only its filename, not the directory.
+// One .pak considered for mounting. `path` is the archive.
+// `root_index` 0 is the primary root. Each extra_pak_roots entry uses
+// 1, 2, ... in list order. Ordering is tier, then root_index, then the
+// filename (not the directory). Same-named paks from different roots
+// both stay in the list.
 struct PakMountCandidate {
     std::filesystem::path path;
     PakFormatTier tier = PakFormatTier::PlayDh92;
+    std::uint32_t root_index = 0;
 };
+
+// Subdirectory of the primary resource root that holds original 96-byte
+// paks (TYJ-120). The primary pak scan is not recursive, so this directory
+// is mounted only when it is listed in extra_pak_roots. The mount-order
+// log spells that directory with this exact text and a forward slash on
+// every platform, for example `Original/Map.pak(96)`. deploy_client.ps1
+// must use this same name.
+inline constexpr std::string_view kOriginalPakSubdir = "Original";
 
 // Pak tier priority for FilesystemFileStorage. This is the config item:
 // the mount loop does not hard-code which family wins.
@@ -45,20 +57,45 @@ struct PakMountCandidate {
 // That options value is the only change required.
 //
 // A tier omitted from the vector still mounts, after every listed tier.
-// Within one rank, filenames sort by the UTF-8 bytes of
-// path.filename().u8string() (C++17 returns std::string; C++20 returns
-// std::u8string, which is copied into std::string as raw bytes). ASCII
-// A-Z is folded to a-z. When that comparison ties, including names that
-// differ only in case such as Data.pak and data.pak, those same UTF-8
-// bytes decide, compared as unsigned char. Uppercase ASCII therefore
-// mounts first (0x41 < 0x61), so ABC.pak comes before abc.pak. A shorter
-// name that is a case-insensitive prefix of a longer one sorts first;
-// raw bytes are consulted only when the folded names have equal length.
+// Within one tier, root_index is the next key: the primary root (0),
+// then each extra_pak_roots entry in list order. Filenames break that
+// tie. Filename order uses the UTF-8 bytes of path.filename().u8string()
+// (C++17 returns std::string; C++20 returns std::u8string, which is
+// copied into std::string as raw bytes). ASCII A-Z is folded to a-z.
+// When that comparison ties, including names that differ only in case
+// such as Data.pak and data.pak, those same UTF-8 bytes decide, compared
+// as unsigned char. Uppercase ASCII therefore mounts first (0x41 < 0x61),
+// so ABC.pak comes before abc.pak. A shorter name that is a
+// case-insensitive prefix of a longer one sorts first; raw bytes are
+// consulted only when the folded names have equal length.
+//
+// extra_pak_roots is empty by default. Leave it empty and discovery,
+// mount order, and the mount-order log stay byte-identical to a single
+// primary root. Loose files are always read from the primary root only.
+//
+// Each extra root is scanned non-recursively for direct-child .pak files.
+// A relative entry resolves against the primary root, so
+// kOriginalPakSubdir selects <primary>/Original. Absolute entries are
+// used as given. The primary scan does not recurse, so a subdirectory
+// is not mounted twice. Paks from every root are classified by header
+// and placed into pak_tier_order the same way as paks from the primary
+// root. A missing or unreadable extra root logs a warning and is
+// skipped; Initialize does not throw for that.
+//
+// When extra_pak_roots is non-empty, the mount-order log disambiguates
+// paks that did not come from the primary root. The label is the pak
+// path relative to the primary root when that path does not escape it,
+// otherwise `<extra-directory>/<filename>`. Separators are `/`. A path
+// component that matches kOriginalPakSubdir ignoring ASCII case is
+// spelled with that constant, so the Original subdirectory logs as
+// `Original/Map.pak(96)` on every platform. Primary-root paks stay
+// filename-only, matching the unset log.
 struct FilesystemFileStorageOptions {
     std::vector<PakFormatTier> pak_tier_order{
         PakFormatTier::PlayDh92,
         PakFormatTier::Original96,
     };
+    std::vector<std::filesystem::path> extra_pak_roots{};
 };
 
 // Read the uint32 at offset 4. nullopt when the file is missing or shorter

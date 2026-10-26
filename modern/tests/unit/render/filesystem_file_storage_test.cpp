@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
@@ -296,6 +297,8 @@ TEST(FilesystemFileStorage, DefaultPakTierOrderIsPlayDhThenOriginal) {
     ASSERT_EQ(options.pak_tier_order.size(), 2u);
     EXPECT_EQ(options.pak_tier_order[0], mxh::gx::PakFormatTier::PlayDh92);
     EXPECT_EQ(options.pak_tier_order[1], mxh::gx::PakFormatTier::Original96);
+    EXPECT_TRUE(options.extra_pak_roots.empty());
+    EXPECT_EQ(mxh::gx::kOriginalPakSubdir, "Original");
 }
 
 TEST(FilesystemFileStorage, ClassifiesPakByOffset4) {
@@ -589,5 +592,208 @@ TEST(FilesystemFileStorage, SkipsPakShorterThanEightBytes) {
     EXPECT_LT(a_at, z_at) << logged;
     EXPECT_NE(line.find("1=m_ok.pak(92)"), std::string::npos) << logged;
     EXPECT_EQ(line.find("short.pak"), std::string::npos) << line;
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, PakMountOrderIsTierThenRootThenFilename) {
+    using mxh::gx::PakFormatTier;
+    using mxh::gx::PakMountCandidate;
+    std::vector<PakMountCandidate> input{
+        {std::filesystem::path("a.pak"), PakFormatTier::PlayDh92, 1},
+        {std::filesystem::path("z.pak"), PakFormatTier::PlayDh92, 0},
+        {std::filesystem::path("m.pak"), PakFormatTier::Original96, 0},
+        {std::filesystem::path("b.pak"), PakFormatTier::PlayDh92, 0},
+    };
+    const auto ordered = mxh::gx::order_pak_mounts(
+        std::move(input), mxh::gx::FilesystemFileStorageOptions{}.pak_tier_order);
+    ASSERT_EQ(ordered.size(), 4u);
+    EXPECT_EQ(ordered[0].path.filename().string(), "b.pak");
+    EXPECT_EQ(ordered[0].root_index, 0u);
+    EXPECT_EQ(ordered[1].path.filename().string(), "z.pak");
+    EXPECT_EQ(ordered[1].root_index, 0u);
+    EXPECT_EQ(ordered[2].path.filename().string(), "a.pak");
+    EXPECT_EQ(ordered[2].root_index, 1u);
+    EXPECT_EQ(ordered[3].path.filename().string(), "m.pak");
+    EXPECT_EQ(ordered[3].root_index, 0u);
+    EXPECT_EQ(ordered[3].tier, PakFormatTier::Original96);
+}
+
+TEST(FilesystemFileStorage, SameNamedPaksMountFromBothRootsByTier) {
+    const TempDir primary("mxh-pak-root-a-");
+    const TempDir extra("mxh-pak-root-b-");
+    // Each fixture writer stores one entry, so the fill-in file lives in
+    // its own archive. Both roots still contribute a Map.pak.
+    write_playdh_pak(primary.path / "Map.pak", "shared.bin", "from-92");
+    write_playdh_pak(primary.path / "Only92.pak", "only92.bin", "only-92");
+    write_original_pak(extra.path / "Map.pak", "shared.bin", "from-96");
+    write_original_pak(extra.path / "Only96.pak", "only96.bin", "only-96");
+    {
+        std::ofstream loose(extra.path / "loose-only.bin", std::ios::binary);
+        ASSERT_TRUE(loose);
+        loose << "from-extra-loose";
+    }
+
+    mxh::gx::FilesystemFileStorageOptions options;
+    options.extra_pak_roots.push_back(extra.path);
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(primary.path, options);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+
+    // Only92.pak (92) then Map.pak (92) by filename, then the 96 tier:
+    // Map.pak before Only96.pak, both prefixed with the extra directory.
+    const auto extra_name = extra.path.filename().string();
+    const std::string expected =
+        "[pak] mount order: 1=Map.pak(92) 2=Only92.pak(92) 3=" + extra_name +
+        "/Map.pak(96) 4=" + extra_name + "/Only96.pak(96)";
+    EXPECT_EQ(line, expected) << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-92");
+    EXPECT_EQ(read_entry(storage, "only92.bin"), "only-92");
+    EXPECT_EQ(read_entry(storage, "only96.bin"), "only-96");
+    EXPECT_TRUE(read_entry(storage, "loose-only.bin").empty());
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, WithinTierRootOrderPrecedesFilename) {
+    const TempDir primary("mxh-pak-tier-root-a-");
+    const TempDir extra("mxh-pak-tier-root-b-");
+    // a.pak sorts before z.pak by filename. Root order must still mount
+    // the primary archive first.
+    write_playdh_pak(extra.path / "a.pak", "shared.bin", "from-extra");
+    write_playdh_pak(primary.path / "z.pak", "shared.bin", "from-primary");
+
+    mxh::gx::FilesystemFileStorageOptions options;
+    options.extra_pak_roots.push_back(extra.path);
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(primary.path, options);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    const auto extra_name = extra.path.filename().string();
+    const std::string expected =
+        "[pak] mount order: 1=z.pak(92) 2=" + extra_name + "/a.pak(92)";
+
+    EXPECT_EQ(line, expected) << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-primary");
+    storage->Release();
+}
+
+void write_original_layout(const std::filesystem::path& primary) {
+    const auto original = primary / std::string(mxh::gx::kOriginalPakSubdir);
+    std::filesystem::create_directories(original);
+    write_playdh_pak(primary / "Map.pak", "shared.bin", "from-92");
+    write_original_pak(original / "Map.pak", "shared.bin", "from-96");
+    write_original_pak(original / "Only96.pak", "only96.bin", "only-96");
+    std::ofstream loose(original / "loose-only.bin", std::ios::binary);
+    ASSERT_TRUE(loose);
+    loose << "from-original-loose";
+}
+
+TEST(FilesystemFileStorage, PrimaryScanDoesNotRecurseIntoOriginalSubdir) {
+    const TempDir dir("mxh-pak-original-skip-");
+    write_original_layout(dir.path);
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(dir.path);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+
+    EXPECT_EQ(line, "[pak] mount order: 1=Map.pak(92)") << logged;
+    EXPECT_EQ(logged.find("Original/"), std::string::npos) << logged;
+    EXPECT_EQ(logged.find("not a readable directory"), std::string::npos) << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-92");
+    EXPECT_TRUE(read_entry(storage, "only96.bin").empty());
+    EXPECT_TRUE(read_entry(storage, "loose-only.bin").empty());
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, OriginalSubdirMountsOnceWithExactLogLabel) {
+    const TempDir dir("mxh-pak-original-layout-");
+    write_original_layout(dir.path);
+    const std::string expected =
+        "[pak] mount order: 1=Map.pak(92) 2=Original/Map.pak(96) 3=Original/Only96.pak(96)";
+    ASSERT_EQ(mxh::gx::kOriginalPakSubdir, "Original");
+    ASSERT_NE(expected.find(std::string(mxh::gx::kOriginalPakSubdir) + "/Map.pak(96)"),
+              std::string::npos);
+
+    mxh::gx::FilesystemFileStorageOptions relative_options;
+    relative_options.extra_pak_roots.push_back(
+        std::filesystem::path(std::string(mxh::gx::kOriginalPakSubdir)));
+    testing::internal::CaptureStderr();
+    auto* relative_storage = open_storage(dir.path, relative_options);
+    const auto relative_logged = testing::internal::GetCapturedStderr();
+    const auto relative_line = mount_order_line(relative_logged);
+    EXPECT_EQ(relative_line, expected) << relative_logged;
+    EXPECT_EQ(relative_logged.find("not a readable directory"), std::string::npos)
+        << relative_logged;
+    EXPECT_EQ(std::count(relative_line.begin(), relative_line.end(), '='), 3) << relative_line;
+    EXPECT_EQ(read_entry(relative_storage, "shared.bin"), "from-92");
+    EXPECT_EQ(read_entry(relative_storage, "only96.bin"), "only-96");
+    EXPECT_TRUE(read_entry(relative_storage, "loose-only.bin").empty());
+    relative_storage->Release();
+
+    mxh::gx::FilesystemFileStorageOptions absolute_options;
+    absolute_options.extra_pak_roots.push_back(
+        dir.path / std::string(mxh::gx::kOriginalPakSubdir));
+    testing::internal::CaptureStderr();
+    auto* absolute_storage = open_storage(dir.path, absolute_options);
+    const auto absolute_logged = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(mount_order_line(absolute_logged), expected) << absolute_logged;
+    EXPECT_EQ(read_entry(absolute_storage, "shared.bin"), "from-92");
+    EXPECT_EQ(read_entry(absolute_storage, "only96.bin"), "only-96");
+    absolute_storage->Release();
+}
+
+TEST(FilesystemFileStorage, OriginalLogLabelUsesConstantCase) {
+    const TempDir dir("mxh-pak-original-case-");
+    // Filesystem spelling differs from kOriginalPakSubdir. The log must
+    // still use the constant and a forward slash.
+    const auto spelled = dir.path / "ORIGINAL";
+    std::filesystem::create_directories(spelled);
+    write_playdh_pak(dir.path / "Map.pak", "shared.bin", "from-92");
+    write_original_pak(spelled / "Map.pak", "shared.bin", "from-96");
+
+    mxh::gx::FilesystemFileStorageOptions options;
+    options.extra_pak_roots.push_back(std::filesystem::path("ORIGINAL"));
+
+    testing::internal::CaptureStderr();
+    auto* storage = open_storage(dir.path, options);
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    EXPECT_EQ(line, "[pak] mount order: 1=Map.pak(92) 2=Original/Map.pak(96)") << logged;
+    EXPECT_EQ(line.find("ORIGINAL/"), std::string::npos) << line;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-92");
+    storage->Release();
+}
+
+TEST(FilesystemFileStorage, MissingExtraRootWarnsAndContinues) {
+    const TempDir dir("mxh-pak-missing-extra-");
+    write_playdh_pak(dir.path / "Map.pak", "shared.bin", "from-92");
+    {
+        std::ofstream not_dir(dir.path / "not-a-directory", std::ios::binary);
+        ASSERT_TRUE(not_dir);
+        not_dir << "x";
+    }
+
+    mxh::gx::FilesystemFileStorageOptions options;
+    options.extra_pak_roots.push_back(dir.path / "missing-extra-root");
+    options.extra_pak_roots.push_back(dir.path / "not-a-directory");
+
+    mxh::gx::FilesystemFileStorage* storage = nullptr;
+    testing::internal::CaptureStderr();
+    EXPECT_NO_THROW({
+        storage = new mxh::gx::FilesystemFileStorage(dir.path, options);
+        EXPECT_TRUE(storage->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    });
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+
+    EXPECT_EQ(line, "[pak] mount order: 1=Map.pak(92)") << logged;
+    EXPECT_NE(logged.find("WARN"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("not a readable directory"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("missing-extra-root"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("not-a-directory"), std::string::npos) << logged;
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-92");
     storage->Release();
 }

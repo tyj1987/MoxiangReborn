@@ -129,6 +129,13 @@ gtest_add_tests(TARGET mxh_render_tests
     FilesystemFileStorage.CrossTierResolutionFollowsConfiguredPriority
     FilesystemFileStorage.Utf8PakNameSortAndLogAreStable
     FilesystemFileStorage.SkipsPakShorterThanEightBytes
+    FilesystemFileStorage.PakMountOrderIsTierThenRootThenFilename
+    FilesystemFileStorage.SameNamedPaksMountFromBothRootsByTier
+    FilesystemFileStorage.WithinTierRootOrderPrecedesFilename
+    FilesystemFileStorage.PrimaryScanDoesNotRecurseIntoOriginalSubdir
+    FilesystemFileStorage.OriginalSubdirMountsOnceWithExactLogLabel
+    FilesystemFileStorage.OriginalLogLabelUsesConstantCase
+    FilesystemFileStorage.MissingExtraRootWarnsAndContinues
     EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
     EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
     EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder

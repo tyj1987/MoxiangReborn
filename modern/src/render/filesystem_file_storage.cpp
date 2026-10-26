@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <exception>
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 namespace mxh::gx {
@@ -86,10 +88,123 @@ bool pak_mount_less(const PakMountCandidate& a,
     const int rank_a = tier_rank(a.tier, tier_order);
     const int rank_b = tier_rank(b.tier, tier_order);
     if (rank_a != rank_b) return rank_a < rank_b;
+    // Root order is the next key so two Map.pak files from different
+    // roots are not equivalent under std::sort.
+    if (a.root_index != b.root_index) return a.root_index < b.root_index;
     const auto name_a = filename_utf8(a.path);
     const auto name_b = filename_utf8(b.path);
     return pak_filename_less(name_a, name_b);
 }
+
+namespace {
+
+std::string generic_utf8(const std::filesystem::path& path) {
+    const auto u8 = path.generic_u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
+bool equals_original_subdir(std::string_view name) noexcept {
+    const auto needle = kOriginalPakSubdir;
+    if (name.size() != needle.size()) return false;
+    for (std::size_t i = 0; i < name.size(); ++i) {
+        if (fold_ascii(static_cast<unsigned char>(name[i])) !=
+            fold_ascii(static_cast<unsigned char>(needle[i]))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Force '/' and the constant's spelling of kOriginalPakSubdir.
+std::string normalize_mount_label(std::string generic) {
+    for (char& ch : generic) {
+        if (ch == '\\') ch = '/';
+    }
+    std::string out;
+    out.reserve(generic.size());
+    std::size_t begin = 0;
+    while (begin <= generic.size()) {
+        const auto slash = generic.find('/', begin);
+        const auto count = slash == std::string::npos ? std::string::npos : slash - begin;
+        const auto component = std::string_view(generic).substr(begin, count);
+        if (!out.empty()) out.push_back('/');
+        if (equals_original_subdir(component)) out.append(kOriginalPakSubdir);
+        else out.append(component);
+        if (slash == std::string::npos) break;
+        begin = slash + 1;
+    }
+    return out;
+}
+
+bool relative_escapes(const std::filesystem::path& rel) {
+    if (rel.empty() || rel.is_absolute()) return true;
+    for (const auto& part : rel) {
+        if (part == "..") return true;
+    }
+    return false;
+}
+
+// Primary paks, and every pak when extra roots are unset, log as the
+// filename. Otherwise the label is primary-root-relative when the pak
+// lives under the primary root, else `<directory>/<filename>`.
+std::string pak_log_label(const std::filesystem::path& pak_path,
+                          const std::filesystem::path& primary_root,
+                          std::uint32_t root_index,
+                          bool disambiguate) {
+    const auto filename = filename_utf8(pak_path);
+    if (!disambiguate || root_index == 0) return filename;
+
+    std::error_code ec;
+    const auto rel = std::filesystem::relative(pak_path, primary_root, ec);
+    if (!ec && !relative_escapes(rel)) {
+        return normalize_mount_label(generic_utf8(rel));
+    }
+    auto root_name = filename_utf8(pak_path.parent_path());
+    if (equals_original_subdir(root_name)) root_name.assign(kOriginalPakSubdir.begin(),
+                                                            kOriginalPakSubdir.end());
+    return root_name + "/" + filename;
+}
+
+void warn_extra_root(const std::filesystem::path& path) {
+    std::string shown = "(unprintable)";
+    try {
+        shown = generic_utf8(path);
+    } catch (const std::exception&) {
+    }
+    MLOG_WARN("[pak] extra root '%s': not a readable directory", shown.c_str());
+}
+
+struct UnclassifiedPak {
+    std::filesystem::path path;
+    std::uint32_t root_index = 0;
+};
+
+// Direct children only. A subdirectory such as kOriginalPakSubdir is not
+// walked, so those paks are mounted only via extra_pak_roots.
+bool append_direct_child_paks(const std::filesystem::path& dir,
+                              std::uint32_t root_index,
+                              std::vector<PakMountCandidate>& classified,
+                              std::vector<UnclassifiedPak>& unclassified) {
+    std::error_code ec;
+    std::filesystem::directory_iterator it(dir, ec);
+    if (ec) return false;
+    const std::filesystem::directory_iterator end;
+    for (; it != end; it.increment(ec)) {
+        if (ec) return false;
+        const auto& item = *it;
+        std::error_code file_ec;
+        if (!item.is_regular_file(file_ec) || file_ec) continue;
+        if (item.path().extension() != ".pak") continue;
+        if (const auto tier = classify_pak_header(item.path())) {
+            classified.push_back(PakMountCandidate{item.path(), *tier, root_index});
+        } else {
+            unclassified.push_back(UnclassifiedPak{item.path(), root_index});
+        }
+    }
+    return !ec;
+}
+
+}  // namespace
 
 std::vector<PakMountCandidate> order_pak_mounts(
     std::vector<PakMountCandidate> candidates,
@@ -155,19 +270,34 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     std::uint32_t, std::uint32_t, std::uint32_t, FILE_ACCESS_METHOD) {
     if (!std::filesystem::is_directory(root_)) return FALSE;
     packs_.clear();
-    std::error_code ec;
     std::vector<PakMountCandidate> classified;
-    std::vector<std::filesystem::path> unclassified;
-    for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
-        if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (const auto tier = classify_pak_header(item.path())) {
-            classified.push_back(PakMountCandidate{item.path(), *tier});
-        } else {
-            unclassified.push_back(item.path());
+    std::vector<UnclassifiedPak> unclassified;
+    // Primary root: direct children only. kOriginalPakSubdir is not walked.
+    // A failure here matches the previous iterator: no paks, no extra warning.
+    append_direct_child_paks(root_, 0, classified, unclassified);
+
+    // Missing or unreadable extra roots warn and are skipped. Do not throw.
+    for (std::size_t i = 0; i < options_.extra_pak_roots.size(); ++i) {
+        const auto root_index = static_cast<std::uint32_t>(i + 1);
+        const auto& extra = options_.extra_pak_roots[i];
+        try {
+            const auto located = extra.is_absolute() ? extra : root_ / extra;
+            std::error_code ec;
+            auto dir = std::filesystem::weakly_canonical(located, ec);
+            if (ec) dir = located;
+            ec.clear();
+            if (!std::filesystem::is_directory(dir, ec) || ec ||
+                !append_direct_child_paks(dir, root_index, classified, unclassified)) {
+                warn_extra_root(located);
+            }
+        } catch (const std::exception&) {
+            warn_extra_root(extra);
         }
     }
+
     // Tier sequence comes from options_.pak_tier_order, not from this loop.
     const auto ordered = order_pak_mounts(std::move(classified), options_.pak_tier_order);
+    const bool disambiguate = !options_.extra_pak_roots.empty();
 
     struct MountedPak {
         std::string filename;
@@ -175,10 +305,12 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     };
     std::vector<MountedPak> mounted;
     const auto try_open = [&](const std::filesystem::path& path,
-                              std::optional<PakFormatTier> tier) {
+                              std::optional<PakFormatTier> tier,
+                              std::uint32_t root_index) {
         if (auto pack = mxh::compat::PackFile::open(path)) {
             if (tier) {
-                mounted.push_back(MountedPak{filename_utf8(path), *tier});
+                mounted.push_back(MountedPak{
+                    pak_log_label(path, root_, root_index, disambiguate), *tier});
             }
             packs_.push_back(std::move(pack));
         } else {
@@ -187,15 +319,21 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
                       pak_path.c_str());
         }
     };
-    for (const auto& candidate : ordered) try_open(candidate.path, candidate.tier);
+    for (const auto& candidate : ordered) {
+        try_open(candidate.path, candidate.tier, candidate.root_index);
+    }
     // Shorter than 8 bytes: offset 4 cannot be read. Do not call
     // PackFile::open (that would follow directory order). Warn and skip.
     std::sort(unclassified.begin(), unclassified.end(),
-              [](const std::filesystem::path& a, const std::filesystem::path& b) {
-                  return pak_filename_less(filename_utf8(a), filename_utf8(b));
+              [](const UnclassifiedPak& a, const UnclassifiedPak& b) {
+                  const auto name_a = filename_utf8(a.path);
+                  const auto name_b = filename_utf8(b.path);
+                  if (pak_filename_less(name_a, name_b)) return true;
+                  if (pak_filename_less(name_b, name_a)) return false;
+                  return a.root_index < b.root_index;
               });
-    for (const auto& path : unclassified) {
-        const auto name = filename_utf8(path);
+    for (const auto& item : unclassified) {
+        const auto name = pak_log_label(item.path, root_, item.root_index, disambiguate);
         MLOG_WARN("[pak] skipped '%s': header shorter than 8 bytes", name.c_str());
     }
 
