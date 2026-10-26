@@ -134,6 +134,32 @@ mxh_client_e2e --no-spawn --login-host 192.168.2.244 --login-port 36101 --agent-
 - `mxh_client` 只解析 `--login-host`、`--login-port`、`--map-port`。`--agent-port` 会被忽略。`--map-port` 只写入启动日志，连接路径不用它。图形客户端的 Agent 地址和端口来自 LoginAck；Login 由 r2 的 Login 进程以 `--agent-addr 192.168.2.244 --agent-port 37101` 通告。进图走 Agent 会话。
 - 图形客户端要指向 r2 时，使用 `--login-host 192.168.2.244 --login-port 36101`。`--agent-port 37101 --map-port 38101` 可以放在启动器上，但当前 `mxh_client` 不根据它们改连接。
 
+## 冒烟专用账号
+
+`mxr_smoke` 是 r2 上的冒烟专用账号，只有这一个账号，名下只有一个角色。用途是在这套 stage 上跑图形客户端的 Map10 冒烟，例如 PR #6 的雾对比和 PR #10 的顶点色预览。角色名待补。
+
+该账号经战略专家批准（2026-10-26），在 r2 上由客户端 `--auto-create` 创建。口令不进仓库，只放在 ROG 的环境变量 `MXR_SMOKE_PASSWORD`。连 r2 时使用 `--username mxr_smoke --password-env MXR_SMOKE_PASSWORD --auto-create`，并带上 `--login-host 192.168.2.244 --login-port 36101`。不要使用 `--password` 把口令放进命令行。
+
+`--username`、`--password-env`、`--auto-create` 只在定义了 `MXH_DEV_AUTOMATION` 的构建里解析（`modern/tools/MoxianClient/main.cpp` 第 202-208 行）。未定义该宏时，这些参数会被拒绝（同文件第 253-268 行）。Release 构建同样拒绝 `--auto-create`（同文件第 3010-3016 行）。`--auto-create` 在登录成功且角色列表为空时提交建角（同文件第 4177-4220 行），角色名来自 `--character-name`。它不插入账号行。库里还没有 `mxr_smoke` 时，登录查询为空，服务端回 `NotifyUserLoginNack`（`modern/src/server/login_handler.cpp` 第 371-382 行、第 424-437 行），建角不会发生。
+
+`scripts/gui-client-smoke.ps1` 默认的 `test` 账号是在当次运行的临时 sqlite 里注册的：第 70 行用 sqlite 后端启动本机服务，第 78 行指向该次运行目录下的 `moxian.db`，第 88 行执行 `mxh_db_tool register ... test`，第 114 行把 `--username test` 传给客户端。r2 上没有这个账号，拿它连 r2 会 LoginNack。
+
+删除只处理 `mxr_smoke` 这一个账号及其名下角色，并且只在 r2 使用的数据库上操作。数据库主机和库名见私有配置，本文不写具体值。不碰 r2 的其他数据，不碰 r18。
+
+`mxh_db_tool` 没有删号子命令。它的子命令是 `migrate`、`init`、`exec`、`query`、`schema`、`register`、`ban`、`unban`（`modern/tools/MoxianDbTool/main.cpp` 第 31-39 行）。`exec` 能执行调用者提供的语句，仓库里没有删除 `mxr_smoke` 的现成语句，这里不写 SQL。
+
+账号和建角路径会写入这些表：
+
+- `chr_log_info`，键 `id`（`modern/src/server/account_service.cpp` 第 150 行）
+- `modern_account_identity`，键 `account_id`（同文件第 172 行；登录成功后补写）
+- `character_info`，键 `userid`（`modern/src/server/agent_handler.cpp` 第 1779 行）
+- `modern_player_state`（同文件第 1797 行）
+- `modern_character_equipment`（同文件第 1829 行）
+- `modern_player_item`（同文件第 1840 行）
+- `modern_player_vitals`（`modern/src/server/original_vitals_store.cpp` 第 108 行）
+
+r2 启动时的 writer contract 会核对 `dbo.chr_log_info` 和 `dbo.character_info` 的列（`deploy/scripts/assert_original_writer_contract.ps1` 第 25-32 行）。进图之后还可能多出别的行。具体删除语句待上机按该账号的实际行核对后再执行，范围仍然只限 `mxr_smoke` 及其角色。
+
 ## 回滚
 
 只停止 r2 的 `C:\Moxiang\original\stage-ct932-20261024-r2\run\pids-current.json` 里记录的 PID。对每一项先核对，再 `Stop-Process -Id`：
