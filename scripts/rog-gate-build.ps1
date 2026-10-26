@@ -45,9 +45,10 @@
     Build and write the stamp, but do not run CTest.
 
 .PARAMETER SkipE2E
-    When MoxianClientE2E is registered without the mxh_client_e2e_ctest port
-    launcher, warn and continue instead of failing. A registered launcher
-    still runs. The main CTest pass still excludes MoxianClientE2E.
+    When MoxianClientE2E is not registered, or is registered without the
+    mxh_client_e2e_ctest port launcher, warn and continue instead of failing.
+    A registered launcher still runs. The main CTest pass still excludes
+    MoxianClientE2E.
 
 .PARAMETER DryRun
     Run the read-only checks and print the actions. Alias of -WhatIf for this script.
@@ -1731,13 +1732,19 @@ function Format-RogGatePortInUseMessage {
     return "port $Port in use"
 }
 
-function Test-RogGateLoopbackPortFree {
-    param([Parameter(Mandatory = $true)][int]$Port)
+function Test-RogGateTcpPortBindFree {
+    param(
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $true)]$Address
+    )
 
+    # ExclusiveAddressUse makes a 0.0.0.0 listener visible to this probe.
+    # A bind to 127.0.0.1 alone succeeds on Windows while 0.0.0.0 is taken.
     $listener = $null
     $started = $false
     try {
-        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Loopback, $Port)
+        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ($Address, $Port)
+        $listener.ExclusiveAddressUse = $true
         $listener.Start()
         $started = $true
         return $true
@@ -1750,11 +1757,46 @@ function Test-RogGateLoopbackPortFree {
     }
 }
 
+function Test-RogGateTcpListenTableHasPort {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    # Windows PowerShell has this cmdlet. Linux pwsh does not; skip it there.
+    $listenCommand = Get-Command -Name Get-NetTCPConnection -ErrorAction SilentlyContinue
+    if ($null -eq $listenCommand) {
+        return $false
+    }
+    $rows = @()
+    try {
+        $rows = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
+    } catch {
+        return $false
+    }
+    return ($rows.Count -gt 0)
+}
+
+function Test-RogGateTcpPortFree {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    $listed = Test-RogGateTcpListenTableHasPort -Port $Port
+    if ($listed) {
+        return $false
+    }
+    $loopbackFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Loopback)
+    if (-not $loopbackFree) {
+        return $false
+    }
+    $anyFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Any)
+    if (-not $anyFree) {
+        return $false
+    }
+    return $true
+}
+
 function Get-RogGateFirstBusyLoopbackPort {
     param([Parameter(Mandatory = $true)][int[]]$Ports)
 
     foreach ($port in $Ports) {
-        $free = Test-RogGateLoopbackPortFree -Port $port
+        $free = Test-RogGateTcpPortFree -Port $port
         if (-not $free) {
             return [int]$port
         }
@@ -1863,6 +1905,7 @@ function Get-RogGateE2ECtestArguments {
         $out.Add('-V')
     } else {
         $out.Add('--output-on-failure')
+        $out.Add('--no-tests=error')
     }
     $out.Add('-R')
     $out.Add($script:RogGateE2ETestRegex)
@@ -1997,13 +2040,7 @@ function Resolve-RogGateE2ERegistration {
             Message = [string]$Listing.ParseError
         }
     }
-    if ($Listing.Absent -or -not $Listing.Registered) {
-        return [pscustomobject]@{
-            Action  = 'Absent'
-            Message = '[INFO] MoxianClientE2E not registered'
-        }
-    }
-    if ($Listing.Launcher) {
+    if ($Listing.Launcher -and $Listing.Registered) {
         return [pscustomobject]@{
             Action  = 'Run'
             Message = ''
@@ -2013,6 +2050,12 @@ function Resolve-RogGateE2ERegistration {
         return [pscustomobject]@{
             Action  = 'Skip'
             Message = '[WARN] E2E skipped by -SkipE2E'
+        }
+    }
+    if ($Listing.Absent -or -not $Listing.Registered) {
+        return [pscustomobject]@{
+            Action  = 'Error'
+            Message = 'MoxianClientE2E not registered'
         }
     }
     return [pscustomobject]@{
@@ -2547,6 +2590,26 @@ function Invoke-RogGateSelfTest {
         }
         Assert-RogGateSelfTest -Name 'an occupied loopback port is reported in use' -Condition $busyOk
 
+        $anyListener = $null
+        $anyStarted = $false
+        $anyOk = $false
+        try {
+            $anyListener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Any, 0)
+            $anyListener.Start()
+            $anyStarted = $true
+            $anyPort = [int]$anyListener.LocalEndpoint.Port
+            $foundAny = Get-RogGateFirstBusyLoopbackPort -Ports @($anyPort)
+            $anyMessage = Format-RogGatePortInUseMessage -Port $anyPort
+            $anyOk = ($foundAny -eq $anyPort) -and ($anyMessage -eq ('port ' + [string]$anyPort + ' in use'))
+        } catch {
+            $anyOk = $false
+        } finally {
+            if ($anyStarted -and $null -ne $anyListener) {
+                $anyListener.Stop()
+            }
+        }
+        Assert-RogGateSelfTest -Name 'a port held on IPAddress.Any is reported in use' -Condition $anyOk
+
         $launcherText = @(
             '1: Test command: "D:/build/mxh_client_e2e_ctest.EXE" "D:/build/mxh_client_e2e.exe" --login-exe "D:/build/login.exe"',
             '1: Working Directory: D:/build-mxr/pr'
@@ -2566,8 +2629,13 @@ function Invoke-RogGateSelfTest {
         $absentListing = Get-RogGateE2EListing -Text 'No tests were found!!!' -ExitCode 0
         $absentPlan = Resolve-RogGateE2ERegistration -Listing $absentListing
         $totalListing = Get-RogGateE2EListing -Text 'Total Tests: 0' -ExitCode 8
-        $absentOk = $absentListing.Absent -and (-not $absentListing.Registered) -and ($absentPlan.Action -eq 'Absent') -and ($absentPlan.Message -eq '[INFO] MoxianClientE2E not registered') -and $totalListing.Absent
+        $totalPlan = Resolve-RogGateE2ERegistration -Listing $totalListing
+        $absentOk = $absentListing.Absent -and (-not $absentListing.Registered) -and ($absentPlan.Action -eq 'Error') -and ($absentPlan.Message -eq 'MoxianClientE2E not registered') -and $totalListing.Absent -and ($totalPlan.Action -eq 'Error') -and ($totalPlan.Message -eq 'MoxianClientE2E not registered')
         Assert-RogGateSelfTest -Name 'missing MoxianClientE2E is not registered' -Condition $absentOk
+
+        $absentSkip = Resolve-RogGateE2ERegistration -Listing $absentListing -SkipE2E
+        $absentSkipOk = ($absentSkip.Action -eq 'Skip') -and ($absentSkip.Message -eq '[WARN] E2E skipped by -SkipE2E')
+        Assert-RogGateSelfTest -Name 'missing MoxianClientE2E with SkipE2E warns and continues' -Condition $absentSkipOk
 
         $parseListing = Get-RogGateE2EListing -Text 'ctest failed with no listing' -ExitCode 1
         $parsePlan = Resolve-RogGateE2ERegistration -Listing $parseListing
@@ -2615,8 +2683,15 @@ function Invoke-RogGateSelfTest {
             if ([string]$listArg -eq '-V') { $listHasV = $true }
         }
         $listHasR = Test-RogGateSelfTestHasPair -Arguments $listArgs -Flag '-R' -Value '^MoxianClientE2E$'
+        $runHasNoTests = $false
+        foreach ($runArg in $runArgs) {
+            if ([string]$runArg -eq '--no-tests=error') {
+                $runHasNoTests = $true
+            }
+        }
         $runOk = $runHasR -and ($runExclude.Count -eq 0) -and (-not $runHasPort) -and $listHasN -and $listHasV -and $listHasR
         Assert-RogGateSelfTest -Name 'the separate E2E ctest uses -R and does not append port flags' -Condition $runOk
+        Assert-RogGateSelfTest -Name 'the separate E2E ctest passes --no-tests=error' -Condition $runHasNoTests
     } finally {
         if ([string]::IsNullOrEmpty($savedE2EBase)) {
             Remove-Item -Path 'Env:MXH_E2E_PORT_BASE' -ErrorAction SilentlyContinue
@@ -3355,7 +3430,7 @@ function Invoke-RogGateMain {
     if ($e2ePlan.Action -eq 'Error') {
         return (Resolve-RogGateFailureExit -ExitCode 1 -Message $e2ePlan.Message)
     }
-    if ($e2ePlan.Action -eq 'Absent' -or $e2ePlan.Action -eq 'Skip') {
+    if ($e2ePlan.Action -eq 'Skip') {
         Write-Host $e2ePlan.Message
     }
     if ($e2ePlan.Action -eq 'Run') {
