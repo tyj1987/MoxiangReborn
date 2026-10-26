@@ -3,6 +3,15 @@
 // File-backed PackFile::open / classify_pak_header seek entry headers.
 // Payloads are read when a caller asks for those bytes.
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#endif
+
 #include "mxh/render/FilesystemFileStorage.hpp"
 #ifdef interface
 #undef interface
@@ -36,7 +45,10 @@
 #endif
 #include <windows.h>
 #include <psapi.h>
+#ifdef _WIN32
+#include <fcntl.h>
 #include <io.h>
+#endif
 #else
 #include <fcntl.h>
 #include <sys/resource.h>
@@ -73,7 +85,7 @@ PeakSample peak_rss() {
                 status >> kib;
                 return {true, kib * 1024ull, "/proc/self/status VmHWM"};
             }
-            status.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            status.ignore((std::numeric_limits<std::streamsize>::max)(), '\n');
         }
         return {false, 0, "getrusage failed and VmHWM was not readable"};
     }
@@ -427,11 +439,11 @@ TEST(PackLazy, ReadingOneEntryDoesNotReadTheOther) {
     std::string error;
     const auto pack = PackFile::open(path, &error);
     ASSERT_NE(pack, nullptr) << error;
-    const auto* small = pack->find("small.bin");
+    const auto* small_entry = pack->find("small.bin");
     const auto* big = pack->find("big.bin");
-    ASSERT_NE(small, nullptr);
+    ASSERT_NE(small_entry, nullptr);
     ASSERT_NE(big, nullptr);
-    EXPECT_TRUE(small->raw_view.empty());
+    EXPECT_TRUE(small_entry->raw_view.empty());
     EXPECT_TRUE(big->raw_view.empty());
     EXPECT_EQ(big->size, kHugePayload);
     EXPECT_EQ(pack->read("small.bin"), spec.small_payload);
