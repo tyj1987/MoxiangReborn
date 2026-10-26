@@ -1,0 +1,7 @@
+[12:00:01.001] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=64
+[12:00:01.040] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=128
+[12:00:01.080] DEBUG CInGameState.cpp:1838  CInGameState: MonsterAdd count=192
+[Map] sent 228 monster adds to player=100000
+[12:00:02.000] INFO main.cpp:1766  mxh_client: [entity] frame drawn=82/231 culled=149 skipped=0 monster=81/228/147/0 npc=0/0/0/0 player=1/1/0/0 effect=0/0/0/0
+[12:00:03.000] INFO main.cpp:738  mxh_client: map fog enabled start=1.0 end=30000.0 density=1.00 color=0xff000000 (from BMHM)
+[12:00:03.010] INFO main.cpp:1689  mxh_client: FOG diag bypass (MXH_FOG_DISABLE=1); skipping EnableFog (BMHM band start=1.0 end=30000.0 density=1.00 color=0xff000000 would have been applied)
