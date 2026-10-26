@@ -45,13 +45,15 @@ struct PakMountCandidate {
 // That options value is the only change required.
 //
 // A tier omitted from the vector still mounts, after every listed tier.
-// Within one rank, filenames sort case-insensitively (ASCII A-Z folded
-// to a-z). When that comparison ties, including names that differ only
-// in case such as Data.pak and data.pak, the raw filename bytes decide,
-// compared as unsigned char. Uppercase ASCII therefore mounts first
-// (0x41 < 0x61), so ABC.pak comes before abc.pak. A shorter name that is
-// a case-insensitive prefix of a longer one sorts first; raw bytes are
-// consulted only when the folded names have equal length.
+// Within one rank, filenames sort by the UTF-8 bytes of
+// path.filename().u8string() (C++17 returns std::string; C++20 returns
+// std::u8string, which is copied into std::string as raw bytes). ASCII
+// A-Z is folded to a-z. When that comparison ties, including names that
+// differ only in case such as Data.pak and data.pak, those same UTF-8
+// bytes decide, compared as unsigned char. Uppercase ASCII therefore
+// mounts first (0x41 < 0x61), so ABC.pak comes before abc.pak. A shorter
+// name that is a case-insensitive prefix of a longer one sorts first;
+// raw bytes are consulted only when the folded names have equal length.
 struct FilesystemFileStorageOptions {
     std::vector<PakFormatTier> pak_tier_order{
         PakFormatTier::PlayDh92,

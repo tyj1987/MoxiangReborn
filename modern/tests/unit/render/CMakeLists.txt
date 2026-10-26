@@ -127,6 +127,7 @@ gtest_add_tests(TARGET mxh_render_tests
     FilesystemFileStorage.LooseFileOverridesMountedPaks
     FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes
     FilesystemFileStorage.CrossTierResolutionFollowsConfiguredPriority
+    FilesystemFileStorage.Utf8PakNameSortAndLogAreStable
     EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
     EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
     EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder

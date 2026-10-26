@@ -499,3 +499,63 @@ TEST(FilesystemFileStorage, CrossTierResolutionFollowsConfiguredPriority) {
     EXPECT_NE(original_log.find("2=z_playdh.pak(92)"), std::string::npos) << original_log;
     original_wins->Release();
 }
+
+TEST(FilesystemFileStorage, Utf8PakNameSortAndLogAreStable) {
+    // UTF-8 bytes, not a source-encoded literal: 乙.pak then 甲.pak.
+    // 乙 is E4 B9 99, 甲 is E7 94 B2, so 乙 sorts first.
+    const std::string yi = "\xE4\xB9\x99.pak";
+    const std::string jia = "\xE7\x94\xB2.pak";
+    const auto as_path = [](const std::string& bytes) {
+        const std::u8string u8(reinterpret_cast<const char8_t*>(bytes.data()), bytes.size());
+        return std::filesystem::path(u8);
+    };
+    const auto filename_bytes = [](const std::filesystem::path& path) {
+        const auto u8 = path.filename().u8string();
+        return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+    };
+
+    const auto tier = mxh::gx::FilesystemFileStorageOptions{}.pak_tier_order;
+    const std::vector<mxh::gx::PakMountCandidate> jia_first{
+        {as_path(jia), mxh::gx::PakFormatTier::PlayDh92},
+        {as_path(yi), mxh::gx::PakFormatTier::PlayDh92},
+    };
+    const std::vector<mxh::gx::PakMountCandidate> yi_first{
+        {as_path(yi), mxh::gx::PakFormatTier::PlayDh92},
+        {as_path(jia), mxh::gx::PakFormatTier::PlayDh92},
+    };
+    std::vector<mxh::gx::PakMountCandidate> sorted_jia_first;
+    std::vector<mxh::gx::PakMountCandidate> sorted_yi_first;
+    EXPECT_NO_THROW({
+        sorted_jia_first = mxh::gx::order_pak_mounts(jia_first, tier);
+        sorted_yi_first = mxh::gx::order_pak_mounts(yi_first, tier);
+    });
+    ASSERT_EQ(sorted_jia_first.size(), 2u);
+    ASSERT_EQ(sorted_yi_first.size(), 2u);
+    EXPECT_EQ(filename_bytes(sorted_jia_first[0].path), yi);
+    EXPECT_EQ(filename_bytes(sorted_jia_first[1].path), jia);
+    EXPECT_EQ(filename_bytes(sorted_yi_first[0].path), yi);
+    EXPECT_EQ(filename_bytes(sorted_yi_first[1].path), jia);
+
+    const TempDir dir("mxh-pak-utf8-");
+    write_playdh_pak(dir.path / as_path(jia), "shared.bin", "from-jia");
+    write_playdh_pak(dir.path / as_path(yi), "shared.bin", "from-yi");
+
+    testing::internal::CaptureStderr();
+    auto* storage = new mxh::gx::FilesystemFileStorage(dir.path);
+    ASSERT_NO_THROW(storage->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    const std::string logged = testing::internal::GetCapturedStderr();
+    const auto line = mount_order_line(logged);
+    EXPECT_EQ(read_entry(storage, "shared.bin"), "from-yi");
+    EXPECT_NE(line.find("1=" + yi + "(92)"), std::string::npos) << logged;
+    EXPECT_NE(line.find("2=" + jia + "(92)"), std::string::npos) << logged;
+    EXPECT_LT(line.find(yi), line.find(jia)) << line;
+    storage->Release();
+
+    testing::internal::CaptureStderr();
+    auto* again = new mxh::gx::FilesystemFileStorage(dir.path);
+    ASSERT_NO_THROW(again->Initialize(0, 0, 0, mxh::gx::FILE_ACCESS_METHOD_ONLY_FILE));
+    const std::string logged_again = testing::internal::GetCapturedStderr();
+    EXPECT_EQ(mount_order_line(logged_again), line);
+    EXPECT_EQ(read_entry(again, "shared.bin"), "from-yi");
+    again->Release();
+}

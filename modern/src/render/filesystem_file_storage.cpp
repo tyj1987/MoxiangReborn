@@ -37,6 +37,16 @@ int tier_rank(PakFormatTier tier, const std::vector<PakFormatTier>& order) {
     return static_cast<int>(order.size());
 }
 
+// filename().string() uses the ANSI code page on Windows, so a Chinese
+// name is not stable across machines and can throw. u8string() is UTF-8.
+// C++17 returns std::string; C++20 returns std::u8string. Copy the code
+// units into a std::string either way so the sort and the log share one
+// byte sequence.
+std::string filename_utf8(const std::filesystem::path& path) {
+    const auto u8 = path.filename().u8string();
+    return std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+}
+
 }  // namespace
 
 std::optional<PakFormatTier> classify_pak_header(const std::filesystem::path& path) {
@@ -76,8 +86,8 @@ bool pak_mount_less(const PakMountCandidate& a,
     const int rank_a = tier_rank(a.tier, tier_order);
     const int rank_b = tier_rank(b.tier, tier_order);
     if (rank_a != rank_b) return rank_a < rank_b;
-    const auto name_a = a.path.filename().string();
-    const auto name_b = b.path.filename().string();
+    const auto name_a = filename_utf8(a.path);
+    const auto name_b = filename_utf8(b.path);
     return pak_filename_less(name_a, name_b);
 }
 
@@ -168,7 +178,7 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
                               std::optional<PakFormatTier> tier) {
         if (auto pack = mxh::compat::PackFile::open(path)) {
             if (tier) {
-                mounted.push_back(MountedPak{path.filename().string(), *tier});
+                mounted.push_back(MountedPak{filename_utf8(path), *tier});
             }
             packs_.push_back(std::move(pack));
         } else {
