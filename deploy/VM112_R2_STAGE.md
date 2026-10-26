@@ -136,9 +136,11 @@ mxh_client_e2e --no-spawn --login-host 192.168.2.244 --login-port 36101 --agent-
 
 ## 冒烟专用账号
 
+状态：尚未创建（2026-10-26）。客户端 `--auto-create` 只在登录成功后的选角色屏建角色，不能注册账号。在 r2 注册账号需要对 r2 数据库执行 `mxh_db_tool register`，连接信息在私有配置里。
+
 `mxr_smoke` 是 r2 上的冒烟专用账号，只有这一个账号，名下只有一个角色。用途是在这套 stage 上跑图形客户端的 Map10 冒烟，例如 PR #6 的雾对比和 PR #10 的顶点色预览。角色名待补。
 
-该账号经战略专家批准（2026-10-26），在 r2 上由客户端 `--auto-create` 创建。口令不进仓库，只放在 ROG 的环境变量 `MXR_SMOKE_PASSWORD`。连 r2 时使用 `--username mxr_smoke --password-env MXR_SMOKE_PASSWORD --auto-create`，并带上 `--login-host 192.168.2.244 --login-port 36101`。不要使用 `--password` 把口令放进命令行。
+该账号经战略专家批准（2026-10-26），账号由 `mxh_db_tool register` 写入 r2 库、角色由客户端 `--auto-create` 创建。口令不进仓库，只放在 ROG 的环境变量 `MXR_SMOKE_PASSWORD`。连 r2 时使用 `--username mxr_smoke --password-env MXR_SMOKE_PASSWORD --auto-create`，并带上 `--login-host 192.168.2.244 --login-port 36101`。不要使用 `--password` 把口令放进命令行。
 
 `--username`、`--password-env`、`--auto-create` 只在定义了 `MXH_DEV_AUTOMATION` 的构建里解析（`modern/tools/MoxianClient/main.cpp` 第 202-208 行）。未定义该宏时，这些参数会被拒绝（同文件第 253-268 行）。Release 构建同样拒绝 `--auto-create`（同文件第 3010-3016 行）。`--auto-create` 在登录成功且角色列表为空时提交建角（同文件第 4177-4220 行），角色名来自 `--character-name`。它不插入账号行。库里还没有 `mxr_smoke` 时，登录查询为空，服务端回 `NotifyUserLoginNack`（`modern/src/server/login_handler.cpp` 第 371-382 行、第 424-437 行），建角不会发生。
 
