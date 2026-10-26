@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### compat: 拒绝混淆 .map，不按空地图继续 (2026-10-26)
+
+PlayDH `.map` 是 `GX_` 明文脚本。原版 96 字节 pak 里的同名条目是长度前缀混淆，不解码。`parse_gx_map_script` 在解析前识别该格式并打 `ERROR [map] obfuscated .map not supported`；非 `GX_` 的坏输入打 `ERROR [map] malformed .map`，两者都失败返回。客户端 `GameWorldLoadSession` 只在脚本实际读到时走这条失败路径；文件不存在时仍按地图号加载 `.hfl` / `.stm`。`gui-client-smoke.ps1` 把这两条 ERROR 当作 fatal log marker。
+
 ### capture: Map 帧默认包含实体 (2026-10-24)
 
 `MXH_GUI_SMOKE_EXIT=1` 且未设置 `MXH_GUI_SMOKE_RENDER_ENTITIES` 时，客户端不填充实体列表，Map 截图没有怪物、NPC 和玩家。`capture-gamein.ps1`、`capture-state-frames.ps1`、`gui-client-smoke.ps1` 默认打开该开关，`-NoEntities` 可退出，并在 `capture-metadata.json` / `result.json` 记录 `entities_enabled`。`verify-entity-frame.py` 在实体渲染关闭或 drawn 为 0 时失败；尚无逐帧 `drawn/culled` 日志时输出 `no conclusion`（退出码 3），不报 PASS。

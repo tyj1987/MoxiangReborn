@@ -201,6 +201,16 @@ try {
     if ($log -match 'GameLoading: Unable to enter Map \d+: (.+)') {
         throw "GUI smoke map load failed: $($Matches[1]); log=$stderr"
     }
+    # Fatal log markers: a hit fails the smoke even when the client exits 0.
+    $fatalLogMarkers = @(
+        'ERROR [map] obfuscated .map not supported',
+        'ERROR [map] malformed .map'
+    )
+    foreach ($marker in $fatalLogMarkers) {
+        if ($log -match [regex]::Escape($marker)) {
+            throw "GUI smoke hit fatal log marker '$marker'; log=$stderr"
+        }
+    }
     foreach ($marker in @('playing original BGM id=1667', 'SFX manifest ready', '[terrain] original HFL loaded', '[static] original STM loaded', 'CharacterSelectAck', 'GameInAck', 'GUI_SMOKE_PASS')) {
         if ($log -notmatch [regex]::Escape($marker)) {
             throw "GUI smoke missing marker '$marker'; log=$stderr"

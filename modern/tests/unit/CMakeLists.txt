@@ -14,6 +14,7 @@
     hfl_height_field_test.cpp
     stm_static_model_test.cpp
     map_change_catalog_test.cpp
+    gx_map_script_test.cpp
 )
 
 target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_audio mxh_game gtest_main)
