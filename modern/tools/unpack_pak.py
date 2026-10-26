@@ -24,16 +24,20 @@ Mode 2 (pak_extract / --named):
 --dry-run applies to both modes and both header sizes.  It enumerates
 and validates entries, and creates no directories or files.
 
---list is a read-only listing.  It prints the header kind, the uint32 at
-offset 4, the declared count, the parsed count, and one line per entry
-(start, data offset, name_len, real, total).  It does not resolve an
-output directory and it does not create anything.  It does not decide
-the header from whether the uint32 at offset 4 is zero: both layouts
-are walked with the existing entry parsers.  A layout is valid only
-when every entry is in bounds and the walk ends exactly at the file
-length.  Exactly one valid layout is printed.  Neither layout, or both,
-names the pak on stderr and exits nonzero, with no partial list.  An
-entry-count / file-length mismatch is the same failure.
+--list, unpack, --dry-run, and --named share one layout detector.
+They do not decide the header from whether the uint32 at offset 4 is
+zero: both layouts are walked with the existing entry parsers.  A
+layout is valid only when every entry is in bounds and the walk ends
+exactly at the file length.  Exactly one valid layout is used.  Neither
+layout, or both, names the pak on stderr and exits 1.  An entry-count /
+file-length mismatch is the same failure.  Nothing is extracted: no
+output directory and no files, including under --dry-run.
+
+--list is the read-only form of that detector.  It prints the header
+kind, the uint32 at offset 4, the declared count, the parsed count, and
+one line per entry (start, data offset, name_len, real, total).  It
+does not resolve an output directory and it does not create anything.
+A layout error does not print a partial list.
 
 Two resolved locations are read-only (symlinks followed, ".." folded,
 case-insensitive on Windows).  The tool exits non-zero and writes
@@ -46,20 +50,20 @@ nothing, including under --dry-run, when the output is either of them:
   * the pak's own directory, or anything under it.  This still applies
     when the pak lives outside the original root.
 
-Two header variants.  Unpack and --dry-run still select from
-dwFileItemNum at offset 4.  --list tries both layouts and keeps one
-only when that walk ends on the last byte; see the --list paragraph.
-Spec: docs/formats/pak.md.
+Two header variants.  No tool path selects one from the uint32 at
+offset 4.  Spec: docs/formats/pak.md.
 
-  Worktree (offset 4 != 0, e.g. PlayDH/Map.pak count 4192):
-    92-byte header, entries start at 92.  Advance by
+  Worktree (e.g. PlayDH/Map.pak, count 4192 at offset 4):
+    92-byte header, entries start at 92.  The count tried for this
+    layout is the uint32 at offset 4.  Advance by
     32 + nameLen + 1 + realSize.  Some totals are corrupt, so this
-    path does not step by dwTotalSize.  Unpack does not require the
-    file to end on the last entry.  --list does, when it accepts this
-    layout.
+    path does not step by dwTotalSize.  The layout is accepted only
+    when that walk ends on the last byte of the file.
 
-  Original (offset 4 == 0, e.g. client Map.pak count 11267):
-    96-byte header.  The entry count is the uint32 at offset 92.
+  Original (e.g. client Map.pak count 11267, and Titan/farm/pet whose
+  offset-4 field is 99/181/63):
+    96-byte header.  The entry count is the uint32 at offset 92,
+    not the field at offset 4.
     Entries start at 96.  Each entry is 32 bytes (total, real,
     name_len, data_off, 16 zero bytes) + name bytes + NUL + data.
     total must equal 32 + name_len + 1 + real.  The next entry is
@@ -387,16 +391,15 @@ def _output_relative(entry: PakEntry) -> str:
 
 
 def _original_declared_count(pak_path: str) -> int:
-    """Entry count for an original-style pak (dwFileItemNum at offset 4 is 0).
+    """Entry count for the 96-byte layout: the uint32 at offset 92.
 
-    The count is the uint32 at offset 92.  Entries themselves start at 96.
+    Callers do not consult the uint32 at offset 4.  Entries start at 96.
     See docs/formats/pak.md.
     """
     pak_size = os.path.getsize(pak_path)
     if pak_size < 96:
         raise _pak_error(
-            "truncated pak header: original-style pak (dwFileItemNum at "
-            f"offset 4 is 0) needs a 96-byte header with the entry count at "
+            "truncated pak header: 96-byte layout needs the entry count at "
             f"offset 92, but file size is {pak_size}",
             parsed=0,
             declared=0,
@@ -407,9 +410,8 @@ def _original_declared_count(pak_path: str) -> int:
         raw = f.read(4)
     if len(raw) < 4:
         raise _pak_error(
-            "truncated pak header: original-style pak (dwFileItemNum at "
-            "offset 4 is 0) needs the entry count at offset 92, but only "
-            f"{len(raw)} byte(s) were read",
+            "truncated pak header: 96-byte layout needs the entry count at "
+            f"offset 92, but only {len(raw)} byte(s) were read",
             parsed=0,
             declared=0,
             kind="96-byte",
@@ -625,12 +627,14 @@ def _walk_worktree_entries(f: BinaryIO, pak_size: int,
 
 
 def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
-    """Yield PakEntry in order.
+    """Yield entries from one caller-selected parser.
 
-    `expected` is dwFileItemNum at offset 4, not a guess.  Zero selects
-    the original 96-byte header (count at offset 92, entries at 96).
-    A non-zero value keeps the worktree walk: start at 92, advance by
-    32 + name_len + 1 + real, stop at the declared count.
+    This does not look at the file's uint32 at offset 4.  ``expected == 0``
+    runs the 96-byte parser (count at offset 92, entries at 96).  Any
+    other value runs the 92-byte parser from offset 92 for that many
+    entries and does not require the walk to end at EOF.  --list, unpack,
+    --dry-run, and --named do not call this to choose a layout; they use
+    read_entries.
     """
     pak_size = os.path.getsize(pak_path)
     if expected == 0:
@@ -643,28 +647,15 @@ def walk_entries(pak_path: str, expected: int) -> Iterable[PakEntry]:
 
 
 def read_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
-    """Validate the whole pak for unpack.  Returns (kind, offset4, declared, entries).
+    """Resolve the one valid layout.  Returns (kind, offset4, declared, entries).
 
-    Unpack still selects the layout from the uint32 at offset 4.  --list
-    uses list_pak_entries, which tries both layouts.  Raises before any
-    caller writes a file.  On success parsed == declared.
+    --list, unpack, --dry-run, and --named all use this.  The uint32 at
+    offset 4 is reported, not used as a switch.  Raises ValueError naming
+    ``pak_path`` when neither or both layouts are valid, or when the
+    entry count does not match the file length.  Callers must do this
+    before creating an output directory.  On success parsed == declared.
     """
-    _header, _version, offset4, _flag = parse_pak(pak_path)
-    entries = list(walk_entries(pak_path, offset4))
-    if offset4 == 0:
-        kind = "96-byte"
-        declared = _original_declared_count(pak_path)
-    else:
-        kind = "92-byte"
-        declared = offset4
-    if len(entries) != declared:
-        raise _pak_error(
-            "walk ended before the declared count",
-            parsed=len(entries),
-            declared=declared,
-            kind=kind,
-        )
-    return kind, offset4, declared, entries
+    return list_pak_entries(pak_path)
 
 
 def _layout_end(entries: list[PakEntry], *, empty_end: int) -> int:
@@ -728,15 +719,15 @@ def _probe_96_byte(pak_path: str, pak_size: int,
 
 
 def list_pak_entries(pak_path: str) -> tuple[str, int, int, list[PakEntry]]:
-    """Choose the layout for --list.  Returns (kind, offset4, declared, entries).
+    """Choose the layout for every tool path.  Returns (kind, offset4, declared, entries).
 
     The uint32 at offset 4 is not a layout switch.  Original Titan, farm,
     and pet archives store 99, 181, and 63 there and are still 96-byte
-    tables of 294, 244, and 1547 entries.  Both parsers are the ones
-    unpack already uses.  A layout is kept only when every entry is in
-    bounds and the walk ends on the last byte of the file.  Exactly one
-    such layout is returned.  Zero or two raises ValueError naming
-    ``pak_path``.
+    tables of 294, 244, and 1547 entries.  Both parsers are the existing
+    entry walkers.  A layout is kept only when every entry is in bounds
+    and the walk ends on the last byte of the file.  Exactly one such
+    layout is returned.  Zero or two raises ValueError naming
+    ``pak_path``.  read_entries is this function.
     """
     _header, _version, offset4, _flag = parse_pak(pak_path)
     pak_size = os.path.getsize(pak_path)
@@ -1103,7 +1094,7 @@ def main() -> int:
     pak_path = args.pak
     if args.list:
         try:
-            kind, offset4, declared, entries = list_pak_entries(pak_path)
+            kind, offset4, declared, entries = read_entries(pak_path)
         except (ValueError, OSError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1

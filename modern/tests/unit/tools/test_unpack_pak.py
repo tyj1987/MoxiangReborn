@@ -351,27 +351,18 @@ class PakHeaderVariantTests(unittest.TestCase):
             self.assertEqual(
                 raw[walked[1].data_offset:walked[1].data_offset + walked[1].real_size],
                 b"two-payload-ok")
-
-            out = tdp / "named"
-            stats = unpack_pak.pak_extract(
-                str(pak), str(out),
-                dry_run=False, write_manifest=False, verify=False)
-            self.assertEqual(stats.file_item_num, 2)
-            self.assertEqual(stats.parsed, 2)
-            self.assertEqual(stats.written, 2)
-            self.assertEqual((out / "Map" / "one.bmhm").read_bytes(), b"one-payload")
-            self.assertEqual((out / "Map" / "two.bmhm").read_bytes(), b"two-payload-ok")
-            self.assertFalse((out / "Map" / "three.bmhm").exists())
-
-            legacy_out = tdp / "legacy"
-            rc = unpack_pak.unpack_legacy(str(pak), str(legacy_out))
-            self.assertEqual(rc, 0)
-            self.assertEqual(
-                sorted(p.name for p in legacy_out.iterdir()),
-                ["00000_11.bin", "00001_14.bin"],
-            )
-            self.assertEqual((legacy_out / "00000_11.bin").read_bytes(), b"one-payload")
-            self.assertEqual((legacy_out / "00001_14.bin").read_bytes(), b"two-payload-ok")
+            # Two in-bounds entries do not consume the file, so neither
+            # layout is valid.  Unpack must not keep the short table.
+            with self.assertRaisesRegex(ValueError, "neither") as named_err:
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
+            self.assertIn(pak.name, str(named_err.exception))
+            self.assertFalse((tdp / "named").exists())
+            with self.assertRaisesRegex(ValueError, "neither") as legacy_err:
+                unpack_pak.unpack_legacy(str(pak), str(tdp / "legacy"))
+            self.assertIn(pak.name, str(legacy_err.exception))
+            self.assertFalse((tdp / "legacy").exists())
 
     def test_original_style_early_eof_errors(self):
         entries = [
@@ -1477,6 +1468,20 @@ _DECOY_NAME = b"\x00" * 4
 _DECOY_PAYLOAD = b"\x00" * 21
 
 
+def _assert_cli_extracts_nothing(test: unittest.TestCase, pak: Path,
+                                 extra: list[str]) -> tuple[str, str]:
+    """Unpack / --dry-run must exit 1 and create no output."""
+    out = pak.parent.parent / "refused"
+    rc, text, err = _run_cli([str(pak), "--out", str(out), *extra])
+    test.assertEqual(rc, 1, text + err)
+    test.assertIn(pak.name, err)
+    test.assertNotIn("Traceback", err)
+    test.assertNotIn("Traceback", text)
+    test.assertFalse(out.exists(), text + err)
+    test.assertFalse(any(p.suffix == ".bin" for p in pak.parent.rglob("*.bin")))
+    return text, err
+
+
 def _assert_list_names_pak(test: unittest.TestCase, pak: Path,
                            text: str, err: str) -> None:
     test.assertIn(pak.name, err)
@@ -1683,6 +1688,82 @@ class PakListLayoutTests(unittest.TestCase):
             self.assertIn(str(len(raw)), err)
             _assert_list_names_pak(self, pak, text, err)
             self.assertFalse((tdp / "out").exists())
+
+
+class PakUnpackLayoutTests(unittest.TestCase):
+    """Unpack and --dry-run use the same detector as --list."""
+
+    def test_unpack_and_dry_run_original96_nonzero_offset4(self):
+        cases = ((99, 294), (181, 244), (63, 1547))
+        for offset4, count in cases:
+            with self.subTest(offset4=offset4, count=count):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak = _src_pak(tdp, f"unpack96-{offset4}.pak")
+                    _write_original_pak(
+                        pak,
+                        [(_DECOY_NAME, _DECOY_PAYLOAD)] * count,
+                        offset4=offset4,
+                    )
+                    kind, got4, declared, entries = unpack_pak.read_entries(str(pak))
+                    self.assertEqual(kind, "96-byte")
+                    self.assertEqual(got4, offset4)
+                    self.assertEqual(declared, count)
+                    self.assertEqual(len(entries), count)
+                    self.assertEqual(entries[0].entry_offset, 96)
+
+                    out = tdp / "out"
+                    rc, text, err = _run_cli(
+                        [str(pak), "--dry-run", "--out", str(out)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"offset4: {offset4}", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertIn(f"dry-run: {count} entries", text)
+                    self.assertNotIn(f"declared: {offset4}", text)
+                    self.assertFalse(out.exists(), text + err)
+
+                    rc, text, err = _run_cli([str(pak), "--out", str(out)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"wrote {count} entries", text)
+                    bins = sorted(p.name for p in out.iterdir())
+                    payload_len = len(_DECOY_PAYLOAD)
+                    self.assertEqual(len(bins), count)
+                    self.assertEqual(bins[0], f"00000_{payload_len}.bin")
+                    self.assertEqual(
+                        bins[-1], f"{count - 1:05d}_{payload_len}.bin")
+                    self.assertEqual((out / bins[0]).read_bytes(), _DECOY_PAYLOAD)
+                    self.assertEqual((out / bins[-1]).read_bytes(), _DECOY_PAYLOAD)
+
+                    named = tdp / "named"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--dry-run", "--out", str(named),
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertIn("dry-run", text)
+                    self.assertFalse(named.exists(), text + err)
+
+    def test_unpack_and_dry_run_neither_and_both_extract_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            neither = _src_pak(tdp, "neither-unpack.pak")
+            _make_pak([("a.bin", b"aa"), ("b.bin", b"bbb")], neither)
+            neither.write_bytes(neither.read_bytes() + b"\x01")
+            both = _src_pak(tdp, "both-unpack.pak")
+            name = b"\x00" * 29
+            _write_original_pak(both, [(name, b""), (name, b"")], offset4=2)
+
+            modes = ([], ["--dry-run"], ["--named"], ["--named", "--dry-run"])
+            for pak, needle in ((neither, "neither"), (both, "ambiguous")):
+                for extra in modes:
+                    with self.subTest(pak=pak.name, extra=tuple(extra)):
+                        _text, err = _assert_cli_extracts_nothing(self, pak, extra)
+                        self.assertIn(needle, err)
 
 
 if __name__ == "__main__":
