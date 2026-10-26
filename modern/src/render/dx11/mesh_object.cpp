@@ -1,6 +1,7 @@
 ﻿// mxh/render/dx11/mesh_object.cpp
 // IDIMeshObject DX11 implementation.
 #include "mesh_object.hpp"
+#include "mxh/compat/stm_vertex_color.hpp"
 #include "device.hpp"
 #include "effect_shader.hpp"
 #include "mesh_shaders.hpp"
@@ -59,6 +60,19 @@ bool MeshObject::finalizeVB() {
     if (FAILED(dev->CreateBuffer(&ibd, &iinit, &m_indexBuffer))) {
         MLOG_ERROR("[mesh] CreateBuffer IB failed");
         return false;
+    }
+
+    if (!m_vertexColors.empty() && m_vertexColors.size() == m_vertices.size()) {
+        D3D11_BUFFER_DESC cbd{};
+        cbd.Usage     = D3D11_USAGE_IMMUTABLE;
+        cbd.ByteWidth = static_cast<UINT>(m_vertexColors.size() * sizeof(std::uint32_t));
+        cbd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA cinit{};
+        cinit.pSysMem = m_vertexColors.data();
+        if (FAILED(dev->CreateBuffer(&cbd, &cinit, &m_colorBuffer))) {
+            MLOG_ERROR("[mesh] CreateBuffer vertex-color VB failed");
+            m_colorBuffer.Reset();
+        }
     }
 
     m_vertexCount = static_cast<std::uint32_t>(m_vertices.size());
@@ -207,6 +221,15 @@ BOOL __stdcall MeshObject::StartInitialize(MESH_DESC* pDesc, IGeometryController
             m_vertices[i].nz = pDesc->pv3NormalLocal[i].z;
         }
     }
+    m_vertexColors.clear();
+    m_colorBuffer.Reset();
+    if (pDesc->pVertexColor) {
+        // Legacy VLSMeshObject.cpp:75-78: D3DCOLOR per vertex in the diffuse
+        // slot. Convert ARGB DWORD -> R8G8B8A8_UNORM for the STM stream.
+        m_vertexColors.resize(pDesc->dwVertexNum);
+        for (std::uint32_t i = 0; i < pDesc->dwVertexNum; ++i)
+            m_vertexColors[i] = mxh::compat::d3dcolor_to_rgba8(pDesc->pVertexColor[i]);
+    }
     m_indexCount = 0;
     return TRUE;
 }
@@ -257,6 +280,8 @@ void MeshObject::setEffectPalette(EffectShaderPalette* palette) { m_effectPalett
 void MeshObject::releaseBuffers() {
     m_vertexBuffer.Reset();
     m_indexBuffer.Reset();
+    m_colorBuffer.Reset();
+    m_vertexColors.clear();
     m_texMatrixBuffer.Reset();
     m_faceGroups.clear();
     m_vertices.clear();

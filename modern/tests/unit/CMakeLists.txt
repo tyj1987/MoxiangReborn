@@ -25,6 +25,13 @@ include(GoogleTest)
 gtest_add_tests(TARGET mxh_compat_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# STM .vcl vertex-color contract (DX-free). RealMap10VclMatchesStm reads
+# original data read-only from $MXH_ORIGINAL_MAP_DIR and skips otherwise.
+add_executable(mxh_stm_vertex_color_tests stm_vertex_color_test.cpp)
+target_link_libraries(mxh_stm_vertex_color_tests PRIVATE mxh_compat gtest_main)
+gtest_add_tests(TARGET mxh_stm_vertex_color_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 
 # -----------------------------------------------------------------------------
 # mxh_crypto tests ????HSEL stream cipher (Phase 3.2)

@@ -31,6 +31,13 @@ public:
     [[nodiscard]] std::uint32_t meshCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
     [[nodiscard]] std::uint32_t unresolvedTextureCount() const noexcept;
+    // Legacy <map>.vcl vertex-colour state of the last load():
+    // true when the .vcl existed but its size did not match the STM
+    // vertex total (colours were NOT applied; release smoke must fail).
+    [[nodiscard]] bool vertexColorMismatch() const noexcept;
+    // True when STM meshes were built with the original .vcl vertex-colour
+    // path (default). False with MXH_STM_LIGHTING=fixed (non-original).
+    [[nodiscard]] bool vertexColorPathEnabled() const noexcept;
     // Conservative XZ collision query over loaded STM mesh bounds.  It is
     // intentionally separate from rendering so movement can fail closed when
     // a map has no static geometry.

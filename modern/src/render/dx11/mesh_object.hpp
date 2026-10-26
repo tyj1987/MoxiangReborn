@@ -98,6 +98,11 @@ public:
     Device*                device()       const { return m_dev; }
     ID3D11Buffer*          vertexBuffer() const { return m_vertexBuffer.Get(); }
     ID3D11Buffer*          indexBuffer()  const { return m_indexBuffer.Get(); }
+    // STM-only second vertex stream (slot 1, COLOR0, R8G8B8A8_UNORM). Set
+    // only when MESH_DESC::pVertexColor was supplied (legacy .vcl path);
+    // terrain/entity meshes never have it, so their layout is unchanged.
+    ID3D11Buffer*          colorBuffer()  const { return m_colorBuffer.Get(); }
+    bool                   hasVertexColors() const noexcept { return m_colorBuffer != nullptr; }
     const std::vector<FaceGroup>& faceGroups() const { return m_faceGroups; }
     const MATRIX4& worldTransform() const noexcept { return m_world; }
 
@@ -116,6 +121,8 @@ public:
     Microsoft::WRL::ComPtr<ID3D11Buffer>   m_texMatrixBuffer;
     std::vector<FaceGroup>                 m_faceGroups;
 
+    Microsoft::WRL::ComPtr<ID3D11Buffer>   m_colorBuffer;
+    std::vector<std::uint32_t>             m_vertexColors; // RGBA8 (from D3DCOLOR)
     std::vector<Vertex>                    m_vertices;
     std::vector<std::uint16_t>             m_indices;
     std::uint32_t                          m_vertexCount = 0;

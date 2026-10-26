@@ -428,6 +428,9 @@ bool g_renderTerrain = false;
 std::string g_captureTerrainFrame;
 bool g_overviewCamera = false;
 bool g_debugUiBounds = false;
+// Set when <map>.vcl exists but does not match the STM vertex total while
+// running a GUI smoke (MXH_GUI_SMOKE_EXIT=1); WinMain then exits nonzero.
+bool g_stmVclSmokeFailed = false;
 std::string __g_stateFramesDir;
 int __g_currentState = -1;
 int __g_lastCapturedState = -1;
@@ -670,6 +673,17 @@ public:
                 return fail("Static scene load failed (" + name + "): " + stage_error_, error);
             if (static_scene_->unresolvedTextureCount() != 0 && !g_debugUiBounds)
                 return fail("Static scene contains " + std::to_string(static_scene_->unresolvedTextureCount()) + " unresolved textures", error);
+            if (static_scene_->vertexColorMismatch()) {
+                // Misaligned .vcl colours are never applied (StaticScene falls
+                // back to white); a release smoke must not pass silently.
+                MLOG_ERROR("mxh_client: release visual gate failed: stmVclMismatch map=%d",
+                           static_cast<int>(map_num_));
+                const char* smokeExit = std::getenv("MXH_GUI_SMOKE_EXIT");
+                if (smokeExit && smokeExit[0] && smokeExit[0] != '0') {
+                    g_stmVclSmokeFailed = true;
+                    mxh::client::g_running = false;
+                }
+            }
             mark(progress, 5);
             ++stage_;
             return Result::Pending;
@@ -4432,5 +4446,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     g_bgmPlayer = nullptr;
     g_sfxPlayer = nullptr;
 
+    if (g_stmVclSmokeFailed) return 5;  // release visual gate: stmVclMismatch
     return 0;
 }

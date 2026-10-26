@@ -2,12 +2,15 @@
 #include "mxh/render/StaticSceneCenter.hpp"
 
 #include "mxh/compat/stm_static_model.hpp"
+#include "mxh/compat/stm_vertex_color.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/render/IFileStorage.hpp"
 #include "mxh/render/IRenderer.hpp"
 #include "dx11/texture_loader.hpp"
 
 #include <algorithm>
+#include <cstdlib>
+#include <cstring>
 #include <limits>
 #include <vector>
 
@@ -101,6 +104,8 @@ struct StaticScene::Impl {
     float map_center_x = static_center::kLegacyMapCenter;
     float map_center_z = static_center::kLegacyMapCenter;
     bool baked = false;
+    bool vcl_mismatch = false;
+    bool vcl_path = false;
     ~Impl() { for (auto* mesh : meshes) if (mesh) mesh->Release(); }
 };
 
@@ -125,6 +130,8 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     impl_->collision_bounds.clear();
     impl_->renderer = renderer;
     impl_->unresolved_textures = 0;
+    impl_->vcl_mismatch = false;
+    impl_->vcl_path = false;
     std::vector<std::uint8_t> bytes;
     mxh::compat::StmStaticModel scene;
     if (!readStorageFile(storage, stm_name, bytes) ||
@@ -156,7 +163,43 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         }
     }
 
-    for (const auto& source : scene.meshes) {
+    // Original-look (default): legacy CVLSMeshObject lighting from <map>.vcl
+    // (CoStaticModel.cpp:1151-1155/1184-1186, VLSMeshObject.cpp:75-78,154).
+    // MXH_STM_LIGHTING=fixed keeps the modern fixed directional lighting as
+    // a non-original option.
+    const char* lightingMode = std::getenv("MXH_STM_LIGHTING");
+    impl_->vcl_path = !(lightingMode && std::strcmp(lightingMode, "fixed") == 0);
+    mxh::compat::StmVclAssignment vcl;
+    if (impl_->vcl_path) {
+        std::string vclName(stm_name);
+        const auto dot = vclName.find_last_of('.');
+        vclName = (dot == std::string::npos ? vclName : vclName.substr(0, dot)) + ".vcl";
+        std::vector<mxh::compat::StmVclMeshInfo> infos;
+        infos.reserve(scene.meshes.size());
+        for (const auto& m : scene.meshes) infos.push_back({m.mesh_flags, m.positions.size()});
+        std::vector<std::uint8_t> vclBytes;
+        const bool present = readStorageFile(storage, vclName.c_str(), vclBytes);
+        vcl = mxh::compat::assign_stm_vertex_colors(infos, present ? &vclBytes : nullptr);
+        MLOG_INFO("[static] vcl loaded=%u vertices=%u matched=%s",
+                  static_cast<unsigned>(vcl.loaded_bytes),
+                  static_cast<unsigned>(vcl.expected_vertices),
+                  vcl.matched() ? "yes" : "no");
+        if (vcl.status == mxh::compat::StmVclStatus::Missing) {
+            MLOG_WARN("[static] vcl missing: %s (vertex colours default to white, as legacy memset 0xff)",
+                      vclName.c_str());
+        } else if (vcl.status == mxh::compat::StmVclStatus::Mismatch) {
+            impl_->vcl_mismatch = true;
+            MLOG_ERROR("[static] vcl size mismatch: %s bytes=%u expected=%u (vertices*4); "
+                       "vertex colours disabled for this map (white)",
+                       vclName.c_str(), static_cast<unsigned>(vcl.loaded_bytes),
+                       static_cast<unsigned>(vcl.expected_vertices * 4u));
+        }
+    } else {
+        MLOG_INFO("[static] vcl skipped: MXH_STM_LIGHTING=fixed (non-original fixed lighting)");
+    }
+
+    for (std::size_t meshIndex = 0; meshIndex < scene.meshes.size(); ++meshIndex) {
+        const auto& source = scene.meshes[meshIndex];
         if (source.positions.empty() || source.positions.size() > 65535u) continue;
         std::vector<VECTOR3> positions(source.positions.size());
         std::vector<VECTOR3> normals(source.positions.size(), VECTOR3{0, 1, 0});
@@ -175,6 +218,14 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         desc.pv3WorldList = positions.data(); desc.pv3NormalLocal = normals.data();
         desc.dwTexVertexNum = static_cast<std::uint32_t>(texcoords.size());
         desc.ptvTexCoordList = texcoords.data();
+        // Only vcl-consuming (non-LM, non-billboard) meshes get a colour
+        // stream; per_mesh is white unless the .vcl size matched exactly.
+        std::vector<std::uint32_t> colors;
+        if (impl_->vcl_path && meshIndex < vcl.per_mesh.size() &&
+            vcl.per_mesh[meshIndex].size() == positions.size()) {
+            colors = vcl.per_mesh[meshIndex];
+            desc.pVertexColor = colors.data();
+        }
         auto* mesh = renderer->CreateMeshObject(CMeshFlag(source.mesh_flags));
         if (!mesh || !mesh->StartInitialize(&desc, nullptr, nullptr)) {
             if (mesh) mesh->Release(); continue;
@@ -204,6 +255,9 @@ bool StaticScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
               static_cast<unsigned>(scene.materials.size()));
     return !impl_->meshes.empty();
 }
+
+bool StaticScene::vertexColorMismatch() const noexcept { return impl_->vcl_mismatch; }
+bool StaticScene::vertexColorPathEnabled() const noexcept { return impl_->vcl_path; }
 
 void StaticScene::render() {
     if (!impl_->renderer) return;
