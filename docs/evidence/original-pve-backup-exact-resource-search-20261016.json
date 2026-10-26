@@ -7,8 +7,8 @@
   "searchRoot": "/vmstore/ci-backups/moxiang-reorg/20261009",
   "readOnly": true,
   "targets": {
-    "hfl": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
-    "ttb": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"],
+    "hfl": [],
+    "ttb": [],
     "map17Textures": [
       "tile_17_mou_a_01.dds", "tile_17_mou_a_02.dds", "tile_17_mou_a_03.dds",
       "tile_17_mou_a_04.dds", "tile_17_mou_a_05.dds", "tile_17_mou_a_06.dds",
@@ -28,6 +28,11 @@
   "exactTtbMatches": [],
   "exactMap17TextureMatches": [],
   "decision": "REJECT_HISTORICAL_CANDIDATES",
-  "reason": "The eight HFL files match the already-audited historical candidate set and are not current PlayDH exact payloads; no target TTB or Map17 texture was found. No original resource was copied or promoted.",
+  "reason": "The eight HFL files match the already-audited historical candidate set and are not current PlayDH exact payloads; no target TTB or Map17 texture was found. No original resource was copied or promoted. Those eight HFL ids and TTB 0,3,4,23,24,32,33,34,94,198 are not referenced by the original and are not a missing list. See extensionAndPakCorrection for the .dds Map17 names.",
+  "notReferencedByOriginal": {
+    "hfl": [0, 4, 23, 24, 32, 33, 34, 94],
+    "ttb": [0, 3, 4, 23, 24, 32, 33, 34, 94, 198]
+  },
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): map17Textures used the wrong extension (.dds). Map17's original HFL references tile_17_mou_a_01..09.tga. Related pak scans used the worktree PlayDH/Map.pak, whose header has 4192 entries, not the original D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect.",
   "releaseReady": false
 }

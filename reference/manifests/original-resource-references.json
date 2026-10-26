@@ -1,0 +1,36 @@
+{
+  "schema": "moxiang.original-resource-references.v1",
+  "derivation": {
+    "status": "not-run",
+    "runsOn": "ROG, the machine that has the original client files. CI does not have them and must not invent N.hfl / N.ttb names from map numbers.",
+    "checkedBy": "python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH",
+    "command": "python3 modern/tools/resource_reference_gate.py derive --source <original 3DData directory> --pak D:/MX/client/Package/3DData/Map.pak --output reference/manifests/original-resource-references.json",
+    "parsedMapCount": 0,
+    "pak": {
+      "path": "",
+      "headerEntries": null,
+      "entriesReadToEof": null
+    },
+    "unparsed": [],
+    "note": "Required names come only from filenames stored in original .map, .stm and used .hfl palette rows. The original Map.pak is D:/MX/client/Package/3DData/Map.pak, which reads 11267 entries to EOF. The worktree PlayDH/Map.pak header count of 4192 is the wrong archive and is not a derivation source. Do not commit original game bytes."
+  },
+  "references": [],
+  "excludedNotReferenced": [],
+  "notReferencedByOriginal": {
+    "hfl": [0, 4, 23, 24, 32, 33, 34, 94],
+    "ttb": [0, 3, 4, 23, 24, 32, 33, 34, 94, 198]
+  },
+  "knownReferencedNoOriginalFile": [
+    "tile_17_mou_a_01.tga",
+    "tile_17_mou_a_02.tga",
+    "tile_17_mou_a_03.tga",
+    "tile_17_mou_a_04.tga",
+    "tile_17_mou_a_05.tga",
+    "tile_17_mou_a_06.tga",
+    "tile_17_mou_a_07.tga",
+    "tile_17_mou_a_08.tga",
+    "tile_17_mou_a_09.tga",
+    "test4",
+    "Monster_203.bin"
+  ]
+}

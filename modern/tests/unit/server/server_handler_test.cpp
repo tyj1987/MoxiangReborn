@@ -5372,6 +5372,7 @@ TEST(MapHandlerTest, PreloadedQuestAllowsRevisionedSkillAndAdvancesKillProgress)
     db.preloaded_quest_id = 1u;
     ReplySpy reply;
     MapHandler handler(db, 10u, make_reply_spy(reply));
+    handler.set_skill_damage_rng_seed_for_test(1u);  // first dodge roll 45, no random miss
     const auto quest_path = write_temp_bin(synthesize_dealitem_bin(
         "$QUEST 1 { $SUBQUEST 1 { #TRIGGER @HUNT 73 1 *ADDCOUNT 1 1 } }"));
     handler.load_quest_script(quest_path.string());
