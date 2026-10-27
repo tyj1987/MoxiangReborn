@@ -55,6 +55,10 @@ enum class MhError {
     // which is not the classic MHFileEx wire format.  Keep it explicit so a
     // caller cannot mistake an undecoded payload for valid game data.
     UnsupportedOpaqueServerProfile,
+    // Installed Resource .bin container (same family as obfuscated .map).
+    // The reader refuses this shape. It does not strip the header or decode
+    // the body. Result::message contains "obfuscated container".
+    ObfuscatedContainer,
 };
 
 // Detect the current PlayDH server container without attempting to decode it.
@@ -87,6 +91,9 @@ template <typename T>
 struct Result {
     T value;
     MhError error = MhError::Ok;
+    // Populated for MhError::ObfuscatedContainer. Contains the phrase
+    // "obfuscated container". Empty for every other error.
+    std::string message;
 
     [[nodiscard]] bool ok() const noexcept { return error == MhError::Ok; }
     [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
@@ -105,12 +112,31 @@ struct Result {
 [[nodiscard]] bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept;
 
 // Load a .bin file from disk, performing XOR decryption.
+// Default path is the mainline reader, including the R-17 branch for any
+// file of at least 5 bytes whose first little-endian uint32 equals the
+// file size. This overload never returns MhError::ObfuscatedContainer.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);
+
+// Same reader with an explicit resource profile. Profile ids match
+// read_server_mh_bin and ClientSettings::resource_profile_id.
+//   empty or sworking-2008-reference: identical to read_mh_bin (R-17 included).
+//   playdh-current: a file of at least 20 bytes whose first little-endian
+//     uint32 equals the file size is refused as MhError::ObfuscatedContainer.
+//     The message contains "obfuscated container". The bytes after the
+//     length are not stripped or decoded. Every other file uses read_mh_bin.
+//   any other id: MhError::UnsupportedVersion.
+// The installed container and R-17 share the size prefix. The profile
+// argument is the only selector. There is no structural heuristic on the
+// default path. This library does not read the environment or any global
+// config to choose a profile. Existing callers stay on read_mh_bin(path).
+[[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path,
+                                         std::string_view profile_id);
 
 // Profile-aware server resource entry point. The current PlayDH server
 // profile uses its recovered opaque AIGroup transform; the 2008 reference
-// profile uses the recovered MHFileEx layout. Profiles remain explicit and
-// are never silently substituted.
+// profile uses the recovered MHFileEx layout, including R-17. Profiles
+// remain explicit and are never silently substituted. The installed-client
+// refusal is read_mh_bin(path, "playdh-current"), not this server decoder.
 [[nodiscard]] Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id);
 

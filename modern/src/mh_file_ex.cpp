@@ -25,14 +25,21 @@
 //   like 20040308+type+size, which never equals the file size for non-trivial
 //   payloads). See modern/tests/unit/compat/resource_parse_all_bin_test.cpp
 //   and KNOWN_BUGS.md R-17 for the 107 FAIL -> PASS fix.
+//   The installed client container uses this same first field. Default
+//   read_mh_bin keeps the R-17 branch and never returns ObfuscatedContainer.
+//   read_mh_bin(path, "playdh-current") refuses that shape at >= 20 bytes.
+//   The two shapes are not split by a byte heuristic.
 
 #include "mxh/compat/mh_file_ex.hpp"
+
+#include "mxh/log/mlog.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 namespace mxh::compat {
 
@@ -41,6 +48,49 @@ namespace {
 // Note: original CMHFileEx::CheckHeader() is COMMENTED OUT, so dwVersion
 // is never validated at runtime. We replicate that behavior. The "valid"
 // version constants are documented for reference only.
+
+// Installed-client marker. Same first field as R-17. Consulted only by
+// read_mh_bin(path, "playdh-current"). Default read_mh_bin does not call this.
+bool installed_client_container_shape(std::span<const std::uint8_t> bytes) noexcept {
+    if (bytes.size() < 20 || bytes.size() > 0xffffffffu) return false;
+    std::uint32_t declared = 0;
+    std::memcpy(&declared, bytes.data(), sizeof(declared));
+    return declared == static_cast<std::uint32_t>(bytes.size());
+}
+
+Result<MhFile> obfuscated_container_result(const std::filesystem::path& path,
+                                           std::size_t bytes) {
+    Result<MhFile> refused;
+    refused.error = MhError::ObfuscatedContainer;
+    const auto filename = path.filename().string();
+    const std::string shown = filename.empty() ? "(unnamed)" : filename;
+    std::ostringstream out;
+    out << "ERROR [bin] obfuscated container: " << shown << " (bytes=" << bytes
+        << ")";
+    refused.message = out.str();
+    MLOG_ERROR("%s", refused.message.c_str());
+    return refused;
+}
+
+std::vector<std::uint8_t> load_file_bytes(const std::filesystem::path& path,
+                                          MhError& error) {
+    error = MhError::Ok;
+    std::ifstream f(path, std::ios::binary | std::ios::ate);
+    if (!f) {
+        error = MhError::FileNotFound;
+        return {};
+    }
+    const auto total_size = static_cast<std::size_t>(f.tellg());
+    f.seekg(0);
+    std::vector<std::uint8_t> buf(total_size);
+    if (total_size != 0 &&
+        !f.read(reinterpret_cast<char*>(buf.data()),
+                static_cast<std::streamsize>(total_size))) {
+        error = MhError::IoError;
+        return {};
+    }
+    return buf;
+}
 
 }  // namespace
 
@@ -144,6 +194,8 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
     //   payload decryption: positional XOR (type=0) only.
     //   file_size = total_size - 4, type = 0.
     //   Modern format +0 is a hash like 20040308+type+size, never equals fs.
+    //   Installed-client refusal is not applied here. Call
+    //   read_mh_bin(path, "playdh-current") for that profile.
     if (buf.size() >= 5) {
         std::uint32_t legacy_size = 0;
         std::memcpy(&legacy_size, buf.data(), sizeof(legacy_size));
@@ -205,9 +257,35 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
     return r;
 }
 
+Result<MhFile> read_mh_bin(const std::filesystem::path& path,
+                           std::string_view profile_id) {
+    if (profile_id.empty() || profile_id == "sworking-2008-reference") {
+        return read_mh_bin(path);
+    }
+    if (profile_id != "playdh-current") {
+        return Result<MhFile>{{}, MhError::UnsupportedVersion};
+    }
+    MhError load_error = MhError::Ok;
+    const auto buf = load_file_bytes(path, load_error);
+    if (load_error != MhError::Ok) {
+        return Result<MhFile>{{}, load_error};
+    }
+    // Profile selection only. No decode, and no "plausible plain" exception:
+    // a classic file whose version field equals the file size has this same
+    // prefix and is refused here, matching the installed container.
+    if (installed_client_container_shape(buf)) {
+        return obfuscated_container_result(path, buf.size());
+    }
+    return read_mh_bin(path);
+}
+
 Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id) {
     if (profile_id == "playdh-current") {
+        // Server files on this profile use the recovered opaque AIGroup
+        // transform. Installed client .bin files that share the size prefix
+        // are refused by read_mh_bin(path, "playdh-current") and are not
+        // decoded on that path. This branch stays the server decoder.
         const auto container = read_opaque_server_container(path);
         if (container.ok()) {
             const auto decoded = decode_opaque_server_payload(

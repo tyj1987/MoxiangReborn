@@ -74,6 +74,7 @@ original_governance_and_python_tests:
     - python3 -B -m unittest modern/tests/unit/tools/test_check_no_pak_changes.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_mh_bin.py
 
 rog_gate_self_test:
   extends: .linux_trusted

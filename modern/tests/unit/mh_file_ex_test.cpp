@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iterator>
+#include <string>
 #include <vector>
 #include "../support/playdh_env.hpp"
 
@@ -195,4 +196,170 @@ TEST(MhFileEx, WriteAndReadBack) {
     EXPECT_EQ(result.value.data, payload);
 
     std::filesystem::remove(tmp);
+}
+
+namespace {
+
+std::vector<std::uint8_t> synthetic_r17(const std::vector<std::uint8_t>& payload) {
+    const auto total = static_cast<std::uint32_t>(4 + payload.size());
+    std::vector<std::uint8_t> bytes(total);
+    std::memcpy(bytes.data(), &total, sizeof(total));
+    std::memcpy(bytes.data() + 4, payload.data(), payload.size());
+    return bytes;
+}
+
+void write_bytes(const std::filesystem::path& path,
+                 const std::vector<std::uint8_t>& bytes) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+}
+
+class TempBin {
+public:
+    explicit TempBin(const std::vector<std::uint8_t>& bytes, const char* name)
+        : path_(std::filesystem::temp_directory_path() / name) {
+        write_bytes(path_, bytes);
+    }
+    ~TempBin() { std::filesystem::remove(path_); }
+    const std::filesystem::path& path() const { return path_; }
+
+private:
+    std::filesystem::path path_;
+};
+
+}  // namespace
+
+TEST(MhFileEx, DefaultAndSworkingParseSyntheticR17) {
+    const std::vector<std::uint8_t> payload = {
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+    };
+    const auto bytes = synthetic_r17(payload);
+    ASSERT_GE(bytes.size(), 20u);
+    TempBin file(bytes, "mxh_test_r17.bin");
+    const auto expected = decrypt_bin_payload(payload, 0);
+
+    const auto def = read_mh_bin(file.path());
+    ASSERT_TRUE(def.ok()) << static_cast<int>(def.error);
+    EXPECT_NE(def.error, MhError::ObfuscatedContainer);
+    EXPECT_EQ(def.value.header.type, 0u);
+    EXPECT_EQ(def.value.header.file_size, payload.size());
+    EXPECT_EQ(def.value.data, expected);
+    EXPECT_EQ(def.message.find("obfuscated container"), std::string::npos);
+
+    const auto reference = read_mh_bin(file.path(), "sworking-2008-reference");
+    ASSERT_TRUE(reference.ok());
+    EXPECT_EQ(reference.value.data, def.value.data);
+    EXPECT_EQ(reference.value.header.file_size, def.value.header.file_size);
+
+    const auto server = read_server_mh_bin(file.path(), "sworking-2008-reference");
+    ASSERT_TRUE(server.ok());
+    EXPECT_EQ(server.value.data, expected);
+}
+
+TEST(MhFileEx, PlaydhCurrentRefusesSyntheticR17) {
+    const std::vector<std::uint8_t> payload(32, 0x5A);
+    const auto bytes = synthetic_r17(payload);
+    TempBin file(bytes, "mxh_test_r17_playdh.bin");
+    const auto result = read_mh_bin(file.path(), "playdh-current");
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(result.error, MhError::ObfuscatedContainer);
+    EXPECT_NE(result.message.find("obfuscated container"), std::string::npos)
+        << result.message;
+    EXPECT_NE(result.message.find("bytes=" + std::to_string(bytes.size())),
+              std::string::npos)
+        << result.message;
+    EXPECT_TRUE(result.value.data.empty());
+}
+
+TEST(MhFileEx, PlaydhCurrentRefusesContainerOfExactly20Bytes) {
+    const auto bytes = synthetic_r17(std::vector<std::uint8_t>(16, 0x11));
+    ASSERT_EQ(bytes.size(), 20u);
+    TempBin file(bytes, "mxh_test_r17_edge.bin");
+    const auto result = read_mh_bin(file.path(), "playdh-current");
+    EXPECT_EQ(result.error, MhError::ObfuscatedContainer);
+    EXPECT_NE(result.message.find("obfuscated container"), std::string::npos)
+        << result.message;
+    EXPECT_NE(result.message.find("bytes=20"), std::string::npos) << result.message;
+    EXPECT_TRUE(result.value.data.empty());
+}
+
+TEST(MhFileEx, PlainClassicBinOkUnderBothProfiles) {
+    const std::vector<std::uint8_t> payload = {
+        'H', 'e', 'l', 'l', 'o', ' ', 'M', 'o', 'x', 'i', 'a', 'n'
+    };
+    constexpr std::uint32_t kType = 7;
+    const auto encrypted = encrypt_bin_payload(payload, kType);
+    MhFileHeader header{};
+    header.version = 20040308u + kType + static_cast<std::uint32_t>(payload.size());
+    header.type = kType;
+    header.file_size = static_cast<std::uint32_t>(payload.size());
+    std::vector<std::uint8_t> bytes(sizeof(header) + encrypted.size());
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    std::memcpy(bytes.data() + sizeof(header), encrypted.data(), encrypted.size());
+    TempBin file(bytes, "mxh_test_plain_both_profiles.bin");
+
+    const auto def = read_mh_bin(file.path());
+    ASSERT_TRUE(def.ok());
+    EXPECT_EQ(def.value.data, payload);
+    const auto current = read_mh_bin(file.path(), "playdh-current");
+    ASSERT_TRUE(current.ok()) << current.message;
+    EXPECT_EQ(current.value.header.type, kType);
+    EXPECT_EQ(current.value.data, payload);
+    const auto reference = read_mh_bin(file.path(), "sworking-2008-reference");
+    ASSERT_TRUE(reference.ok());
+    EXPECT_EQ(reference.value.data, payload);
+}
+
+TEST(MhFileEx, VersionEqualsSizePlainFileStaysOnR17) {
+    const std::vector<std::uint8_t> payload = {
+        'p', 'l', 'a', 'i', 'n', '-', 's', 'i', 'z', 'e'
+    };
+    constexpr std::uint32_t kType = 4;
+    const auto encrypted = encrypt_bin_payload(payload, kType);
+    const auto total = static_cast<std::uint32_t>(14 + payload.size());
+    ASSERT_GE(total, 20u);
+    std::vector<std::uint8_t> bytes(total);
+    MhFileHeader header{};
+    header.version = total;
+    header.type = kType;
+    header.file_size = static_cast<std::uint32_t>(payload.size());
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    bytes[12] = 0x11;
+    std::memcpy(bytes.data() + 13, encrypted.data(), encrypted.size());
+    bytes.back() = 0x22;
+    TempBin file(bytes, "mxh_test_plain_size_coincidence.bin");
+
+    const auto expected = decrypt_bin_payload(
+        {bytes.data() + 4, bytes.size() - 4}, 0);
+    const auto def = read_mh_bin(file.path());
+    ASSERT_TRUE(def.ok()) << static_cast<int>(def.error);
+    EXPECT_EQ(def.value.header.type, 0u);
+    EXPECT_EQ(def.value.header.file_size, total - 4);
+    EXPECT_EQ(def.value.data, expected);
+    EXPECT_EQ(def.message.find("obfuscated container"), std::string::npos);
+
+    const auto reference = read_server_mh_bin(file.path(), "sworking-2008-reference");
+    ASSERT_TRUE(reference.ok());
+    EXPECT_EQ(reference.value.data, expected);
+
+    const auto current = read_mh_bin(file.path(), "playdh-current");
+    EXPECT_EQ(current.error, MhError::ObfuscatedContainer);
+    EXPECT_NE(current.message.find("obfuscated container"), std::string::npos);
+}
+
+TEST(MhFileEx, ShortSizePrefixStaysOnR17UnderPlaydhCurrent) {
+    std::vector<std::uint8_t> bytes(19, 0x5A);
+    bytes[0] = 19;
+    bytes[1] = 0;
+    bytes[2] = 0;
+    bytes[3] = 0;
+    TempBin file(bytes, "mxh_test_short_size_prefix.bin");
+    const auto def = read_mh_bin(file.path());
+    ASSERT_TRUE(def.ok()) << static_cast<int>(def.error);
+    EXPECT_EQ(def.value.header.type, 0u);
+    EXPECT_EQ(def.value.data.size(), 15u);
+    const auto current = read_mh_bin(file.path(), "playdh-current");
+    ASSERT_TRUE(current.ok()) << current.message;
+    EXPECT_EQ(current.value.data, def.value.data);
 }

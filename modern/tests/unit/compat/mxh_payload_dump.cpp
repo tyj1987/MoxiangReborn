@@ -116,6 +116,7 @@ const char* mh_error_name(mxh::compat::MhError error) {
     case MhError::UnsupportedVersion: return "unsupported_version";
     case MhError::CrcMismatch: return "crc_mismatch";
     case MhError::UnsupportedOpaqueServerProfile: return "unsupported_opaque_server_profile";
+    case MhError::ObfuscatedContainer: return "obfuscated_container";
     }
     return "unknown";
 }

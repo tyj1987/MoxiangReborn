@@ -129,6 +129,7 @@ jobs:
           python3 -B -m unittest modern/tests/unit/tools/test_check_no_pak_changes.py
           python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
           python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+          python3 -B -m unittest modern/tests/unit/tools/test_mh_bin.py
 
       - name: resource_reference_gate check
         if: always()

@@ -47,17 +47,33 @@ COMMANDS:
 
 OPTIONS:
     -o, --output DIR    Output directory
+    --profile ID        Resource profile for info/extract.
+                        Default and sworking-2008-reference keep R-17.
+                        playdh-current refuses an installed container.
     -h, --help          Show this help
 )";
 }
 
-int cmd_info(const fs::path& path) {
-    auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
+mxh::compat::Result<mxh::compat::MhFile> read_bin_for_profile(
+    const fs::path& path, const std::string& profile) {
+    if (profile.empty()) return mxh::compat::read_mh_bin(path);
+    return mxh::compat::read_mh_bin(path, profile);
+}
+
+int fail_bin_read(const fs::path& path,
+                   const mxh::compat::Result<mxh::compat::MhFile>& result) {
+    if (!result.message.empty()) {
+        std::cerr << result.message << "\n";
+    } else {
         std::cerr << "ERROR: failed to read " << path << " (code="
                   << static_cast<int>(result.error) << ")\n";
-        return 1;
     }
+    return 1;
+}
+
+int cmd_info(const fs::path& path, const std::string& profile) {
+    auto result = read_bin_for_profile(path, profile);
+    if (!result.ok()) return fail_bin_read(path, result);
     const auto& file = result.value;
     std::cout << "File:        " << path << "\n";
     std::cout << "Header:\n";
@@ -200,12 +216,10 @@ int cmd_stm(const fs::path& path) {
     return 0;
 }
 
-int cmd_extract(const fs::path& path, const fs::path& out_dir) {
-    auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
-        std::cerr << "ERROR: read failed (code=" << static_cast<int>(result.error) << ")\n";
-        return 1;
-    }
+int cmd_extract(const fs::path& path, const fs::path& out_dir,
+                 const std::string& profile) {
+    auto result = read_bin_for_profile(path, profile);
+    if (!result.ok()) return fail_bin_read(path, result);
     fs::create_directories(out_dir);
     auto out = out_dir / (path.stem().string() + ".dec");
     std::ofstream f(out, std::ios::binary);
@@ -348,12 +362,17 @@ int main(int argc, char** argv) {
 
     // Parse -o flag anywhere after command.
     fs::path out_dir = fs::current_path();
+    std::string profile;
     std::vector<std::string> positional;
     for (int i = 2; i < argc; ++i) {
         std::string_view a = argv[i];
         if (a == "-o" || a == "--output") {
             if (i + 1 < argc) {
                 out_dir = argv[++i];
+            }
+        } else if (a == "--profile") {
+            if (i + 1 < argc) {
+                profile = argv[++i];
             }
         } else if (a == "-h" || a == "--help") {
             print_usage();
@@ -365,10 +384,10 @@ int main(int argc, char** argv) {
 
     try {
         if (cmd == "info" && positional.size() == 1) {
-            return cmd_info(positional[0]);
+            return cmd_info(positional[0], profile);
         }
         if (cmd == "extract" && positional.size() == 1) {
-            return cmd_extract(positional[0], out_dir);
+            return cmd_extract(positional[0], out_dir, profile);
         }
         if (cmd == "list" && positional.size() == 1) {
             return cmd_list(positional[0]);
