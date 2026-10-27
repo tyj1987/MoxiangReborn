@@ -255,91 +255,91 @@
     {
       "name": "107_leaf01.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "69b51ae41d101794fb7ade7d60457a0d9e12fc709ef96d66e04ba2088b0cadb4",
       "ticket": "TYJ-150"
     },
     {
       "name": "211_eff_fire00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "3982ec8aedcbb08a067431de886d876cd573c7b4a92cf9da2508e3605d518bb4",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_circle00.TIF",
+      "name": "212_circle00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "50ba9f343f4575c597ff249dd1aa20d97691b2bb0c00a1180c544776943f192e",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_eye_00.MOD",
+      "name": "212_eye_00.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d22cbf867c412452668c34448829f23995a586e953bc7e5d3f2099a98d7e456c",
       "ticket": "TYJ-150"
     },
     {
       "name": "212_flow_00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "3e9e8b4451ec2d4bfe35ef360ee2a01c82e2886ada8e2ab85ffb068a9e5363ca",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_grassPollution_00.tif",
+      "name": "212_grasspollution_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d8bd53b218dbb8242c2de4810da71886c8de143c3d1aa46c6cf22d01f8f5f603",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_GX_crystal00.chr",
+      "name": "212_gx_crystal00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "0abb63e18c54f99d40c35ddaad4175817551d64eddc4759f99663883c07cd961",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_GX_trick00.chr",
+      "name": "212_gx_trick00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "62029168a69a30c213629da17a4d9d7b4f1d649617595d1e0ae9bcfec2a23287",
       "ticket": "TYJ-150"
     },
     {
       "name": "212_oil_00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "344c97935f82c0d4a457011dceae9696fbea6c9bea9de51035fa7ae231b665ec",
       "ticket": "TYJ-150"
     },
     {
       "name": "212_oil_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "19475fb9ea79d2fdda9597c6187dc887552f3e7e911fc1483f1eff6bdfb71906",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_OilColumn_00.chr",
+      "name": "212_oilcolumn_00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "62027a4cb38139d3835840520564a38cc858f111986a6586cb984c585aa9bf42",
       "ticket": "TYJ-150"
     },
     {
       "name": "212_petroleum_00.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "fbdff73d309e39a5cde1dd5032add1917e04d83c9af7985bd709a2803d826260",
       "ticket": "TYJ-150"
     },
     {
-      "name": "212_petroleum_00.TIF",
+      "name": "212_petroleum_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "8199abdd892a69e82fcce2b45a60eee27a840123a62244a2333c26bd117bad1b",
       "ticket": "TYJ-150"
     },
     {
       "name": "321.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "5d5d2ee666cbc757948691146e5dcc926656e3ce839695fba42b09fad7d9edc2",
       "ticket": "TYJ-150"
     },
     {
       "name": "321.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d73b685bc16e47b0d434487ab3c82cebe7ea1b148bd1211b33b4c50d35451fb5",
       "ticket": "TYJ-150"
     },
     {
