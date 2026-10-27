@@ -69,6 +69,22 @@
 .PARAMETER SelfTestBuildExit
     Self-test only. When this parameter is present, skip the build and exit
     with the same code a failed build command would return.
+
+.NOTES
+    Launch scripts\rog-gate-build.cmd from a PowerShell 7 remote shell.
+    That launcher clears PSModulePath before Windows PowerShell 5.1
+    (powershell.exe). A leaked PSModulePath hides Get-FileHash.
+
+    CTest skips are counted by test number. FilesystemFileStorage.* and
+    mxh_pak_lazy_read_tests must not skip, except
+    FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes when the
+    temp volume is NTFS and the skip reason is the case-distinct pak message.
+    After CTest, Map10 memory is sampled from mxh_render_tests.exe itself,
+    launched with --gtest_filter for
+    FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent.
+
+.EXAMPLE
+    PS> scripts\rog-gate-build.cmd -SelfTest
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -112,6 +128,12 @@ $script:RogGateAttributeReparsePoint = [int64]0x400
 $script:RogGateE2EPortBaseText = '26001'
 $script:RogGateE2ETestRegex = '^MoxianClientE2E$'
 $script:RogGateE2ELauncherName = 'mxh_client_e2e_ctest'
+$script:RogGateNtfsCasePakSkipName = 'FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes'
+$script:RogGateNtfsCasePakSkipReason = 'filesystem cannot store Data.pak and data.pak as distinct files'
+$script:RogGateMap10TestName = 'FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent'
+$script:RogGateMap10SampleIntervalMs = 200
+$script:RogGateMap10SampleMethod = 'Get-Process WorkingSet64'
+$script:RogGateMap10RenderTestsName = 'mxh_render_tests.exe'
 
 function ConvertTo-RogGateWindowsPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -1586,60 +1608,711 @@ function Test-RogGatePlayDhPreflight {
     }
 }
 
+function Test-RogGateVolumeIsNtfs {
+    param([object]$VolumeIsNtfs = $null)
+
+    if ($PSBoundParameters.ContainsKey('VolumeIsNtfs')) {
+        return [bool]$VolumeIsNtfs
+    }
+    if (-not (Test-RogGateHostIsWindows)) {
+        return $false
+    }
+    try {
+        $temp = [System.IO.Path]::GetTempPath()
+        $root = [System.IO.Path]::GetPathRoot($temp)
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            return $false
+        }
+        $drive = New-Object System.IO.DriveInfo $root
+        $format = [string]$drive.DriveFormat
+        return $format.Equals('NTFS', [System.StringComparison]::OrdinalIgnoreCase)
+    } catch {
+        return $false
+    }
+}
+
+function Test-RogGateSkipRequiresClean {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    if ($Name -clike 'FilesystemFileStorage.*') {
+        return $true
+    }
+    if ($Name -ceq 'mxh_pak_lazy_read_tests') {
+        return $true
+    }
+    if ($Name -clike 'mxh_pak_lazy_read_tests.*') {
+        return $true
+    }
+    return $false
+}
+
+function Test-RogGateSkipReasonLine {
+    param([AllowEmptyString()][string]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Line)) {
+        return $false
+    }
+    if ($Line -match '^\d+/\d+\s+Test\s+#') {
+        return $false
+    }
+    if ($Line -match '^Start\s+\d+:') {
+        return $false
+    }
+    if ($Line -match '^\d+\s+-\s+') {
+        return $false
+    }
+    if ($Line -match '^The following tests') {
+        return $false
+    }
+    if ($Line -match '^\[') {
+        return $false
+    }
+    return $true
+}
+
+function Get-RogGateSkipReasonWalk {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)][int]$Index,
+        [Parameter(Mandatory = $true)][int]$Direction
+    )
+
+    $chunks = New-Object 'System.Collections.Generic.List[string]'
+    $sawLocation = $false
+    $step = 0
+    $cursor = $Index + $Direction
+    $limit = @($Lines).Count
+    while (($cursor -ge 0) -and ($cursor -lt $limit) -and ($step -lt 40)) {
+        $step = $step + 1
+        $line = [string]$Lines[$cursor]
+        $line = $line.Trim()
+        $cursor = $cursor + $Direction
+        if ($line -match '^\[\s+(SKIPPED|OK|FAILED|RUN)\s+\]') {
+            break
+        }
+        if ($line -match ':\s*Skipped\s*$') {
+            $sawLocation = $true
+            if ($Direction -gt 0) {
+                continue
+            }
+            break
+        }
+        if ($Direction -lt 0) {
+            if (Test-RogGateSkipReasonLine -Line $line) {
+                $chunks.Insert(0, $line)
+            }
+            continue
+        }
+        if ($sawLocation -and (Test-RogGateSkipReasonLine -Line $line)) {
+            $chunks.Add($line)
+        }
+    }
+    if ((-not $sawLocation) -or ($chunks.Count -eq 0)) {
+        return ''
+    }
+    return ($chunks.ToArray() -join ' ')
+}
+
+function Get-RogGateSkipReasonAround {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)][int]$Index
+    )
+
+    $before = Get-RogGateSkipReasonWalk -Lines $Lines -Index $Index -Direction -1
+    if (-not [string]::IsNullOrWhiteSpace($before)) {
+        return $before
+    }
+    return (Get-RogGateSkipReasonWalk -Lines $Lines -Index $Index -Direction 1)
+}
+
+function Add-RogGateNamedReason {
+    param(
+        $Map,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [AllowEmptyString()][string]$Reason
+    )
+
+    if (-not $Map.ContainsKey($Name)) {
+        $queue = New-Object 'System.Collections.Generic.Queue[string]'
+        $Map.Add($Name, $queue)
+    }
+    $Map[$Name].Enqueue([string]$Reason)
+}
+
+function Get-RogGateGTestSkipReasonMap {
+    param([AllowEmptyString()][string]$Text)
+
+    $map = New-Object 'System.Collections.Generic.Dictionary[string,object]' ([System.StringComparer]::Ordinal)
+    if ([string]::IsNullOrEmpty($Text)) {
+        return $map
+    }
+    $lines = @([regex]::Split($Text, '\r?\n'))
+    $index = 0
+    $limit = $lines.Count
+    while ($index -lt $limit) {
+        $trimmed = [string]$lines[$index]
+        $trimmed = $trimmed.Trim()
+        $match = [regex]::Match($trimmed, '^\[\s+SKIPPED\s+\]\s+(\S+)')
+        if ($match.Success) {
+            $name = $match.Groups[1].Value
+            $reason = Get-RogGateSkipReasonAround -Lines $lines -Index $index
+            Add-RogGateNamedReason -Map $map -Name $name -Reason $reason
+        }
+        $index = $index + 1
+    }
+    return $map
+}
+
+function Get-RogGateExactTrimmedLineCount {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Expected
+    )
+
+    $count = 0
+    if ([string]::IsNullOrEmpty($Text)) {
+        return 0
+    }
+    foreach ($line in @([regex]::Split($Text, '\r?\n'))) {
+        if ([string]$line.Trim() -ceq $Expected) {
+            $count = $count + 1
+        }
+    }
+    return $count
+}
+
 function Get-RogGateCTestSkippedTests {
     param([AllowEmptyString()][string]$Text)
 
-    $names = New-Object 'System.Collections.Generic.List[string]'
-    $seen = @{}
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $byNumber = New-Object 'System.Collections.Generic.Dictionary[int,object]'
     if (-not [string]::IsNullOrEmpty($Text)) {
-        $patterns = @(
-            '(?m)^\s*\d+\s+-\s+(.+?)\s+\(Skipped\)\s*$',
-            '(?m)^\s*\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\*+Skipped\b'
-        )
-        foreach ($pattern in $patterns) {
-            $found = [regex]::Matches($Text, $pattern)
-            foreach ($match in $found) {
-                $name = $match.Groups[1].Value.Trim()
-                if ([string]::IsNullOrWhiteSpace($name)) {
-                    continue
+        $progress = [regex]::Matches($Text, '(?m)^\d+/\d+\s+Test\s+#(\d+):\s+(.+?)\s+\.+\*+Skipped\b')
+        foreach ($match in $progress) {
+            $number = [int]$match.Groups[1].Value
+            $name = $match.Groups[2].Value.Trim()
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                continue
+            }
+            if (-not $byNumber.ContainsKey($number)) {
+                $row = [pscustomobject]@{
+                    Number = $number
+                    Name   = $name
                 }
-                $key = $name.ToLowerInvariant()
-                if (-not $seen.ContainsKey($key)) {
-                    $seen[$key] = $true
-                    $names.Add($name)
+                $byNumber.Add($number, $row)
+                $rows.Add($row)
+            }
+        }
+        $summaryRows = [regex]::Matches($Text, '(?m)^\s*(\d+)\s+-\s+(.+?)\s+\(Skipped\)\s*$')
+        foreach ($match in $summaryRows) {
+            $number = [int]$match.Groups[1].Value
+            $name = $match.Groups[2].Value.Trim()
+            if ([string]::IsNullOrWhiteSpace($name)) {
+                continue
+            }
+            if (-not $byNumber.ContainsKey($number)) {
+                $row = [pscustomobject]@{
+                    Number = $number
+                    Name   = $name
                 }
+                $byNumber.Add($number, $row)
+                $rows.Add($row)
             }
         }
     }
-    $count = $names.Count
+    $count = $rows.Count
     if ($count -eq 0 -and -not [string]::IsNullOrEmpty($Text)) {
         $summary = [regex]::Match($Text, '(?m)(\d+)\s+tests?\s+skipped')
         if ($summary.Success) {
             $count = [int]$summary.Groups[1].Value
         }
     }
+    $names = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in $rows) {
+        $names.Add([string]$row.Name)
+    }
     return [pscustomobject]@{
         Count = $count
         Names = @($names.ToArray())
+        Rows  = @($rows.ToArray())
     }
 }
 
 function Get-RogGateCTestSkipReport {
-    param([AllowEmptyString()][string]$Text)
+    param(
+        [AllowEmptyString()][string]$Text,
+        [object]$VolumeIsNtfs = $null
+    )
 
     $parsed = Get-RogGateCTestSkippedTests -Text $Text
+    $ntfs = $false
+    if ($PSBoundParameters.ContainsKey('VolumeIsNtfs')) {
+        $ntfs = Test-RogGateVolumeIsNtfs -VolumeIsNtfs $VolumeIsNtfs
+    } else {
+        $ntfs = Test-RogGateVolumeIsNtfs
+    }
+    $reasonMap = Get-RogGateGTestSkipReasonMap -Text $Text
+    $exemptionBudget = Get-RogGateExactTrimmedLineCount -Text $Text -Expected $script:RogGateNtfsCasePakSkipReason
     $lines = New-Object 'System.Collections.Generic.List[string]'
     $lines.Add(('[INFO] CTest skipped={0}' -f [int]$parsed.Count))
-    foreach ($name in @($parsed.Names)) {
-        if (-not [string]::IsNullOrWhiteSpace([string]$name)) {
-            $lines.Add(('[INFO] CTest skip: {0}' -f [string]$name))
+    $policyParts = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($row in @($parsed.Rows)) {
+        $name = [string]$row.Name
+        $number = [int]$row.Number
+        $reason = ''
+        if ($reasonMap.ContainsKey($name)) {
+            $queue = $reasonMap[$name]
+            if ($queue.Count -gt 0) {
+                $reason = [string]$queue.Dequeue()
+            }
+        }
+        if ($reason -ceq $script:RogGateNtfsCasePakSkipReason) {
+            if ($exemptionBudget -gt 0) {
+                $exemptionBudget = $exemptionBudget - 1
+            }
+        } elseif ([string]::IsNullOrWhiteSpace($reason) -and ($name -ceq $script:RogGateNtfsCasePakSkipName) -and ($exemptionBudget -gt 0)) {
+            $reason = $script:RogGateNtfsCasePakSkipReason
+            $exemptionBudget = $exemptionBudget - 1
+        }
+        $reasonText = $reason
+        if ([string]::IsNullOrWhiteSpace($reasonText)) {
+            $reasonText = 'reason not in log'
+        }
+        $exempt = $false
+        if ($ntfs -and ($name -ceq $script:RogGateNtfsCasePakSkipName) -and ($reason -ceq $script:RogGateNtfsCasePakSkipReason)) {
+            $exempt = $true
+        }
+        $line = '[INFO] CTest skip: ' + $name + ' #' + [string]$number + ' reason=' + $reasonText
+        if ($exempt) {
+            $line = $line + ' exemption=NTFS case-distinct pak names'
+        }
+        $lines.Add($line)
+        if ((Test-RogGateSkipRequiresClean -Name $name) -and (-not $exempt)) {
+            $policyParts.Add('#' + [string]$number + ' ' + $name)
+        }
+    }
+    $policyOk = ($policyParts.Count -eq 0)
+    $policyMessage = ''
+    if (-not $policyOk) {
+        $policyMessage = 'CTest skip policy: FilesystemFileStorage.* and mxh_pak_lazy_read_tests require SKIP=0. Non-exempt skip: ' + ($policyParts.ToArray() -join '; ')
+    }
+    return [pscustomobject]@{
+        Count         = [int]$parsed.Count
+        Names         = @($parsed.Names)
+        Lines         = @($lines.ToArray())
+        PolicyOk      = [bool]$policyOk
+        PolicyMessage = [string]$policyMessage
+    }
+}
+
+function Get-RogGateMap10GtestStatus {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$TestName
+    )
+
+    $name = [regex]::Escape($TestName)
+    if (-not [string]::IsNullOrEmpty($Text)) {
+        if ([regex]::IsMatch($Text, '\[\s+SKIPPED\s+\]\s+' + $name + '\b')) {
+            return 'Skipped'
+        }
+        if ([regex]::IsMatch($Text, '\[\s+FAILED\s+\]\s+' + $name + '\b')) {
+            return 'Failed'
+        }
+        if ([regex]::IsMatch($Text, '\[\s+OK\s+\]\s+' + $name + '\b')) {
+            if ($ExitCode -eq 0) {
+                return 'Passed'
+            }
+            return 'Failed'
+        }
+    }
+    if ($ExitCode -ne 0) {
+        return 'Failed'
+    }
+    return 'NotRun'
+}
+
+function Get-RogGateMap10PakEvidence {
+    param([AllowEmptyString()][string]$Text)
+
+    $parsed = New-Object 'System.Collections.Generic.List[string]'
+    $mount = New-Object 'System.Collections.Generic.List[string]'
+    $evidence = New-Object 'System.Collections.Generic.List[string]'
+    if (-not [string]::IsNullOrEmpty($Text)) {
+        $parsedMatches = [regex]::Matches($Text, '\[PakFile\] parsed (\d+) entries, raw_size=\d+')
+        foreach ($match in $parsedMatches) {
+            $parsed.Add($match.Groups[1].Value)
+            $evidence.Add($match.Value)
+        }
+        foreach ($line in @([regex]::Split($Text, '\r?\n'))) {
+            $textLine = [string]$line
+            if ($textLine.IndexOf('[pak] mount order:') -ge 0) {
+                $evidence.Add($textLine.Trim())
+                $pakMatches = [regex]::Matches($textLine, '\d+=([^\s()]+)')
+                foreach ($pakMatch in $pakMatches) {
+                    $mount.Add($pakMatch.Groups[1].Value)
+                }
+            }
         }
     }
     return [pscustomobject]@{
-        Count = [int]$parsed.Count
-        Names = @($parsed.Names)
-        Lines = @($lines.ToArray())
+        ParsedCounts  = @($parsed.ToArray())
+        MountPaks     = @($mount.ToArray())
+        EvidenceLines = @($evidence.ToArray())
     }
+}
+
+function Resolve-RogGateMap10MemoryCheck {
+    param(
+        [Parameter(Mandatory = $true)][string]$TestStatus,
+        [int]$LaunchedPid = 0,
+        [int]$SampledPid = 0,
+        [AllowEmptyString()][string]$ImageName = '',
+        [int]$SampleCount = 0,
+        [int64]$PeakBytes = 0,
+        [string[]]$ParsedCounts = @(),
+        [string[]]$MountPaks = @(),
+        [string[]]$EvidenceLines = @(),
+        [AllowEmptyString()][string]$Detail = ''
+    )
+
+    $parsedList = @($ParsedCounts | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $mountList = @($MountPaks | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $evidenceList = @($EvidenceLines | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $pidMatch = ($LaunchedPid -gt 0) -and ($SampledPid -eq $LaunchedPid)
+    $imageOk = -not [string]::IsNullOrWhiteSpace($ImageName)
+    $samplesOk = ($SampleCount -ge 1) -and ($PeakBytes -gt 0)
+    $pakOk = ($parsedList.Count -ge 1) -and ($mountList.Count -ge 1)
+    $passed = ($TestStatus -eq 'Passed')
+    $ok = $passed -and $pidMatch -and $imageOk -and $samplesOk -and $pakOk
+    $imagePrint = $ImageName
+    if ([string]::IsNullOrWhiteSpace($imagePrint)) {
+        $imagePrint = 'unknown'
+    }
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $testName = $script:RogGateMap10TestName
+    $method = $script:RogGateMap10SampleMethod
+    $interval = [string]$script:RogGateMap10SampleIntervalMs
+    if ($ok) {
+        $line = '[INFO] Map10 memory check: result=Passed test=' + $testName
+        $line = $line + ' pid=' + [string]$LaunchedPid
+        $line = $line + ' sampled_pid=' + [string]$SampledPid
+        $line = $line + ' image=' + $imagePrint
+        $line = $line + ' map=10'
+        $line = $line + ' paks=' + ($mountList -join ',')
+        $line = $line + ' pak_parsed=' + ($parsedList -join ',')
+        $line = $line + ' sampling=' + $method
+        $line = $line + ' interval_ms=' + $interval
+        $line = $line + ' peak_bytes=' + [string]$PeakBytes
+        $lines.Add($line)
+    } else {
+        $why = $Detail
+        if ([string]::IsNullOrWhiteSpace($why)) {
+            if (-not $passed) {
+                $why = 'test result=' + $TestStatus
+            } elseif (-not $pidMatch) {
+                $why = 'sampled pid does not match the launched gtest process'
+            } elseif ($SampleCount -lt 1) {
+                $why = 'no samples; cannot verify pid'
+            } elseif (-not $pakOk) {
+                $why = 'pak evidence incomplete'
+            } elseif (-not $imageOk) {
+                $why = 'image name missing'
+            } else {
+                $why = 'peak was not collected'
+            }
+        }
+        $line = '[FAIL] Map10 memory check: result=' + $TestStatus
+        $line = $line + ' test=' + $testName
+        $line = $line + ' pid=' + [string]$LaunchedPid
+        $line = $line + ' sampled_pid=' + [string]$SampledPid
+        $line = $line + ' image=' + $imagePrint
+        $line = $line + ' sampling=' + $method
+        $line = $line + ' interval_ms=' + $interval
+        $line = $line + ' detail=' + $why
+        $lines.Add($line)
+    }
+    foreach ($evidence in $evidenceList) {
+        $lines.Add('[INFO] Map10 evidence: ' + [string]$evidence)
+    }
+    return [pscustomobject]@{
+        Ok     = [bool]$ok
+        Lines  = @($lines.ToArray())
+        Result = [string]$TestStatus
+    }
+}
+
+function ConvertTo-RogGateProcessArguments {
+    param([string[]]$Arguments)
+
+    $parts = New-Object 'System.Collections.Generic.List[string]'
+    if ($null -eq $Arguments) {
+        return ''
+    }
+    foreach ($arg in $Arguments) {
+        $text = [string]$arg
+        if (($text.IndexOf(' ') -ge 0) -or ($text.IndexOf('"') -ge 0)) {
+            $text = '"' + $text.Replace('"', '\"') + '"'
+        }
+        $parts.Add($text)
+    }
+    return ($parts.ToArray() -join ' ')
+}
+
+function Add-RogGateProcessEnvironment {
+    param(
+        $StartInfo,
+        $Overlay
+    )
+
+    if ($null -eq $Overlay) {
+        return
+    }
+    foreach ($key in @($Overlay.Keys)) {
+        $StartInfo.EnvironmentVariables[[string]$key] = [string]$Overlay[$key]
+    }
+}
+
+function Get-RogGateVcVarsEnvironmentMap {
+    param([Parameter(Mandatory = $true)][string]$VcVarsAll)
+
+    if (-not (Test-Path -LiteralPath $VcVarsAll)) {
+        throw "vcvarsall.bat not found: $VcVarsAll"
+    }
+    $wrapper = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-env-' + [guid]::NewGuid().ToString('n') + '.cmd')
+    $vcQuoted = ConvertTo-RogGateCmdArgument -Argument $VcVarsAll
+    $wrapperLines = @(
+        '@echo off',
+        'setlocal DisableDelayedExpansion',
+        "call $vcQuoted x86 >nul",
+        'if errorlevel 1 exit /b 1',
+        'set',
+        'exit /b 0'
+    )
+    Set-Content -LiteralPath $wrapper -Value $wrapperLines -Encoding ASCII
+    $process = $null
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = 'cmd.exe'
+        $startInfo.Arguments = '/d /c "' + $wrapper + '"'
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        $started = $process.Start()
+        if (-not $started) {
+            throw 'Could not start cmd.exe to read the vcvarsall environment.'
+        }
+        $outTask = $process.StandardOutput.ReadToEndAsync()
+        $errTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $outText = [string]$outTask.GetAwaiter().GetResult()
+        $null = $errTask.GetAwaiter().GetResult()
+        if ([int]$process.ExitCode -ne 0) {
+            throw 'vcvarsall.bat x86 failed while reading the environment.'
+        }
+        $map = @{}
+        foreach ($line in @([regex]::Split($outText, '\r?\n'))) {
+            $eq = $line.IndexOf('=')
+            if ($eq -le 0) {
+                continue
+            }
+            $key = $line.Substring(0, $eq)
+            $value = $line.Substring($eq + 1)
+            $map[$key] = $value
+        }
+        if ($map.Count -eq 0) {
+            throw 'vcvarsall.bat x86 produced an empty environment.'
+        }
+        return $map
+    } finally {
+        if ($null -ne $process) {
+            $process.Dispose()
+        }
+        Remove-Item -LiteralPath $wrapper -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Invoke-RogGateSampledProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FileName,
+        [string[]]$Arguments = @(),
+        [string]$WorkingDirectory = '',
+        $Environment = $null,
+        [int]$IntervalMs = 200
+    )
+
+    $result = [pscustomobject]@{
+        ExitCode    = 1
+        Text        = ''
+        LaunchedPid = 0
+        SampledPid  = 0
+        ImageName   = ''
+        SampleCount = 0
+        PeakBytes   = [int64]0
+    }
+    if ($IntervalMs -lt 1) {
+        $IntervalMs = 1
+    }
+    $process = $null
+    try {
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $FileName
+        $startInfo.Arguments = ConvertTo-RogGateProcessArguments -Arguments $Arguments
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        if (-not [string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+            $startInfo.WorkingDirectory = $WorkingDirectory
+        }
+        Add-RogGateProcessEnvironment -StartInfo $startInfo -Overlay $Environment
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        $started = $process.Start()
+        if (-not $started) {
+            $result.Text = 'process did not start'
+            return $result
+        }
+        $result.LaunchedPid = [int]$process.Id
+        $outTask = $process.StandardOutput.ReadToEndAsync()
+        $errTask = $process.StandardError.ReadToEndAsync()
+        $peak = [int64]0
+        $count = 0
+        $sampled = 0
+        $image = ''
+        while (-not $process.HasExited) {
+            if ($process.HasExited) {
+                break
+            }
+            try {
+                $proc = Get-Process -Id $result.LaunchedPid -ErrorAction Stop
+                if ($process.HasExited) {
+                    break
+                }
+                $count = $count + 1
+                $sampled = [int]$proc.Id
+                $ws = [int64]$proc.WorkingSet64
+                if ($ws -gt $peak) {
+                    $peak = $ws
+                }
+                if ([string]::IsNullOrWhiteSpace($image)) {
+                    $moduleName = ''
+                    try {
+                        $modulePath = [string]$proc.MainModule.FileName
+                        if (-not [string]::IsNullOrWhiteSpace($modulePath)) {
+                            $moduleName = [System.IO.Path]::GetFileName($modulePath)
+                        }
+                    } catch {
+                        $moduleName = ''
+                    }
+                    if ([string]::IsNullOrWhiteSpace($moduleName)) {
+                        $moduleName = [string]$proc.ProcessName
+                    }
+                    $image = $moduleName
+                }
+            } catch {
+                if ($process.HasExited) {
+                    break
+                }
+            }
+            if ($process.WaitForExit($IntervalMs)) {
+                break
+            }
+        }
+        if (-not $process.HasExited) {
+            $process.WaitForExit()
+        }
+        $outText = [string]$outTask.GetAwaiter().GetResult()
+        $errText = [string]$errTask.GetAwaiter().GetResult()
+        $combined = $outText
+        if (-not [string]::IsNullOrEmpty($errText)) {
+            if ($combined.Length -gt 0) {
+                $combined = $combined + "`n"
+            }
+            $combined = $combined + $errText
+        }
+        if ([string]::IsNullOrWhiteSpace($image) -and ($sampled -eq $result.LaunchedPid) -and ($result.LaunchedPid -gt 0)) {
+            $image = [System.IO.Path]::GetFileName($FileName)
+        }
+        $result.ExitCode = [int]$process.ExitCode
+        $result.Text = $combined
+        $result.SampledPid = $sampled
+        $result.ImageName = $image
+        $result.SampleCount = $count
+        $result.PeakBytes = $peak
+        return $result
+    } catch {
+        $result.Text = [string]$_.Exception.Message
+        return $result
+    } finally {
+        if ($null -ne $process) {
+            $process.Dispose()
+        }
+    }
+}
+
+function Get-RogGateMap10TestExecutable {
+    param([Parameter(Mandatory = $true)][string]$NormalizedBuildDir)
+
+    $found = @(Get-RogGateFilesNoFollow -Root $NormalizedBuildDir -Predicate {
+        param($Entry)
+        return ($Entry.Name -eq $script:RogGateMap10RenderTestsName)
+    })
+    if ($found.Count -eq 0) {
+        return ''
+    }
+    $preferred = ''
+    $buildTrim = $NormalizedBuildDir.TrimEnd('\', '/')
+    foreach ($path in $found) {
+        $parent = Split-Path -Path $path -Parent
+        if ([string]::IsNullOrWhiteSpace([string]$parent)) {
+            continue
+        }
+        $parentTrim = ([string]$parent).TrimEnd('\', '/')
+        if ($parentTrim -eq $buildTrim) {
+            return [string]$path
+        }
+        if ([string]::IsNullOrWhiteSpace($preferred)) {
+            $preferred = [string]$path
+        }
+    }
+    return $preferred
+}
+
+function Invoke-RogGateMap10DirectProbe {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDir,
+        [Parameter(Mandatory = $true)][string]$VcVarsAll
+    )
+
+    # Launch mxh_render_tests.exe directly. Sampling cmd.exe or ctest would
+    # record the wrong PID. The child inherits the vcvars environment.
+    $exe = ''
+    try {
+        $exe = [string](Get-RogGateMap10TestExecutable -NormalizedBuildDir $BuildDir)
+    } catch {
+        return (Resolve-RogGateMap10MemoryCheck -TestStatus 'NotRun' -Detail $_.Exception.Message)
+    }
+    if ([string]::IsNullOrWhiteSpace($exe)) {
+        return (Resolve-RogGateMap10MemoryCheck -TestStatus 'NotRun' -Detail 'mxh_render_tests.exe was not found')
+    }
+    $envMap = $null
+    try {
+        $envMap = Get-RogGateVcVarsEnvironmentMap -VcVarsAll $VcVarsAll
+    } catch {
+        return (Resolve-RogGateMap10MemoryCheck -TestStatus 'NotRun' -Detail $_.Exception.Message)
+    }
+    $work = [string](Split-Path -Path $exe -Parent)
+    $filter = '--gtest_filter=' + $script:RogGateMap10TestName
+    $sample = Invoke-RogGateSampledProcess -FileName $exe -Arguments @($filter) -WorkingDirectory $work -Environment $envMap -IntervalMs $script:RogGateMap10SampleIntervalMs
+    $status = Get-RogGateMap10GtestStatus -Text $sample.Text -ExitCode ([int]$sample.ExitCode) -TestName $script:RogGateMap10TestName
+    $pak = Get-RogGateMap10PakEvidence -Text $sample.Text
+    return (Resolve-RogGateMap10MemoryCheck -TestStatus $status -LaunchedPid ([int]$sample.LaunchedPid) -SampledPid ([int]$sample.SampledPid) -ImageName ([string]$sample.ImageName) -SampleCount ([int]$sample.SampleCount) -PeakBytes ([int64]$sample.PeakBytes) -ParsedCounts @($pak.ParsedCounts) -MountPaks @($pak.MountPaks) -EvidenceLines @($pak.EvidenceLines))
 }
 
 function New-RogGateE2EPortResult {
@@ -2290,6 +2963,8 @@ function Test-RogGateScriptTextEncoding {
 
 function Invoke-RogGateSelfTest {
     $script:RogGateSelfTestFailures = 0
+    $script:RogGateSelfTestPasses = 0
+    $script:RogGateSelfTestSkips = 0
 
     function Assert-RogGateSelfTest {
         param(
@@ -2297,6 +2972,7 @@ function Invoke-RogGateSelfTest {
             [bool]$Condition
         )
         if ($Condition) {
+            $script:RogGateSelfTestPasses = $script:RogGateSelfTestPasses + 1
             Write-Host "[PASS] $Name"
         } else {
             Write-Host "[FAIL] $Name"
@@ -2306,6 +2982,7 @@ function Invoke-RogGateSelfTest {
 
     function Write-RogGateSelfTestSkip {
         param([Parameter(Mandatory = $true)][string]$Name)
+        $script:RogGateSelfTestSkips = $script:RogGateSelfTestSkips + 1
         Write-Host "[SKIP] $Name"
     }
 
@@ -2465,6 +3142,190 @@ function Invoke-RogGateSelfTest {
     $twoResolved = Resolve-RogGateCollectedExit -Code $onlyTwo
     Assert-RogGateSelfTest -Name 'single exit code 2 passes through unchanged' -Condition ($twoResolved.Ok -and ($twoResolved.ExitCode -eq 2) -and ($twoResolved.ExitCode -is [int]))
 
+    $hashOk = $false
+    $hashFile = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-hash-' + [guid]::NewGuid().ToString('n') + '.txt')
+    try {
+        $hashCommand = Get-Command -Name Get-FileHash -ErrorAction SilentlyContinue
+        if ($null -ne $hashCommand) {
+            $utf8Hash = New-Object System.Text.UTF8Encoding $false
+            [System.IO.File]::WriteAllText($hashFile, 'rog-gate', $utf8Hash)
+            $hash = Get-FileHash -LiteralPath $hashFile -Algorithm SHA256
+            $hashText = [string]$hash.Hash
+            $hashOk = ($hashText -match '^[0-9A-Fa-f]{64}$')
+        }
+    } catch {
+        $hashOk = $false
+    } finally {
+        if (Test-Path -LiteralPath $hashFile) {
+            Remove-Item -LiteralPath $hashFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if (-not $hashOk) {
+        Write-Host 'Get-FileHash is not available. Clear PSModulePath or launch scripts\rog-gate-build.cmd before Windows PowerShell 5.1.'
+    }
+    Assert-RogGateSelfTest -Name 'Get-FileHash is available (use rog-gate-build.cmd if PSModulePath hides it)' -Condition $hashOk
+
+    $launcherPath = Join-Path -Path $PSScriptRoot -ChildPath 'rog-gate-build.cmd'
+    $launcherOk = $false
+    if (Test-Path -LiteralPath $launcherPath -PathType Leaf) {
+        $launcherBytes = [System.IO.File]::ReadAllBytes($launcherPath)
+        $launcherAscii = $true
+        if ($launcherBytes.Length -ge 3) {
+            if (($launcherBytes[0] -eq 0xEF) -and ($launcherBytes[1] -eq 0xBB) -and ($launcherBytes[2] -eq 0xBF)) {
+                $launcherAscii = $false
+            }
+        }
+        foreach ($launcherByte in $launcherBytes) {
+            if (([int]$launcherByte) -gt 127) {
+                $launcherAscii = $false
+            }
+        }
+        $launcherText = [System.IO.File]::ReadAllText($launcherPath)
+        $launcherOk = $launcherAscii -and ($launcherText.Contains('set "PSModulePath="')) -and ($launcherText.Contains('powershell.exe')) -and ($launcherText.Contains('rog-gate-build.ps1'))
+    }
+    Assert-RogGateSelfTest -Name 'rog-gate-build.cmd clears PSModulePath before powershell.exe' -Condition $launcherOk
+
+    $helpOk = $false
+    if (-not [string]::IsNullOrWhiteSpace($encodingPath) -and (Test-Path -LiteralPath $encodingPath -PathType Leaf)) {
+        $helpText = [System.IO.File]::ReadAllText($encodingPath)
+        $helpStart = $helpText.IndexOf('.NOTES')
+        $helpEnd = $helpText.IndexOf('#>')
+        if (($helpStart -ge 0) -and ($helpEnd -gt $helpStart)) {
+            $helpRegion = $helpText.Substring($helpStart, ($helpEnd - $helpStart))
+            $helpOk = ($helpRegion.IndexOf('rog-gate-build.cmd') -ge 0) -and ($helpRegion.IndexOf('PSModulePath') -ge 0)
+        }
+    }
+    Assert-RogGateSelfTest -Name 'help mentions rog-gate-build.cmd and PSModulePath' -Condition $helpOk
+
+    $dupSample = @(
+        '1/2 Test #83: ChrModelRealSampleTest.LoadsTestExtract11160Chr .....................***Skipped   0.01 sec',
+        'chr.cpp:10: Skipped',
+        'first copy skipped',
+        '[  SKIPPED ] ChrModelRealSampleTest.LoadsTestExtract11160Chr (0 ms)',
+        '2/2 Test #728: ChrModelRealSampleTest.LoadsTestExtract11160Chr .....................***Skipped   0.01 sec',
+        'chr.cpp:10: Skipped',
+        'second copy skipped',
+        '[  SKIPPED ] ChrModelRealSampleTest.LoadsTestExtract11160Chr (0 ms)'
+    ) -join "`n"
+    $dupReport = Get-RogGateCTestSkipReport -Text $dupSample -VolumeIsNtfs $false
+    $dupLines = (@($dupReport.Lines) -join "`n")
+    $dupOk = ($dupReport.Count -eq 2) -and $dupReport.PolicyOk -and ($dupLines.Contains('#83')) -and ($dupLines.Contains('#728')) -and ($dupLines.Contains('reason=first copy skipped')) -and ($dupLines.Contains('reason=second copy skipped'))
+    Assert-RogGateSelfTest -Name 'duplicate CTest names are counted by test number' -Condition $dupOk
+
+    $exemptName = $script:RogGateNtfsCasePakSkipName
+    $exemptReason = $script:RogGateNtfsCasePakSkipReason
+    $exemptSample = @(
+        ('1/1 Test #85: ' + $exemptName + ' .....................***Skipped   0.01 sec'),
+        'file.cpp:667: Skipped',
+        $exemptReason,
+        ('[  SKIPPED ] ' + $exemptName + ' (0 ms)')
+    ) -join "`n"
+    $exemptReport = Get-RogGateCTestSkipReport -Text $exemptSample -VolumeIsNtfs $true
+    $exemptLines = (@($exemptReport.Lines) -join "`n")
+    $exemptOk = ($exemptReport.Count -eq 1) -and $exemptReport.PolicyOk -and ($exemptLines.Contains('exemption=NTFS case-distinct pak names')) -and ($exemptLines.Contains('reason=' + $exemptReason))
+    Assert-RogGateSelfTest -Name 'NTFS case-distinct pak skip is listed and exempt' -Condition $exemptOk
+
+    $offNtfs = Get-RogGateCTestSkipReport -Text $exemptSample -VolumeIsNtfs $false
+    $offLines = (@($offNtfs.Lines) -join "`n")
+    $offOk = (-not $offNtfs.PolicyOk) -and (-not $offLines.Contains('exemption=NTFS')) -and ($offNtfs.PolicyMessage.Contains('Non-exempt skip: #85'))
+    Assert-RogGateSelfTest -Name 'case-distinct pak skip fails the gate when the volume is not NTFS' -Condition $offOk
+
+    $otherSample = @(
+        '1/1 Test #86: FilesystemFileStorage.OtherCase .....................***Skipped   0.01 sec',
+        'file.cpp:10: Skipped',
+        'some other reason',
+        '[  SKIPPED ] FilesystemFileStorage.OtherCase (0 ms)'
+    ) -join "`n"
+    $otherReport = Get-RogGateCTestSkipReport -Text $otherSample -VolumeIsNtfs $true
+    $otherOk = (-not $otherReport.PolicyOk) -and ($otherReport.PolicyMessage.Contains('FilesystemFileStorage.OtherCase')) -and ($otherReport.PolicyMessage.Contains('SKIP=0'))
+    Assert-RogGateSelfTest -Name 'other FilesystemFileStorage skips fail the gate' -Condition $otherOk
+
+    $wrongSample = @(
+        ('1/1 Test #85: ' + $exemptName + ' .....................***Skipped   0.01 sec'),
+        'file.cpp:667: Skipped',
+        'different reason',
+        ('[  SKIPPED ] ' + $exemptName + ' (0 ms)')
+    ) -join "`n"
+    $wrongReport = Get-RogGateCTestSkipReport -Text $wrongSample -VolumeIsNtfs $true
+    $wrongLines = (@($wrongReport.Lines) -join "`n")
+    $wrongOk = (-not $wrongReport.PolicyOk) -and (-not $wrongLines.Contains('exemption=NTFS'))
+    Assert-RogGateSelfTest -Name 'case-distinct pak skip with the wrong reason is not exempt' -Condition $wrongOk
+
+    $lazySample = @(
+        '1/2 Test #90: mxh_pak_lazy_read_tests .....................***Skipped   0.01 sec',
+        '[  SKIPPED ] mxh_pak_lazy_read_tests (0 ms)',
+        '2/2 Test #91: mxh_pak_lazy_read_tests.ReadsHeader .....................***Skipped   0.01 sec',
+        '[  SKIPPED ] mxh_pak_lazy_read_tests.ReadsHeader (0 ms)'
+    ) -join "`n"
+    $lazyReport = Get-RogGateCTestSkipReport -Text $lazySample -VolumeIsNtfs $true
+    $lazyOk = (-not $lazyReport.PolicyOk) -and ($lazyReport.PolicyMessage.Contains('#90 mxh_pak_lazy_read_tests')) -and ($lazyReport.PolicyMessage.Contains('#91 mxh_pak_lazy_read_tests.ReadsHeader'))
+    Assert-RogGateSelfTest -Name 'mxh_pak_lazy_read_tests skips fail the gate' -Condition $lazyOk
+
+    $statusName = $script:RogGateMap10TestName
+    $statusPassed = Get-RogGateMap10GtestStatus -Text ('[       OK ] ' + $statusName + ' (1 ms)') -ExitCode 0 -TestName $statusName
+    $statusFailed = Get-RogGateMap10GtestStatus -Text ('[  FAILED  ] ' + $statusName + ' (1 ms)') -ExitCode 1 -TestName $statusName
+    $statusSkipped = Get-RogGateMap10GtestStatus -Text ('[  SKIPPED ] ' + $statusName + ' (0 ms)') -ExitCode 0 -TestName $statusName
+    $statusEmpty = Get-RogGateMap10GtestStatus -Text '' -ExitCode 0 -TestName $statusName
+    $statusExit = Get-RogGateMap10GtestStatus -Text 'no marker' -ExitCode 1 -TestName $statusName
+    $statusOkExit = Get-RogGateMap10GtestStatus -Text ('[       OK ] ' + $statusName + ' (1 ms)') -ExitCode 3 -TestName $statusName
+    $statusOk = ($statusPassed -eq 'Passed') -and ($statusFailed -eq 'Failed') -and ($statusSkipped -eq 'Skipped') -and ($statusEmpty -eq 'NotRun') -and ($statusExit -eq 'Failed') -and ($statusOkExit -eq 'Failed')
+    Assert-RogGateSelfTest -Name 'Map10 gtest status is Passed, Failed, Skipped, or NotRun' -Condition $statusOk
+
+    $mapPass = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 1598758912 -ParsedCounts @('120', '40') -MountPaks @('Map.pak', 'Char.pak') -EvidenceLines @('[PakFile] parsed 120 entries, raw_size=9', '[pak] mount order: 1=Map.pak(1) 2=Char.pak(2)')
+    $mapPassText = (@($mapPass.Lines) -join "`n")
+    $mapPassOk = $mapPass.Ok -and ($mapPassText.Contains('peak_bytes=1598758912')) -and ($mapPassText.Contains('pid=42')) -and ($mapPassText.Contains('image=mxh_render_tests.exe')) -and ($mapPassText.Contains('map=10')) -and ($mapPassText.Contains('paks=Map.pak,Char.pak')) -and ($mapPassText.Contains('[PakFile] parsed')) -and ($mapPassText.Contains('mount order:')) -and ($mapPassText.Contains('sampling=Get-Process WorkingSet64')) -and ($mapPassText.Contains('interval_ms=200')) -and ($mapPassText.Contains('result=Passed')) -and ($mapPassText.Contains($statusName))
+    Assert-RogGateSelfTest -Name 'Map10 pass line records pid, image, paks, and peak' -Condition $mapPassOk
+
+    $mapFailed = Resolve-RogGateMap10MemoryCheck -TestStatus 'Failed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapFailedText = (@($mapFailed.Lines) -join "`n")
+    $mapFailedOk = (-not $mapFailed.Ok) -and ($mapFailedText.Contains('[FAIL]')) -and (-not $mapFailedText.Contains('peak_bytes')) -and (-not $mapFailedText.Contains('999111')) -and ($mapFailedText.Contains('result=Failed'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when the gtest failed' -Condition $mapFailedOk
+
+    $mapPid = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 99 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapPidText = (@($mapPid.Lines) -join "`n")
+    $mapPidOk = (-not $mapPid.Ok) -and ($mapPidText.Contains('[FAIL]')) -and (-not $mapPidText.Contains('peak_bytes')) -and (-not $mapPidText.Contains('999111')) -and ($mapPidText.Contains('pid=42')) -and ($mapPidText.Contains('sampled_pid=99'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when the sampled pid mismatches' -Condition $mapPidOk
+
+    $mapMissing = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 2 -PeakBytes 888222 -ParsedCounts @() -MountPaks @() -EvidenceLines @('[       OK ] FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent')
+    $mapMissingText = (@($mapMissing.Lines) -join "`n")
+    $mapMissingOk = (-not $mapMissing.Ok) -and ($mapMissingText.Contains('[FAIL]')) -and (-not $mapMissingText.Contains('peak_bytes')) -and (-not $mapMissingText.Contains('888222'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when pak evidence is missing' -Condition $mapMissingOk
+
+    $mapUnsampled = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 0 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapUnsampledText = (@($mapUnsampled.Lines) -join "`n")
+    $mapUnsampledOk = (-not $mapUnsampled.Ok) -and ($mapUnsampledText.Contains('[FAIL]')) -and (-not $mapUnsampledText.Contains('peak_bytes')) -and (-not $mapUnsampledText.Contains('999111')) -and ($mapUnsampledText.Contains('cannot verify pid'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when no sample verified the pid' -Condition $mapUnsampledOk
+
+    $mapNotRun = Resolve-RogGateMap10MemoryCheck -TestStatus 'NotRun' -Detail 'mxh_render_tests.exe was not found'
+    $mapNotRunText = (@($mapNotRun.Lines) -join "`n")
+    $mapNotRunOk = (-not $mapNotRun.Ok) -and ($mapNotRunText.Contains('[FAIL]')) -and ($mapNotRunText.Contains('result=NotRun')) -and (-not $mapNotRunText.Contains('peak_bytes')) -and (-not $mapNotRunText.Contains('map=10'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when the gtest did not run' -Condition $mapNotRunOk
+
+    $sleepFile = '/bin/sleep'
+    $sleepArgs = @('2')
+    if (-not (Test-Path -LiteralPath $sleepFile)) {
+        $sleepFile = ''
+        if (Test-RogGateHostIsWindows) {
+            $sleepFile = Join-Path -Path $env:SystemRoot -ChildPath 'System32\ping.exe'
+            $sleepArgs = @('-n', '3', '127.0.0.1')
+        }
+    }
+    $sleepOk = $false
+    if (-not [string]::IsNullOrWhiteSpace($sleepFile) -and (Test-Path -LiteralPath $sleepFile)) {
+        $sleepSample = Invoke-RogGateSampledProcess -FileName $sleepFile -Arguments $sleepArgs -IntervalMs 200
+        $sleepOk = ($sleepSample.LaunchedPid -gt 0) -and ($sleepSample.SampledPid -eq $sleepSample.LaunchedPid) -and ($sleepSample.SampleCount -ge 1) -and ($sleepSample.PeakBytes -gt 0)
+    }
+    Assert-RogGateSelfTest -Name 'sampler records the launched process pid' -Condition $sleepOk
+
+    $autoNtfs = Test-RogGateVolumeIsNtfs
+    $forcedNtfs = Test-RogGateVolumeIsNtfs -VolumeIsNtfs $true
+    $forcedOff = Test-RogGateVolumeIsNtfs -VolumeIsNtfs $false
+    $ntfsOk = ($forcedNtfs -eq $true) -and ($forcedOff -eq $false)
+    if (-not (Test-RogGateHostIsWindows)) {
+        $ntfsOk = $ntfsOk -and (-not $autoNtfs)
+    }
+    Assert-RogGateSelfTest -Name 'NTFS detection follows the host and an explicit bool' -Condition $ntfsOk
+
     $savedPlayDh = $env:MXH_PLAYDH_ROOT
     $playdhTemp = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-playdh-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Path $playdhTemp -Force | Out-Null
@@ -2531,7 +3392,7 @@ function Invoke-RogGateSelfTest {
         $skipReport = Get-RogGateCTestSkipReport -Text $ctestSample
         $skipNames = (@($skipReport.Names) -join ',')
         $skipLines = (@($skipReport.Lines) -join "`n")
-        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two')
+        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two') -and $skipReport.PolicyOk
         Assert-RogGateSelfTest -Name 'CTest skipped tests are counted and named' -Condition $skipOk
     } finally {
         if ([string]::IsNullOrEmpty($savedPlayDh)) {
@@ -3248,6 +4109,7 @@ function Invoke-RogGateSelfTest {
         $null = Remove-RogGateFixture -LiteralPath $fixture
     }
 
+    Write-Host ("ROG gate self-test: PASS={0} FAIL={1} SKIP={2}" -f $script:RogGateSelfTestPasses, $script:RogGateSelfTestFailures, $script:RogGateSelfTestSkips)
     Write-Host ("ROG gate self-test: {0} failed" -f $script:RogGateSelfTestFailures)
     if ($script:RogGateSelfTestFailures -gt 0) {
         return 1
@@ -3505,10 +4367,28 @@ function Invoke-RogGateMain {
     foreach ($skipLine in @($skipReport.Lines)) {
         Write-Host $skipLine
     }
+    $policyFailed = -not [bool]$skipReport.PolicyOk
+    if ($policyFailed -and -not [string]::IsNullOrWhiteSpace([string]$skipReport.PolicyMessage)) {
+        Write-RogGateError $skipReport.PolicyMessage
+    }
+    # Same process as the gtest: launch mxh_render_tests.exe and sample that PID.
+    # -SkipTests and -DryRun return before this point and do not print a number.
+    Write-Host '[GATE] Map10 memory'
+    $map10 = Invoke-RogGateMap10DirectProbe -BuildDir $normBuild -VcVarsAll $script:RogGateVcVarsAll
+    foreach ($mapLine in @($map10.Lines)) {
+        Write-Host $mapLine
+    }
+    $map10Failed = -not [bool]$map10.Ok
+    if ($map10Failed) {
+        Write-RogGateError 'Map10 memory check failed.'
+    }
     if ($testCode -ne 0) {
         return (Resolve-RogGateFailureExit -ExitCode $testCode -Message "CTest failed (exit $testCode).")
     }
     if ($e2ePlan.Action -ne 'Run') {
+        if ($policyFailed -or $map10Failed) {
+            return 1
+        }
         return 0
     }
     $e2eCommandText = [string]$e2eListing.Command
@@ -3526,8 +4406,17 @@ function Invoke-RogGateMain {
     foreach ($e2eSkipLine in @($e2eSkipReport.Lines)) {
         Write-Host $e2eSkipLine
     }
+    if (-not [bool]$e2eSkipReport.PolicyOk) {
+        $policyFailed = $true
+        if (-not [string]::IsNullOrWhiteSpace([string]$e2eSkipReport.PolicyMessage)) {
+            Write-RogGateError $e2eSkipReport.PolicyMessage
+        }
+    }
     if ($e2eCode -ne 0) {
         return (Resolve-RogGateFailureExit -ExitCode $e2eCode -Message "MoxianClientE2E failed (exit $e2eCode).")
+    }
+    if ($policyFailed -or $map10Failed) {
+        return 1
     }
     return 0
 }
