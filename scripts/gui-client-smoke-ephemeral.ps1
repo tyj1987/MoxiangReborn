@@ -201,8 +201,95 @@ function Copy-EphemeralEnvironmentForProcess {
     return $copy
 }
 
+function Get-GuiSmokeCollapsedPathText {
+    # Text-only Windows path collapse used for the D:\MX check. Does not touch
+    # the filesystem. Returns e.g. 'D:\MX\PlayDH' for 'd:/x/../MX/./PlayDH/'.
+    param([AllowEmptyString()][string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return '' }
+    $text = $Path -replace '/', '\'
+    $text = $text -replace '^\\\\[?.]\\', ''
+    $prefix = ''
+    if ($text -match '^([A-Za-z]:)(.*)$') {
+        $prefix = $Matches[1].ToUpperInvariant()
+        $text = $Matches[2]
+    } elseif ($text.StartsWith('\\')) {
+        $prefix = '\\'
+        $text = $text.Substring(2)
+    }
+    $stack = [System.Collections.Generic.List[string]]::new()
+    foreach ($segment in $text.Split('\')) {
+        if ($segment -eq '' -or $segment -eq '.') { continue }
+        if ($segment -eq '..') {
+            if ($stack.Count -gt 0) { $stack.RemoveAt($stack.Count - 1) }
+            continue
+        }
+        $stack.Add($segment)
+    }
+    if ($prefix -eq '\\') { return '\\' + ($stack -join '\') }
+    return $prefix + '\' + ($stack -join '\')
+}
+
+function Test-GuiSmokePathUnderOriginalRoot {
+    param([AllowEmptyString()][string]$CollapsedPath)
+    if ([string]::IsNullOrEmpty($CollapsedPath)) { return $false }
+    $trimmed = $CollapsedPath.TrimEnd('\')
+    return ($trimmed -ieq 'D:\MX') -or $trimmed.StartsWith('D:\MX\', [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Resolve-GuiSmokeResourceRoot {
+    # -ResourceRoot on gui-client-smoke.ps1. Empty keeps the repo PlayDH
+    # (<RepoRoot>\modern\data\PlayDH), exactly as before. A value must be an
+    # absolute path to an existing directory outside D:\MX; it is returned unchanged so the
+    # client's --resource-root, the map server's --resource-root and the
+    # optional audits all read the same tree (sprite atlas and pak mounts in
+    # mxh_client both follow --resource-root).
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [AllowEmptyString()][AllowNull()][string]$ResourceRoot
+    )
+    if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
+        return (Join-Path $RepoRoot 'modern\data\PlayDH')
+    }
+    # D:\MX is the read-only original install. The check runs on a collapsed
+    # copy of the text (as clean-deploy -PlayDhRoot does): '/' becomes '\',
+    # a \\?\ or \\.\ prefix is dropped, '.' and empty segments are removed,
+    # '..' pops a segment, and the compare ignores case. So D:\x\..\MX\PlayDH,
+    # d:\mx\ and D:\MX\. are refused, while D:\MX\..\x (= D:\x) passes. It is
+    # text-only, so the refusal also happens on a non-Windows host.
+    $collapsed = Get-GuiSmokeCollapsedPathText -Path $ResourceRoot
+    if (Test-GuiSmokePathUnderOriginalRoot -CollapsedPath $collapsed) {
+        throw "[ERROR] gui smoke: -ResourceRoot resolves under D:\MX (read-only original install): $ResourceRoot -> $collapsed"
+    }
+    $qualifiedMethod = [IO.Path].GetMethod('IsPathFullyQualified', [Type[]]@([string]))
+    if ($null -ne $qualifiedMethod) {
+        $qualified = [IO.Path]::IsPathFullyQualified($ResourceRoot)
+    } else {
+        # Windows PowerShell 5.1: rooted, and not \foo or C:foo (drive-relative).
+        $qualified = [IO.Path]::IsPathRooted($ResourceRoot) -and ($ResourceRoot -notmatch '^[\\/](?![\\/])') -and ($ResourceRoot -notmatch '^[A-Za-z]:(?![\\/])')
+    }
+    if (-not $qualified) {
+        throw "[ERROR] gui smoke: -ResourceRoot must be an absolute path: $ResourceRoot"
+    }
+    if (-not (Test-Path -LiteralPath $ResourceRoot -PathType Container)) {
+        throw "[ERROR] gui smoke: -ResourceRoot does not exist: $ResourceRoot"
+    }
+    # A junction or symlink whose target is under D:\MX is refused as well.
+    $item = Get-Item -LiteralPath $ResourceRoot -Force
+    $target = $null
+    if ($item.PSObject.Properties.Name -contains 'LinkTarget') { $target = $item.LinkTarget }
+    if (-not [string]::IsNullOrWhiteSpace([string]$target) -and
+        (Test-GuiSmokePathUnderOriginalRoot -CollapsedPath (Get-GuiSmokeCollapsedPathText -Path ([string]$target)))) {
+        throw "[ERROR] gui smoke: -ResourceRoot resolves under D:\MX (read-only original install): $ResourceRoot -> $target"
+    }
+    return $ResourceRoot
+}
+
 function Get-EphemeralResourceLayout {
-    param([Parameter(Mandatory)][string]$RepoRoot)
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        # Optional explicit PlayDH root from gui-client-smoke.ps1 -ResourceRoot.
+        [AllowEmptyString()][AllowNull()][string]$ResourceRoot = ''
+    )
     $manifestPath = Join-Path $RepoRoot 'deploy\resource-profiles.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
         throw "Missing resource profile manifest: $manifestPath"
@@ -210,7 +297,11 @@ function Get-EphemeralResourceLayout {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
     $profile = $manifest.profiles.'playdh-current'
     if ($null -eq $profile) { throw 'playdh-current resource profile is missing' }
-    $resourceRoot = Join-Path $RepoRoot ([string]$profile.source)
+    if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
+        $resourceRoot = Join-Path $RepoRoot ([string]$profile.source)
+    } else {
+        $resourceRoot = $ResourceRoot
+    }
     $configured = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', 'Process')
     if ([string]::IsNullOrWhiteSpace($configured)) {
         $serverRoot = Join-Path $resourceRoot 'Resource\Server'
@@ -271,15 +362,44 @@ function Resolve-EphemeralPortPlan {
     }
 }
 
+function Get-EphemeralActiveTcpListeners {
+    # Separate so the SelfTest can make the enumeration fail.
+    return @([System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners())
+}
+
 function Test-EphemeralPortOccupied {
     param([Parameter(Mandatory)][int]$Port)
-    # Bind 127.0.0.1 only. A listener on 0.0.0.0 still occupies this address.
+    # Occupied if either holds:
+    # 1. GetActiveTcpListeners() lists the port on 0.0.0.0, 127.0.0.1, :: or ::1
+    #    (main check: Windows does not set ExclusiveAddressUse by default, so a
+    #    127.0.0.1 bind can still succeed while another socket holds 0.0.0.0).
+    #    If the enumeration itself fails, the port is treated as occupied
+    #    (fail closed) and a [WARN] line is written;
+    # 2. an ExclusiveAddressUse bind of 127.0.0.1 fails.
+    # We never bind 0.0.0.0 ourselves: on Windows that can raise a firewall prompt.
+    $watched = @(
+        [System.Net.IPAddress]::Any,
+        [System.Net.IPAddress]::Loopback,
+        [System.Net.IPAddress]::IPv6Any,
+        [System.Net.IPAddress]::IPv6Loopback
+    )
+    try {
+        $active = Get-EphemeralActiveTcpListeners
+    } catch {
+        [Console]::Error.WriteLine("[WARN] listener enumeration failed (port $Port treated as in use): $($_.Exception.Message)")
+        return $true
+    }
+    foreach ($endpoint in @($active)) {
+        if ($endpoint.Port -ne $Port) { continue }
+        foreach ($address in $watched) {
+            if ($endpoint.Address.Equals($address)) { return $true }
+        }
+    }
     $listener = $null
     try {
-        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse('127.0.0.1'), $Port)
-        try { $listener.ExclusiveAddressUse = $true } catch {}
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+        $listener.ExclusiveAddressUse = $true
         $listener.Start()
-        return $false
     } catch {
         return $true
     } finally {
@@ -287,6 +407,7 @@ function Test-EphemeralPortOccupied {
             try { $listener.Stop() } catch {}
         }
     }
+    return $false
 }
 
 function Get-EphemeralPortInUseViolation {
