@@ -1407,6 +1407,77 @@ function Test-CleanDeployCommercialSmokeEphemeral {
     }
 }
 
+function Invoke-CleanDeployCommercialSmokeHostCases {
+    param([Parameter(Mandatory = $true)][string]$SmokePath)
+    $belowOk = $false
+    $aboveOk = $false
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($SmokePath, [ref]$tokens, [ref]$parseErrors)
+    if ($null -ne $parseErrors -and $parseErrors.Count -gt 0) {
+        return [pscustomobject]@{ BelowOk = $false; AboveOk = $false }
+    }
+    $finder = { param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }
+    $functions = @($ast.FindAll($finder, $true))
+    foreach ($fn in $functions) {
+        Invoke-Expression $fn.Extent.Text
+    }
+    $required = '[ERROR] commercial-smoke requires PowerShell 7.4+ (pwsh) for -EphemeralLocalServer; run it with pwsh 7.4+'
+    $script:CommercialSmokeHostInvoked = $false
+    $lowRunner = {
+        param(
+            [string]$File,
+            [string]$BuildDir,
+            [switch]$EphemeralLocalServer
+        )
+        $script:CommercialSmokeHostInvoked = $true
+    }
+    $belowOk = $true
+    foreach ($version in @([version]'5.1.26100.9711', [version]'7.3.9')) {
+        $script:CommercialSmokeHostInvoked = $false
+        $result = Invoke-CommercialSmokeGuiClient -BuildDir 'unused-build' -HostVersion $version -Runner $lowRunner -ScriptRoot $script:CleanDeployScriptRoot
+        if ($null -eq $result) { $belowOk = $false; continue }
+        if ($result.ExitCode -eq 0) { $belowOk = $false }
+        if ($result.Invoked) { $belowOk = $false }
+        if ($script:CommercialSmokeHostInvoked) { $belowOk = $false }
+        if ([string]$result.Message -ne $required) { $belowOk = $false }
+    }
+    $script:CommercialSmokeHostFile = ''
+    $script:CommercialSmokeHostSwitch = $false
+    $highRunner = {
+        param(
+            [string]$File,
+            [string]$BuildDir,
+            [switch]$EphemeralLocalServer
+        )
+        $script:CommercialSmokeHostInvoked = $true
+        $script:CommercialSmokeHostFile = $File
+        $script:CommercialSmokeHostSwitch = [bool]$EphemeralLocalServer
+    }
+    $aboveOk = $true
+    foreach ($version in @([version]'7.4', [version]'7.4.6', [version]'7.6.9')) {
+        $script:CommercialSmokeHostInvoked = $false
+        $script:CommercialSmokeHostFile = ''
+        $script:CommercialSmokeHostSwitch = $false
+        $result = Invoke-CommercialSmokeGuiClient -BuildDir 'unused-build' -HostVersion $version -Runner $highRunner -ScriptRoot $script:CleanDeployScriptRoot
+        if ($null -eq $result) { $aboveOk = $false; continue }
+        if ($result.ExitCode -ne 0) { $aboveOk = $false }
+        if (-not $result.Invoked) { $aboveOk = $false }
+        if (-not $script:CommercialSmokeHostInvoked) { $aboveOk = $false }
+        if (-not $script:CommercialSmokeHostSwitch) { $aboveOk = $false }
+        if (-not ([string]$script:CommercialSmokeHostFile).EndsWith('gui-client-smoke.ps1')) { $aboveOk = $false }
+    }
+    $smokeText = Read-CleanDeployUtf8Text -Path $SmokePath
+    if ($smokeText.Contains('Get-Command pwsh') -or $smokeText.Contains('pwsh.exe')) {
+        $belowOk = $false
+        $aboveOk = $false
+    }
+    return [pscustomobject]@{
+        BelowOk = [bool]$belowOk
+        AboveOk = [bool]$aboveOk
+    }
+}
+
 function Invoke-CleanDeploySelfTestPlayDhRootCases {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
@@ -1556,6 +1627,10 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $ephemeral = Test-CleanDeployCommercialSmokeEphemeral -Text $smokeText
     $ephemeralOk = ($ephemeral.Hits -ge 1) -and ($ephemeral.Bad -eq 0)
     Assert-CleanDeploySelfTest -Name "commercial-smoke passes -EphemeralLocalServer to gui-client-smoke" -Condition $ephemeralOk
+
+    $hostCases = Invoke-CleanDeployCommercialSmokeHostCases -SmokePath $smokePath
+    Assert-CleanDeploySelfTest -Name "PowerShell below 7.4 errors before gui-client-smoke and does not drop -EphemeralLocalServer" -Condition $hostCases.BelowOk
+    Assert-CleanDeploySelfTest -Name "PowerShell 7.4+ invokes gui-client-smoke with -EphemeralLocalServer" -Condition $hostCases.AboveOk
 
     $cmdPath = Join-Path $script:CleanDeployScriptRoot "clean-deploy.cmd"
     if (Test-Path -LiteralPath $cmdPath -PathType Leaf) {

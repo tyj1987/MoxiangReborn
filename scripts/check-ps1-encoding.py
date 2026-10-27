@@ -4,6 +4,7 @@
 Enforced files must be pure ASCII with no BOM:
   scripts/rog-gate-build.ps1
   scripts/clean-deploy.ps1
+  scripts/commercial-smoke.ps1
   scripts/rog-gate-build.cmd
   scripts/clean-deploy.cmd
 
@@ -21,6 +22,7 @@ from pathlib import Path
 ENFORCED_PS1 = (
     "rog-gate-build.ps1",
     "clean-deploy.ps1",
+    "commercial-smoke.ps1",
 )
 ENFORCED_CMD = (
     ("rog-gate-build.cmd", "rog-gate-build.ps1"),

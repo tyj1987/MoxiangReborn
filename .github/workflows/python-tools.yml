@@ -45,6 +45,7 @@ on:
       - scripts/check-ps1-encoding.py
       - scripts/rog-gate-build.ps1
       - scripts/clean-deploy.ps1
+      - scripts/commercial-smoke.ps1
       - scripts/rog-gate-build.cmd
       - scripts/clean-deploy.cmd
       - .gitignore
