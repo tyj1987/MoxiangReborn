@@ -1,13 +1,14 @@
 {
   "schema": "mxh.playdh-supplemental-fill/1",
   "note": "Names only, no content. The pak is never committed: it is built locally on ROG from the original client Map.pak by pak_writer.py and deploy verifies it against pakSha256. Entry sha256 and pakSha256 are null until that extraction; pak_writer.py refuses to pack an entry whose sha256 is null.",
-  "pak": "<PlayDH root>/zz_supplement.pak (generated locally on ROG, never committed)",
+  "pak": "D:\\build-mxr\\supplement\\zz_supplement.pak (built locally on ROG outside any git worktree, never committed); deploy copies it into <PlayDH root>/zz_supplement.pak",
   "pakSha256": null,
   "format": "96-byte original header (docs/formats/pak.md variant B)",
-  "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out <PlayDH root>/zz_supplement.pak --conflict-root <PlayDH root>",
+  "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out D:\\build-mxr\\supplement\\zz_supplement.pak --conflict-root <PlayDH root>",
+  "deploy": "verify sha256(D:\\build-mxr\\supplement\\zz_supplement.pak) == pakSha256, then copy it into <PlayDH root>/zz_supplement.pak (PlayDH lives in a git worktree, which pak_writer.py refuses as --out)",
   "workflow": "Per-ticket commits (TYJ-148..151) change only this file: entry sha256 values and the expected pakSha256. The pak itself is never committed.",
   "acceptance": [
-    "pak_writer.py on ROG builds zz_supplement.pak with sha256 == pakSha256, twice, identical",
+    "pak_writer.py on ROG builds D:\\build-mxr\\supplement\\zz_supplement.pak (outside any worktree) with sha256 == pakSha256, twice, identical; only then is it copied into <PlayDH root>",
     "pak_writer.py --conflict-root <PlayDH root> passes: no basename shared with the 7 PlayDH paks",
     "resource_reference_gate.py check on the PlayDH root: no collision, missing_playdh_in_mx for the ticket's maps drops to 0",
     "ROG gate (MSVC) CTest mxh_pak_writer_packfile_tests passes: PackFile sees only the 96-byte layout",

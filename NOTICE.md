@@ -21,7 +21,8 @@ PlayDH 资源树（`modern/data/PlayDH/`，约 5135 个文件）**已提交到�
   任何原版游戏字节（包括密钥和解码后的地图文本）
 - PlayDH 缺失、但原版客户端 Map.pak 中存在的条目，由
   `modern/tools/pak_writer.py` 在本地从原版安装目录生成补充包
-  `zz_supplement.pak`（原版 96 字节包头格式，条目字节原样拷贝，不含解码表
+  `zz_supplement.pak`（输出到任何 git 工作树之外，如
+  `D:\build-mxr\supplement\`，校验 `pakSha256` 后再复制到 PlayDH 根目录）（原版 96 字节包头格式，条目字节原样拷贝，不含解码表
   或密钥）。该包**不提交到仓库**；仓库只保存条目名单、来源包、工单号以及
   每条和整包的 sha256（`reference/manifests/playdh-supplemental-fill.json`），
   部署时按 sha256 校验
