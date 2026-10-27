@@ -1621,8 +1621,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $missingChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull)
     $missingTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $missingReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $missingOk = (-not $missingFn.Ok) -and (-not $blankFn.Ok) -and $missingText.Contains("[ERROR] -PlayDhRoot is required") -and $blankText.Contains("[ERROR] -PlayDhRoot is required") -and ($missingChild.ExitCode -ne 0) -and $missingChild.Text.Contains("[ERROR] -PlayDhRoot is required") -and ($missingTree -eq $treeBefore) -and ($missingReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    $missingOk = (-not $missingFn.Ok) -and (-not $blankFn.Ok) -and $missingText.Contains("[ERROR] -PlayDhRoot is required") -and $blankText.Contains("[ERROR] -PlayDhRoot is required") -and $missingChild.Text.Contains("[ERROR] -PlayDhRoot is required") -and ($missingTree -eq $treeBefore) -and ($missingReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "missing -PlayDhRoot fails with [ERROR] and no write" -Condition $missingOk
+    Assert-CleanDeploySelfTest -Name "missing -PlayDhRoot child exits non-zero" -Condition ($missingChild.ExitCode -ne 0)
 
     $relativeRaw = "relative\playdh"
     $relativeDot = ".\PlayDH"
@@ -1633,8 +1634,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $relativeChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $relativeRaw)
     $relativeTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $relativeReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $relativeOk = (-not $relativeFn.Ok) -and (-not $relativeDotFn.Ok) -and $relativeText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeDotText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeChild.ExitCode -ne 0) -and $relativeChild.Text.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeTree -eq $treeBefore) -and ($relativeReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    $relativeOk = (-not $relativeFn.Ok) -and (-not $relativeDotFn.Ok) -and $relativeText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeDotText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeChild.Text.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeTree -eq $treeBefore) -and ($relativeReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "relative -PlayDhRoot fails with [ERROR] and no write" -Condition $relativeOk
+    Assert-CleanDeploySelfTest -Name "relative -PlayDhRoot child exits non-zero" -Condition ($relativeChild.ExitCode -ne 0)
 
     $mxCases = @(
         "D:\MX",
@@ -1659,8 +1661,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $mxTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $mxReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
     $mxCreated = Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"
-    $mxOk = $mxAll -and $escapedOk -and ($mxChild.ExitCode -ne 0) -and $mxChild.Text.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:") -and ($mxTree -eq $treeBefore) -and ($mxReal -eq $realBefore) -and (-not $mxCreated) -and (-not (Test-Path -LiteralPath $repoPak))
+    $mxOk = $mxAll -and $escapedOk -and $mxChild.Text.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:") -and ($mxTree -eq $treeBefore) -and ($mxReal -eq $realBefore) -and (-not $mxCreated) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "PlayDhRoot under D:\MX fails with [ERROR] and no write" -Condition $mxOk
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot under D:\MX child exits non-zero" -Condition ($mxChild.ExitCode -ne 0)
 
     $dottedInside = $insideFull.TrimEnd('\', '/') + "/../inside-playdh/"
     $insideFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $insideFull -RepoRoot $fakeFull
@@ -1704,13 +1707,16 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $dryPak = Join-CleanDeployPath -Parent $dryFull -Child "zz_supplement.pak"
     $dryCopyText = ($dryCopy.Result.Lines -join "`n")
     # Earlier children exit at PlayDhRoot validation and never reach step 4.
-    # This child has a valid root, so it must not depend on host cmake/vs2022.
-    # -SkipBuild keeps it out of the build. The manifest sha matches the pak
-    # already copied above so step 3b does not treat that pak as an error.
+    # This child has a valid root. -SkipBuild plus MXH_CLEAN_DEPLOY_PREREQ_ABSENT
+    # make the result the same whether or not the host has cmake, vs2022, or
+    # sqllocaldb. The manifest sha matches the pak already copied above so
+    # step 3b does not treat that pak as an error.
     if (($landedHash -ne "") -and ($landedHash -eq $sourceHash)) {
         New-CleanDeploySelfTestManifestFile -Path $fakeManifest -BuildPath $notBuiltPak -ShaJson ('"' + $landedHash + '"')
     }
-    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke")
+    $dryAbsent = "cmake,git,sqlcmd,sqllocaldb,vcredist,odbc18,chocolatey,vs2022"
+    $dryEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $Root "dry-child-env") -Absent $dryAbsent
+    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke") -Environment $dryEnv
     $rootLine = "[INFO] PlayDH root: " + $positiveResolved.Path
     $positiveTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $positiveReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
@@ -1741,11 +1747,13 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the real data stamp unchanged" -Condition ($positiveReal -eq $realBefore)
     $dryCopyOk = $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy")
     Assert-CleanDeploySelfTest -Name "dry-run copy reports would copy and writes no pak" -Condition $dryCopyOk
+    $dryChildExitOk = ($dryChild.ExitCode -eq 0)
     $dryChildRootOk = $dryChild.Text.Contains($rootLine)
     $dryChildClean = -not $dryChild.Text.Contains("[ERROR]")
-    if ((-not $dryChildRootOk) -or (-not $dryChildClean)) {
+    if ((-not $dryChildExitOk) -or (-not $dryChildRootOk) -or (-not $dryChildClean)) {
         Write-CleanDeploySelfTestChildDetail -Child $dryChild -Name "dry child"
     }
+    Assert-CleanDeploySelfTest -Name "dry child exits 0" -Condition $dryChildExitOk
     Assert-CleanDeploySelfTest -Name "dry child prints the PlayDH root line" -Condition $dryChildRootOk
     Assert-CleanDeploySelfTest -Name "dry child has no [ERROR]" -Condition $dryChildClean
 
