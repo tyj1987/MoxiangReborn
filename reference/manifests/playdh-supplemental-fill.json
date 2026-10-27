@@ -19,147 +19,147 @@
   ],
   "entries": [
     {
-      "name": "12_plant_1.MOD",
+      "name": "12_plant_1.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "78a5124739e8e1b45800ce01ec4c640bfef9920a9fd52a413e819e41fb3446be",
       "ticket": "TYJ-148"
     },
     {
-      "name": "12_plant_2.MOD",
+      "name": "12_plant_2.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d26a9ef09aaa0f7de4b9608dc12eba32a9fa5bfa476ae072fc91ba0a1187c9c1",
       "ticket": "TYJ-148"
     },
     {
-      "name": "12_treeWall_00_A.MOD",
+      "name": "12_treewall_00_a.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "498adfc4fabdd1ea93a34c4595edc7be61c5caa04d1a9ba8f1aa993a3368982d",
       "ticket": "TYJ-148"
     },
     {
-      "name": "12_treeWall_01_A.MOD",
+      "name": "12_treewall_01_a.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "c5824bec925fb491ad38f385e925f1a18963fdf5f98c66ee61b10387f32d2e58",
       "ticket": "TYJ-148"
     },
     {
-      "name": "12_treeWall_02_A.MOD",
+      "name": "12_treewall_02_a.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "ff91c37e45a40154367c303ef7aed3131aa059516a25afba0dabf4bcf0dc626a",
       "ticket": "TYJ-148"
     },
     {
-      "name": "12_treeWall_03_A.MOD",
+      "name": "12_treewall_03_a.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "480272802e0e085150d48feeda46fc33a657cbeed617f5f693fb0d446be34cc7",
       "ticket": "TYJ-148"
     },
     {
       "name": "17_alpa_yu.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "be7eadcd4d69e4469dfdf2d9673a68dc82cfc6c96a508b46430692cf5957f85e",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_flower_02.MOD",
+      "name": "17_flower_02.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "78bbd0f6532074de3b9295b669e2d1f7ad81f8f600da0d5731f644f73098a8f8",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_lamp_00.MOD",
+      "name": "17_lamp_00.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "9c91d4555514a22400c83a465b626883aea492b5928ab004d40bb96449c353d4",
       "ticket": "TYJ-148"
     },
     {
       "name": "17_lamp_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "9d8483b7488b56ea3bb524a804a0b11054ce9db52854f578027f138715c348ae",
       "ticket": "TYJ-148"
     },
     {
       "name": "17_light_yu_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "2dd40d77b1de276d70bc41510228f96874c6fbc066e5b8c88c93c9dbb6e5dfd9",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_littletree_01.MOD",
+      "name": "17_littletree_01.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "9fc787a52d541e79e82164c992f09a8e0731a846429af005b81d4035be4832cb",
       "ticket": "TYJ-148"
     },
     {
       "name": "17_statue_00.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "af9468f019591e7aaa3884ebd38a2aa990ad307efe70cafde6955ea9d9dc54e3",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_Tree_commonA.MOD",
+      "name": "17_tree_commona.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "df49a48748a5e082fdd181018011332c1d8b4875e49f6b71a3fcee79caef02a8",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_Tree_commonB.MOD",
+      "name": "17_tree_commonb.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "adea6ca5dc44cd82fe1c265824c44734aa1ac8868ca49da5a516e978984e48ad",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_tree_typeC.MOD",
+      "name": "17_tree_typec.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "06b1c7a5453c099944093300aa955f503441b4955c480e7f2c971ff6c578c924",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_tree_willow.MOD",
+      "name": "17_tree_willow.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "7781d23a2ef4c84d3116b2887af5ee6a891d70c62c736b3fc160d5a85e265173",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_treeThinA.MOD",
+      "name": "17_treethina.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "c4ba307f311e0eff6a5af234274138b268b08341b13be2b74796d7ed9a2b3b9d",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_treeThinB.MOD",
+      "name": "17_treethinb.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "af937d070f00f56e368305d0dff9d3d0349ce74f0f521fa237d91b34d39d5725",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_weapon_05.MOD",
+      "name": "17_weapon_05.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "a3113d948d7f5961a36544c520d5105c362a103f3fae7d8810c59e79f2aa3550",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_weapon_06.MOD",
+      "name": "17_weapon_06.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d946768dec04cf4c5bb5a739b05488ca2adb18dd44f90d7deae430e05bebfad5",
       "ticket": "TYJ-148"
     },
     {
-      "name": "17_weapon_07.MOD",
+      "name": "17_weapon_07.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "ad186aefa2e92cf2efa2388d3909d9520211b0f36bb6bad022e0541bf0864061",
       "ticket": "TYJ-148"
     },
     {
       "name": "90.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "c3f15753bc0aadcfb6708dbdb725466e5660ac62c21a7261a5c0cd2430cee5b3",
       "ticket": "TYJ-148"
     },
     {
       "name": "90.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "0a150359c0e93b39a6b9c71d165ef34a28ed6044009629aad44ff51b93b48b6a",
       "ticket": "TYJ-148"
     },
     {
