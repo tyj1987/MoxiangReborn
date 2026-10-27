@@ -196,6 +196,8 @@ class PakWriterTest(unittest.TestCase):
         self.assertEqual(len(doc["entries"]), 73)
         self.assertEqual(set(doc["entries"][0]), {"name", "sourcePak", "sha256", "ticket"})
         self.assertIn("pakSha256", doc)
+        self.assertEqual(doc["buildPath"], "D:\\build-mxr\\supplement\\zz_supplement.pak")
+        self.assertNotIn("(", doc["buildPath"])
         keys = {pak_writer._basename_key(e["name"]) for e in doc["entries"]}
         self.assertEqual(len(keys), 73)
 

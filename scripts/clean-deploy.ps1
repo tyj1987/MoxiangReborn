@@ -18,14 +18,16 @@
       4. PlayDH junction  modern/data/PlayDH -> <RepoRoot>/MoxiangResources/PlayDH
                           (ASCII-named so resource tooling handles argv cleanly).
                           Then check reference/manifests/playdh-supplemental-fill.json.
+                          The source path is the buildPath field only.
                           Empty pakSha256 and no zz_supplement.pak continues.
                           A filled pakSha256 must match; the outside-repo pak is
                           copied into the PlayDH root.
       5. Build modern     invokes scripts/build-modern.ps1 -Config <Config>.
       6. Run ctest        ctest -C <Config> --test-dir modern/build.
       7. Commercial smoke invokes scripts/commercial-smoke.ps1.
-                          When pakSha256 is set, [pak] mount order must end
-                          with zz_supplement.pak.
+                          When pakSha256 is set, this run's [pak] mount order
+                          line must list exactly 8 paks, with zz_supplement.pak
+                          once and last.
 
     Idempotency:
       - Prereq detection skips already-installed tools.
@@ -292,21 +294,28 @@ function Get-CleanDeployScriptEncodingKind {
     return "bad"
 }
 
-function Get-CleanDeploySupplementSourceFromManifest {
+function Get-CleanDeploySupplementBuildPath {
     param($Manifest)
-    if ($null -eq $Manifest) { return "" }
-    $pak = $Manifest.pak
-    if ($null -eq $pak) { return "" }
-    $text = ([string]$pak).Trim()
-    if ([string]::IsNullOrWhiteSpace($text)) { return "" }
-    # Manifest "pak" is "<outside-repo path> (how it is built...); deploy copies..."
-    # Tickets change sha256 fields only, so the path stays the text before " (".
-    $token = $text
-    $marker = " ("
-    $at = $text.IndexOf($marker)
-    if ($at -gt 0) { $token = $text.Substring(0, $at) }
-    if ((Get-CleanDeployPathLeaf -Path $token) -ne "zz_supplement.pak") { return "" }
-    return $token
+    # buildPath is the only machine-readable source path. The pak description
+    # is prose and is never parsed.
+    $result = [pscustomobject]@{
+        Status = "missing"
+        Path = ""
+    }
+    if ($null -eq $Manifest) { return $result }
+    $has = $false
+    foreach ($name in @($Manifest.PSObject.Properties.Name)) {
+        if ($name -eq "buildPath") { $has = $true }
+    }
+    if (-not $has) { return $result }
+    $value = $Manifest.buildPath
+    if ($null -eq $value -or [string]::IsNullOrWhiteSpace([string]$value)) {
+        $result.Status = "empty"
+        return $result
+    }
+    $result.Status = "ok"
+    $result.Path = ([string]$value).Trim()
+    return $result
 }
 
 function Write-CleanDeploySupplementLine {
@@ -326,39 +335,42 @@ function New-CleanDeploySupplementResult {
     }
 }
 
-function Test-CleanDeployMountLineEndsWithSupplement {
+function Get-CleanDeployMountPakNames {
     param([string]$Line)
+    $names = New-Object System.Collections.Generic.List[string]
+    if ($null -eq $Line) { return $names }
     $marker = "[pak] mount order"
     $at = $Line.IndexOf($marker)
-    if ($at -lt 0) { return $false }
+    if ($at -lt 0) { return $names }
     $tail = $Line.Substring($at + $marker.Length).Trim()
     if ($tail.StartsWith(":")) { $tail = $tail.Substring(1).Trim() }
-    if ([string]::IsNullOrWhiteSpace($tail)) { return $false }
-    $parts = @($tail -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-    if ($parts.Count -lt 1) { return $false }
-    $token = [string]$parts[$parts.Count - 1]
-    $name = $token
-    $eq = $name.LastIndexOf("=")
-    if ($eq -gt 0) {
-        $prefix = $name.Substring(0, $eq)
-        $digits = $prefix.Length -gt 0
-        foreach ($ch in $prefix.ToCharArray()) {
-            if ($ch -lt '0' -or $ch -gt '9') { $digits = $false; break }
-        }
-        if ($digits) { $name = $name.Substring($eq + 1) }
-    }
-    if ($name.Length -gt 2 -and $name.EndsWith(")")) {
-        $paren = $name.LastIndexOf("(")
-        if ($paren -gt 0) {
-            $tier = $name.Substring($paren + 1, $name.Length - $paren - 2)
-            $tierDigits = $tier.Length -gt 0
-            foreach ($ch in $tier.ToCharArray()) {
-                if ($ch -lt '0' -or $ch -gt '9') { $tierDigits = $false; break }
+    if ([string]::IsNullOrWhiteSpace($tail)) { return $names }
+    foreach ($token in @($tail -split '\s+')) {
+        if ([string]::IsNullOrWhiteSpace($token)) { continue }
+        $name = [string]$token
+        $eq = $name.LastIndexOf("=")
+        if ($eq -gt 0) {
+            $prefix = $name.Substring(0, $eq)
+            $digits = $prefix.Length -gt 0
+            foreach ($ch in $prefix.ToCharArray()) {
+                if ($ch -lt '0' -or $ch -gt '9') { $digits = $false; break }
             }
-            if ($tierDigits) { $name = $name.Substring(0, $paren) }
+            if ($digits) { $name = $name.Substring($eq + 1) }
         }
+        if ($name.Length -gt 2 -and $name.EndsWith(")")) {
+            $paren = $name.LastIndexOf("(")
+            if ($paren -gt 0) {
+                $tier = $name.Substring($paren + 1, $name.Length - $paren - 2)
+                $tierDigits = $tier.Length -gt 0
+                foreach ($ch in $tier.ToCharArray()) {
+                    if ($ch -lt '0' -or $ch -gt '9') { $tierDigits = $false; break }
+                }
+                if ($tierDigits) { $name = $name.Substring(0, $paren) }
+            }
+        }
+        [void]$names.Add($name)
     }
-    return $name -eq "zz_supplement.pak"
+    return [pscustomobject]@{ Names = $names }
 }
 
 function Test-CleanDeploySupplementMountOrder {
@@ -370,7 +382,28 @@ function Test-CleanDeploySupplementMountOrder {
     foreach ($line in ($LogText -split '\r?\n')) {
         if ($line.IndexOf("[pak] mount order") -lt 0) { continue }
         $found = $found + 1
-        if (-not (Test-CleanDeployMountLineEndsWithSupplement -Line $line)) {
+        $parsedNames = Get-CleanDeployMountPakNames -Line $line
+        $names = $null
+        if ($null -ne $parsedNames) { $names = $parsedNames.Names }
+        $count = 0
+        $zz = 0
+        $last = ""
+        if ($null -ne $names) {
+            $count = $names.Count
+            foreach ($name in $names) {
+                if ($name -eq "zz_supplement.pak") { $zz = $zz + 1 }
+                $last = [string]$name
+            }
+        }
+        if ($count -ne 8) {
+            $bad = $true
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order must list exactly 8 paks"
+        }
+        if ($zz -ne 1) {
+            $bad = $true
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order must include zz_supplement.pak exactly once"
+        }
+        if ($last -ne "zz_supplement.pak") {
             $bad = $true
             Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order must end with zz_supplement.pak"
         }
@@ -380,35 +413,102 @@ function Test-CleanDeploySupplementMountOrder {
         Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order line is missing"
     }
     if (-not $bad) {
-        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] [pak] mount order ends with zz_supplement.pak"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak"
     }
     return (New-CleanDeploySupplementResult -Ok (-not $bad) -ExpectedFilled $true -Lines $lines)
 }
 
-function Get-CleanDeployClientSmokeLogText {
+function Get-CleanDeployGuiSmokeRunNames {
     param([string]$BuildDir)
-    if ([string]::IsNullOrWhiteSpace($BuildDir)) { return "" }
+    $names = New-Object System.Collections.Generic.List[string]
+    $result = [pscustomobject]@{ Names = $names }
+    if ([string]::IsNullOrWhiteSpace($BuildDir)) { return $result }
     $smokeRoot = Join-Path $BuildDir "runtime"
     $smokeRoot = Join-Path $smokeRoot "gui-smoke"
-    if (-not (Test-Path -LiteralPath $smokeRoot)) { return "" }
-    $runs = @(Get-ChildItem -LiteralPath $smokeRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
-    if ($runs.Count -lt 1) { return "" }
-    $logDir = Join-Path $runs[0].FullName "logs"
+    if (-not (Test-Path -LiteralPath $smokeRoot)) { return $result }
+    $runs = @(Get-ChildItem -LiteralPath $smokeRoot -Directory -ErrorAction SilentlyContinue)
+    foreach ($run in $runs) {
+        if ($null -eq $run) { continue }
+        if ([string]::IsNullOrWhiteSpace($run.Name)) { continue }
+        [void]$names.Add($run.Name)
+    }
+    return $result
+}
+
+function Resolve-CleanDeployCurrentSmokeRunName {
+    param($Before, $After)
+    $fresh = New-Object System.Collections.Generic.List[string]
+    $beforeNames = $null
+    $afterNames = $null
+    if ($null -ne $Before) { $beforeNames = $Before.Names }
+    if ($null -ne $After) { $afterNames = $After.Names }
+    if ($null -eq $afterNames) { return "" }
+    foreach ($name in $afterNames) {
+        if ([string]::IsNullOrWhiteSpace([string]$name)) { continue }
+        $seen = $false
+        if ($null -ne $beforeNames) {
+            foreach ($old in $beforeNames) {
+                if ([string]$old -eq [string]$name) { $seen = $true; break }
+            }
+        }
+        if (-not $seen) { [void]$fresh.Add([string]$name) }
+    }
+    if ($fresh.Count -ne 1) { return "" }
+    return [string]$fresh[0]
+}
+
+function Read-CleanDeploySmokeRunLog {
+    param(
+        [string]$BuildDir,
+        [string]$RunName
+    )
+    $result = [pscustomobject]@{ Found = $false; Text = "" }
+    if ([string]::IsNullOrWhiteSpace($BuildDir)) { return $result }
+    if ([string]::IsNullOrWhiteSpace($RunName)) { return $result }
+    $logDir = Join-Path $BuildDir "runtime"
+    $logDir = Join-Path $logDir "gui-smoke"
+    $logDir = Join-Path $logDir $RunName
+    $logDir = Join-Path $logDir "logs"
+    if (-not (Test-Path -LiteralPath $logDir -PathType Container)) { return $result }
     $chunks = New-Object System.Collections.Generic.List[string]
+    $foundFile = $false
     foreach ($name in @("client.out.log", "client.err.log")) {
         $path = Join-Path $logDir $name
         if (Test-Path -LiteralPath $path -PathType Leaf) {
+            $foundFile = $true
             [void]$chunks.Add((Read-CleanDeployLogText -Path $path))
         }
     }
-    return ($chunks.ToArray() -join "`n")
+    if (-not $foundFile) { return $result }
+    $result.Found = $true
+    $result.Text = ($chunks.ToArray() -join "`n")
+    return $result
+}
+
+function Invoke-CleanDeployCurrentSmokeMountCheck {
+    param(
+        [string]$BuildDir,
+        $Before,
+        $After
+    )
+    $lines = New-Object System.Collections.Generic.List[string]
+    $runName = Resolve-CleanDeployCurrentSmokeRunName -Before $Before -After $After
+    if ([string]::IsNullOrWhiteSpace($runName)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] current smoke run log is missing"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+    }
+    $log = Read-CleanDeploySmokeRunLog -BuildDir $BuildDir -RunName $runName
+    if (-not $log.Found) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] current smoke run log is missing"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+    }
+    return (Test-CleanDeploySupplementMountOrder -LogText $log.Text)
 }
 
 function Invoke-CleanDeploySupplementPak {
     param(
         [Parameter(Mandatory = $true)][string]$ManifestPath,
         [Parameter(Mandatory = $true)][string]$PlayDhRoot,
-        [string]$SourcePak = "",
         [switch]$DryRun
     )
     # Rules from reference/manifests/playdh-supplemental-fill.json:
@@ -435,13 +535,21 @@ function Invoke-CleanDeploySupplementPak {
     $expectedLog = "empty"
     if ($filled) { $expectedLog = ([string]$manifest.pakSha256).Trim().ToLowerInvariant() }
 
-    $source = $SourcePak
-    if ([string]::IsNullOrWhiteSpace($source)) {
-        $source = Get-CleanDeploySupplementSourceFromManifest -Manifest $manifest
+    $buildPath = Get-CleanDeploySupplementBuildPath -Manifest $manifest
+    if ($buildPath.Status -eq "missing") {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=absent expected=$expectedLog"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental manifest buildPath is missing"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $filled -Lines $lines)
     }
+    if ($buildPath.Status -ne "ok") {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=absent expected=$expectedLog"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental manifest buildPath is empty"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $filled -Lines $lines)
+    }
+    $source = $buildPath.Path
     if ([string]::IsNullOrWhiteSpace($source)) {
         Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=absent expected=$expectedLog"
-        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] manifest pak source path is missing"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental manifest buildPath is empty"
         return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $filled -Lines $lines)
     }
     $leaf = Get-CleanDeployPathLeaf -Path $source
@@ -558,12 +666,49 @@ function Write-CleanDeploySelfTestSkip {
     Write-Host "[SKIP] $Name"
 }
 
+function Format-CleanDeploySelfTestMountLine {
+    param([string[]]$Names)
+    $joined = ""
+    $index = 1
+    foreach ($name in $Names) {
+        $tier = "92"
+        if ($name -eq "zz_supplement.pak") { $tier = "96" }
+        $piece = [string]$index + "=" + $name + "(" + $tier + ")"
+        if ($joined.Length -gt 0) { $joined = $joined + " " }
+        $joined = $joined + $piece
+        $index = $index + 1
+    }
+    return "[12:01:02.003] INFO filesystem_file_storage.cpp:338  [pak] mount order: " + $joined
+}
+
+function Write-CleanDeploySelfTestSmokeLog {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Text,
+        [switch]$Utf16
+    )
+    if ($Utf16) {
+        $encoding = New-Object System.Text.UnicodeEncoding $false, $true
+        $payload = $encoding.GetBytes($Text)
+        $preamble = $encoding.GetPreamble()
+        $encoded = New-Object byte[] ($preamble.Length + $payload.Length)
+        [System.Array]::Copy($preamble, 0, $encoded, 0, $preamble.Length)
+        [System.Array]::Copy($payload, 0, $encoded, $preamble.Length, $payload.Length)
+        [System.IO.File]::WriteAllBytes($Path, $encoded)
+        return
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($Path, $Text, $utf8)
+}
+
 function New-CleanDeploySelfTestRun {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [Parameter(Mandatory = $true)][string]$Name,
         [ValidateSet("null", "empty", "match-source", "match-target", "zeros")]
         [string]$ShaMode = "null",
+        [ValidateSet("path", "omit", "empty", "prose")]
+        [string]$BuildPathMode = "path",
         [string]$SourceBody = "",
         [string]$TargetBody = "",
         [switch]$WriteSource,
@@ -600,7 +745,21 @@ function New-CleanDeploySelfTestRun {
         elseif ($ch -eq '"') { [void]$escaped.Append('\"') }
         else { [void]$escaped.Append($ch) }
     }
-    $json = "{`n  `"pak`": `"" + $escaped.ToString() + " (built outside the worktree)`",`n  `"pakSha256`": " + $shaJson + "`n}`n"
+    $fields = New-Object System.Collections.Generic.List[string]
+    if ($BuildPathMode -eq "path") {
+        [void]$fields.Add('  "buildPath": "' + $escaped.ToString() + '"')
+    } elseif ($BuildPathMode -eq "empty") {
+        [void]$fields.Add('  "buildPath": ""')
+    } elseif ($BuildPathMode -eq "prose") {
+        [void]$fields.Add('  "pak": "' + $escaped.ToString() + ' (built outside the worktree)"')
+    }
+    [void]$fields.Add('  "pakSha256": ' + $shaJson)
+    $body = ""
+    foreach ($field in $fields) {
+        if ($body.Length -gt 0) { $body = $body + ",`n" }
+        $body = $body + $field
+    }
+    $json = "{`n" + $body + "`n}`n"
     $manifest = Join-Path $caseRoot "manifest.json"
     $utf8 = New-Object System.Text.UTF8Encoding $false
     [System.IO.File]::WriteAllText($manifest, $json, $utf8)
@@ -658,6 +817,23 @@ function Invoke-CleanDeploySelfTestCases {
     $absentEmpty = New-CleanDeploySelfTestRun -Root $Root -Name "empty-string" -ShaMode "empty"
     Assert-CleanDeploySelfTest -Name "blank pakSha256 with the pak absent continues" -Condition $absentEmpty.Result.Ok
 
+    $noBuildPath = New-CleanDeploySelfTestRun -Root $Root -Name "buildpath-missing" -ShaMode "null" -BuildPathMode "omit"
+    $noBuildPathText = $noBuildPath.Result.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "buildPath missing is an error" -Condition (-not $noBuildPath.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "buildPath missing prints [ERROR]" -Condition ($noBuildPath.Result.Lines -contains "[ERROR] supplemental manifest buildPath is missing")
+    Assert-CleanDeploySelfTest -Name "buildPath missing does not continue as not yet built" -Condition (-not $noBuildPathText.Contains("[INFO] supplemental pak not yet built"))
+
+    $proseOnly = New-CleanDeploySelfTestRun -Root $Root -Name "buildpath-prose" -ShaMode "null" -BuildPathMode "prose"
+    $proseText = $proseOnly.Result.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "pak description is not used as buildPath" -Condition ((-not $proseOnly.Result.Ok) -and ($proseOnly.Result.Lines -contains "[ERROR] supplemental manifest buildPath is missing"))
+    Assert-CleanDeploySelfTest -Name "pak description does not continue as not yet built" -Condition (-not $proseText.Contains("[INFO] supplemental pak not yet built"))
+
+    $emptyBuildPath = New-CleanDeploySelfTestRun -Root $Root -Name "buildpath-empty" -ShaMode "null" -BuildPathMode "empty"
+    $emptyBuildText = $emptyBuildPath.Result.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "buildPath empty is an error" -Condition (-not $emptyBuildPath.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "buildPath empty prints [ERROR]" -Condition ($emptyBuildPath.Result.Lines -contains "[ERROR] supplemental manifest buildPath is empty")
+    Assert-CleanDeploySelfTest -Name "buildPath empty does not continue as not yet built" -Condition (-not $emptyBuildText.Contains("[INFO] supplemental pak not yet built"))
+
     $copied = New-CleanDeploySelfTestRun -Root $Root -Name "copy" -WriteSource -SourceBody "good-pak-bytes" -ShaMode "match-source"
     $copiedHash = ""
     $targetHash = ""
@@ -686,18 +862,27 @@ function Invoke-CleanDeploySelfTestCases {
     Assert-CleanDeploySelfTest -Name "refusing to write the supplemental pak under D:\MX" -Condition ((-not $forbidden.Result.Ok) -and ($forbiddenText.Contains("[ERROR] refusing to write supplemental pak under D:\MX")))
     Assert-CleanDeploySelfTest -Name "D:\MX refusal does not create the pak" -Condition (-not (Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"))
 
-    $last = "[12:01:02.003] INFO filesystem_file_storage.cpp:338  [pak] mount order: 1=Character.pak(92) 2=Effect.pak(92) 3=Map.pak(92) 4=monster.pak(92) 5=npc.pak(92) 6=Pet.pak(92) 7=Titan.pak(92) 8=zz_supplement.pak(96)`n[pak] mount order: 1=Map.pak 2=zz_supplement.pak"
-    $lastResult = Test-CleanDeploySupplementMountOrder -LogText $last
-    Assert-CleanDeploySelfTest -Name "mount order lines that end with zz_supplement.pak pass" -Condition $lastResult.Ok
+    $validNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "zz_supplement.pak")
+    $validLine = Format-CleanDeploySelfTestMountLine -Names $validNames
+    $validResult = Test-CleanDeploySupplementMountOrder -LogText $validLine
+    Assert-CleanDeploySelfTest -Name "valid 8-pak mount order passes" -Condition $validResult.Ok
+    Assert-CleanDeploySelfTest -Name "valid 8-pak mount order prints the 8-pak info line" -Condition ($validResult.Lines -contains "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak")
 
-    $notLast = "[pak] mount order: 1=zz_supplement.pak(96) 2=Titan.pak(92)"
-    $notLastResult = Test-CleanDeploySupplementMountOrder -LogText $notLast
-    Assert-CleanDeploySelfTest -Name "mount order that does not end with zz_supplement.pak is an error" -Condition (-not $notLastResult.Ok)
-    Assert-CleanDeploySelfTest -Name "mount order failure prints [ERROR]" -Condition ($notLastResult.Lines -contains "[ERROR] [pak] mount order must end with zz_supplement.pak")
+    $sevenNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak")
+    $sevenResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $sevenNames)
+    Assert-CleanDeploySelfTest -Name "7-pak mount order is an error" -Condition ((-not $sevenResult.Ok) -and ($sevenResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
 
-    $mixed = "[pak] mount order: 8=zz_supplement.pak(96)`n[pak] mount order: 1=Titan.pak(92)"
-    $mixedResult = Test-CleanDeploySupplementMountOrder -LogText $mixed
-    Assert-CleanDeploySelfTest -Name "one mount order line that is not last is an error" -Condition (-not $mixedResult.Ok)
+    $nineNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "extra.pak", "zz_supplement.pak")
+    $nineResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $nineNames)
+    Assert-CleanDeploySelfTest -Name "9-pak mount order is an error" -Condition ((-not $nineResult.Ok) -and ($nineResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
+
+    $dupNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "zz_supplement.pak")
+    $dupResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $dupNames)
+    Assert-CleanDeploySelfTest -Name "duplicated zz_supplement.pak is an error" -Condition ((-not $dupResult.Ok) -and ($dupResult.Lines -contains "[ERROR] [pak] mount order must include zz_supplement.pak exactly once"))
+
+    $notLastNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "Titan.pak")
+    $notLastResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $notLastNames)
+    Assert-CleanDeploySelfTest -Name "zz_supplement.pak not last is an error" -Condition ((-not $notLastResult.Ok) -and ($notLastResult.Lines -contains "[ERROR] [pak] mount order must end with zz_supplement.pak"))
 
     $trick = "[pak] mount order: 1=not_zz_supplement.pak"
     $trickResult = Test-CleanDeploySupplementMountOrder -LogText $trick
@@ -706,28 +891,54 @@ function Invoke-CleanDeploySelfTestCases {
     $none = Test-CleanDeploySupplementMountOrder -LogText "client started"
     Assert-CleanDeploySelfTest -Name "missing mount order line is an error" -Condition ((-not $none.Ok) -and ($none.Lines -contains "[ERROR] [pak] mount order line is missing"))
 
-    $build = Join-Path $Root "smoke-build"
-    $oldRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "old"
-    $newRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "new"
+    $mountInfo = "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak"
+    $missingLogError = "[ERROR] current smoke run log is missing"
+    $build = Join-Path $Root "smoke-current"
+    $oldRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "previous"
     $oldLogs = Join-Path $oldRun "logs"
-    $newLogs = Join-Path $newRun "logs"
     New-Item -ItemType Directory -Path $oldLogs -Force | Out-Null
+    $staleBad = Format-CleanDeploySelfTestMountLine -Names $sevenNames
+    Write-CleanDeploySelfTestSmokeLog -Path (Join-Path $oldLogs "client.err.log") -Text ($staleBad + "`n")
+    (Get-Item -LiteralPath $oldRun).LastWriteTime = (Get-Date)
+    $before = Get-CleanDeployGuiSmokeRunNames -BuildDir $build
+    $newRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "current"
+    $newLogs = Join-Path $newRun "logs"
     New-Item -ItemType Directory -Path $newLogs -Force | Out-Null
-    $badLine = "[pak] mount order: 1=zz_supplement.pak(96) 2=Titan.pak(92)`n"
-    $goodLine = "[12:01:02.003] INFO filesystem_file_storage.cpp:338  [pak] mount order: 1=Character.pak(92) 8=zz_supplement.pak(96)`n"
-    [System.IO.File]::WriteAllText((Join-Path $oldLogs "client.err.log"), $badLine)
-    $utf16 = New-Object System.Text.UnicodeEncoding $false, $true
-    $payload = $utf16.GetBytes($goodLine)
-    $preamble = $utf16.GetPreamble()
-    $encoded = New-Object byte[] ($preamble.Length + $payload.Length)
-    [System.Array]::Copy($preamble, 0, $encoded, 0, $preamble.Length)
-    [System.Array]::Copy($payload, 0, $encoded, $preamble.Length, $payload.Length)
-    [System.IO.File]::WriteAllBytes((Join-Path $newLogs "client.err.log"), $encoded)
-    (Get-Item -LiteralPath $oldRun).LastWriteTime = (Get-Date).AddHours(-3)
-    (Get-Item -LiteralPath $newRun).LastWriteTime = (Get-Date)
-    $smokeText = Get-CleanDeployClientSmokeLogText -BuildDir $build
-    $smokeMount = Test-CleanDeploySupplementMountOrder -LogText $smokeText
-    Assert-CleanDeploySelfTest -Name "newest client smoke log ends with zz_supplement.pak" -Condition $smokeMount.Ok
+    Write-CleanDeploySelfTestSmokeLog -Path (Join-Path $newLogs "client.err.log") -Text ($validLine + "`n") -Utf16
+    (Get-Item -LiteralPath $newRun).LastWriteTime = (Get-Date).AddHours(-3)
+    $after = Get-CleanDeployGuiSmokeRunNames -BuildDir $build
+    $currentMount = Invoke-CleanDeployCurrentSmokeMountCheck -BuildDir $build -Before $before -After $after
+    Assert-CleanDeploySelfTest -Name "stale newer smoke log is ignored for this run" -Condition ($currentMount.Ok -and ($currentMount.Lines -contains $mountInfo))
+    Assert-CleanDeploySelfTest -Name "stale newer smoke log is not the mount-order result" -Condition (-not (($currentMount.Lines -join "`n").Contains("[ERROR] [pak] mount order must list exactly 8 paks")))
+
+    $staleOnly = Join-Path $Root "smoke-stale-only"
+    $staleRun = Join-Path (Join-Path (Join-Path $staleOnly "runtime") "gui-smoke") "previous"
+    $staleLogs = Join-Path $staleRun "logs"
+    New-Item -ItemType Directory -Path $staleLogs -Force | Out-Null
+    Write-CleanDeploySelfTestSmokeLog -Path (Join-Path $staleLogs "client.out.log") -Text ($validLine + "`n")
+    (Get-Item -LiteralPath $staleRun).LastWriteTime = (Get-Date)
+    $staleBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $staleOnly
+    $staleAfter = Get-CleanDeployGuiSmokeRunNames -BuildDir $staleOnly
+    $staleRejected = Invoke-CleanDeployCurrentSmokeMountCheck -BuildDir $staleOnly -Before $staleBefore -After $staleAfter
+    $staleRejectedText = $staleRejected.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "no new smoke run rejects a stale valid log" -Condition ((-not $staleRejected.Ok) -and ($staleRejected.Lines -contains $missingLogError))
+    Assert-CleanDeploySelfTest -Name "no new smoke run does not accept the stale log" -Condition (-not $staleRejectedText.Contains($mountInfo))
+
+    $missingBuild = Join-Path $Root "smoke-missing-log"
+    $missingOld = Join-Path (Join-Path (Join-Path $missingBuild "runtime") "gui-smoke") "previous"
+    $missingOldLogs = Join-Path $missingOld "logs"
+    New-Item -ItemType Directory -Path $missingOldLogs -Force | Out-Null
+    Write-CleanDeploySelfTestSmokeLog -Path (Join-Path $missingOldLogs "client.err.log") -Text ($validLine + "`n")
+    (Get-Item -LiteralPath $missingOld).LastWriteTime = (Get-Date)
+    $missingBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $missingBuild
+    $missingNew = Join-Path (Join-Path (Join-Path $missingBuild "runtime") "gui-smoke") "current"
+    New-Item -ItemType Directory -Path (Join-Path $missingNew "logs") -Force | Out-Null
+    (Get-Item -LiteralPath $missingNew).LastWriteTime = (Get-Date).AddHours(-3)
+    $missingAfter = Get-CleanDeployGuiSmokeRunNames -BuildDir $missingBuild
+    $missingLog = Invoke-CleanDeployCurrentSmokeMountCheck -BuildDir $missingBuild -Before $missingBefore -After $missingAfter
+    $missingLogText = $missingLog.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "missing current smoke run log is an error" -Condition ((-not $missingLog.Ok) -and ($missingLog.Lines -contains $missingLogError))
+    Assert-CleanDeploySelfTest -Name "missing current smoke run log does not fall back" -Condition (-not $missingLogText.Contains($mountInfo))
 
     $scriptPath = $script:CleanDeployScriptPath
     $kind = "bad"
@@ -744,8 +955,12 @@ function Invoke-CleanDeploySelfTestCases {
     }
     $banned = [string]::Concat([char]63, [char]63)
     $parallel = '-' + 'Parallel'
+    $newestNeedle = "Sort-Object" + " LastWriteTime"
+    $oldParser = "Get-CleanDeploySupplement" + "SourceFromManifest"
     $syntaxOk = (-not $scriptText.Contains($banned)) -and (-not $scriptText.Contains($parallel))
     Assert-CleanDeploySelfTest -Name "script stays on Windows PowerShell 5.1 syntax" -Condition $syntaxOk
+    Assert-CleanDeploySelfTest -Name "script does not select a smoke log by LastWriteTime" -Condition (-not $scriptText.Contains($newestNeedle))
+    Assert-CleanDeploySelfTest -Name "script does not parse the pak description" -Condition (-not $scriptText.Contains($oldParser))
 
     $legacy = [System.Text.Encoding]::UTF8.GetBytes((Get-CleanDeployLegacyPlayDhDirName))
     $wantLegacy = [byte[]](
@@ -763,14 +978,15 @@ function Invoke-CleanDeploySelfTestCases {
     $repo = Split-Path -Parent $script:CleanDeployScriptRoot
     $manifestPath = Join-Path (Join-Path $repo "reference") "manifests"
     $manifestPath = Join-Path $manifestPath "playdh-supplemental-fill.json"
-    $parsedSource = ""
-    $manifestOk = $false
+    $buildPathValue = ""
+    $buildPathStatus = "missing"
     if (Test-Path -LiteralPath $manifestPath) {
         $repoManifest = (Read-CleanDeployUtf8Text -Path $manifestPath) | ConvertFrom-Json
-        $parsedSource = Get-CleanDeploySupplementSourceFromManifest -Manifest $repoManifest
-        $manifestOk = $true
+        $parsedBuild = Get-CleanDeploySupplementBuildPath -Manifest $repoManifest
+        $buildPathStatus = $parsedBuild.Status
+        $buildPathValue = $parsedBuild.Path
     }
-    Assert-CleanDeploySelfTest -Name "manifest pak source path is D:\build-mxr\supplement\zz_supplement.pak" -Condition ($manifestOk -and ($parsedSource -eq "D:\build-mxr\supplement\zz_supplement.pak"))
+    Assert-CleanDeploySelfTest -Name "manifest buildPath is D:\build-mxr\supplement\zz_supplement.pak" -Condition (($buildPathStatus -eq "ok") -and ($buildPathValue -eq "D:\build-mxr\supplement\zz_supplement.pak"))
 
     $currentPath = Join-Path (Join-Path $repo "reference") "manifests"
     $currentPath = Join-Path $currentPath "playdh-current.sha256.json"
@@ -965,7 +1181,7 @@ if (-not (Test-Path -LiteralPath $playdhTarget)) {
 
 # ----------------------------------------------------------------------------
 # Step 3b: supplemental pak
-# The source path and pakSha256 come from playdh-supplemental-fill.json.
+# The source path is the buildPath field. The pak description is not parsed.
 # The pak itself stays outside the repo until this copy into the PlayDH root.
 # ----------------------------------------------------------------------------
 
@@ -1028,6 +1244,7 @@ if (-not $SkipTests) {
 # Step 6: commercial smoke
 # ----------------------------------------------------------------------------
 
+$smokeBefore = $null
 if (-not $SkipSmoke) {
     Step "commercial-smoke"
     $smokeScript = Join-Path $PSScriptRoot "commercial-smoke.ps1"
@@ -1039,6 +1256,9 @@ if (-not $SkipSmoke) {
     if ($DryRun) {
         Info ('would run: ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs + ')')
     } else {
+        if ($script:CleanDeploySupplementExpectedFilled) {
+            $smokeBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $buildDir
+        }
         Write-Host ('  > ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs) -ForegroundColor DarkGray
         & $smokeScript -BuildDir $buildDir $smokeArgs -ErrorAction Stop
         if ($LASTEXITCODE -ne 0) { Fail ('commercial-smoke failed exit $LASTEXITCODE; exit 5') }
@@ -1049,12 +1269,12 @@ if (-not $SkipSmoke) {
 }
 if ($script:CleanDeploySupplementExpectedFilled) {
     if ($DryRun) {
-        Write-Host "[INFO] would check [pak] mount order ends with zz_supplement.pak"
+        Write-Host "[INFO] would check this run's [pak] mount order lists exactly 8 paks ending with zz_supplement.pak"
     } elseif ($SkipSmoke) {
         Write-Host "[INFO] supplemental pak mount order check skipped with -SkipSmoke"
     } else {
-        $smokeLog = Get-CleanDeployClientSmokeLogText -BuildDir $buildDir
-        $mountOrder = Test-CleanDeploySupplementMountOrder -LogText $smokeLog
+        $smokeAfter = Get-CleanDeployGuiSmokeRunNames -BuildDir $buildDir
+        $mountOrder = Invoke-CleanDeployCurrentSmokeMountCheck -BuildDir $buildDir -Before $smokeBefore -After $smokeAfter
         if (-not $mountOrder.Ok) { exit 1 }
     }
 }
