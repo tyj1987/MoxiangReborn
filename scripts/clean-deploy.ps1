@@ -74,6 +74,11 @@
 .PARAMETER SkipSmoke
     Skip commercial-smoke.
 
+.PARAMETER SkipBuild
+    Skip the cmake build. Prints [SKIP] step 4 build and does not run
+    cmake. Requires -SkipTests because ctest needs a build. With
+    -SkipBuild -SkipTests -SkipSmoke no toolchain prereq is required.
+
 .PARAMETER SkipGui
     Forward -SkipGui to commercial-smoke (skip GUI client smoke step).
 
@@ -116,6 +121,7 @@ param(
     [switch]$InstallPrereqs,
     [switch]$SkipTests,
     [switch]$SkipSmoke,
+    [switch]$SkipBuild,
     [switch]$SkipGui,
     [switch]$Force,
     [ValidateSet("Debug", "Release")]
@@ -148,13 +154,27 @@ function Step {
 function Info  { param([string]$Text) Write-Host "  $Text" -ForegroundColor Gray }
 function Ok    { param([string]$Text) Write-Host "  [OK]   $Text" -ForegroundColor Green }
 function Warn  { param([string]$Text) Write-Host "  [WARN] $Text" -ForegroundColor Yellow }
-function Fail  { param([string]$Text) Write-Host "  [FAIL] $Text" -ForegroundColor Red; throw $Text }
+function Fail {
+    param(
+        [Parameter(Mandatory = $true, Position = 0)][string]$Text,
+        [Parameter(Position = 1)][int]$Code = 1
+    )
+    Write-Host "  [FAIL] $Text" -ForegroundColor Red
+    # clean-deploy.cmd launches powershell.exe -File. Windows PowerShell 5.1
+    # leaves ERRORLEVEL 0 after an uncaught throw, so exit explicitly.
+    try { $host.SetShouldExit($Code) } catch { }
+    exit $Code
+}
 
 
 function Test-Admin {
-    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $pr = New-Object Security.Principal.WindowsPrincipal($id)
-    return $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    try {
+        $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $pr = New-Object Security.Principal.WindowsPrincipal($id)
+        return $pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    } catch {
+        return $false
+    }
 }
 
 function Test-Tool {
@@ -162,6 +182,58 @@ function Test-Tool {
     $cmd = Get-Command $Name -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
     return $null
+}
+
+function Test-CleanDeployPrereqNameListed {
+    param(
+        [string]$Name,
+        [string]$Raw
+    )
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return $false }
+    foreach ($part in $Raw.Split(",")) {
+        if ($part.Trim() -eq $Name) { return $true }
+    }
+    return $false
+}
+
+function Test-CleanDeployPrereqForcedAbsent {
+    param([string]$Name)
+    # Self-test only. Production never sets MXH_CLEAN_DEPLOY_PREREQ_ABSENT.
+    return Test-CleanDeployPrereqNameListed -Name $Name -Raw ([string]$env:MXH_CLEAN_DEPLOY_PREREQ_ABSENT)
+}
+
+function Test-CleanDeployPrereqForcedPresent {
+    param([string]$Name)
+    # Self-test only. Production never sets MXH_CLEAN_DEPLOY_PREREQ_PRESENT.
+    return Test-CleanDeployPrereqNameListed -Name $Name -Raw ([string]$env:MXH_CLEAN_DEPLOY_PREREQ_PRESENT)
+}
+
+function Get-CleanDeployRequiredPrereqNames {
+    param(
+        [switch]$SkipBuild,
+        [switch]$SkipTests,
+        [switch]$SkipSmoke
+    )
+    # cmake and vs2022 are required only when the build step runs.
+    # sqlcmd, sqllocaldb, odbc18, and vcredist are required when ctest
+    # or commercial-smoke runs (the same set for either step).
+    # git is not required: this script detects it and never invokes it.
+    # chocolatey stays optional and is not part of the gate.
+    $names = New-Object System.Collections.Generic.List[string]
+    if (-not $SkipBuild) {
+        [void]$names.Add("cmake")
+        [void]$names.Add("vs2022")
+    }
+    $dataStep = $false
+    if (-not $SkipTests) { $dataStep = $true }
+    if (-not $SkipSmoke) { $dataStep = $true }
+    if ($dataStep) {
+        [void]$names.Add("sqlcmd")
+        [void]$names.Add("sqllocaldb")
+        [void]$names.Add("odbc18")
+        [void]$names.Add("vcredist")
+    }
+    return [pscustomobject]@{ Names = $names.ToArray() }
 }
 
 function Get-CleanDeployLegacyPlayDhDirName {
@@ -863,6 +935,12 @@ function Invoke-CleanDeploySupplementPak {
             return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
         }
         $copied = Get-CleanDeploySha256 -LiteralPath $target
+        # Self-test only. Production never sets this. A non-empty value
+        # replaces the post-copy rehash so the mismatch path can be proven.
+        $forcedRehash = [string]$env:MXH_CLEAN_DEPLOY_REHASH_OVERRIDE
+        if (-not [string]::IsNullOrWhiteSpace($forcedRehash)) {
+            $copied = $forcedRehash.Trim().ToLowerInvariant()
+        }
         if (-not (Test-CleanDeployShaEqual -Actual $copied -Expected $expectedLog)) {
             try { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue } catch { }
             Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak sha256 mismatch"
@@ -874,6 +952,26 @@ function Invoke-CleanDeploySupplementPak {
 
     Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak already matches pakSha256"
     return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
+}
+
+function Write-CleanDeploySelfTestChildDetail {
+    param(
+        $Child,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $code = -1
+    $text = ""
+    if ($null -ne $Child) {
+        $code = [int]$Child.ExitCode
+        $text = [string]$Child.Text
+    }
+    Write-Host ("[FAIL-DETAIL] " + $Name + " exit=" + $code)
+    $shown = 0
+    foreach ($line in ($text -split '\r?\n')) {
+        if ($shown -ge 25) { break }
+        Write-Host ("[FAIL-DETAIL] " + $line)
+        $shown = $shown + 1
+    }
 }
 
 function Assert-CleanDeploySelfTest {
@@ -1283,6 +1381,7 @@ function Invoke-CleanDeploySelfTestCases {
     Assert-CleanDeploySelfTest -Name "self-test does not add zz_supplement.pak to the repo PlayDH" -Condition (-not (Test-Path -LiteralPath $repoPak))
 
     Invoke-CleanDeploySelfTestPlayDhRootCases -Root $Root -Repo $repo
+    Invoke-CleanDeploySelfTestSkipCases -Root $Root
 }
 
 function Get-CleanDeploySelfTestTreeText {
@@ -1313,7 +1412,8 @@ function Test-CleanDeploySelfTestReparse {
 function Invoke-CleanDeploySelfTestChild {
     param(
         [Parameter(Mandatory = $true)][string]$WorkRoot,
-        [string[]]$ArgumentList
+        [string[]]$ArgumentList,
+        [hashtable]$Environment
     )
     try {
         $exe = ""
@@ -1339,6 +1439,11 @@ function Invoke-CleanDeploySelfTestChild {
         $proc.StartInfo.RedirectStandardOutput = $true
         $proc.StartInfo.RedirectStandardError = $true
         $proc.StartInfo.CreateNoWindow = $true
+        if ($null -ne $Environment) {
+            foreach ($envKey in @($Environment.Keys)) {
+                $proc.StartInfo.EnvironmentVariables[[string]$envKey] = [string]$Environment[$envKey]
+            }
+        }
         [void]$proc.Start()
         $outTask = $proc.StandardOutput.ReadToEndAsync()
         $errTask = $proc.StandardError.ReadToEndAsync()
@@ -1496,6 +1601,14 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $insideFull = [System.IO.Path]::GetFullPath($inside)
     $positiveFull = [System.IO.Path]::GetFullPath($positive)
     $dryFull = [System.IO.Path]::GetFullPath($dryDir)
+    # Placeholder manifest so a later dry-run child can pass step 3b.
+    # The sha is filled in after the in-process copy, before that child.
+    # Path list (not contents) is what the tree snapshot compares.
+    $notBuiltPak = Join-CleanDeployPath -Parent (Join-Path $Root "not-built-source") -Child "zz_supplement.pak"
+    $fakeManifest = Join-Path $fakeFull "reference"
+    $fakeManifest = Join-Path $fakeManifest "manifests"
+    $fakeManifest = Join-Path $fakeManifest "playdh-supplemental-fill.json"
+    New-CleanDeploySelfTestManifestFile -Path $fakeManifest -BuildPath $notBuiltPak -ShaJson "null"
     $treeBefore = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $realBefore = Get-CleanDeploySelfTestDataStamp -Repo $Repo
     $repoPlay = Join-Path (Join-Path (Join-Path $Repo "modern") "data") "PlayDH"
@@ -1508,8 +1621,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $missingChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull)
     $missingTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $missingReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $missingOk = (-not $missingFn.Ok) -and (-not $blankFn.Ok) -and $missingText.Contains("[ERROR] -PlayDhRoot is required") -and $blankText.Contains("[ERROR] -PlayDhRoot is required") -and ($missingChild.ExitCode -ne 0) -and $missingChild.Text.Contains("[ERROR] -PlayDhRoot is required") -and ($missingTree -eq $treeBefore) -and ($missingReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    $missingOk = (-not $missingFn.Ok) -and (-not $blankFn.Ok) -and $missingText.Contains("[ERROR] -PlayDhRoot is required") -and $blankText.Contains("[ERROR] -PlayDhRoot is required") -and $missingChild.Text.Contains("[ERROR] -PlayDhRoot is required") -and ($missingTree -eq $treeBefore) -and ($missingReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "missing -PlayDhRoot fails with [ERROR] and no write" -Condition $missingOk
+    Assert-CleanDeploySelfTest -Name "missing -PlayDhRoot child exits non-zero" -Condition ($missingChild.ExitCode -ne 0)
 
     $relativeRaw = "relative\playdh"
     $relativeDot = ".\PlayDH"
@@ -1520,8 +1634,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $relativeChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $relativeRaw)
     $relativeTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $relativeReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $relativeOk = (-not $relativeFn.Ok) -and (-not $relativeDotFn.Ok) -and $relativeText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeDotText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeChild.ExitCode -ne 0) -and $relativeChild.Text.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeTree -eq $treeBefore) -and ($relativeReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    $relativeOk = (-not $relativeFn.Ok) -and (-not $relativeDotFn.Ok) -and $relativeText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeDotText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeChild.Text.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeTree -eq $treeBefore) -and ($relativeReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "relative -PlayDhRoot fails with [ERROR] and no write" -Condition $relativeOk
+    Assert-CleanDeploySelfTest -Name "relative -PlayDhRoot child exits non-zero" -Condition ($relativeChild.ExitCode -ne 0)
 
     $mxCases = @(
         "D:\MX",
@@ -1546,8 +1661,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $mxTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $mxReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
     $mxCreated = Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"
-    $mxOk = $mxAll -and $escapedOk -and ($mxChild.ExitCode -ne 0) -and $mxChild.Text.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:") -and ($mxTree -eq $treeBefore) -and ($mxReal -eq $realBefore) -and (-not $mxCreated) -and (-not (Test-Path -LiteralPath $repoPak))
+    $mxOk = $mxAll -and $escapedOk -and $mxChild.Text.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:") -and ($mxTree -eq $treeBefore) -and ($mxReal -eq $realBefore) -and (-not $mxCreated) -and (-not (Test-Path -LiteralPath $repoPak))
     Assert-CleanDeploySelfTest -Name "PlayDhRoot under D:\MX fails with [ERROR] and no write" -Condition $mxOk
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot under D:\MX child exits non-zero" -Condition ($mxChild.ExitCode -ne 0)
 
     $dottedInside = $insideFull.TrimEnd('\', '/') + "/../inside-playdh/"
     $insideFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $insideFull -RepoRoot $fakeFull
@@ -1561,8 +1677,22 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $insideChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $insideFull)
     $insideTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $insideReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $insideOk = (-not $insideFn.Ok) -and (-not $selfFn.Ok) -and (-not $trailFn.Ok) -and (-not $dottedFn.Ok) -and $insideText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $selfText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $trailText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $dottedText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideChild.ExitCode -ne 0) -and $insideChild.Text.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideTree -eq $treeBefore) -and ($insideReal -eq $realBefore) -and (-not (Test-Path -LiteralPath (Join-Path (Join-Path $fakeModern "data") "PlayDH"))) -and (-not (Test-Path -LiteralPath $repoPak))
-    Assert-CleanDeploySelfTest -Name "PlayDhRoot inside RepoRoot fails with [ERROR] and no write" -Condition $insideOk
+    $insideErr = "[ERROR] -PlayDhRoot resolves inside the repo:"
+    $fakeDataPlay = Join-Path (Join-Path $fakeModern "data") "PlayDH"
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot inside the repo is rejected" -Condition (-not $insideFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot equal to RepoRoot is rejected" -Condition (-not $selfFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot with a trailing slash inside the repo is rejected" -Condition (-not $trailFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot with dot-dot inside the repo is rejected" -Condition (-not $dottedFn.Ok)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot error names the inside path" -Condition $insideText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "RepoRoot PlayDhRoot error names the inside path" -Condition $selfText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "trailing-slash PlayDhRoot error names the inside path" -Condition $trailText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "dot-dot PlayDhRoot error names the inside path" -Condition $dottedText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot child exits non-zero" -Condition ($insideChild.ExitCode -ne 0)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot child prints the inside-repo error" -Condition $insideChild.Text.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot leaves the fake repo tree unchanged" -Condition ($insideTree -eq $treeBefore)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot leaves the real data stamp unchanged" -Condition ($insideReal -eq $realBefore)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot does not create modern/data/PlayDH" -Condition (-not (Test-Path -LiteralPath $fakeDataPlay))
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot does not add a repo pak" -Condition (-not (Test-Path -LiteralPath $repoPak))
 
     $positiveResolved = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $positiveFull -RepoRoot $fakeFull
     $copied = New-CleanDeploySelfTestRun -Root $Root -Name "positive-pak" -WriteSource -SourceBody "positive-pak-bytes" -ShaMode "match-source" -PlayDhRoot $positiveResolved.Path
@@ -1576,7 +1706,17 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $dryCopy = New-CleanDeploySelfTestRun -Root $Root -Name "dry-external" -WriteSource -SourceBody "dry-pak-bytes" -ShaMode "match-source" -PlayDhRoot $dryFull -DryRun
     $dryPak = Join-CleanDeployPath -Parent $dryFull -Child "zz_supplement.pak"
     $dryCopyText = ($dryCopy.Result.Lines -join "`n")
-    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipTests", "-SkipSmoke")
+    # Earlier children exit at PlayDhRoot validation and never reach step 4.
+    # This child has a valid root. -SkipBuild plus MXH_CLEAN_DEPLOY_PREREQ_ABSENT
+    # make the result the same whether or not the host has cmake, vs2022, or
+    # sqllocaldb. The manifest sha matches the pak already copied above so
+    # step 3b does not treat that pak as an error.
+    if (($landedHash -ne "") -and ($landedHash -eq $sourceHash)) {
+        New-CleanDeploySelfTestManifestFile -Path $fakeManifest -BuildPath $notBuiltPak -ShaJson ('"' + $landedHash + '"')
+    }
+    $dryAbsent = "cmake,git,sqlcmd,sqllocaldb,vcredist,odbc18,chocolatey,vs2022"
+    $dryEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $Root "dry-child-env") -Absent $dryAbsent
+    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke") -Environment $dryEnv
     $rootLine = "[INFO] PlayDH root: " + $positiveResolved.Path
     $positiveTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $positiveReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
@@ -1594,8 +1734,28 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     foreach ($childItem in @(Get-ChildItem -LiteralPath $positiveResolved.Path -Recurse -Force -ErrorAction SilentlyContinue)) {
         if ($childItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { $childReparse = $true }
     }
-    $positiveOk = $positiveResolved.Ok -and $copied.Result.Ok -and $landedOk -and (-not (Test-Path -LiteralPath $repoPak)) -and (-not (Test-Path -LiteralPath $fakePlay)) -and (-not $positiveReparse) -and (-not $repoReparse) -and (-not $childReparse) -and $noJunctionCmd -and ($positiveTree -eq $treeBefore) -and ($positiveReal -eq $realBefore) -and $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy") -and $dryChild.Text.Contains($rootLine) -and (-not $dryChild.Text.Contains("[ERROR]"))
-    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot receives the pak and creates no repo PlayDH junction" -Condition $positiveOk
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot resolves" -Condition $positiveResolved.Ok
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot copy succeeds" -Condition $copied.Result.Ok
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot landed hash matches the source" -Condition $landedOk
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot does not add a repo pak" -Condition (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot does not create a fake repo PlayDH" -Condition (-not (Test-Path -LiteralPath $fakePlay))
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot target is not a reparse point" -Condition (-not $positiveReparse)
+    Assert-CleanDeploySelfTest -Name "repo PlayDH is not a reparse point" -Condition (-not $repoReparse)
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot children are not reparse points" -Condition (-not $childReparse)
+    Assert-CleanDeploySelfTest -Name "script text has no junction or link command" -Condition $noJunctionCmd
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the fake repo tree unchanged" -Condition ($positiveTree -eq $treeBefore)
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the real data stamp unchanged" -Condition ($positiveReal -eq $realBefore)
+    $dryCopyOk = $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy")
+    Assert-CleanDeploySelfTest -Name "dry-run copy reports would copy and writes no pak" -Condition $dryCopyOk
+    $dryChildExitOk = ($dryChild.ExitCode -eq 0)
+    $dryChildRootOk = $dryChild.Text.Contains($rootLine)
+    $dryChildClean = -not $dryChild.Text.Contains("[ERROR]")
+    if ((-not $dryChildExitOk) -or (-not $dryChildRootOk) -or (-not $dryChildClean)) {
+        Write-CleanDeploySelfTestChildDetail -Child $dryChild -Name "dry child"
+    }
+    Assert-CleanDeploySelfTest -Name "dry child exits 0" -Condition $dryChildExitOk
+    Assert-CleanDeploySelfTest -Name "dry child prints the PlayDH root line" -Condition $dryChildRootOk
+    Assert-CleanDeploySelfTest -Name "dry child has no [ERROR]" -Condition $dryChildClean
 
     $savedPlay = $env:MXH_PLAYDH_ROOT
     $hadPlay = $false
@@ -1642,6 +1802,161 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     }
 }
 
+function New-CleanDeploySelfTestManifestFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$BuildPath,
+        [Parameter(Mandatory = $true)][string]$ShaJson
+    )
+    $escaped = New-Object System.Text.StringBuilder
+    foreach ($ch in $BuildPath.ToCharArray()) {
+        if ($ch -eq '\') { [void]$escaped.Append('\\') }
+        elseif ($ch -eq '"') { [void]$escaped.Append('\"') }
+        else { [void]$escaped.Append($ch) }
+    }
+    $json = "{`n  `"buildPath`": `"" + $escaped.ToString() + "`",`n  `"pakSha256`": " + $ShaJson + "`n}`n"
+    $parent = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($Path, $json, $utf8)
+}
+
+function New-CleanDeploySelfTestToolEnvironment {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [string]$Absent = "",
+        [string]$Present = "",
+        [string]$RehashOverride = ""
+    )
+    $emptyPath = Join-Path $Root "empty-path"
+    $emptyPf = Join-Path $Root "empty-pf86"
+    New-Item -ItemType Directory -Path $emptyPath -Force | Out-Null
+    New-Item -ItemType Directory -Path $emptyPf -Force | Out-Null
+    $map = @{
+        PATH = $emptyPath
+        "ProgramFiles(x86)" = $emptyPf
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Absent)) {
+        $map["MXH_CLEAN_DEPLOY_PREREQ_ABSENT"] = $Absent
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Present)) {
+        $map["MXH_CLEAN_DEPLOY_PREREQ_PRESENT"] = $Present
+    }
+    if (-not [string]::IsNullOrWhiteSpace($RehashOverride)) {
+        $map["MXH_CLEAN_DEPLOY_REHASH_OVERRIDE"] = $RehashOverride
+    }
+    return $map
+}
+
+function Invoke-CleanDeploySelfTestSkipCases {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $case = Join-Path $Root "skip-cases"
+    $repo = Join-Path $case "repo"
+    $modern = Join-Path $repo "modern"
+    $play = Join-Path $case "playdh"
+    $sourceDir = Join-Path $case "source"
+    New-Item -ItemType Directory -Path $modern -Force | Out-Null
+    New-Item -ItemType Directory -Path $play -Force | Out-Null
+    New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+    $repoFull = [System.IO.Path]::GetFullPath($repo)
+    $playFull = [System.IO.Path]::GetFullPath($play)
+    $source = Join-CleanDeployPath -Parent $sourceDir -Child "zz_supplement.pak"
+    $sourceBytes = [System.Text.Encoding]::ASCII.GetBytes("skip-build-pak-bytes")
+    [System.IO.File]::WriteAllBytes($source, $sourceBytes)
+    $sourceFull = [System.IO.Path]::GetFullPath($source)
+    $sourceHash = Get-CleanDeploySha256 -LiteralPath $sourceFull
+    $manifest = Join-Path $repoFull "reference"
+    $manifest = Join-Path $manifest "manifests"
+    $manifest = Join-Path $manifest "playdh-supplemental-fill.json"
+    $absentTools = "cmake,sqllocaldb,vs2022,sqlcmd,odbc18,vcredist,git"
+    $isolated = New-CleanDeploySelfTestToolEnvironment -Root $case -Absent $absentTools
+
+    $emptyManifest = Join-Path $case "empty-repo"
+    $emptyModern = Join-Path $emptyManifest "modern"
+    New-Item -ItemType Directory -Path $emptyModern -Force | Out-Null
+    $emptyRepoFull = [System.IO.Path]::GetFullPath($emptyManifest)
+    $emptyBuild = Join-CleanDeployPath -Parent (Join-Path $case "missing-source") -Child "zz_supplement.pak"
+    $emptyManifestPath = Join-Path $emptyRepoFull "reference"
+    $emptyManifestPath = Join-Path $emptyManifestPath "manifests"
+    $emptyManifestPath = Join-Path $emptyManifestPath "playdh-supplemental-fill.json"
+    New-CleanDeploySelfTestManifestFile -Path $emptyManifestPath -BuildPath $emptyBuild -ShaJson "null"
+    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $playFull, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $isolated
+    $dryText = [string]$dryChild.Text
+    $dryOk = ($dryChild.ExitCode -eq 0) -and ($dryText.Contains("[INFO] prereqs required for this run: none")) -and ($dryText.Contains("[WARN] cmake : MISSING")) -and ($dryText.Contains("[WARN] sqllocaldb : MISSING")) -and (-not $dryText.Contains("[FAIL] missing prereqs")) -and ($dryText.Contains("supplemental pak")) -and ($dryText.Contains("[SKIP] step 4 build")) -and ($dryText.Contains("[SKIP] step 5 ctest")) -and ($dryText.Contains("[SKIP] step 6 commercial-smoke")) -and ($dryText.Contains("build:") -and $dryText.Contains("SKIPPED"))
+    Assert-CleanDeploySelfTest -Name "SkipBuild SkipTests SkipSmoke does not fail when cmake and sqllocaldb are missing" -Condition $dryOk
+
+    $blocked = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-DryRun"
+    ) -Environment $isolated
+    $blockedText = [string]$blocked.Text
+    $blockedOk = ($blocked.ExitCode -eq 2) -and ($blockedText.Contains("[FAIL] missing prereqs (")) -and ($blockedText.Contains("sqllocaldb")) -and (-not $blockedText.Contains("supplemental pak")) -and ($blockedText.Contains("[INFO] prereqs required for this run: ")) -and ($blockedText.Contains("cmake")) -and ($blockedText.Contains("vs2022"))
+    Assert-CleanDeploySelfTest -Name "sqllocaldb missing without SkipTests still fails at prereqs" -Condition $blockedOk
+
+    $defaultText = $blockedText
+    $defaultLine = "[INFO] prereqs required for this run: cmake, vs2022, sqlcmd, sqllocaldb, odbc18, vcredist"
+    $defaultOk = ($blocked.ExitCode -eq 2) -and ($defaultText.Contains($defaultLine)) -and ($defaultText.Contains("[FAIL] missing prereqs (cmake, vs2022, sqlcmd, sqllocaldb, odbc18, vcredist)"))
+    Assert-CleanDeploySelfTest -Name "default run still requires cmake and vs2022" -Condition $defaultOk
+
+    $readyTree = Get-CleanDeploySelfTestTreeText -RootPath $case
+    $noSkipTests = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-SkipBuild"
+    ) -Environment $isolated
+    $noSkipText = [string]$noSkipTests.Text
+    $readyAfter = Get-CleanDeploySelfTestTreeText -RootPath $case
+    $targetPak = Join-CleanDeployPath -Parent $playFull -Child "zz_supplement.pak"
+    $noSkipOk = ($noSkipTests.ExitCode -ne 0) -and ($noSkipText.Contains("[ERROR] -SkipBuild requires -SkipTests")) -and (-not $noSkipText.Contains("copied supplemental pak")) -and (-not $noSkipText.Contains("prereqs required for this run")) -and (-not (Test-Path -LiteralPath $targetPak)) -and ($readyAfter -eq $readyTree)
+    Assert-CleanDeploySelfTest -Name "SkipBuild without SkipTests errors with no write" -Condition $noSkipOk
+
+    New-CleanDeploySelfTestManifestFile -Path $manifest -BuildPath $sourceFull -ShaJson ('"' + $sourceHash + '"')
+    $copiedChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $isolated
+    $copiedText = [string]$copiedChild.Text
+    $shaLine = "[INFO] supplemental pak sha256 actual=" + $sourceHash + " expected=" + $sourceHash
+    $copiedHash = ""
+    if (Test-Path -LiteralPath $targetPak) { $copiedHash = Get-CleanDeploySha256 -LiteralPath $targetPak }
+    $copiedOk = ($copiedChild.ExitCode -eq 0) -and ($copiedText.Contains($shaLine)) -and ($copiedText.Contains("[INFO] copied supplemental pak to ")) -and ($copiedHash -eq $sourceHash) -and ($copiedText.Contains("[SKIP] step 4 build")) -and ($copiedText.Contains("[SKIP] step 5 ctest")) -and ($copiedText.Contains("[SKIP] step 6 commercial-smoke"))
+    Assert-CleanDeploySelfTest -Name "SkipBuild success exits 0 only after pak copy and matching rehash" -Condition $copiedOk
+
+    $rehashPlay = Join-Path $case "playdh-rehash"
+    New-Item -ItemType Directory -Path $rehashPlay -Force | Out-Null
+    $rehashFull = [System.IO.Path]::GetFullPath($rehashPlay)
+    $rehashEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "rehash-env") -Absent $absentTools -RehashOverride "forced-rehash-mismatch"
+    $rehashChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $repoFull, "-PlayDhRoot", $rehashFull, "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $rehashEnv
+    $rehashText = [string]$rehashChild.Text
+    $rehashTarget = Join-CleanDeployPath -Parent $rehashFull -Child "zz_supplement.pak"
+    $rehashOk = ($rehashChild.ExitCode -ne 0) -and ($rehashText.Contains("[ERROR] supplemental pak sha256 mismatch")) -and (-not (Test-Path -LiteralPath $rehashTarget))
+    Assert-CleanDeploySelfTest -Name "post-copy rehash mismatch exits non-zero" -Condition $rehashOk
+
+    $badRoot = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $repoFull, "-PlayDhRoot", "relative\playdh", "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $isolated
+    $badText = [string]$badRoot.Text
+    $badOk = ($badRoot.ExitCode -ne 0) -and ($badText.Contains("[ERROR] -PlayDhRoot must be an absolute path:")) -and (-not $badText.Contains("[deploy] DONE"))
+    Assert-CleanDeploySelfTest -Name "invalid PlayDhRoot exits non-zero when build and tests are skipped" -Condition $badOk
+
+    $hostPlay = Join-Path $case "playdh-host-tools"
+    New-Item -ItemType Directory -Path $hostPlay -Force | Out-Null
+    $hostPlayFull = [System.IO.Path]::GetFullPath($hostPlay)
+    $hostEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "host-with-cmake") -Absent "sqllocaldb" -Present "cmake,vs2022"
+    $hostChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $hostPlayFull, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $hostEnv
+    $hostText = [string]$hostChild.Text
+    $hostRoot = "[INFO] PlayDH root: " + $hostPlayFull
+    $hostOk = ($hostChild.ExitCode -eq 0) -and $hostText.Contains($hostRoot) -and (-not $hostText.Contains("[ERROR]")) -and $hostText.Contains("[OK]   cmake : self-test-present") -and $hostText.Contains("[OK]   vs2022 : self-test-present") -and $hostText.Contains("[WARN] sqllocaldb : MISSING") -and $hostText.Contains("[INFO] prereqs required for this run: none")
+    if (-not $hostOk) {
+        Write-CleanDeploySelfTestChildDetail -Child $hostChild -Name "cmake present sqllocaldb absent"
+    }
+    Assert-CleanDeploySelfTest -Name "SkipBuild dry-run with cmake and vs2022 present and sqllocaldb absent prints the PlayDH root and exits 0" -Condition $hostOk
+}
+
 function Invoke-CleanDeploySelfTest {
     $script:CleanDeploySelfTestPass = 0
     $script:CleanDeploySelfTestFail = 0
@@ -1671,6 +1986,20 @@ if ($SelfTest) {
     $selfCode = Invoke-CleanDeploySelfTest
     if ($selfCode -ne 0) { exit 1 }
     exit 0
+}
+
+if ($SkipBuild -and -not $SkipTests) {
+    Write-Host "[ERROR] -SkipBuild requires -SkipTests"
+    exit 1
+}
+
+# Windows PowerShell 5.1 -File does not turn an uncaught throw into a
+# non-zero ERRORLEVEL. clean-deploy.cmd forwards that ERRORLEVEL.
+trap {
+    if ($script:CleanDeployTrapExit) { exit 1 }
+    $script:CleanDeployTrapExit = $true
+    try { $host.SetShouldExit(1) } catch { }
+    exit 1
 }
 
 # ----------------------------------------------------------------------------
@@ -1738,19 +2067,35 @@ $state.cmake      = Test-Tool "cmake"
 $state.git        = Test-Tool "git"
 $state.sqlcmd     = Test-Tool "sqlcmd"
 $state.sqllocaldb = Test-Tool "SqlLocalDB"
-$state.vcredist   = (Test-Path "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64") -or `
-                    (Test-Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64")
-$state.odbc18     = Test-Path "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\ODBC Driver 18 for SQL Server"
+try {
+    $state.vcredist = (Test-Path "HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64") -or `
+                      (Test-Path "HKLM:\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64")
+} catch {
+    $state.vcredist = $false
+}
+try {
+    $state.odbc18 = Test-Path "HKLM:\SOFTWARE\ODBC\ODBCINST.INI\ODBC Driver 18 for SQL Server"
+} catch {
+    $state.odbc18 = $false
+}
 $state.chocolatey = Test-Tool "choco"
 
-$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
-if (Test-Path -LiteralPath $vswhere) {
-    $state.vswhere = $vswhere
-    $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
-    if ($vs) { $state.vs2022 = $vs.Trim() }
+$programFilesX86 = ${env:ProgramFiles(x86)}
+if (-not [string]::IsNullOrWhiteSpace([string]$programFilesX86)) {
+    $vswhere = Join-Path $programFilesX86 "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path -LiteralPath $vswhere) {
+        $state.vswhere = $vswhere
+        $vs = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null
+        if ($vs) { $state.vs2022 = $vs.Trim() }
+    }
 }
 
 foreach ($key in @("cmake","git","sqlcmd","sqllocaldb","vcredist","odbc18","chocolatey","vs2022")) {
+    if (Test-CleanDeployPrereqForcedAbsent -Name $key) {
+        $state[$key] = $null
+    } elseif ((-not $state[$key]) -and (Test-CleanDeployPrereqForcedPresent -Name $key)) {
+        $state[$key] = "self-test-present"
+    }
     if ($state[$key]) {
         Ok "$key : $($state[$key])"
     } else {
@@ -1758,14 +2103,24 @@ foreach ($key in @("cmake","git","sqlcmd","sqllocaldb","vcredist","odbc18","choc
     }
 }
 
+$requiredResult = Get-CleanDeployRequiredPrereqNames -SkipBuild:$SkipBuild -SkipTests:$SkipTests -SkipSmoke:$SkipSmoke
+$requiredNames = @()
+if ($null -ne $requiredResult -and $null -ne $requiredResult.Names) {
+    $requiredNames = @($requiredResult.Names)
+}
+$requiredLabel = "none"
+if ($requiredNames.Count -gt 0) {
+    $requiredLabel = ($requiredNames -join ", ")
+}
+Write-Host ("[INFO] prereqs required for this run: " + $requiredLabel)
+
 $missing = @()
-foreach ($key in @("cmake","git","vs2022","sqlcmd","sqllocaldb","odbc18","vcredist")) {
+foreach ($key in $requiredNames) {
     if (-not $state[$key]) { $missing += $key }
 }
 
 if ($missing.Count -gt 0 -and -not $InstallPrereqs) {
-    Fail ("missing prereqs ({0}); rerun with -InstallPrereqs" -f ($missing -join ", "))
-    exit 2
+    Fail ("missing prereqs ({0}); rerun with -InstallPrereqs" -f ($missing -join ", ")) 2
 }
 
 
@@ -1797,32 +2152,36 @@ if (-not $supplement.Ok) { exit 1 }
 # Step 4: build
 # ----------------------------------------------------------------------------
 
-Step "build modern ($Config)"
-$buildScript = Join-Path $PSScriptRoot "build-modern.ps1"
-if (-not (Test-Path -LiteralPath $buildScript)) {
-    Fail "build-modern.ps1 not found at $buildScript"
-}
-
 $buildDir = Join-Path $RepoRoot "modern\build"
-if ($Force -and (Test-Path -LiteralPath $buildDir)) {
-    if ($DryRun) {
-        Info "would remove build dir $buildDir"
-    } else {
-        Remove-Item -LiteralPath $buildDir -Recurse -Force
-    }
-}
-
-if ($DryRun) {
-    Info ("would run: cmake --build modern/build --config  + chr 36 + Config")
+if ($SkipBuild) {
+    Write-Host "[SKIP] step 4 build"
 } else {
-    Write-Host ('  > ' + $buildScript + ' -Config ' + $Config) -ForegroundColor DarkGray
-    Push-Location -LiteralPath $RepoRoot
-    try {
-        & cmake --build modern/build --config $Config
-        if ($LASTEXITCODE -ne 0) { Fail ('cmake build failed exit $LASTEXITCODE; exit 3') }
-    } finally { Pop-Location }
+    Step "build modern ($Config)"
+    $buildScript = Join-Path $PSScriptRoot "build-modern.ps1"
+    if (-not (Test-Path -LiteralPath $buildScript)) {
+        Fail "build-modern.ps1 not found at $buildScript" 3
+    }
+
+    if ($Force -and (Test-Path -LiteralPath $buildDir)) {
+        if ($DryRun) {
+            Info "would remove build dir $buildDir"
+        } else {
+            Remove-Item -LiteralPath $buildDir -Recurse -Force
+        }
+    }
+
+    if ($DryRun) {
+        Info ("would run: cmake --build modern/build --config  + chr 36 + Config")
+    } else {
+        Write-Host ('  > ' + $buildScript + ' -Config ' + $Config) -ForegroundColor DarkGray
+        Push-Location -LiteralPath $RepoRoot
+        try {
+            & cmake --build modern/build --config $Config
+            if ($LASTEXITCODE -ne 0) { Fail ('cmake build failed exit $LASTEXITCODE; exit 3') 3 }
+        } finally { Pop-Location }
+    }
+    Ok 'build OK'
 }
-Ok 'build OK'
 # ----------------------------------------------------------------------------
 # Step 5: ctest
 # ----------------------------------------------------------------------------
@@ -1834,11 +2193,11 @@ if (-not $SkipTests) {
     } else {
         Write-Host ('  > ctest -C ' + $Config + ' --test-dir ' + $buildDir + ' --output-on-failure') -ForegroundColor DarkGray
         ctest -C $Config --test-dir $buildDir --output-on-failure
-        if ($LASTEXITCODE -ne 0) { Fail ('ctest failed exit $LASTEXITCODE; exit 4') }
+        if ($LASTEXITCODE -ne 0) { Fail ('ctest failed exit $LASTEXITCODE; exit 4') 4 }
     }
     Ok 'ctest OK'
 } else {
-    Warn ('ctest SKIPPED')
+    Write-Host "[SKIP] step 5 ctest"
 }
 # ----------------------------------------------------------------------------
 # Step 6: commercial smoke
@@ -1861,11 +2220,11 @@ if (-not $SkipSmoke) {
         }
         Write-Host ('  > ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs) -ForegroundColor DarkGray
         & $smokeScript -BuildDir $buildDir $smokeArgs -ErrorAction Stop
-        if ($LASTEXITCODE -ne 0) { Fail ('commercial-smoke failed exit $LASTEXITCODE; exit 5') }
+        if ($LASTEXITCODE -ne 0) { Fail ('commercial-smoke failed exit $LASTEXITCODE; exit 5') 5 }
     }
     Ok 'commercial-smoke OK'
 } else {
-    Warn ('commercial-smoke SKIPPED')
+    Write-Host "[SKIP] step 6 commercial-smoke"
 }
 if ($script:CleanDeploySupplementExpectedFilled) {
     if ($DryRun) {
@@ -1887,10 +2246,12 @@ Step "summary"
 Info "Repo:               $RepoRoot"
 Info "Config:             $Config"
 Info ("PlayDH root:        " + $script:CleanDeployChosenPlayDhRoot)
+Info ("build:              {0}" -f $(if ($SkipBuild) { "SKIPPED" } else { "PASSED" }))
 Info ("ctest:              {0}" -f $(if ($SkipTests) { "SKIPPED" } else { "PASSED" }))
 Info ("commercial-smoke:   {0}" -f $(if ($SkipSmoke) { "SKIPPED" } else { "PASSED" }))
 Info "Next step (manual): scripts/start-server.ps1 -Mode start (legacy stack) OR launch modern mxh_* servers from modern\build\bin"
 
 Write-Host ""
 Write-Host "[deploy] DONE" -ForegroundColor Green
+exit 0
 
