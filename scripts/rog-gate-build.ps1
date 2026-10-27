@@ -82,6 +82,9 @@
     After CTest, Map10 memory is sampled from mxh_render_tests.exe itself,
     launched with --gtest_filter for
     FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent.
+    Each sample reads WorkingSet64 and PeakWorkingSet64 every 50 ms.
+    The reported peak is the max PeakWorkingSet64. Fewer than 3 samples
+    fails the check and does not report a peak.
 
 .EXAMPLE
     PS> scripts\rog-gate-build.cmd -SelfTest
@@ -131,8 +134,9 @@ $script:RogGateE2ELauncherName = 'mxh_client_e2e_ctest'
 $script:RogGateNtfsCasePakSkipName = 'FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes'
 $script:RogGateNtfsCasePakSkipReason = 'filesystem cannot store Data.pak and data.pak as distinct files'
 $script:RogGateMap10TestName = 'FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent'
-$script:RogGateMap10SampleIntervalMs = 200
-$script:RogGateMap10SampleMethod = 'Get-Process WorkingSet64'
+$script:RogGateMap10SampleIntervalMs = 50
+$script:RogGateMap10MinSampleCount = 3
+$script:RogGateMap10SampleMethod = 'Get-Process WorkingSet64+PeakWorkingSet64'
 $script:RogGateMap10RenderTestsName = 'mxh_render_tests.exe'
 
 function ConvertTo-RogGateWindowsPath {
@@ -1971,7 +1975,8 @@ function Resolve-RogGateMap10MemoryCheck {
         [int]$SampledPid = 0,
         [AllowEmptyString()][string]$ImageName = '',
         [int]$SampleCount = 0,
-        [int64]$PeakBytes = 0,
+        [int64]$WorkingSetBytes = 0,
+        [int64]$PeakWorkingSetBytes = 0,
         [string[]]$ParsedCounts = @(),
         [string[]]$MountPaks = @(),
         [string[]]$EvidenceLines = @(),
@@ -1983,7 +1988,8 @@ function Resolve-RogGateMap10MemoryCheck {
     $evidenceList = @($EvidenceLines | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
     $pidMatch = ($LaunchedPid -gt 0) -and ($SampledPid -eq $LaunchedPid)
     $imageOk = -not [string]::IsNullOrWhiteSpace($ImageName)
-    $samplesOk = ($SampleCount -ge 1) -and ($PeakBytes -gt 0)
+    $minSamples = [int]$script:RogGateMap10MinSampleCount
+    $samplesOk = ($SampleCount -ge $minSamples) -and ($PeakWorkingSetBytes -gt 0)
     $pakOk = ($parsedList.Count -ge 1) -and ($mountList.Count -ge 1)
     $passed = ($TestStatus -eq 'Passed')
     $ok = $passed -and $pidMatch -and $imageOk -and $samplesOk -and $pakOk
@@ -2005,7 +2011,12 @@ function Resolve-RogGateMap10MemoryCheck {
         $line = $line + ' pak_parsed=' + ($parsedList -join ',')
         $line = $line + ' sampling=' + $method
         $line = $line + ' interval_ms=' + $interval
-        $line = $line + ' peak_bytes=' + [string]$PeakBytes
+        $line = $line + ' sample_count=' + [string]$SampleCount
+        $line = $line + ' working_set_bytes=' + [string]$WorkingSetBytes
+        $line = $line + ' peak_working_set_bytes=' + [string]$PeakWorkingSetBytes
+        # peak_bytes is the OS high-water mark, not the sampled WorkingSet64.
+        $line = $line + ' peak_bytes=' + [string]$PeakWorkingSetBytes
+        $line = $line + ' peak_source=PeakWorkingSet64'
         $lines.Add($line)
     } else {
         $why = $Detail
@@ -2016,6 +2027,8 @@ function Resolve-RogGateMap10MemoryCheck {
                 $why = 'sampled pid does not match the launched gtest process'
             } elseif ($SampleCount -lt 1) {
                 $why = 'no samples; cannot verify pid'
+            } elseif ($SampleCount -lt $minSamples) {
+                $why = 'sample_count=' + [string]$SampleCount + ' is below ' + [string]$minSamples
             } elseif (-not $pakOk) {
                 $why = 'pak evidence incomplete'
             } elseif (-not $imageOk) {
@@ -2031,6 +2044,7 @@ function Resolve-RogGateMap10MemoryCheck {
         $line = $line + ' image=' + $imagePrint
         $line = $line + ' sampling=' + $method
         $line = $line + ' interval_ms=' + $interval
+        $line = $line + ' sample_count=' + [string]$SampleCount
         $line = $line + ' detail=' + $why
         $lines.Add($line)
     }
@@ -2143,17 +2157,18 @@ function Invoke-RogGateSampledProcess {
         [string[]]$Arguments = @(),
         [string]$WorkingDirectory = '',
         $Environment = $null,
-        [int]$IntervalMs = 200
+        [int]$IntervalMs = 50
     )
 
     $result = [pscustomobject]@{
-        ExitCode    = 1
-        Text        = ''
-        LaunchedPid = 0
-        SampledPid  = 0
-        ImageName   = ''
-        SampleCount = 0
-        PeakBytes   = [int64]0
+        ExitCode             = 1
+        Text                 = ''
+        LaunchedPid          = 0
+        SampledPid           = 0
+        ImageName            = ''
+        SampleCount          = 0
+        WorkingSetBytes      = [int64]0
+        PeakWorkingSetBytes  = [int64]0
     }
     if ($IntervalMs -lt 1) {
         $IntervalMs = 1
@@ -2181,7 +2196,8 @@ function Invoke-RogGateSampledProcess {
         $result.LaunchedPid = [int]$process.Id
         $outTask = $process.StandardOutput.ReadToEndAsync()
         $errTask = $process.StandardError.ReadToEndAsync()
-        $peak = [int64]0
+        $workingSetMax = [int64]0
+        $peakWorkingSetMax = [int64]0
         $count = 0
         $sampled = 0
         $image = ''
@@ -2194,11 +2210,15 @@ function Invoke-RogGateSampledProcess {
                 if ($process.HasExited) {
                     break
                 }
-                $count = $count + 1
                 $sampled = [int]$proc.Id
                 $ws = [int64]$proc.WorkingSet64
-                if ($ws -gt $peak) {
-                    $peak = $ws
+                $pws = [int64]$proc.PeakWorkingSet64
+                $count = $count + 1
+                if ($ws -gt $workingSetMax) {
+                    $workingSetMax = $ws
+                }
+                if ($pws -gt $peakWorkingSetMax) {
+                    $peakWorkingSetMax = $pws
                 }
                 if ([string]::IsNullOrWhiteSpace($image)) {
                     $moduleName = ''
@@ -2244,7 +2264,8 @@ function Invoke-RogGateSampledProcess {
         $result.SampledPid = $sampled
         $result.ImageName = $image
         $result.SampleCount = $count
-        $result.PeakBytes = $peak
+        $result.WorkingSetBytes = $workingSetMax
+        $result.PeakWorkingSetBytes = $peakWorkingSetMax
         return $result
     } catch {
         $result.Text = [string]$_.Exception.Message
@@ -2312,7 +2333,7 @@ function Invoke-RogGateMap10DirectProbe {
     $sample = Invoke-RogGateSampledProcess -FileName $exe -Arguments @($filter) -WorkingDirectory $work -Environment $envMap -IntervalMs $script:RogGateMap10SampleIntervalMs
     $status = Get-RogGateMap10GtestStatus -Text $sample.Text -ExitCode ([int]$sample.ExitCode) -TestName $script:RogGateMap10TestName
     $pak = Get-RogGateMap10PakEvidence -Text $sample.Text
-    return (Resolve-RogGateMap10MemoryCheck -TestStatus $status -LaunchedPid ([int]$sample.LaunchedPid) -SampledPid ([int]$sample.SampledPid) -ImageName ([string]$sample.ImageName) -SampleCount ([int]$sample.SampleCount) -PeakBytes ([int64]$sample.PeakBytes) -ParsedCounts @($pak.ParsedCounts) -MountPaks @($pak.MountPaks) -EvidenceLines @($pak.EvidenceLines))
+    return (Resolve-RogGateMap10MemoryCheck -TestStatus $status -LaunchedPid ([int]$sample.LaunchedPid) -SampledPid ([int]$sample.SampledPid) -ImageName ([string]$sample.ImageName) -SampleCount ([int]$sample.SampleCount) -WorkingSetBytes ([int64]$sample.WorkingSetBytes) -PeakWorkingSetBytes ([int64]$sample.PeakWorkingSetBytes) -ParsedCounts @($pak.ParsedCounts) -MountPaks @($pak.MountPaks) -EvidenceLines @($pak.EvidenceLines))
 }
 
 function New-RogGateE2EPortResult {
@@ -3271,30 +3292,35 @@ function Invoke-RogGateSelfTest {
     $statusOk = ($statusPassed -eq 'Passed') -and ($statusFailed -eq 'Failed') -and ($statusSkipped -eq 'Skipped') -and ($statusEmpty -eq 'NotRun') -and ($statusExit -eq 'Failed') -and ($statusOkExit -eq 'Failed')
     Assert-RogGateSelfTest -Name 'Map10 gtest status is Passed, Failed, Skipped, or NotRun' -Condition $statusOk
 
-    $mapPass = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 1598758912 -ParsedCounts @('120', '40') -MountPaks @('Map.pak', 'Char.pak') -EvidenceLines @('[PakFile] parsed 120 entries, raw_size=9', '[pak] mount order: 1=Map.pak(1) 2=Char.pak(2)')
+    $mapPass = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 1598758912 -ParsedCounts @('120', '40') -MountPaks @('Map.pak', 'Char.pak') -EvidenceLines @('[PakFile] parsed 120 entries, raw_size=9', '[pak] mount order: 1=Map.pak(1) 2=Char.pak(2)')
     $mapPassText = (@($mapPass.Lines) -join "`n")
-    $mapPassOk = $mapPass.Ok -and ($mapPassText.Contains('peak_bytes=1598758912')) -and ($mapPassText.Contains('pid=42')) -and ($mapPassText.Contains('image=mxh_render_tests.exe')) -and ($mapPassText.Contains('map=10')) -and ($mapPassText.Contains('paks=Map.pak,Char.pak')) -and ($mapPassText.Contains('[PakFile] parsed')) -and ($mapPassText.Contains('mount order:')) -and ($mapPassText.Contains('sampling=Get-Process WorkingSet64')) -and ($mapPassText.Contains('interval_ms=200')) -and ($mapPassText.Contains('result=Passed')) -and ($mapPassText.Contains($statusName))
-    Assert-RogGateSelfTest -Name 'Map10 pass line records pid, image, paks, and peak' -Condition $mapPassOk
+    $mapPassOk = $mapPass.Ok -and ($mapPassText.Contains('peak_bytes=1598758912')) -and ($mapPassText.Contains('peak_working_set_bytes=1598758912')) -and ($mapPassText.Contains('working_set_bytes=1400000001')) -and ($mapPassText.Contains('peak_source=PeakWorkingSet64')) -and ($mapPassText.Contains('sample_count=3')) -and ($mapPassText.Contains('pid=42')) -and ($mapPassText.Contains('image=mxh_render_tests.exe')) -and ($mapPassText.Contains('map=10')) -and ($mapPassText.Contains('paks=Map.pak,Char.pak')) -and ($mapPassText.Contains('[PakFile] parsed')) -and ($mapPassText.Contains('mount order:')) -and ($mapPassText.Contains('sampling=Get-Process WorkingSet64+PeakWorkingSet64')) -and ($mapPassText.Contains('interval_ms=50')) -and ($mapPassText.Contains('result=Passed')) -and ($mapPassText.Contains($statusName))
+    Assert-RogGateSelfTest -Name 'Map10 pass line records pid, image, paks, and PeakWorkingSet64' -Condition $mapPassOk
 
-    $mapFailed = Resolve-RogGateMap10MemoryCheck -TestStatus 'Failed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapFailed = Resolve-RogGateMap10MemoryCheck -TestStatus 'Failed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
     $mapFailedText = (@($mapFailed.Lines) -join "`n")
     $mapFailedOk = (-not $mapFailed.Ok) -and ($mapFailedText.Contains('[FAIL]')) -and (-not $mapFailedText.Contains('peak_bytes')) -and (-not $mapFailedText.Contains('999111')) -and ($mapFailedText.Contains('result=Failed'))
     Assert-RogGateSelfTest -Name 'Map10 prints no peak when the gtest failed' -Condition $mapFailedOk
 
-    $mapPid = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 99 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapPid = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 99 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
     $mapPidText = (@($mapPid.Lines) -join "`n")
     $mapPidOk = (-not $mapPid.Ok) -and ($mapPidText.Contains('[FAIL]')) -and (-not $mapPidText.Contains('peak_bytes')) -and (-not $mapPidText.Contains('999111')) -and ($mapPidText.Contains('pid=42')) -and ($mapPidText.Contains('sampled_pid=99'))
     Assert-RogGateSelfTest -Name 'Map10 prints no peak when the sampled pid mismatches' -Condition $mapPidOk
 
-    $mapMissing = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 2 -PeakBytes 888222 -ParsedCounts @() -MountPaks @() -EvidenceLines @('[       OK ] FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent')
+    $mapMissing = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 3 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 888222 -ParsedCounts @() -MountPaks @() -EvidenceLines @('[       OK ] FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent')
     $mapMissingText = (@($mapMissing.Lines) -join "`n")
     $mapMissingOk = (-not $mapMissing.Ok) -and ($mapMissingText.Contains('[FAIL]')) -and (-not $mapMissingText.Contains('peak_bytes')) -and (-not $mapMissingText.Contains('888222'))
     Assert-RogGateSelfTest -Name 'Map10 prints no peak when pak evidence is missing' -Condition $mapMissingOk
 
-    $mapUnsampled = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 0 -PeakBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapUnsampled = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 0 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 999111 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
     $mapUnsampledText = (@($mapUnsampled.Lines) -join "`n")
     $mapUnsampledOk = (-not $mapUnsampled.Ok) -and ($mapUnsampledText.Contains('[FAIL]')) -and (-not $mapUnsampledText.Contains('peak_bytes')) -and (-not $mapUnsampledText.Contains('999111')) -and ($mapUnsampledText.Contains('cannot verify pid'))
     Assert-RogGateSelfTest -Name 'Map10 prints no peak when no sample verified the pid' -Condition $mapUnsampledOk
+
+    $mapFew = Resolve-RogGateMap10MemoryCheck -TestStatus 'Passed' -LaunchedPid 42 -SampledPid 42 -ImageName 'mxh_render_tests.exe' -SampleCount 2 -WorkingSetBytes 1400000001 -PeakWorkingSetBytes 777333 -ParsedCounts @('1') -MountPaks @('Map.pak') -EvidenceLines @('[PakFile] parsed 1 entries, raw_size=1', '[pak] mount order: 1=Map.pak(1)')
+    $mapFewText = (@($mapFew.Lines) -join "`n")
+    $mapFewOk = (-not $mapFew.Ok) -and ($mapFewText.Contains('[FAIL]')) -and ($mapFewText.Contains('sample_count=2')) -and ($mapFewText.Contains('below 3')) -and (-not $mapFewText.Contains('peak_bytes')) -and (-not $mapFewText.Contains('777333')) -and (-not $mapFewText.Contains('1400000001'))
+    Assert-RogGateSelfTest -Name 'Map10 prints no peak when fewer than 3 samples were taken' -Condition $mapFewOk
 
     $mapNotRun = Resolve-RogGateMap10MemoryCheck -TestStatus 'NotRun' -Detail 'mxh_render_tests.exe was not found'
     $mapNotRunText = (@($mapNotRun.Lines) -join "`n")
@@ -3312,8 +3338,8 @@ function Invoke-RogGateSelfTest {
     }
     $sleepOk = $false
     if (-not [string]::IsNullOrWhiteSpace($sleepFile) -and (Test-Path -LiteralPath $sleepFile)) {
-        $sleepSample = Invoke-RogGateSampledProcess -FileName $sleepFile -Arguments $sleepArgs -IntervalMs 200
-        $sleepOk = ($sleepSample.LaunchedPid -gt 0) -and ($sleepSample.SampledPid -eq $sleepSample.LaunchedPid) -and ($sleepSample.SampleCount -ge 1) -and ($sleepSample.PeakBytes -gt 0)
+        $sleepSample = Invoke-RogGateSampledProcess -FileName $sleepFile -Arguments $sleepArgs -IntervalMs 50
+        $sleepOk = ($sleepSample.LaunchedPid -gt 0) -and ($sleepSample.SampledPid -eq $sleepSample.LaunchedPid) -and ($sleepSample.SampleCount -ge 3) -and ($sleepSample.WorkingSetBytes -gt 0) -and ($sleepSample.PeakWorkingSetBytes -gt 0)
     }
     Assert-RogGateSelfTest -Name 'sampler records the launched process pid' -Condition $sleepOk
 
