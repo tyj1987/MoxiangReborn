@@ -190,6 +190,40 @@ class PakWriterTest(unittest.TestCase):
         self.assertIn("WARN", err.getvalue())
         self.assertTrue(out.is_file())
 
+    def test_read_back_rejects_name_differing_only_by_case(self):
+        entries = sorted(self.files.items())
+        bad = [("b_tree.mod" if n == "b_tree.MOD" else n, d) for n, d in entries]
+        pak = self.tmp / "case.pak"
+        pak.write_bytes(pak_writer.build_pak_bytes(bad))
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "case-sensitive"):
+            pak_writer.verify_pak(pak, entries)
+        pak.write_bytes(pak_writer.build_pak_bytes(entries))
+        pak_writer.verify_pak(pak, entries)
+
+    def test_read_back_rejects_changed_bytes_same_size(self):
+        entries = sorted(self.files.items())
+        bad = [(n, bytes([d[0] ^ 1]) + d[1:] if n == "A.stm" else d) for n, d in entries]
+        pak = self.tmp / "bytes.pak"
+        pak.write_bytes(pak_writer.build_pak_bytes(bad))
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "bytes mismatch"):
+            pak_writer.verify_pak(pak, entries)
+
+    def test_main_exits_nonzero_when_read_back_name_case_differs(self):
+        real = pak_writer.build_pak_bytes
+        def lowered(entries):
+            return real([(n.lower(), d) for n, d in entries])
+        out = self.tmp / "out" / "zz_supplement.pak"
+        pak_writer.build_pak_bytes = lowered
+        try:
+            with redirect_stderr(io.StringIO()), redirect_stdout(io.StringIO()):
+                code = pak_writer.main(["--manifest", str(self._manifest_file()),
+                                        "--input-dir", str(self.src), "--out", str(out),
+                                        "--no-conflict-check"])
+        finally:
+            pak_writer.build_pak_bytes = real
+        self.assertNotEqual(code, 0)
+        self.assertFalse(out.exists())
+
     def test_checked_in_manifest_is_names_only(self):
         path = Path(__file__).resolve().parents[4] / "reference" / "manifests" / "playdh-supplemental-fill.json"
         doc = json.loads(path.read_text(encoding="utf-8"))
