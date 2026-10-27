@@ -1,22 +1,13 @@
 """SWorking .bin reader.
 
-Installed Resource .bin files can use the same length-prefixed container
-family as obfuscated .map entries. ``read_mh_bin`` detects that container
-and refuses it. The header is not stripped and the body is not decoded.
-No key is stored or derived.
+Default reads follow the mainline C++ reader, including the R-17 layout
+``[uint32 file_size == total size][payload]`` with positional type 0.
+That path is not refused.
 
-Detection rule (same as ``mxh::compat::is_obfuscated_bin_container``):
-
-* the buffer is at least 20 bytes and fits in a uint32
-* the first little-endian uint32 equals the buffer size
-* the buffer is not a plausible plain SWorking .bin
-
-A plain SWorking file is plausible when the classic header's ``file_size``
-fits, either as header + crc + payload + crc or as header + payload. A
-plain file whose version field happens to equal the file size stays on
-that path, including a file shorter than 20 bytes. Buffers of 5..19 bytes
-are too small for the container. The historical positional type-0 read
-remains only when such a buffer is not a plausible plain SWorking .bin.
+The installed client container uses the same first field. It is refused
+only when the caller passes profile ``playdh-current`` (function argument
+or ``--profile playdh-current``). The refusal does not strip the header
+or decode the body. ``sworking-2008-reference`` matches the default.
 """
 
 from __future__ import annotations
@@ -29,11 +20,17 @@ from pathlib import Path
 
 
 MAX_FILE_SIZE = 256 * 1024 * 1024
-CONTAINER_HEADER_BYTES = 20
+PLAYDH_CURRENT = "playdh-current"
+SWORKING_REFERENCE = "sworking-2008-reference"
+KNOWN_PROFILES = (PLAYDH_CURRENT, SWORKING_REFERENCE)
 
 
 class ObfuscatedBinContainerError(ValueError):
-    """The bytes are an installed Resource .bin obfuscated container."""
+    """Installed-profile refusal. The message contains ``obfuscated container``."""
+
+
+class UnknownResourceProfileError(ValueError):
+    """``profile`` is not a known resource profile id."""
 
 
 @dataclass
@@ -51,30 +48,17 @@ def _obfuscated_message(name: str, size: int) -> str:
     return f"ERROR [bin] obfuscated container: {shown} (bytes={size})"
 
 
-def plausible_plain_sworking_bin(data: bytes) -> bool:
-    """True when the classic MHFileEx header's payload length fits.
+def installed_client_container_shape(data: bytes) -> bool:
+    """True when ``playdh-current`` must refuse the buffer.
 
-    This is the same gate the C++ reader uses. It does not transform bytes.
+    The check is ``len >= 20`` and the first little-endian uint32 equals
+    the length. It is not used by the default reader. R-17 uses the same
+    first field and is still decoded there.
     """
-    if len(data) < 12:
-        return False
-    _version, _type, file_size = struct.unpack_from("<III", data, 0)
-    if file_size > MAX_FILE_SIZE:
-        return False
-    return len(data) >= 14 + file_size or len(data) >= 12 + file_size
-
-
-def is_obfuscated_bin_container(data: bytes) -> bool:
-    """True for an installed Resource .bin obfuscated container.
-
-    Shape check only. See the module docstring for the rule.
-    """
-    if len(data) < CONTAINER_HEADER_BYTES or len(data) > 0xFFFFFFFF:
+    if len(data) < 20 or len(data) > 0xFFFFFFFF:
         return False
     (declared,) = struct.unpack_from("<I", data, 0)
-    if declared != len(data):
-        return False
-    return not plausible_plain_sworking_bin(data)
+    return declared == len(data)
 
 
 def decrypt_bin_payload(encrypted: bytes, type_: int) -> bytes:
@@ -99,18 +83,27 @@ def encrypt_bin_payload(raw: bytes, type_: int) -> bytes:
     return bytes(out)
 
 
-def read_mh_bin_bytes(data: bytes, name: str = "(unnamed)") -> MhBin:
+def read_mh_bin_bytes(
+    data: bytes,
+    name: str = "(unnamed)",
+    profile: str | None = None,
+) -> MhBin:
     """Read one .bin buffer.
 
-    Raises ``ObfuscatedBinContainerError`` (a ``ValueError``) whose message
-    contains ``obfuscated container`` when the buffer is that container.
+    ``profile`` None or ``sworking-2008-reference`` uses mainline semantics,
+    including R-17 for any buffer of at least 5 bytes whose first uint32
+    equals the length. ``playdh-current`` refuses that shape at 20 bytes
+    or more and does not decode it. Any other profile raises
+    ``UnknownResourceProfileError``.
     """
-    if is_obfuscated_bin_container(data):
+    if profile not in (None, "", SWORKING_REFERENCE, PLAYDH_CURRENT):
+        raise UnknownResourceProfileError(f"unknown resource profile: {profile}")
+    if profile == PLAYDH_CURRENT and installed_client_container_shape(data):
         raise ObfuscatedBinContainerError(_obfuscated_message(name, len(data)))
 
-    if 5 <= len(data) < CONTAINER_HEADER_BYTES:
+    if len(data) >= 5:
         (declared,) = struct.unpack_from("<I", data, 0)
-        if declared == len(data) and not plausible_plain_sworking_bin(data):
+        if declared == len(data):
             payload = data[4:]
             return MhBin(
                 version=0x00000001,
@@ -136,18 +129,24 @@ def read_mh_bin_bytes(data: bytes, name: str = "(unnamed)") -> MhBin:
     return MhBin(version, type_, file_size, decrypt_bin_payload(payload, type_))
 
 
-def read_mh_bin(path: Path | str) -> MhBin:
+def read_mh_bin(path: Path | str, profile: str | None = None) -> MhBin:
     """Read one .bin file from disk. See ``read_mh_bin_bytes``."""
     file_path = Path(path)
-    return read_mh_bin_bytes(file_path.read_bytes(), file_path.name)
+    return read_mh_bin_bytes(file_path.read_bytes(), file_path.name, profile)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read one SWorking .bin file.")
     parser.add_argument("path", type=Path)
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help="Resource profile. Default and sworking-2008-reference keep R-17. "
+        "playdh-current refuses the installed container.",
+    )
     args = parser.parse_args(argv)
     try:
-        parsed = read_mh_bin(args.path)
+        parsed = read_mh_bin(args.path, args.profile)
     except ObfuscatedBinContainerError as exc:
         print(str(exc), file=sys.stderr)
         return 1

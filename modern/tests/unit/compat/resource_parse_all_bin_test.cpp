@@ -3,25 +3,14 @@
 //
 // Phase E1 / C-Batch-E1: targets all 59 deploy/Resource .bin files
 // (the legacy server shipping set). Each file is opened via
-// read_mh_bin. The project baseline is plain SWorking: every file must
-// return MhError::Ok, and the payload size is checked against
-// header.file_size. Misclassifying a real SWorking .bin as an obfuscated
-// container fails the test.
-//
-// The installed client tree is the existing resource profile
-// playdh-current. Set MXH_RESOURCE_PROFILE=playdh-current only when the
-// resource directory (MXH_PLAYDH_ROOT, or the upward search) is that
-// installed tree. That is the only setting that accepts
-// MhError::ObfuscatedContainer as a refusal: the message must contain
-// "obfuscated container" and the payload stays empty. Unset, empty,
-// sworking-2008-reference, and any other value stay strict.
+// read_mh_bin, expected MhError::Ok, header sanity-checked, and
+// payload size asserted against header.file_size.
 
 #include "mxh/compat/mh_file_ex.hpp"
 
 #define _SILENCE_CXX20_U8PATH_DEPRECATION_WARNING
 #include <gtest/gtest.h>
 
-#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -100,35 +89,6 @@ fs::path find_server_resource_dir() {
     return {};
 }
 
-// Installed-client assertion profile. Reuses the resource profile id
-// playdh-current (see ClientSettings / read_server_mh_bin). This does not
-// change find_resource_dir(); point that search with MXH_PLAYDH_ROOT.
-// Default and every other MXH_RESOURCE_PROFILE value are the SWorking
-// baseline and require ok().
-inline bool resource_profile_accepts_obfuscated_container() {
-    const char* value = std::getenv("MXH_RESOURCE_PROFILE");
-    return value != nullptr && std::string(value) == "playdh-current";
-}
-
-// Plain files continue into the caller's size checks. ObfuscatedContainer
-// is a successful refusal only for MXH_RESOURCE_PROFILE=playdh-current;
-// stop before the payload-size checks, which describe a decoded body this
-// reader must not produce. Otherwise ObfuscatedContainer fails
-// ASSERT_TRUE(ok()), same as any other read error.
-#define MXH_EXPECT_PLAIN_OR_OBFUSCATED(result, name)                           \
-    do {                                                                       \
-        if (resource_profile_accepts_obfuscated_container() &&                 \
-            (result).error == mxh::compat::MhError::ObfuscatedContainer) {    \
-            EXPECT_NE((result).message.find("obfuscated container"),          \
-                      std::string::npos)                                       \
-                << (name) << " " << (result).message;                          \
-            EXPECT_TRUE((result).value.data.empty()) << (name);               \
-            return;                                                            \
-        }                                                                      \
-        ASSERT_TRUE((result).ok())                                            \
-            << (name) << " err=" << static_cast<int>((result).error);         \
-    } while (0)
-
 }  // namespace
 
 TEST(MxhResourceParse, ReadMhBin_AbilityBaseInfo_bin) {
@@ -138,7 +98,7 @@ TEST(MxhResourceParse, ReadMhBin_AbilityBaseInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -152,7 +112,7 @@ TEST(MxhResourceParse, ReadMhBin_AbilityCalcInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -166,7 +126,7 @@ TEST(MxhResourceParse, ReadMhBin_AvatarEquip_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -182,7 +142,7 @@ TEST(MxhResourceParse, ReadMhBin_BobusangInfo_bin) {
     if (!fs::exists(p) && !playdh.empty()) p = playdh / "Server" / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -196,7 +156,7 @@ TEST(MxhResourceParse, ReadMhBin_CastleGateList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -210,7 +170,7 @@ TEST(MxhResourceParse, ReadMhBin_CharacterExpPoint_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -224,7 +184,7 @@ TEST(MxhResourceParse, ReadMhBin_CostumeSkinItemList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -238,7 +198,7 @@ TEST(MxhResourceParse, ReadMhBin_Dealitem_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -252,7 +212,7 @@ TEST(MxhResourceParse, ReadMhBin_FilterWord_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -266,7 +226,7 @@ TEST(MxhResourceParse, ReadMhBin_FlagNpcInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -280,7 +240,7 @@ TEST(MxhResourceParse, ReadMhBin_GuildLevel_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -294,7 +254,7 @@ TEST(MxhResourceParse, ReadMhBin_GuildPointPlustimeList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -308,7 +268,7 @@ TEST(MxhResourceParse, ReadMhBin_ItemList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -322,7 +282,7 @@ TEST(MxhResourceParse, ReadMhBin_ItemMixList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -336,7 +296,7 @@ TEST(MxhResourceParse, ReadMhBin_Item_RareItemInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -350,7 +310,7 @@ TEST(MxhResourceParse, ReadMhBin_ItemdupOption_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -364,7 +324,7 @@ TEST(MxhResourceParse, ReadMhBin_JobSkillList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -378,7 +338,7 @@ TEST(MxhResourceParse, ReadMhBin_Jobskill_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -392,7 +352,7 @@ TEST(MxhResourceParse, ReadMhBin_KyungGongInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -406,7 +366,7 @@ TEST(MxhResourceParse, ReadMhBin_MapChange_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -420,7 +380,7 @@ TEST(MxhResourceParse, ReadMhBin_MapKindInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -434,7 +394,7 @@ TEST(MxhResourceParse, ReadMhBin_MonsterDropItemList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -448,7 +408,7 @@ TEST(MxhResourceParse, ReadMhBin_MonsterList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -462,7 +422,7 @@ TEST(MxhResourceParse, ReadMhBin_NpcList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -476,7 +436,7 @@ TEST(MxhResourceParse, ReadMhBin_PaneltyTime_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -490,7 +450,7 @@ TEST(MxhResourceParse, ReadMhBin_PartyPlustimeInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -515,7 +475,7 @@ TEST(MxhResourceParse, ReadMhBin_PenaltyTime_bin) {
     }
     if (p.empty()) GTEST_SKIP() << "PenaltyTime.bin/PaneltyTime.bin not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, matched);
+    ASSERT_TRUE(r.ok()) << matched << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << matched << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << matched;
@@ -529,7 +489,7 @@ TEST(MxhResourceParse, ReadMhBin_PetBuffList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -543,7 +503,7 @@ TEST(MxhResourceParse, ReadMhBin_PetList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -557,7 +517,7 @@ TEST(MxhResourceParse, ReadMhBin_PetRule_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -571,7 +531,7 @@ TEST(MxhResourceParse, ReadMhBin_PyogukListInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -585,7 +545,7 @@ TEST(MxhResourceParse, ReadMhBin_SiegeWarMapInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -599,7 +559,7 @@ TEST(MxhResourceParse, ReadMhBin_SkillAreaList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -613,7 +573,7 @@ TEST(MxhResourceParse, ReadMhBin_SkillList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -627,7 +587,7 @@ TEST(MxhResourceParse, ReadMhBin_SkillOptionList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -641,7 +601,7 @@ TEST(MxhResourceParse, ReadMhBin_SkillTree_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -655,7 +615,7 @@ TEST(MxhResourceParse, ReadMhBin_SkillchangeList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -669,7 +629,7 @@ TEST(MxhResourceParse, ReadMhBin_SkinSelectItemList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -683,7 +643,7 @@ TEST(MxhResourceParse, ReadMhBin_StateInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -697,7 +657,7 @@ TEST(MxhResourceParse, ReadMhBin_StaticNpc_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -711,7 +671,7 @@ TEST(MxhResourceParse, ReadMhBin_SuryunLevelChange_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -725,7 +685,7 @@ TEST(MxhResourceParse, ReadMhBin_SuryunMonster_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -739,7 +699,7 @@ TEST(MxhResourceParse, ReadMhBin_Suryundata_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -753,7 +713,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanBreakList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -767,7 +727,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -781,7 +741,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanMapDropInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -795,7 +755,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanMixList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -809,7 +769,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanPartsKind_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -823,7 +783,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanRule_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -837,7 +797,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanUpgradeInfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -851,7 +811,7 @@ TEST(MxhResourceParse, ReadMhBin_UniqueItemMixList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -865,7 +825,7 @@ TEST(MxhResourceParse, ReadMhBin_UniqueItemOptionList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -879,7 +839,7 @@ TEST(MxhResourceParse, ReadMhBin_hideitemlock_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -893,7 +853,7 @@ TEST(MxhResourceParse, ReadMhBin_itemReinforceList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -907,7 +867,7 @@ TEST(MxhResourceParse, ReadMhBin_item_RareReinforceList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -921,7 +881,7 @@ TEST(MxhResourceParse, ReadMhBin_itembreak_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -935,7 +895,7 @@ TEST(MxhResourceParse, ReadMhBin_sat_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -949,7 +909,7 @@ TEST(MxhResourceParse, ReadMhBin_setitem_opt_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -963,7 +923,7 @@ TEST(MxhResourceParse, ReadMhBin_tacticstartinfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -979,7 +939,7 @@ TEST(MxhResourceParseClient, ReadMhBin_AvatarItemException_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -994,7 +954,7 @@ TEST(MxhResourceParseClient, ReadMhBin_BRList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1009,7 +969,7 @@ TEST(MxhResourceParseClient, ReadMhBin_BRTList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1024,7 +984,7 @@ TEST(MxhResourceParseClient, ReadMhBin_CharMake_SelectOption_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1039,7 +999,7 @@ TEST(MxhResourceParseClient, ReadMhBin_default_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1054,7 +1014,7 @@ TEST(MxhResourceParseClient, ReadMhBin_EffectList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1069,7 +1029,7 @@ TEST(MxhResourceParseClient, ReadMhBin_FaceList_M_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1084,7 +1044,7 @@ TEST(MxhResourceParseClient, ReadMhBin_FaceList_W_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1099,7 +1059,7 @@ TEST(MxhResourceParseClient, ReadMhBin_HairList_M_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1114,7 +1074,7 @@ TEST(MxhResourceParseClient, ReadMhBin_HairList_W_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1129,7 +1089,7 @@ TEST(MxhResourceParseClient, ReadMhBin_IllusionMaterial_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1144,7 +1104,7 @@ TEST(MxhResourceParseClient, ReadMhBin_ItemChxList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1159,7 +1119,7 @@ TEST(MxhResourceParseClient, ReadMhBin_ModList_M_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1174,7 +1134,7 @@ TEST(MxhResourceParseClient, ReadMhBin_ModList_T_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1189,7 +1149,7 @@ TEST(MxhResourceParseClient, ReadMhBin_ModList_W_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1204,7 +1164,7 @@ TEST(MxhResourceParseClient, ReadMhBin_MonsterInfoInMap_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1219,7 +1179,7 @@ TEST(MxhResourceParseClient, ReadMhBin_MonsterSpeechList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1234,7 +1194,7 @@ TEST(MxhResourceParseClient, ReadMhBin_motionList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1249,7 +1209,7 @@ TEST(MxhResourceParseClient, ReadMhBin_NpcChxList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1264,7 +1224,7 @@ TEST(MxhResourceParseClient, ReadMhBin_PetSpeechList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1279,7 +1239,7 @@ TEST(MxhResourceParseClient, ReadMhBin_PhysiqueHairList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1294,7 +1254,7 @@ TEST(MxhResourceParseClient, ReadMhBin_PlusItemEffect_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1309,7 +1269,7 @@ TEST(MxhResourceParseClient, ReadMhBin_PreLoadData_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1324,7 +1284,7 @@ TEST(MxhResourceParseClient, ReadMhBin_PremierSkill_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1339,7 +1299,7 @@ TEST(MxhResourceParseClient, ReadMhBin_SFList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1354,7 +1314,7 @@ TEST(MxhResourceParseClient, ReadMhBin_shadowGhost_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1369,7 +1329,7 @@ TEST(MxhResourceParseClient, ReadMhBin_Tooltipinfo_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1384,7 +1344,7 @@ TEST(MxhResourceParseClient, ReadMhBin_UserCommandList_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1399,7 +1359,7 @@ TEST(MxhResourceParseClient, ReadMhBin_WeatherEffect_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1414,7 +1374,7 @@ TEST(MxhResourceParse, ReadMhBin_TitanSpellCostPerMap_bin) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size)
         << kName << " payload size mismatch";
     EXPECT_GT(r.value.header.file_size, 0u) << kName;
@@ -1432,7 +1392,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_AttribItemChangeRato) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1449,7 +1409,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_BobusangInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1466,7 +1426,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_BossMonsterfileList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1483,7 +1443,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_BossReward) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1500,7 +1460,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Boss_CowI) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1517,7 +1477,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Boss_Cowf) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1534,7 +1494,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Boss_Cowking) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1551,7 +1511,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Boss_Emperor) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1568,7 +1528,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Boss_EmperorJr) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1585,7 +1545,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_DropRate) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1602,7 +1562,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ExpPenalty) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1619,7 +1579,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_FieldBossDropItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1636,7 +1596,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_FieldBossList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1653,7 +1613,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_FortWarInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1670,7 +1630,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_GameEventInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1687,7 +1647,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_GuildPointRule) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1704,7 +1664,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_GuildTournamentInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1721,7 +1681,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_HiLevelItemMixRate) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1738,7 +1698,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_HideNpcList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1755,7 +1715,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemChangeList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1772,7 +1732,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemChangeListMulti) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1789,7 +1749,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemChangeRateofLv) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1806,7 +1766,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemLimitInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1823,7 +1783,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_ItemMixList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1840,7 +1800,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Item_RareOptionInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1857,7 +1817,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Item_RareStatSetRate) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1874,7 +1834,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Jackpot_Info) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1891,7 +1851,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_LoginPoint) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1908,7 +1868,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_MapDropItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1925,7 +1885,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_MapDropListInitDate) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1942,7 +1902,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_MonsterDropItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1959,7 +1919,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_MonsterSpeechInfoList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1976,7 +1936,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_02) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -1993,7 +1953,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_04) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2010,7 +1970,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_08) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2027,7 +1987,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_09) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2044,7 +2004,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_10) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2061,7 +2021,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_101) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2078,7 +2038,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_102) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2095,7 +2055,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_104) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2112,7 +2072,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_105) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2129,7 +2089,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_106) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2146,7 +2106,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_108) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2163,7 +2123,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_11) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2180,7 +2140,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_13) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2197,7 +2157,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_14) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2214,7 +2174,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_15) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2231,7 +2191,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_17) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2248,7 +2208,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_18) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2265,7 +2225,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_19) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2282,7 +2242,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_20) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2299,7 +2259,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_21) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2316,7 +2276,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_22) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2333,7 +2293,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_24) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2350,7 +2310,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_25) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2367,7 +2327,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_26) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2384,7 +2344,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_32) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2401,7 +2361,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_34) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2418,7 +2378,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_35) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2435,7 +2395,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_39) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2452,7 +2412,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_40) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2469,7 +2429,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_59) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2486,7 +2446,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_60) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2503,7 +2463,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_61) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2520,7 +2480,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_65) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2537,7 +2497,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_66) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2554,7 +2514,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_67) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2571,7 +2531,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_68) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2588,7 +2548,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_69) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2605,7 +2565,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_70) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2622,7 +2582,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_72) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2639,7 +2599,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Monster_75) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2656,7 +2616,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Mooun) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2673,7 +2633,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_PaneltyTime) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2690,7 +2650,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_PetSpeechInfoList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2707,7 +2667,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_PlayerxMonsterPoint) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2724,7 +2684,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_PlustimeInfo_N) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2741,7 +2701,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_PlustimeInfo__) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2758,7 +2718,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType1) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2775,7 +2735,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType11) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2792,7 +2752,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType12) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2809,7 +2769,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType13) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2826,7 +2786,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType14) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2843,7 +2803,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType15) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2860,7 +2820,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType16) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2877,7 +2837,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType17) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2894,7 +2854,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType18) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2911,7 +2871,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType2) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2928,7 +2888,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType3) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2945,7 +2905,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType4) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2962,7 +2922,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType5) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2979,7 +2939,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType6) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -2996,7 +2956,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType7) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3013,7 +2973,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType8) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3030,7 +2990,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_RegenType9) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3047,7 +3007,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_SWRelationMap) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3064,7 +3024,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_SiegeWarStartTime) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3081,7 +3041,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Summon1) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3098,7 +3058,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Summon2) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3115,7 +3075,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Summon3) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3132,7 +3092,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Summon4) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3149,7 +3109,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_SummonList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3166,7 +3126,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_SuryunRegenList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3183,7 +3143,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_TacticAbilityInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3200,7 +3160,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_TitanMapDropInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3217,7 +3177,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_TitanServer) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3234,7 +3194,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_TitanSpellCostPerMap) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3251,7 +3211,7 @@ TEST(MxhResourceParseServer, ReadMhBin_Server_Weather) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3268,7 +3228,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_NewbieGuide) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3285,7 +3245,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_QuestItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3302,7 +3262,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_QuestRegen) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3319,7 +3279,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_QuestScript) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3336,7 +3296,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_QuestString) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3353,7 +3313,7 @@ TEST(MxhResourceParseQuestScript, ReadMhBin_QuestScript_questnpclist) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3370,7 +3330,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_AbilityBaseInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3387,7 +3347,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_AbilityCalcInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3404,7 +3364,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_AvatarEquip) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3421,7 +3381,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_CastleGateList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3438,7 +3398,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_CharacterExpPoint) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3455,7 +3415,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_CostumeSkinItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3472,7 +3432,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_Dealitem) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3489,7 +3449,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_FilterWord) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3506,7 +3466,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_FlagNpcInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3523,7 +3483,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_GuildLevel) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3540,7 +3500,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_GuildPointPlustimeList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3557,7 +3517,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_ItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3574,7 +3534,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_ItemMixList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3591,7 +3551,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_Item_RareItemInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3608,7 +3568,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_ItemdupOption) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3625,7 +3585,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_JobSkillList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3642,7 +3602,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_Jobskill) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3659,7 +3619,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_KyungGongInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3676,7 +3636,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_MapChange) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3693,7 +3653,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_MapKindInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3710,7 +3670,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_MonsterDropItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3727,7 +3687,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_MonsterList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3744,7 +3704,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_NpcList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3761,7 +3721,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PaneltyTime) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3778,7 +3738,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PartyPlustimeInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3795,7 +3755,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PetBuffList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3812,7 +3772,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PetList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3829,7 +3789,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PetRule) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3846,7 +3806,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_PyogukListInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3863,7 +3823,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_Setitem_Opt) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3880,7 +3840,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SiegeWarMapInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3897,7 +3857,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SkillAreaList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3914,7 +3874,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SkillList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3931,7 +3891,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SkillOptionList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3948,7 +3908,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SkillchangeList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3965,7 +3925,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SkinSelectItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3982,7 +3942,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_StateInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -3999,7 +3959,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_StaticNpc) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4016,7 +3976,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SuryunLevelChange) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4033,7 +3993,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_SuryunMonster) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4050,7 +4010,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_Suryundata) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4067,7 +4027,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TacticStartInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4084,7 +4044,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanBreakList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4101,7 +4061,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4118,7 +4078,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanMapDropInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4135,7 +4095,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanMixList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4152,7 +4112,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanPartsKind) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4169,7 +4129,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanRule) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4186,7 +4146,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanSpellCostPerMap) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4203,7 +4163,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_TitanUpgradeInfo) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4220,7 +4180,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_UniqueItemMixList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4237,7 +4197,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_UniqueItemOptionList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4254,7 +4214,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_hideitemlock) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4271,7 +4231,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_itemReinforceList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4288,7 +4248,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_item_RareReinforceList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4305,7 +4265,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_itembreak) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4322,7 +4282,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_sat) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4339,7 +4299,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_skillTree) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4356,7 +4316,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_NewbieGuide) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4373,7 +4333,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_QuestItemList) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4390,7 +4350,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_QuestRegen) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4407,7 +4367,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_QuestScript) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4424,7 +4384,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_QuestScript_) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4441,7 +4401,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_QuestString) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was
@@ -4458,7 +4418,7 @@ TEST(MxhResourceParsePlayDh, ReadMhBin_QuestScript_questnpclist) {
     const auto p = dir / kName;
     if (!fs::exists(p)) GTEST_SKIP() << kName << " not present";
     const auto r = mxh::compat::read_mh_bin(p);
-    MXH_EXPECT_PLAIN_OR_OBFUSCATED(r, kName);
+    ASSERT_TRUE(r.ok()) << kName << " err=" << static_cast<int>(r.error);
     EXPECT_EQ(r.value.data.size(), r.value.header.file_size) << kName << " payload size mismatch";
     // 14-byte stub files (Server/Monster_10X.bin for 101/102/104/106) have file_size=0
     // (modern 12-byte MhFileHeader + 2-byte CRC, no payload). EXPECT_GT(file_size, 0) was

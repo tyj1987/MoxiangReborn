@@ -111,29 +111,31 @@ struct Result {
 // Heuristic: version is 1 (most common), type is one of {0,1,2,3,4}, file_size is plausible.
 [[nodiscard]] bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept;
 
-// Installed Resource .bin container, same family as obfuscated .map.
-// True only when all of the following hold:
-//   - the buffer is at least 20 bytes and fits in a uint32
-//   - the first little-endian uint32 equals the buffer size
-//   - the buffer is not a plausible plain SWorking .bin
-// A plain SWorking file whose version field happens to equal the file
-// size is not this container: the classic header is plausible when its
-// file_size fits, either as header+crc+payload+crc or as header+payload.
-// That exception applies below 20 bytes as well. A size-prefixed buffer
-// of 5..19 bytes uses the historical positional type-0 read only when
-// the classic header does not fit.
-// Shape check only. The 16 bytes after the length and the body are not
-// stripped, decoded, or transformed. No key is stored or derived.
-[[nodiscard]] bool is_obfuscated_bin_container(
-    std::span<const std::uint8_t> bytes) noexcept;
-
 // Load a .bin file from disk, performing XOR decryption.
+// Default path is the mainline reader, including the R-17 branch for any
+// file of at least 5 bytes whose first little-endian uint32 equals the
+// file size. This overload never returns MhError::ObfuscatedContainer.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);
+
+// Same reader with an explicit resource profile. Profile ids match
+// read_server_mh_bin and ClientSettings::resource_profile_id.
+//   empty or sworking-2008-reference: identical to read_mh_bin (R-17 included).
+//   playdh-current: a file of at least 20 bytes whose first little-endian
+//     uint32 equals the file size is refused as MhError::ObfuscatedContainer.
+//     The message contains "obfuscated container". The bytes after the
+//     length are not stripped or decoded. Every other file uses read_mh_bin.
+//   any other id: MhError::UnsupportedVersion.
+// The installed container and R-17 share the size prefix. The profile
+// argument is the only selector. There is no structural heuristic on the
+// default path.
+[[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path,
+                                         std::string_view profile_id);
 
 // Profile-aware server resource entry point. The current PlayDH server
 // profile uses its recovered opaque AIGroup transform; the 2008 reference
-// profile uses the recovered MHFileEx layout. Profiles remain explicit and
-// are never silently substituted.
+// profile uses the recovered MHFileEx layout, including R-17. Profiles
+// remain explicit and are never silently substituted. The installed-client
+// refusal is read_mh_bin(path, "playdh-current"), not this server decoder.
 [[nodiscard]] Result<MhFile> read_server_mh_bin(
     const std::filesystem::path& path, std::string_view profile_id);
 
