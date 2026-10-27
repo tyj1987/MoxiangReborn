@@ -72,8 +72,12 @@ TEST(PakWriterPackFile, EntriesMatchByteForByte) {
     for (std::size_t i = 0; i < entries.size(); ++i) {
         EXPECT_EQ(entries[i].name, kSorted[i].name);
         const auto want = lcg_bytes(kSorted[i].size);
-        ASSERT_EQ(entries[i].raw_view.size(), want.size()) << kSorted[i].name;
-        EXPECT_TRUE(std::equal(want.begin(), want.end(), entries[i].raw_view.begin()))
+        EXPECT_EQ(entries[i].size, kSorted[i].size) << kSorted[i].name;
+        // Read through the public API. raw_view is not populated when the
+        // archive is opened from a path with lazy payload reads.
+        const auto got = pak->read(kSorted[i].name);
+        ASSERT_EQ(got.size(), want.size()) << kSorted[i].name;
+        EXPECT_TRUE(std::equal(want.begin(), want.end(), got.begin()))
             << kSorted[i].name;
         const auto* found = pak->find(kSorted[i].name);
         ASSERT_NE(found, nullptr) << kSorted[i].name;
