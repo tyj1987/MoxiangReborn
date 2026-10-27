@@ -44,6 +44,12 @@
 .PARAMETER SkipTests
     Build and write the stamp, but do not run CTest.
 
+.PARAMETER SkipE2E
+    When MoxianClientE2E is not registered, or is registered without the
+    mxh_client_e2e_ctest port launcher, warn and continue instead of failing.
+    A registered launcher still runs. The main CTest pass still excludes
+    MoxianClientE2E.
+
 .PARAMETER DryRun
     Run the read-only checks and print the actions. Alias of -WhatIf for this script.
 
@@ -76,6 +82,7 @@ param(
     [string[]]$Target = @(),
     [string[]]$CtestArgs = @(),
     [switch]$SkipTests,
+    [switch]$SkipE2E,
     [switch]$DryRun,
     [double]$MinFreeGB = 10,
     [string[]]$DriveMinFreeGB = @(),
@@ -99,6 +106,12 @@ $script:RogGateSawError = $false
 $script:RogGateAttributeReadOnly = [int64]0x1
 $script:RogGateAttributeDirectory = [int64]0x10
 $script:RogGateAttributeReparsePoint = [int64]0x400
+# mxh_client_e2e_ctest reads this and execs mxh_client_e2e with
+# --login-port, --agent-port, --map-port, and --map12-port. This gate sets
+# the base and does not append those flags.
+$script:RogGateE2EPortBaseText = '26001'
+$script:RogGateE2ETestRegex = '^MoxianClientE2E$'
+$script:RogGateE2ELauncherName = 'mxh_client_e2e_ctest'
 
 function ConvertTo-RogGateWindowsPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -1393,6 +1406,7 @@ function Invoke-RogGateVcVarsCommand {
         [Parameter(Mandatory = $true)][string[]]$CommandArguments,
         [Parameter(Mandatory = $true)][string]$VcVarsAll,
         [switch]$Quiet,
+        [switch]$NoConsole,
         [ref]$CapturedText
     )
 
@@ -1444,11 +1458,15 @@ function Invoke-RogGateVcVarsCommand {
         $errText = $errTask.GetAwaiter().GetResult()
         $combined = ''
         if (-not [string]::IsNullOrEmpty($outText)) {
-            [Console]::Out.Write($outText)
+            if (-not $NoConsole) {
+                [Console]::Out.Write($outText)
+            }
             $combined = $outText
         }
         if (-not [string]::IsNullOrEmpty($errText)) {
-            [Console]::Error.Write($errText)
+            if (-not $NoConsole) {
+                [Console]::Error.Write($errText)
+            }
             if ($combined.Length -gt 0) {
                 $combined = $combined + "`n"
             }
@@ -1621,6 +1639,428 @@ function Get-RogGateCTestSkipReport {
         Count = [int]$parsed.Count
         Names = @($parsed.Names)
         Lines = @($lines.ToArray())
+    }
+}
+
+function New-RogGateE2EPortResult {
+    param(
+        [bool]$Ok,
+        [string]$Reason,
+        [int]$Login = 0,
+        [int]$Agent = 0,
+        [int]$Map = 0,
+        [int]$Map12 = 0
+    )
+
+    return [pscustomobject]@{
+        Ok     = $Ok
+        Reason = $Reason
+        Login  = $Login
+        Agent  = $Agent
+        Map    = $Map
+        Map12  = $Map12
+    }
+}
+
+function Get-RogGateE2EPortsFromBase {
+    param([AllowNull()][AllowEmptyString()][string]$BaseText)
+
+    # Match the #39 launcher: optional leading '+', then digits. The gate
+    # range is 1024-65535 (the launcher allows 1-65535) and the forbidden
+    # set also includes 36001, 37001, and 38001.
+    $text = ''
+    if ($null -ne $BaseText) {
+        $text = ([string]$BaseText).Trim()
+    }
+    if ($text -notmatch '^\+?[0-9]+$') {
+        return (New-RogGateE2EPortResult -Ok $false -Reason "MXH_E2E_PORT_BASE is not an integer: $text")
+    }
+    $digits = $text
+    if ($digits.StartsWith('+')) {
+        $digits = $digits.Substring(1)
+    }
+    $numeric = [int64]0
+    $parsed = [int64]::TryParse($digits, [ref]$numeric)
+    if (-not $parsed -or $numeric -gt 65535) {
+        $shown = $text
+        if ($parsed) {
+            $shown = [string]$numeric
+        }
+        return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $shown is outside 1024-65535.")
+    }
+    $computed = @(
+        $numeric,
+        ($numeric + 1000),
+        ($numeric + 2000),
+        ($numeric + 2001)
+    )
+    foreach ($port in $computed) {
+        if ($port -lt 1024 -or $port -gt 65535) {
+            return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $port is outside 1024-65535.")
+        }
+    }
+    $forbidden = @(16001, 17001, 18001, 36001, 37001, 38001)
+    foreach ($port in $computed) {
+        foreach ($blocked in $forbidden) {
+            if ($port -eq [int64]$blocked) {
+                return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $port is forbidden.")
+            }
+        }
+    }
+    return (New-RogGateE2EPortResult -Ok $true -Reason '' -Login ([int]$computed[0]) -Agent ([int]$computed[1]) -Map ([int]$computed[2]) -Map12 ([int]$computed[3]))
+}
+
+function Format-RogGateE2EPortsLine {
+    param(
+        [Parameter(Mandatory = $true)][int]$Login,
+        [Parameter(Mandatory = $true)][int]$Agent,
+        [Parameter(Mandatory = $true)][int]$Map,
+        [Parameter(Mandatory = $true)][int]$Map12
+    )
+
+    return "[INFO] E2E ports login=$Login agent=$Agent map=$Map map12=$Map12"
+}
+
+function Set-RogGateE2EPortBase {
+    $env:MXH_E2E_PORT_BASE = $script:RogGateE2EPortBaseText
+    Write-Host ("[INFO] MXH_E2E_PORT_BASE=" + $script:RogGateE2EPortBaseText)
+}
+
+function Format-RogGatePortInUseMessage {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    return "port $Port in use"
+}
+
+function Test-RogGateTcpPortBindFree {
+    param(
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $true)]$Address
+    )
+
+    # ExclusiveAddressUse makes a 0.0.0.0 listener visible to this probe.
+    # A bind to 127.0.0.1 alone succeeds on Windows while 0.0.0.0 is taken.
+    $listener = $null
+    $started = $false
+    try {
+        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ($Address, $Port)
+        $listener.ExclusiveAddressUse = $true
+        $listener.Start()
+        $started = $true
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if ($started -and $null -ne $listener) {
+            $listener.Stop()
+        }
+    }
+}
+
+function Test-RogGateTcpListenTableHasPort {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    # Windows PowerShell has this cmdlet. Linux pwsh does not; skip it there.
+    $listenCommand = Get-Command -Name Get-NetTCPConnection -ErrorAction SilentlyContinue
+    if ($null -eq $listenCommand) {
+        return $false
+    }
+    $rows = @()
+    try {
+        $rows = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
+    } catch {
+        return $false
+    }
+    return ($rows.Count -gt 0)
+}
+
+function Test-RogGateTcpPortFree {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    $listed = Test-RogGateTcpListenTableHasPort -Port $Port
+    if ($listed) {
+        return $false
+    }
+    $loopbackFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Loopback)
+    if (-not $loopbackFree) {
+        return $false
+    }
+    $anyFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Any)
+    if (-not $anyFree) {
+        return $false
+    }
+    return $true
+}
+
+function Get-RogGateFirstBusyLoopbackPort {
+    param([Parameter(Mandatory = $true)][int[]]$Ports)
+
+    foreach ($port in $Ports) {
+        $free = Test-RogGateTcpPortFree -Port $port
+        if (-not $free) {
+            return [int]$port
+        }
+    }
+    return 0
+}
+
+function Get-RogGateMainCTestArguments {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDir,
+        [Parameter(Mandatory = $true)][string]$ConfigName,
+        [AllowNull()][string[]]$ExtraArgs
+    )
+
+    $kept = New-Object 'System.Collections.Generic.List[string]'
+    $excludes = New-Object 'System.Collections.Generic.List[string]'
+    $extras = @()
+    if ($null -ne $ExtraArgs) {
+        $extras = @($ExtraArgs)
+    }
+    $index = 0
+    while ($index -lt $extras.Count) {
+        $token = ''
+        if ($null -ne $extras[$index]) {
+            $token = [string]$extras[$index]
+        }
+        if ([string]::IsNullOrEmpty($token)) {
+            $index = $index + 1
+            continue
+        }
+        $excludeValue = $null
+        $isExclude = $false
+        if ($token -eq '-E' -or $token -eq '--exclude-regex') {
+            $isExclude = $true
+            $index = $index + 1
+            if ($index -ge $extras.Count -or [string]::IsNullOrEmpty([string]$extras[$index])) {
+                throw 'ctest -E is missing its regex.'
+            }
+            $excludeValue = [string]$extras[$index]
+        } elseif ($token.StartsWith('--exclude-regex=')) {
+            $isExclude = $true
+            $prefix = '--exclude-regex='
+            $excludeValue = $token.Substring($prefix.Length)
+            if ([string]::IsNullOrEmpty($excludeValue)) {
+                throw 'ctest -E is missing its regex.'
+            }
+        }
+        if ($isExclude) {
+            $excludes.Add($excludeValue)
+        } else {
+            $kept.Add($token)
+        }
+        $index = $index + 1
+    }
+
+    $regex = $script:RogGateE2ETestRegex
+    $onlyE2E = $true
+    foreach ($item in $excludes) {
+        if ($item -cne $script:RogGateE2ETestRegex) {
+            $onlyE2E = $false
+        }
+    }
+    if (-not $onlyE2E) {
+        $parts = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($item in $excludes) {
+            if ($item -cne $script:RogGateE2ETestRegex) {
+                $parts.Add('(' + $item + ')')
+            }
+        }
+        $parts.Add('(' + $script:RogGateE2ETestRegex + ')')
+        $regex = ($parts.ToArray() -join '|')
+    }
+
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $out.Add('ctest')
+    $out.Add('--test-dir')
+    $out.Add($BuildDir)
+    $out.Add('-C')
+    $out.Add($ConfigName)
+    $out.Add('--output-on-failure')
+    foreach ($item in $kept) {
+        $out.Add($item)
+    }
+    $out.Add('-E')
+    $out.Add($regex)
+    return [pscustomobject]@{
+        Arguments = @($out.ToArray())
+    }
+}
+
+function Get-RogGateE2ECtestArguments {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDir,
+        [Parameter(Mandatory = $true)][string]$ConfigName,
+        [bool]$ListOnly
+    )
+
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $out.Add('ctest')
+    $out.Add('--test-dir')
+    $out.Add($BuildDir)
+    $out.Add('-C')
+    $out.Add($ConfigName)
+    if ($ListOnly) {
+        $out.Add('-N')
+        $out.Add('-V')
+    } else {
+        $out.Add('--output-on-failure')
+        $out.Add('--no-tests=error')
+    }
+    $out.Add('-R')
+    $out.Add($script:RogGateE2ETestRegex)
+    return [pscustomobject]@{
+        Arguments = @($out.ToArray())
+    }
+}
+
+function Get-RogGateCommandTokens {
+    param([AllowEmptyString()][string]$CommandLine)
+
+    $tokens = New-Object 'System.Collections.Generic.List[string]'
+    if ([string]::IsNullOrEmpty($CommandLine)) {
+        return @($tokens.ToArray())
+    }
+    $current = New-Object System.Text.StringBuilder
+    $inQuote = $false
+    $quote = [char]0
+    foreach ($ch in $CommandLine.ToCharArray()) {
+        if ($inQuote) {
+            if ($ch -eq $quote) {
+                $inQuote = $false
+            } else {
+                $null = $current.Append($ch)
+            }
+        } elseif ($ch -eq '"' -or $ch -eq "'") {
+            $inQuote = $true
+            $quote = $ch
+        } elseif ($ch -eq ' ' -or $ch -eq "`t") {
+            if ($current.Length -gt 0) {
+                $tokens.Add($current.ToString())
+                $current.Length = 0
+            }
+        } else {
+            $null = $current.Append($ch)
+        }
+    }
+    if ($current.Length -gt 0) {
+        $tokens.Add($current.ToString())
+    }
+    return @($tokens.ToArray())
+}
+
+function Test-RogGateE2ELauncherName {
+    param([AllowEmptyString()][string]$Executable)
+
+    if ([string]::IsNullOrWhiteSpace($Executable)) {
+        return $false
+    }
+    $leaf = [System.IO.Path]::GetFileName($Executable.Trim())
+    $suffix = '.exe'
+    if ($leaf.EndsWith($suffix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $leaf = $leaf.Substring(0, $leaf.Length - $suffix.Length)
+    }
+    return $leaf.Equals($script:RogGateE2ELauncherName, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-RogGateE2EListing {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [int]$ExitCode
+    )
+
+    $commands = New-Object 'System.Collections.Generic.List[string]'
+    $directories = New-Object 'System.Collections.Generic.List[string]'
+    $body = ''
+    if ($null -ne $Text) {
+        $body = [string]$Text
+    }
+    if (-not [string]::IsNullOrEmpty($body)) {
+        $commandMatches = [regex]::Matches($body, '(?m)^\s*(?:\d+:\s*)?Test command:\s*(.*)$')
+        foreach ($commandMatch in $commandMatches) {
+            $commands.Add($commandMatch.Groups[1].Value.Trim())
+        }
+        $directoryMatches = [regex]::Matches($body, '(?m)^\s*(?:\d+:\s*)?Working Directory:\s*(.*)$')
+        foreach ($directoryMatch in $directoryMatches) {
+            $directories.Add($directoryMatch.Groups[1].Value.Trim())
+        }
+    }
+    $notRegistered = $false
+    if (-not [string]::IsNullOrEmpty($body)) {
+        if ($body.Contains('No tests were found') -or [regex]::IsMatch($body, '(?m)Total Tests:\s*0\b')) {
+            $notRegistered = $true
+        }
+    }
+    $parseError = ''
+    $command = ''
+    $directory = ''
+    $launcher = $false
+    $registered = $false
+    $absent = $false
+    if ($commands.Count -gt 1) {
+        $parseError = 'MoxianClientE2E listing matched more than one test command.'
+    } elseif ($ExitCode -ne 0 -and -not $notRegistered) {
+        $parseError = 'Could not read the MoxianClientE2E test command.'
+    } elseif ($commands.Count -eq 1) {
+        $registered = $true
+        $command = [string]$commands[0]
+        if ($directories.Count -ge 1) {
+            $directory = [string]$directories[0]
+        }
+        $tokens = @(Get-RogGateCommandTokens -CommandLine $command)
+        $executable = ''
+        if ($tokens.Count -ge 1) {
+            $executable = [string]$tokens[0]
+        }
+        $launcher = Test-RogGateE2ELauncherName -Executable $executable
+    } elseif ($notRegistered) {
+        $absent = $true
+    } else {
+        $parseError = 'Could not read the MoxianClientE2E test command.'
+    }
+    return [pscustomobject]@{
+        Registered       = $registered
+        Absent           = $absent
+        ParseError       = $parseError
+        Command          = $command
+        WorkingDirectory = $directory
+        Launcher         = $launcher
+    }
+}
+
+function Resolve-RogGateE2ERegistration {
+    param(
+        [Parameter(Mandatory = $true)]$Listing,
+        [switch]$SkipE2E
+    )
+
+    if (-not [string]::IsNullOrEmpty([string]$Listing.ParseError)) {
+        return [pscustomobject]@{
+            Action  = 'Error'
+            Message = [string]$Listing.ParseError
+        }
+    }
+    if ($Listing.Launcher -and $Listing.Registered) {
+        return [pscustomobject]@{
+            Action  = 'Run'
+            Message = ''
+        }
+    }
+    if ($SkipE2E) {
+        return [pscustomobject]@{
+            Action  = 'Skip'
+            Message = '[WARN] E2E skipped by -SkipE2E'
+        }
+    }
+    if ($Listing.Absent -or -not $Listing.Registered) {
+        return [pscustomobject]@{
+            Action  = 'Error'
+            Message = 'MoxianClientE2E not registered'
+        }
+    }
+    return [pscustomobject]@{
+        Action  = 'Error'
+        Message = 'MoxianClientE2E is pre-#39 (no port launcher); refusing to run'
     }
 }
 
@@ -1811,6 +2251,43 @@ function New-RogGateSelfTestDirectoryLink {
     }
 }
 
+function Test-RogGateScriptTextEncoding {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    # Windows PowerShell 5.1 reads a BOM-less file as ANSI. Pure ASCII is
+    # unambiguous. A leading UTF-8 BOM (EF BB BF) selects UTF-8.
+    # ReadWrite share lets this check open the script while it is running.
+    $stream = $null
+    $bytes = $null
+    try {
+        $stream = [System.IO.File]::Open($LiteralPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $bytes = New-Object byte[] $stream.Length
+        $offset = 0
+        while ($offset -lt $bytes.Length) {
+            $read = $stream.Read($bytes, $offset, ($bytes.Length - $offset))
+            if ($read -le 0) {
+                throw "Could not read script bytes: $LiteralPath"
+            }
+            $offset = $offset + $read
+        }
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    if ($bytes.Length -ge 3) {
+        if (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) {
+            return $true
+        }
+    }
+    foreach ($value in $bytes) {
+        if (([int]$value) -gt 127) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Invoke-RogGateSelfTest {
     $script:RogGateSelfTestFailures = 0
 
@@ -1831,6 +2308,22 @@ function Invoke-RogGateSelfTest {
         param([Parameter(Mandatory = $true)][string]$Name)
         Write-Host "[SKIP] $Name"
     }
+
+    $encodingPath = $PSCommandPath
+    if ([string]::IsNullOrWhiteSpace($encodingPath)) {
+        $encodingPath = $MyInvocation.MyCommand.Path
+    }
+    $encodingOk = $false
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($encodingPath)) {
+            if (Test-Path -LiteralPath $encodingPath -PathType Leaf) {
+                $encodingOk = Test-RogGateScriptTextEncoding -LiteralPath $encodingPath
+            }
+        }
+    } catch {
+        $encodingOk = $false
+    }
+    Assert-RogGateSelfTest -Name 'rog-gate-build.ps1 is pure ASCII or UTF-8 with BOM' -Condition $encodingOk
 
     $directoryLinkKind = 'SymbolicLink'
     if (Test-RogGateHostIsWindows) {
@@ -2047,6 +2540,217 @@ function Invoke-RogGateSelfTest {
             $env:MXH_PLAYDH_ROOT = $savedPlayDh
         }
         $null = Remove-RogGateFixture -LiteralPath $playdhTemp
+    }
+
+    function Measure-RogGateSelfTestExclude {
+        param([string[]]$Arguments)
+        $count = 0
+        $value = ''
+        $index = 0
+        $items = @($Arguments)
+        while ($index -lt $items.Count) {
+            if ([string]$items[$index] -eq '-E') {
+                $count = $count + 1
+                if (($index + 1) -lt $items.Count) {
+                    $value = [string]$items[$index + 1]
+                }
+            }
+            $index = $index + 1
+        }
+        return [pscustomobject]@{
+            Count = $count
+            Value = $value
+        }
+    }
+
+    function Test-RogGateSelfTestHasPair {
+        param(
+            [string[]]$Arguments,
+            [Parameter(Mandatory = $true)][string]$Flag,
+            [Parameter(Mandatory = $true)][string]$Value
+        )
+        $index = 0
+        $items = @($Arguments)
+        while ($index -lt ($items.Count - 1)) {
+            if (([string]$items[$index] -eq $Flag) -and ([string]$items[$index + 1] -eq $Value)) {
+                return $true
+            }
+            $index = $index + 1
+        }
+        return $false
+    }
+
+    $savedE2EBase = $env:MXH_E2E_PORT_BASE
+    try {
+        $happyPorts = Get-RogGateE2EPortsFromBase -BaseText '26001'
+        $happyLine = Format-RogGateE2EPortsLine -Login $happyPorts.Login -Agent $happyPorts.Agent -Map $happyPorts.Map -Map12 $happyPorts.Map12
+        $plusPorts = Get-RogGateE2EPortsFromBase -BaseText '+26001'
+        $happyOk = $happyPorts.Ok -and ($happyPorts.Login -eq 26001) -and ($happyPorts.Agent -eq 27001) -and ($happyPorts.Map -eq 28001) -and ($happyPorts.Map12 -eq 28002) -and ($happyLine -eq '[INFO] E2E ports login=26001 agent=27001 map=28001 map12=28002') -and $plusPorts.Ok -and ($plusPorts.Login -eq 26001) -and ($plusPorts.Map12 -eq 28002)
+        Assert-RogGateSelfTest -Name 'E2E base 26001 yields login 26001 agent 27001 map 28001 map12 28002' -Condition $happyOk
+
+        $abcPorts = Get-RogGateE2EPortsFromBase -BaseText 'abc'
+        $decimalPorts = Get-RogGateE2EPortsFromBase -BaseText '12.5'
+        $emptyPorts = Get-RogGateE2EPortsFromBase -BaseText ''
+        $minusPorts = Get-RogGateE2EPortsFromBase -BaseText '-1'
+        $nonIntegerOk = (-not $abcPorts.Ok) -and ($abcPorts.Reason -eq 'MXH_E2E_PORT_BASE is not an integer: abc') -and (-not $decimalPorts.Ok) -and ($decimalPorts.Reason -eq 'MXH_E2E_PORT_BASE is not an integer: 12.5') -and (-not $emptyPorts.Ok) -and ($emptyPorts.Reason -match 'not an integer') -and (-not $minusPorts.Ok) -and ($minusPorts.Reason -match 'not an integer') -and ($abcPorts.Reason -notmatch 'outside') -and ($decimalPorts.Reason -notmatch 'forbidden')
+        Assert-RogGateSelfTest -Name 'non-integer MXH_E2E_PORT_BASE is rejected' -Condition $nonIntegerOk
+
+        $lowPorts = Get-RogGateE2EPortsFromBase -BaseText '80'
+        $belowPorts = Get-RogGateE2EPortsFromBase -BaseText '1023'
+        $floorPorts = Get-RogGateE2EPortsFromBase -BaseText '1024'
+        $ceilingPorts = Get-RogGateE2EPortsFromBase -BaseText '63534'
+        $abovePorts = Get-RogGateE2EPortsFromBase -BaseText '63535'
+        $rangeOk = (-not $lowPorts.Ok) -and ($lowPorts.Reason -eq 'E2E port 80 is outside 1024-65535.') -and (-not $belowPorts.Ok) -and ($belowPorts.Reason -eq 'E2E port 1023 is outside 1024-65535.') -and $floorPorts.Ok -and ($floorPorts.Login -eq 1024) -and ($floorPorts.Map12 -eq 3025) -and $ceilingPorts.Ok -and ($ceilingPorts.Map12 -eq 65535) -and (-not $abovePorts.Ok) -and ($abovePorts.Reason -eq 'E2E port 65536 is outside 1024-65535.') -and ($lowPorts.Reason -notmatch 'forbidden')
+        Assert-RogGateSelfTest -Name 'E2E ports outside 1024-65535 are rejected' -Condition $rangeOk
+
+        $forbiddenOk = $happyPorts.Ok
+        foreach ($forbiddenPort in @(16001, 17001, 18001, 36001, 37001, 38001)) {
+            $forbiddenPorts = Get-RogGateE2EPortsFromBase -BaseText ([string]$forbiddenPort)
+            $forbiddenReason = 'E2E port ' + [string]$forbiddenPort + ' is forbidden.'
+            if ($forbiddenPorts.Ok -or ($forbiddenPorts.Reason -ne $forbiddenReason)) {
+                $forbiddenOk = $false
+            }
+        }
+        $agentForbidden = Get-RogGateE2EPortsFromBase -BaseText '15001'
+        if ($agentForbidden.Ok -or ($agentForbidden.Reason -ne 'E2E port 16001 is forbidden.')) {
+            $forbiddenOk = $false
+        }
+        Assert-RogGateSelfTest -Name 'forbidden E2E ports 16001 17001 18001 36001 37001 38001 are rejected' -Condition $forbiddenOk
+
+        $null = Set-RogGateE2EPortBase
+        $fromEnv = Get-RogGateE2EPortsFromBase -BaseText $env:MXH_E2E_PORT_BASE
+        $setOk = ($env:MXH_E2E_PORT_BASE -eq '26001') -and $fromEnv.Ok -and ($fromEnv.Login -eq 26001) -and ($fromEnv.Agent -eq 27001) -and ($fromEnv.Map -eq 28001) -and ($fromEnv.Map12 -eq 28002)
+        Assert-RogGateSelfTest -Name 'MXH_E2E_PORT_BASE is set to 26001' -Condition $setOk
+
+        $listener = $null
+        $started = $false
+        $busyPort = 0
+        $busyOk = $false
+        try {
+            $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Loopback, 0)
+            $listener.Start()
+            $started = $true
+            $busyPort = [int]$listener.LocalEndpoint.Port
+            $foundBusy = Get-RogGateFirstBusyLoopbackPort -Ports @($busyPort)
+            $busyMessage = Format-RogGatePortInUseMessage -Port $busyPort
+            $busyOk = ($foundBusy -eq $busyPort) -and ($busyMessage -eq ('port ' + [string]$busyPort + ' in use'))
+        } catch {
+            $busyOk = $false
+        } finally {
+            if ($started -and $null -ne $listener) {
+                $listener.Stop()
+            }
+        }
+        Assert-RogGateSelfTest -Name 'an occupied loopback port is reported in use' -Condition $busyOk
+
+        $anyListener = $null
+        $anyStarted = $false
+        $anyOk = $false
+        try {
+            $anyListener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Any, 0)
+            $anyListener.Start()
+            $anyStarted = $true
+            $anyPort = [int]$anyListener.LocalEndpoint.Port
+            $foundAny = Get-RogGateFirstBusyLoopbackPort -Ports @($anyPort)
+            $anyMessage = Format-RogGatePortInUseMessage -Port $anyPort
+            $anyOk = ($foundAny -eq $anyPort) -and ($anyMessage -eq ('port ' + [string]$anyPort + ' in use'))
+        } catch {
+            $anyOk = $false
+        } finally {
+            if ($anyStarted -and $null -ne $anyListener) {
+                $anyListener.Stop()
+            }
+        }
+        Assert-RogGateSelfTest -Name 'a port held on IPAddress.Any is reported in use' -Condition $anyOk
+
+        $launcherText = @(
+            '1: Test command: "D:/build/mxh_client_e2e_ctest.EXE" "D:/build/mxh_client_e2e.exe" --login-exe "D:/build/login.exe"',
+            '1: Working Directory: D:/build-mxr/pr'
+        ) -join "`n"
+        $launcherListing = Get-RogGateE2EListing -Text $launcherText -ExitCode 0
+        $launcherPlan = Resolve-RogGateE2ERegistration -Listing $launcherListing
+        $launcherOk = $launcherListing.Registered -and $launcherListing.Launcher -and ($launcherListing.WorkingDirectory -eq 'D:/build-mxr/pr') -and ($launcherListing.Command -match 'mxh_client_e2e_ctest\.EXE') -and ($launcherPlan.Action -eq 'Run')
+        Assert-RogGateSelfTest -Name 'mxh_client_e2e_ctest listing is the port launcher' -Condition $launcherOk
+
+        $legacyText = '1: Test command: "D:/build/mxh_client_e2e.exe" --login-host 127.0.0.1'
+        $legacyListing = Get-RogGateE2EListing -Text $legacyText -ExitCode 0
+        $legacyError = Resolve-RogGateE2ERegistration -Listing $legacyListing
+        $legacySkip = Resolve-RogGateE2ERegistration -Listing $legacyListing -SkipE2E
+        $legacyOk = (-not $legacyListing.Launcher) -and ($legacyError.Action -eq 'Error') -and ($legacyError.Message -eq 'MoxianClientE2E is pre-#39 (no port launcher); refusing to run') -and ($legacySkip.Action -eq 'Skip') -and ($legacySkip.Message -eq '[WARN] E2E skipped by -SkipE2E')
+        Assert-RogGateSelfTest -Name 'pre-#39 MoxianClientE2E is refused unless SkipE2E' -Condition $legacyOk
+
+        $absentListing = Get-RogGateE2EListing -Text 'No tests were found!!!' -ExitCode 0
+        $absentPlan = Resolve-RogGateE2ERegistration -Listing $absentListing
+        $totalListing = Get-RogGateE2EListing -Text 'Total Tests: 0' -ExitCode 8
+        $totalPlan = Resolve-RogGateE2ERegistration -Listing $totalListing
+        $absentOk = $absentListing.Absent -and (-not $absentListing.Registered) -and ($absentPlan.Action -eq 'Error') -and ($absentPlan.Message -eq 'MoxianClientE2E not registered') -and $totalListing.Absent -and ($totalPlan.Action -eq 'Error') -and ($totalPlan.Message -eq 'MoxianClientE2E not registered')
+        Assert-RogGateSelfTest -Name 'missing MoxianClientE2E is not registered' -Condition $absentOk
+
+        $absentSkip = Resolve-RogGateE2ERegistration -Listing $absentListing -SkipE2E
+        $absentSkipOk = ($absentSkip.Action -eq 'Skip') -and ($absentSkip.Message -eq '[WARN] E2E skipped by -SkipE2E')
+        Assert-RogGateSelfTest -Name 'missing MoxianClientE2E with SkipE2E warns and continues' -Condition $absentSkipOk
+
+        $parseListing = Get-RogGateE2EListing -Text 'ctest failed with no listing' -ExitCode 1
+        $parsePlan = Resolve-RogGateE2ERegistration -Listing $parseListing
+        $multiText = "1: Test command: C:/build/mxh_client_e2e_ctest.exe`n2: Test command: C:/build/other.exe"
+        $multiListing = Get-RogGateE2EListing -Text $multiText -ExitCode 0
+        $multiPlan = Resolve-RogGateE2ERegistration -Listing $multiListing
+        $parseOk = (-not [string]::IsNullOrEmpty($parseListing.ParseError)) -and ($parsePlan.Action -eq 'Error') -and (-not [string]::IsNullOrEmpty($multiListing.ParseError)) -and ($multiPlan.Action -eq 'Error')
+        Assert-RogGateSelfTest -Name 'an unreadable E2E listing is an error' -Condition $parseOk
+
+        $mainNone = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @()
+        $noneExclude = Measure-RogGateSelfTestExclude -Arguments @($mainNone.Arguments)
+        $noneOk = ($noneExclude.Count -eq 1) -and ($noneExclude.Value -eq '^MoxianClientE2E$')
+        Assert-RogGateSelfTest -Name 'main CTest excludes only MoxianClientE2E' -Condition $noneOk
+
+        $mainExtra = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('-R', 'Foo', '-E', 'Bar')
+        $extraExclude = Measure-RogGateSelfTestExclude -Arguments @($mainExtra.Arguments)
+        $extraKept = Test-RogGateSelfTestHasPair -Arguments @($mainExtra.Arguments) -Flag '-R' -Value 'Foo'
+        $equalsForm = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('--exclude-regex=Bar')
+        $equalsExclude = Measure-RogGateSelfTestExclude -Arguments @($equalsForm.Arguments)
+        $extraOk = $extraKept -and ($extraExclude.Count -eq 1) -and ($extraExclude.Value -eq '(Bar)|(^MoxianClientE2E$)') -and ($equalsExclude.Count -eq 1) -and ($equalsExclude.Value -eq '(Bar)|(^MoxianClientE2E$)')
+        Assert-RogGateSelfTest -Name 'main CTest merges -R and -E with the E2E exclusion' -Condition $extraOk
+
+        $mainDup = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('-E', '^MoxianClientE2E$')
+        $dupExclude = Measure-RogGateSelfTestExclude -Arguments @($mainDup.Arguments)
+        $dupOk = ($dupExclude.Count -eq 1) -and ($dupExclude.Value -eq '^MoxianClientE2E$')
+        Assert-RogGateSelfTest -Name 'an extra E2E exclusion is not duplicated' -Condition $dupOk
+
+        $runPlan = Get-RogGateE2ECtestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ListOnly $false
+        $runArgs = @($runPlan.Arguments)
+        $runHasR = Test-RogGateSelfTestHasPair -Arguments $runArgs -Flag '-R' -Value '^MoxianClientE2E$'
+        $runExclude = Measure-RogGateSelfTestExclude -Arguments $runArgs
+        $runHasPort = $false
+        foreach ($runArg in $runArgs) {
+            $runText = [string]$runArg
+            if ($runText -eq '--login-port' -or $runText -eq '--agent-port' -or $runText -eq '--map-port' -or $runText -eq '--map12-port') {
+                $runHasPort = $true
+            }
+        }
+        $listPlan = Get-RogGateE2ECtestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ListOnly $true
+        $listArgs = @($listPlan.Arguments)
+        $listHasN = $false
+        $listHasV = $false
+        foreach ($listArg in $listArgs) {
+            if ([string]$listArg -eq '-N') { $listHasN = $true }
+            if ([string]$listArg -eq '-V') { $listHasV = $true }
+        }
+        $listHasR = Test-RogGateSelfTestHasPair -Arguments $listArgs -Flag '-R' -Value '^MoxianClientE2E$'
+        $runHasNoTests = $false
+        foreach ($runArg in $runArgs) {
+            if ([string]$runArg -eq '--no-tests=error') {
+                $runHasNoTests = $true
+            }
+        }
+        $runOk = $runHasR -and ($runExclude.Count -eq 0) -and (-not $runHasPort) -and $listHasN -and $listHasV -and $listHasR
+        Assert-RogGateSelfTest -Name 'the separate E2E ctest uses -R and does not append port flags' -Condition $runOk
+        Assert-RogGateSelfTest -Name 'the separate E2E ctest passes --no-tests=error' -Condition $runHasNoTests
+    } finally {
+        if ([string]::IsNullOrEmpty($savedE2EBase)) {
+            Remove-Item -Path 'Env:MXH_E2E_PORT_BASE' -ErrorAction SilentlyContinue
+        } else {
+            $env:MXH_E2E_PORT_BASE = $savedE2EBase
+        }
     }
 
     function Initialize-RogGateSelfTestRepo {
@@ -2676,14 +3380,8 @@ function Invoke-RogGateMain {
         $buildCmd += '--target'
         $buildCmd += $targetName
     }
-    $ctest = @('ctest', '--test-dir', $normBuild, '-C', $Config, '--output-on-failure')
-    if ($null -ne $CtestArgs) {
-        foreach ($extra in $CtestArgs) {
-            if (-not [string]::IsNullOrEmpty($extra)) {
-                $ctest += $extra
-            }
-        }
-    }
+    $ctestPlan = Get-RogGateMainCTestArguments -BuildDir $normBuild -ConfigName $Config -ExtraArgs $CtestArgs
+    $ctest = @($ctestPlan.Arguments)
 
     if ($dry) {
         if ($decision.ShouldDelete) {
@@ -2769,6 +3467,37 @@ function Invoke-RogGateMain {
     if (-not $playdhCheck.Ok) {
         return (Resolve-RogGateFailureExit -ExitCode 1 -Message $playdhCheck.Reason)
     }
+    # Ports come from MXH_E2E_PORT_BASE. The launcher adds --login-port,
+    # --agent-port, --map-port, and --map12-port. Do not append them here.
+    $null = Set-RogGateE2EPortBase
+    $e2ePorts = Get-RogGateE2EPortsFromBase -BaseText $env:MXH_E2E_PORT_BASE
+    if (-not $e2ePorts.Ok) {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $e2ePorts.Reason)
+    }
+    Write-Host (Format-RogGateE2EPortsLine -Login $e2ePorts.Login -Agent $e2ePorts.Agent -Map $e2ePorts.Map -Map12 $e2ePorts.Map12)
+    $e2eListPlan = Get-RogGateE2ECtestArguments -BuildDir $normBuild -ConfigName $Config -ListOnly $true
+    $e2eListText = ''
+    $e2eListCode = Invoke-RogGateVcVarsCommand -CommandArguments @($e2eListPlan.Arguments) -VcVarsAll $script:RogGateVcVarsAll -NoConsole -CapturedText ([ref]$e2eListText)
+    $e2eListing = Get-RogGateE2EListing -Text $e2eListText -ExitCode $e2eListCode
+    $e2ePlan = Resolve-RogGateE2ERegistration -Listing $e2eListing -SkipE2E:$SkipE2E
+    if ($e2ePlan.Action -eq 'Error') {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $e2ePlan.Message)
+    }
+    if ($e2ePlan.Action -eq 'Skip') {
+        Write-Host $e2ePlan.Message
+    }
+    if ($e2ePlan.Action -eq 'Run') {
+        $e2ePortList = @(
+            [int]$e2ePorts.Login,
+            [int]$e2ePorts.Agent,
+            [int]$e2ePorts.Map,
+            [int]$e2ePorts.Map12
+        )
+        $busyPort = Get-RogGateFirstBusyLoopbackPort -Ports $e2ePortList
+        if ($busyPort -ne 0) {
+            return (Resolve-RogGateFailureExit -ExitCode 1 -Message (Format-RogGatePortInUseMessage -Port $busyPort))
+        }
+    }
     Write-Host '[GATE] CTest'
     $ctestText = ''
     $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$ctestText)
@@ -2778,6 +3507,27 @@ function Invoke-RogGateMain {
     }
     if ($testCode -ne 0) {
         return (Resolve-RogGateFailureExit -ExitCode $testCode -Message "CTest failed (exit $testCode).")
+    }
+    if ($e2ePlan.Action -ne 'Run') {
+        return 0
+    }
+    $e2eCommandText = [string]$e2eListing.Command
+    $e2eWork = [string]$e2eListing.WorkingDirectory
+    if ([string]::IsNullOrWhiteSpace($e2eWork)) {
+        $e2eWork = $normBuild
+    }
+    Write-Host "[INFO] E2E command: $e2eCommandText"
+    Write-Host "[INFO] E2E working directory: $e2eWork"
+    Write-Host '[GATE] MoxianClientE2E'
+    $e2eRunPlan = Get-RogGateE2ECtestArguments -BuildDir $normBuild -ConfigName $Config -ListOnly $false
+    $e2eText = ''
+    $e2eCode = Invoke-RogGateVcVarsCommand -CommandArguments @($e2eRunPlan.Arguments) -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$e2eText)
+    $e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText
+    foreach ($e2eSkipLine in @($e2eSkipReport.Lines)) {
+        Write-Host $e2eSkipLine
+    }
+    if ($e2eCode -ne 0) {
+        return (Resolve-RogGateFailureExit -ExitCode $e2eCode -Message "MoxianClientE2E failed (exit $e2eCode).")
     }
     return 0
 }
