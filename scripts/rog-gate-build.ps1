@@ -44,6 +44,12 @@
 .PARAMETER SkipTests
     Build and write the stamp, but do not run CTest.
 
+.PARAMETER SkipE2E
+    When MoxianClientE2E is not registered, or is registered without the
+    mxh_client_e2e_ctest port launcher, warn and continue instead of failing.
+    A registered launcher still runs. The main CTest pass still excludes
+    MoxianClientE2E.
+
 .PARAMETER DryRun
     Run the read-only checks and print the actions. Alias of -WhatIf for this script.
 
@@ -58,6 +64,11 @@
 .PARAMETER SelfTest
     Check path safety, generator decisions, drive selection, free-space
     thresholds, and the sparse-checkout reparse preflight without a compiler.
+    On Windows, directory links in this self-test are NTFS junctions.
+
+.PARAMETER SelfTestBuildExit
+    Self-test only. When this parameter is present, skip the build and exit
+    with the same code a failed build command would return.
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
 param(
@@ -71,10 +82,12 @@ param(
     [string[]]$Target = @(),
     [string[]]$CtestArgs = @(),
     [switch]$SkipTests,
+    [switch]$SkipE2E,
     [switch]$DryRun,
     [double]$MinFreeGB = 10,
     [string[]]$DriveMinFreeGB = @(),
-    [switch]$SelfTest
+    [switch]$SelfTest,
+    [int]$SelfTestBuildExit = 0
 )
 
 Set-StrictMode -Version 3.0
@@ -86,6 +99,19 @@ $script:RogGateNinja = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMa
 $script:RogGateForbiddenRoot = 'D:\MX'
 $script:RogGateStampName = 'rog-gate.sha'
 $script:RogGateSparsePreflightChecked = ''
+$script:RogGateSawError = $false
+# Win32 FILE_ATTRIBUTE_* bits. Do not convert raw values to
+# [System.IO.FileAttributes]: Windows PowerShell 5.1 rejects unknown bits
+# such as 0x80000, and -band against that enum re-parses the integer.
+$script:RogGateAttributeReadOnly = [int64]0x1
+$script:RogGateAttributeDirectory = [int64]0x10
+$script:RogGateAttributeReparsePoint = [int64]0x400
+# mxh_client_e2e_ctest reads this and execs mxh_client_e2e with
+# --login-port, --agent-port, --map-port, and --map12-port. This gate sets
+# the base and does not append those flags.
+$script:RogGateE2EPortBaseText = '26001'
+$script:RogGateE2ETestRegex = '^MoxianClientE2E$'
+$script:RogGateE2ELauncherName = 'mxh_client_e2e_ctest'
 
 function ConvertTo-RogGateWindowsPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -209,15 +235,81 @@ function Get-RogGateLexicalSafety {
     return New-RogGateSafetyResult -Safe $true -Reason '' -NormalizedBuildDir $normBuild -NormalizedAllowedRoot $normRoot
 }
 
+function Get-RogGateAttributeValue {
+    param($Attributes)
+
+    if ($null -eq $Attributes) {
+        return [int64]0
+    }
+    # Enum instances expose the underlying integer as value__. Reading that
+    # field does not re-parse the value as FileAttributes.
+    $type = $Attributes.GetType()
+    if ($type.IsEnum) {
+        $valueProp = $Attributes.PSObject.Properties['value__']
+        if ($null -ne $valueProp -and $null -ne $valueProp.Value) {
+            return [int64]$valueProp.Value
+        }
+    }
+    return [int64]$Attributes
+}
+
+function Test-RogGateAttributeBit {
+    param(
+        $Attributes,
+        [Parameter(Mandatory = $true)][int64]$Bit
+    )
+
+    $value = Get-RogGateAttributeValue -Attributes $Attributes
+    return (($value -band $Bit) -ne 0)
+}
+
+function Test-RogGateAttributeHasDirectory {
+    param($Attributes)
+    return Test-RogGateAttributeBit -Attributes $Attributes -Bit $script:RogGateAttributeDirectory
+}
+
+function Set-RogGateRawAttributes {
+    param(
+        [Parameter(Mandatory = $true)][string]$LiteralPath,
+        [Parameter(Mandatory = $true)][int64]$Value
+    )
+
+    $bits = [uint32]($Value -band [uint32]::MaxValue)
+    if (Test-RogGateHostIsWindows) {
+        if (-not ('RogGateNativeAttributes' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class RogGateNativeAttributes {
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool SetFileAttributes(string lpFileName, uint dwFileAttributes);
+}
+'@ | Out-Null
+        }
+        $wrote = [RogGateNativeAttributes]::SetFileAttributes($LiteralPath, $bits)
+        if (-not $wrote) {
+            throw "SetFileAttributes failed for ${LiteralPath}."
+        }
+        return
+    }
+
+    # Non-Windows hosts have no kernel32. Enum.ToObject boxes the integer
+    # without PowerShell's validating FileAttributes cast.
+    $boxed = [Enum]::ToObject([System.IO.FileAttributes], [int64]$Value)
+    [System.IO.File]::SetAttributes($LiteralPath, $boxed)
+}
+
 function Test-RogGateItemReparsePoint {
     param($Item)
 
     if ($null -eq $Item) {
         return $false
     }
-    $reparse = [System.IO.FileAttributes]::ReparsePoint
-    if (($Item.Attributes -band $reparse) -ne 0) {
-        return $true
+    $attrProp = $Item.PSObject.Properties['Attributes']
+    if ($null -ne $attrProp -and $null -ne $attrProp.Value) {
+        if (Test-RogGateAttributeBit -Attributes $attrProp.Value -Bit $script:RogGateAttributeReparsePoint) {
+            return $true
+        }
     }
     $linkProp = $Item.PSObject.Properties['LinkType']
     if ($null -ne $linkProp -and -not [string]::IsNullOrEmpty([string]$linkProp.Value)) {
@@ -311,7 +403,7 @@ function Get-RogGateReparseViolations {
         Send-RogGateCollection -Items $found.ToArray()
         return
     }
-    $leafIsDir = ($leaf.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $leafIsDir = (Test-RogGateAttributeHasDirectory -Attributes $leaf.Attributes)
     if (-not $leafIsDir) {
         Send-RogGateCollection -Items $found.ToArray()
         return
@@ -327,7 +419,7 @@ function Get-RogGateReparseViolations {
                 $found.Add($entry.FullName)
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             }
@@ -383,13 +475,12 @@ function Assert-RogGateMayDelete {
 function Clear-RogGateReadOnlyAttribute {
     param([Parameter(Mandatory = $true)][string]$LiteralPath)
 
-    $attrs = [System.IO.File]::GetAttributes($LiteralPath)
-    $readOnly = [System.IO.FileAttributes]::ReadOnly
-    if (($attrs -band $readOnly) -eq 0) {
+    $attrs = Get-RogGateAttributeValue -Attributes ([System.IO.File]::GetAttributes($LiteralPath))
+    if (-not (Test-RogGateAttributeBit -Attributes $attrs -Bit $script:RogGateAttributeReadOnly)) {
         return
     }
-    $cleared = [System.IO.FileAttributes]([int]$attrs -band (-bnot [int]$readOnly))
-    [System.IO.File]::SetAttributes($LiteralPath, $cleared)
+    $cleared = $attrs -band (-bnot $script:RogGateAttributeReadOnly)
+    $null = Set-RogGateRawAttributes -LiteralPath $LiteralPath -Value $cleared
 }
 
 # Remove-Item -Recurse and Directory.Delete(recursive) follow junctions.
@@ -405,7 +496,7 @@ function Remove-RogGateDirectoryNoFollow {
     }
 
     $info = Get-Item -LiteralPath $LiteralPath -Force
-    $isDir = ($info.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $info.Attributes)
     if (-not $isDir) {
         throw "Refusing to delete because BuildDir is not a directory: $LiteralPath"
     }
@@ -416,15 +507,15 @@ function Remove-RogGateDirectoryNoFollow {
         if (Test-RogGateItemReparsePoint -Item $entry) {
             throw "Refusing to delete through reparse point: $($entry.FullName)"
         }
-        $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+        $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
         if ($entryIsDir) {
-            Remove-RogGateDirectoryNoFollow -LiteralPath $entry.FullName
+            $null = Remove-RogGateDirectoryNoFollow -LiteralPath $entry.FullName
         } else {
-            Clear-RogGateReadOnlyAttribute -LiteralPath $entry.FullName
+            $null = Clear-RogGateReadOnlyAttribute -LiteralPath $entry.FullName
             [System.IO.File]::Delete($entry.FullName)
         }
     }
-    Clear-RogGateReadOnlyAttribute -LiteralPath $info.FullName
+    $null = Clear-RogGateReadOnlyAttribute -LiteralPath $info.FullName
     [System.IO.Directory]::Delete($info.FullName)
 }
 
@@ -518,7 +609,7 @@ function Get-RogGateGitDirectory {
     if (Test-RogGateItemReparsePoint -Item $item) {
         return $null
     }
-    $isDir = ($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $item.Attributes)
     if ($isDir) {
         return $item.FullName
     }
@@ -675,7 +766,7 @@ function Get-RogGateWorkingTreeReparsePoints {
         Send-RogGateCollection -Items $found.ToArray()
         return
     }
-    $rootIsDir = ($rootItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $rootIsDir = (Test-RogGateAttributeHasDirectory -Attributes $rootItem.Attributes)
     if (-not $rootIsDir) {
         Send-RogGateCollection -Items $found.ToArray()
         return
@@ -697,7 +788,7 @@ function Get-RogGateWorkingTreeReparsePoints {
                 $found.Add($entry.FullName)
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if (-not $entryIsDir) {
                 continue
             }
@@ -847,7 +938,7 @@ function Get-RogGateTreeSizeBytes {
                 }
                 continue
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             } else {
@@ -870,7 +961,7 @@ function Get-RogGateTopLevelDirectorySizes {
     }
 
     $rootInfo = Get-Item -LiteralPath $RootPath -Force
-    $rootIsDir = ($rootInfo.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $rootIsDir = (Test-RogGateAttributeHasDirectory -Attributes $rootInfo.Attributes)
     if (-not $rootIsDir) {
         throw "Build root is not a directory: $RootPath"
     }
@@ -878,7 +969,7 @@ function Get-RogGateTopLevelDirectorySizes {
     $result = New-Object 'System.Collections.Generic.List[object]'
     $dirInfo = New-Object System.IO.DirectoryInfo $rootInfo.FullName
     foreach ($entry in $dirInfo.EnumerateFileSystemInfos()) {
-        $isDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+        $isDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
         if (-not $isDir) {
             continue
         }
@@ -906,7 +997,82 @@ function Get-RogGateTopLevelDirectorySizes {
 
 function Write-RogGateError {
     param([Parameter(Mandatory = $true)][string]$Message)
+    $script:RogGateSawError = $true
     [Console]::Error.WriteLine("[ERROR] $Message")
+}
+
+function Resolve-RogGateFailureExit {
+    param(
+        [Parameter(Mandatory = $true)][int]$ExitCode,
+        [Parameter(Mandatory = $true)][string]$Message
+    )
+
+    Write-RogGateError $Message
+    if ($ExitCode -eq 0) {
+        return 1
+    }
+    return $ExitCode
+}
+
+function Test-RogGateCollectedExitIsInteger {
+    param($Value)
+
+    if ($null -eq $Value) {
+        return $false
+    }
+    # An array, even one that holds a single integer, is stray pipeline output.
+    if ($Value -is [System.Array]) {
+        return $false
+    }
+    if (($Value -is [System.Collections.IEnumerable]) -and ($Value -isnot [string])) {
+        return $false
+    }
+    $type = $Value.GetType()
+    if ($type.IsEnum) {
+        return $false
+    }
+    switch ([System.Type]::GetTypeCode($type)) {
+        'Byte' { return $true }
+        'SByte' { return $true }
+        'Int16' { return $true }
+        'UInt16' { return $true }
+        'Int32' { return $true }
+        'UInt32' { return $true }
+        'Int64' { return $true }
+        'UInt64' { return $true }
+        default { return $false }
+    }
+}
+
+function Format-RogGateCollectedExitDetail {
+    param($Code)
+
+    if ($null -eq $Code) {
+        return 'Collected exit code is not a single integer (type=null, count=0).'
+    }
+    if ($Code -is [System.Array]) {
+        return ("Collected exit code is not a single integer (type={0}, count={1})." -f $Code.GetType().FullName, $Code.Count)
+    }
+    return ("Collected exit code is not a single integer (type={0}, count=1)." -f $Code.GetType().FullName)
+}
+
+function Resolve-RogGateCollectedExit {
+    param($Code)
+
+    # Fail closed. Never cast an array, a string, or null to [int]: PowerShell
+    # would throw, or would turn a leaked pipeline object into a bogus code.
+    if (Test-RogGateCollectedExitIsInteger -Value $Code) {
+        return [pscustomobject]@{
+            Ok       = $true
+            ExitCode = $Code
+            Detail   = ''
+        }
+    }
+    return [pscustomobject]@{
+        Ok       = $false
+        ExitCode = 1
+        Detail   = (Format-RogGateCollectedExitDetail -Code $Code)
+    }
 }
 
 function Write-RogGateFreeSpaceReport {
@@ -1097,7 +1263,7 @@ function Get-RogGateFilesNoFollow {
             if (Test-RogGateItemReparsePoint -Item $entry) {
                 throw "Refusing to scan through reparse point: $($entry.FullName)"
             }
-            $entryIsDir = ($entry.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $entryIsDir = (Test-RogGateAttributeHasDirectory -Attributes $entry.Attributes)
             if ($entryIsDir) {
                 $stack.Push($entry.FullName)
             } elseif (& $Predicate $entry) {
@@ -1239,7 +1405,9 @@ function Invoke-RogGateVcVarsCommand {
     param(
         [Parameter(Mandatory = $true)][string[]]$CommandArguments,
         [Parameter(Mandatory = $true)][string]$VcVarsAll,
-        [switch]$Quiet
+        [switch]$Quiet,
+        [switch]$NoConsole,
+        [ref]$CapturedText
     )
 
     if (-not (Test-Path -LiteralPath $VcVarsAll)) {
@@ -1278,6 +1446,9 @@ function Invoke-RogGateVcVarsCommand {
         $process = New-Object System.Diagnostics.Process
         $process.StartInfo = $startInfo
         if (-not $process.Start()) {
+            if ($PSBoundParameters.ContainsKey('CapturedText')) {
+                $CapturedText.Value = ''
+            }
             return 1
         }
         $outTask = $process.StandardOutput.ReadToEndAsync()
@@ -1285,15 +1456,611 @@ function Invoke-RogGateVcVarsCommand {
         $process.WaitForExit()
         $outText = $outTask.GetAwaiter().GetResult()
         $errText = $errTask.GetAwaiter().GetResult()
+        $combined = ''
         if (-not [string]::IsNullOrEmpty($outText)) {
-            [Console]::Out.Write($outText)
+            if (-not $NoConsole) {
+                [Console]::Out.Write($outText)
+            }
+            $combined = $outText
         }
         if (-not [string]::IsNullOrEmpty($errText)) {
-            [Console]::Error.Write($errText)
+            if (-not $NoConsole) {
+                [Console]::Error.Write($errText)
+            }
+            if ($combined.Length -gt 0) {
+                $combined = $combined + "`n"
+            }
+            $combined = $combined + $errText
+        }
+        if ($PSBoundParameters.ContainsKey('CapturedText')) {
+            $CapturedText.Value = $combined
         }
         return [int]$process.ExitCode
     } finally {
         Remove-Item -LiteralPath $wrapper -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Get-RogGatePlayDhRootPath {
+    param([Parameter(Mandatory = $true)][string]$SourceDir)
+
+    # tests/support/playdh_env.hpp and the asset tests expect this directory:
+    # Resource\ItemList.bin and Image\2D\login.dds live under it.
+    $modern = Join-Path -Path $SourceDir -ChildPath 'modern'
+    $data = Join-Path -Path $modern -ChildPath 'data'
+    $playdh = Join-Path -Path $data -ChildPath 'PlayDH'
+    return [System.IO.Path]::GetFullPath($playdh)
+}
+
+function Get-RogGatePlayDhAssignment {
+    param(
+        [Parameter(Mandatory = $true)][string]$SourceDir,
+        [AllowNull()][AllowEmptyString()][string]$PreviousValue
+    )
+
+    $path = Get-RogGatePlayDhRootPath -SourceDir $SourceDir
+    $previous = ''
+    if ($null -ne $PreviousValue) {
+        $previous = [string]$PreviousValue
+    }
+    $info = "[INFO] MXH_PLAYDH_ROOT=$path (auto)"
+    if (-not [string]::IsNullOrWhiteSpace($previous)) {
+        $info = "[INFO] MXH_PLAYDH_ROOT=$path (overrode '$previous')"
+    }
+    return [pscustomobject]@{
+        Path     = $path
+        Previous = $previous
+        Info     = $info
+    }
+}
+
+function Set-RogGatePlayDhRootForChildren {
+    param([Parameter(Mandatory = $true)][string]$SourceDir)
+
+    # Always the worktree copy. A value inherited from the parent is replaced
+    # so CTest children do not keep searching upward from the build directory.
+    $assignment = Get-RogGatePlayDhAssignment -SourceDir $SourceDir -PreviousValue $env:MXH_PLAYDH_ROOT
+    $env:MXH_PLAYDH_ROOT = $assignment.Path
+    Write-Host $assignment.Info
+    return $assignment
+}
+
+function Test-RogGateGitLfsPointer {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $marker = 'version https://git-lfs.github.com/spec/v1'
+    $stream = $null
+    $read = 0
+    $buffer = New-Object byte[] ($marker.Length + 3)
+    try {
+        $stream = [System.IO.File]::Open($LiteralPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    $offset = 0
+    if ($read -ge 3 -and $buffer[0] -eq 0xEF -and $buffer[1] -eq 0xBB -and $buffer[2] -eq 0xBF) {
+        $offset = 3
+    }
+    if (($read - $offset) -lt $marker.Length) {
+        return $false
+    }
+    $text = [System.Text.Encoding]::ASCII.GetString($buffer, $offset, $marker.Length)
+    return ($text -eq $marker)
+}
+
+function Test-RogGatePlayDhPreflight {
+    param([Parameter(Mandatory = $true)][string]$PlayDhRoot)
+
+    if (-not (Test-Path -LiteralPath $PlayDhRoot -PathType Container)) {
+        return [pscustomobject]@{
+            Ok     = $false
+            Reason = "MXH_PLAYDH_ROOT directory does not exist: $PlayDhRoot"
+        }
+    }
+    $itemList = Join-Path -Path (Join-Path -Path $PlayDhRoot -ChildPath 'Resource') -ChildPath 'ItemList.bin'
+    $login = Join-Path -Path (Join-Path -Path (Join-Path -Path $PlayDhRoot -ChildPath 'Image') -ChildPath '2D') -ChildPath 'login.dds'
+    $required = @(
+        $itemList,
+        $login
+    )
+    foreach ($full in $required) {
+        if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+            return [pscustomobject]@{
+                Ok     = $false
+                Reason = "PlayDH file missing: $full"
+            }
+        }
+        if (Test-RogGateGitLfsPointer -LiteralPath $full) {
+            return [pscustomobject]@{
+                Ok     = $false
+                Reason = "PlayDH file is a Git LFS pointer: $full"
+            }
+        }
+    }
+    return [pscustomobject]@{
+        Ok     = $true
+        Reason = ''
+    }
+}
+
+function Get-RogGateCTestSkippedTests {
+    param([AllowEmptyString()][string]$Text)
+
+    $names = New-Object 'System.Collections.Generic.List[string]'
+    $seen = @{}
+    if (-not [string]::IsNullOrEmpty($Text)) {
+        $patterns = @(
+            '(?m)^\s*\d+\s+-\s+(.+?)\s+\(Skipped\)\s*$',
+            '(?m)^\s*\d+/\d+\s+Test\s+#\d+:\s+(.+?)\s+\.+\*+Skipped\b'
+        )
+        foreach ($pattern in $patterns) {
+            $found = [regex]::Matches($Text, $pattern)
+            foreach ($match in $found) {
+                $name = $match.Groups[1].Value.Trim()
+                if ([string]::IsNullOrWhiteSpace($name)) {
+                    continue
+                }
+                $key = $name.ToLowerInvariant()
+                if (-not $seen.ContainsKey($key)) {
+                    $seen[$key] = $true
+                    $names.Add($name)
+                }
+            }
+        }
+    }
+    $count = $names.Count
+    if ($count -eq 0 -and -not [string]::IsNullOrEmpty($Text)) {
+        $summary = [regex]::Match($Text, '(?m)(\d+)\s+tests?\s+skipped')
+        if ($summary.Success) {
+            $count = [int]$summary.Groups[1].Value
+        }
+    }
+    return [pscustomobject]@{
+        Count = $count
+        Names = @($names.ToArray())
+    }
+}
+
+function Get-RogGateCTestSkipReport {
+    param([AllowEmptyString()][string]$Text)
+
+    $parsed = Get-RogGateCTestSkippedTests -Text $Text
+    $lines = New-Object 'System.Collections.Generic.List[string]'
+    $lines.Add(('[INFO] CTest skipped={0}' -f [int]$parsed.Count))
+    foreach ($name in @($parsed.Names)) {
+        if (-not [string]::IsNullOrWhiteSpace([string]$name)) {
+            $lines.Add(('[INFO] CTest skip: {0}' -f [string]$name))
+        }
+    }
+    return [pscustomobject]@{
+        Count = [int]$parsed.Count
+        Names = @($parsed.Names)
+        Lines = @($lines.ToArray())
+    }
+}
+
+function New-RogGateE2EPortResult {
+    param(
+        [bool]$Ok,
+        [string]$Reason,
+        [int]$Login = 0,
+        [int]$Agent = 0,
+        [int]$Map = 0,
+        [int]$Map12 = 0
+    )
+
+    return [pscustomobject]@{
+        Ok     = $Ok
+        Reason = $Reason
+        Login  = $Login
+        Agent  = $Agent
+        Map    = $Map
+        Map12  = $Map12
+    }
+}
+
+function Get-RogGateE2EPortsFromBase {
+    param([AllowNull()][AllowEmptyString()][string]$BaseText)
+
+    # Match the #39 launcher: optional leading '+', then digits. The gate
+    # range is 1024-65535 (the launcher allows 1-65535) and the forbidden
+    # set also includes 36001, 37001, and 38001.
+    $text = ''
+    if ($null -ne $BaseText) {
+        $text = ([string]$BaseText).Trim()
+    }
+    if ($text -notmatch '^\+?[0-9]+$') {
+        return (New-RogGateE2EPortResult -Ok $false -Reason "MXH_E2E_PORT_BASE is not an integer: $text")
+    }
+    $digits = $text
+    if ($digits.StartsWith('+')) {
+        $digits = $digits.Substring(1)
+    }
+    $numeric = [int64]0
+    $parsed = [int64]::TryParse($digits, [ref]$numeric)
+    if (-not $parsed -or $numeric -gt 65535) {
+        $shown = $text
+        if ($parsed) {
+            $shown = [string]$numeric
+        }
+        return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $shown is outside 1024-65535.")
+    }
+    $computed = @(
+        $numeric,
+        ($numeric + 1000),
+        ($numeric + 2000),
+        ($numeric + 2001)
+    )
+    foreach ($port in $computed) {
+        if ($port -lt 1024 -or $port -gt 65535) {
+            return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $port is outside 1024-65535.")
+        }
+    }
+    $forbidden = @(16001, 17001, 18001, 36001, 37001, 38001)
+    foreach ($port in $computed) {
+        foreach ($blocked in $forbidden) {
+            if ($port -eq [int64]$blocked) {
+                return (New-RogGateE2EPortResult -Ok $false -Reason "E2E port $port is forbidden.")
+            }
+        }
+    }
+    return (New-RogGateE2EPortResult -Ok $true -Reason '' -Login ([int]$computed[0]) -Agent ([int]$computed[1]) -Map ([int]$computed[2]) -Map12 ([int]$computed[3]))
+}
+
+function Format-RogGateE2EPortsLine {
+    param(
+        [Parameter(Mandatory = $true)][int]$Login,
+        [Parameter(Mandatory = $true)][int]$Agent,
+        [Parameter(Mandatory = $true)][int]$Map,
+        [Parameter(Mandatory = $true)][int]$Map12
+    )
+
+    return "[INFO] E2E ports login=$Login agent=$Agent map=$Map map12=$Map12"
+}
+
+function Set-RogGateE2EPortBase {
+    $env:MXH_E2E_PORT_BASE = $script:RogGateE2EPortBaseText
+    Write-Host ("[INFO] MXH_E2E_PORT_BASE=" + $script:RogGateE2EPortBaseText)
+}
+
+function Format-RogGatePortInUseMessage {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    return "port $Port in use"
+}
+
+function Test-RogGateTcpPortBindFree {
+    param(
+        [Parameter(Mandatory = $true)][int]$Port,
+        [Parameter(Mandatory = $true)]$Address
+    )
+
+    # ExclusiveAddressUse makes a 0.0.0.0 listener visible to this probe.
+    # A bind to 127.0.0.1 alone succeeds on Windows while 0.0.0.0 is taken.
+    $listener = $null
+    $started = $false
+    try {
+        $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ($Address, $Port)
+        $listener.ExclusiveAddressUse = $true
+        $listener.Start()
+        $started = $true
+        return $true
+    } catch {
+        return $false
+    } finally {
+        if ($started -and $null -ne $listener) {
+            $listener.Stop()
+        }
+    }
+}
+
+function Test-RogGateTcpListenTableHasPort {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    # Windows PowerShell has this cmdlet. Linux pwsh does not; skip it there.
+    $listenCommand = Get-Command -Name Get-NetTCPConnection -ErrorAction SilentlyContinue
+    if ($null -eq $listenCommand) {
+        return $false
+    }
+    $rows = @()
+    try {
+        $rows = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction Stop)
+    } catch {
+        return $false
+    }
+    return ($rows.Count -gt 0)
+}
+
+function Test-RogGateTcpPortFree {
+    param([Parameter(Mandatory = $true)][int]$Port)
+
+    $listed = Test-RogGateTcpListenTableHasPort -Port $Port
+    if ($listed) {
+        return $false
+    }
+    $loopbackFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Loopback)
+    if (-not $loopbackFree) {
+        return $false
+    }
+    $anyFree = Test-RogGateTcpPortBindFree -Port $Port -Address ([System.Net.IPAddress]::Any)
+    if (-not $anyFree) {
+        return $false
+    }
+    return $true
+}
+
+function Get-RogGateFirstBusyLoopbackPort {
+    param([Parameter(Mandatory = $true)][int[]]$Ports)
+
+    foreach ($port in $Ports) {
+        $free = Test-RogGateTcpPortFree -Port $port
+        if (-not $free) {
+            return [int]$port
+        }
+    }
+    return 0
+}
+
+function Get-RogGateMainCTestArguments {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDir,
+        [Parameter(Mandatory = $true)][string]$ConfigName,
+        [AllowNull()][string[]]$ExtraArgs
+    )
+
+    $kept = New-Object 'System.Collections.Generic.List[string]'
+    $excludes = New-Object 'System.Collections.Generic.List[string]'
+    $extras = @()
+    if ($null -ne $ExtraArgs) {
+        $extras = @($ExtraArgs)
+    }
+    $index = 0
+    while ($index -lt $extras.Count) {
+        $token = ''
+        if ($null -ne $extras[$index]) {
+            $token = [string]$extras[$index]
+        }
+        if ([string]::IsNullOrEmpty($token)) {
+            $index = $index + 1
+            continue
+        }
+        $excludeValue = $null
+        $isExclude = $false
+        if ($token -eq '-E' -or $token -eq '--exclude-regex') {
+            $isExclude = $true
+            $index = $index + 1
+            if ($index -ge $extras.Count -or [string]::IsNullOrEmpty([string]$extras[$index])) {
+                throw 'ctest -E is missing its regex.'
+            }
+            $excludeValue = [string]$extras[$index]
+        } elseif ($token.StartsWith('--exclude-regex=')) {
+            $isExclude = $true
+            $prefix = '--exclude-regex='
+            $excludeValue = $token.Substring($prefix.Length)
+            if ([string]::IsNullOrEmpty($excludeValue)) {
+                throw 'ctest -E is missing its regex.'
+            }
+        }
+        if ($isExclude) {
+            $excludes.Add($excludeValue)
+        } else {
+            $kept.Add($token)
+        }
+        $index = $index + 1
+    }
+
+    $regex = $script:RogGateE2ETestRegex
+    $onlyE2E = $true
+    foreach ($item in $excludes) {
+        if ($item -cne $script:RogGateE2ETestRegex) {
+            $onlyE2E = $false
+        }
+    }
+    if (-not $onlyE2E) {
+        $parts = New-Object 'System.Collections.Generic.List[string]'
+        foreach ($item in $excludes) {
+            if ($item -cne $script:RogGateE2ETestRegex) {
+                $parts.Add('(' + $item + ')')
+            }
+        }
+        $parts.Add('(' + $script:RogGateE2ETestRegex + ')')
+        $regex = ($parts.ToArray() -join '|')
+    }
+
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $out.Add('ctest')
+    $out.Add('--test-dir')
+    $out.Add($BuildDir)
+    $out.Add('-C')
+    $out.Add($ConfigName)
+    $out.Add('--output-on-failure')
+    foreach ($item in $kept) {
+        $out.Add($item)
+    }
+    $out.Add('-E')
+    $out.Add($regex)
+    return [pscustomobject]@{
+        Arguments = @($out.ToArray())
+    }
+}
+
+function Get-RogGateE2ECtestArguments {
+    param(
+        [Parameter(Mandatory = $true)][string]$BuildDir,
+        [Parameter(Mandatory = $true)][string]$ConfigName,
+        [bool]$ListOnly
+    )
+
+    $out = New-Object 'System.Collections.Generic.List[string]'
+    $out.Add('ctest')
+    $out.Add('--test-dir')
+    $out.Add($BuildDir)
+    $out.Add('-C')
+    $out.Add($ConfigName)
+    if ($ListOnly) {
+        $out.Add('-N')
+        $out.Add('-V')
+    } else {
+        $out.Add('--output-on-failure')
+        $out.Add('--no-tests=error')
+    }
+    $out.Add('-R')
+    $out.Add($script:RogGateE2ETestRegex)
+    return [pscustomobject]@{
+        Arguments = @($out.ToArray())
+    }
+}
+
+function Get-RogGateCommandTokens {
+    param([AllowEmptyString()][string]$CommandLine)
+
+    $tokens = New-Object 'System.Collections.Generic.List[string]'
+    if ([string]::IsNullOrEmpty($CommandLine)) {
+        return @($tokens.ToArray())
+    }
+    $current = New-Object System.Text.StringBuilder
+    $inQuote = $false
+    $quote = [char]0
+    foreach ($ch in $CommandLine.ToCharArray()) {
+        if ($inQuote) {
+            if ($ch -eq $quote) {
+                $inQuote = $false
+            } else {
+                $null = $current.Append($ch)
+            }
+        } elseif ($ch -eq '"' -or $ch -eq "'") {
+            $inQuote = $true
+            $quote = $ch
+        } elseif ($ch -eq ' ' -or $ch -eq "`t") {
+            if ($current.Length -gt 0) {
+                $tokens.Add($current.ToString())
+                $current.Length = 0
+            }
+        } else {
+            $null = $current.Append($ch)
+        }
+    }
+    if ($current.Length -gt 0) {
+        $tokens.Add($current.ToString())
+    }
+    return @($tokens.ToArray())
+}
+
+function Test-RogGateE2ELauncherName {
+    param([AllowEmptyString()][string]$Executable)
+
+    if ([string]::IsNullOrWhiteSpace($Executable)) {
+        return $false
+    }
+    $leaf = [System.IO.Path]::GetFileName($Executable.Trim())
+    $suffix = '.exe'
+    if ($leaf.EndsWith($suffix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $leaf = $leaf.Substring(0, $leaf.Length - $suffix.Length)
+    }
+    return $leaf.Equals($script:RogGateE2ELauncherName, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-RogGateE2EListing {
+    param(
+        [AllowEmptyString()][string]$Text,
+        [int]$ExitCode
+    )
+
+    $commands = New-Object 'System.Collections.Generic.List[string]'
+    $directories = New-Object 'System.Collections.Generic.List[string]'
+    $body = ''
+    if ($null -ne $Text) {
+        $body = [string]$Text
+    }
+    if (-not [string]::IsNullOrEmpty($body)) {
+        $commandMatches = [regex]::Matches($body, '(?m)^\s*(?:\d+:\s*)?Test command:\s*(.*)$')
+        foreach ($commandMatch in $commandMatches) {
+            $commands.Add($commandMatch.Groups[1].Value.Trim())
+        }
+        $directoryMatches = [regex]::Matches($body, '(?m)^\s*(?:\d+:\s*)?Working Directory:\s*(.*)$')
+        foreach ($directoryMatch in $directoryMatches) {
+            $directories.Add($directoryMatch.Groups[1].Value.Trim())
+        }
+    }
+    $notRegistered = $false
+    if (-not [string]::IsNullOrEmpty($body)) {
+        if ($body.Contains('No tests were found') -or [regex]::IsMatch($body, '(?m)Total Tests:\s*0\b')) {
+            $notRegistered = $true
+        }
+    }
+    $parseError = ''
+    $command = ''
+    $directory = ''
+    $launcher = $false
+    $registered = $false
+    $absent = $false
+    if ($commands.Count -gt 1) {
+        $parseError = 'MoxianClientE2E listing matched more than one test command.'
+    } elseif ($ExitCode -ne 0 -and -not $notRegistered) {
+        $parseError = 'Could not read the MoxianClientE2E test command.'
+    } elseif ($commands.Count -eq 1) {
+        $registered = $true
+        $command = [string]$commands[0]
+        if ($directories.Count -ge 1) {
+            $directory = [string]$directories[0]
+        }
+        $tokens = @(Get-RogGateCommandTokens -CommandLine $command)
+        $executable = ''
+        if ($tokens.Count -ge 1) {
+            $executable = [string]$tokens[0]
+        }
+        $launcher = Test-RogGateE2ELauncherName -Executable $executable
+    } elseif ($notRegistered) {
+        $absent = $true
+    } else {
+        $parseError = 'Could not read the MoxianClientE2E test command.'
+    }
+    return [pscustomobject]@{
+        Registered       = $registered
+        Absent           = $absent
+        ParseError       = $parseError
+        Command          = $command
+        WorkingDirectory = $directory
+        Launcher         = $launcher
+    }
+}
+
+function Resolve-RogGateE2ERegistration {
+    param(
+        [Parameter(Mandatory = $true)]$Listing,
+        [switch]$SkipE2E
+    )
+
+    if (-not [string]::IsNullOrEmpty([string]$Listing.ParseError)) {
+        return [pscustomobject]@{
+            Action  = 'Error'
+            Message = [string]$Listing.ParseError
+        }
+    }
+    if ($Listing.Launcher -and $Listing.Registered) {
+        return [pscustomobject]@{
+            Action  = 'Run'
+            Message = ''
+        }
+    }
+    if ($SkipE2E) {
+        return [pscustomobject]@{
+            Action  = 'Skip'
+            Message = '[WARN] E2E skipped by -SkipE2E'
+        }
+    }
+    if ($Listing.Absent -or -not $Listing.Registered) {
+        return [pscustomobject]@{
+            Action  = 'Error'
+            Message = 'MoxianClientE2E not registered'
+        }
+    }
+    return [pscustomobject]@{
+        Action  = 'Error'
+        Message = 'MoxianClientE2E is pre-#39 (no port launcher); refusing to run'
     }
 }
 
@@ -1345,6 +2112,182 @@ function Write-RogGateHeader {
     Write-Host '==============================='
 }
 
+function Test-RogGateHostIsWindows {
+    # $IsWindows exists on PowerShell 6+. Windows PowerShell 5.1 only has $env:OS.
+    if (Test-Path -Path 'Variable:IsWindows') {
+        return [bool](Get-Variable -Name 'IsWindows' -ValueOnly)
+    }
+    return ($env:OS -eq 'Windows_NT')
+}
+
+function Get-RogGateSelfTestLinkType {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    $item = Get-Item -LiteralPath $LiteralPath -Force -ErrorAction Stop
+    $prop = $item.PSObject.Properties['LinkType']
+    if ($null -ne $prop -and -not [string]::IsNullOrWhiteSpace([string]$prop.Value)) {
+        return [string]$prop.Value
+    }
+    # Windows PowerShell 5.1 does not surface LinkType. dir /al names the real
+    # NTFS object: <JUNCTION> or <SYMLINKD>.
+    if (-not (Test-RogGateHostIsWindows)) {
+        return ''
+    }
+    $parent = Split-Path -Path $item.FullName -Parent
+    $name = Split-Path -Path $item.FullName -Leaf
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $listing = & cmd.exe /d /c "dir /al `"$parent`"" 2>&1
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    foreach ($entry in @($listing)) {
+        if ($entry -is [System.Management.Automation.ErrorRecord]) {
+            continue
+        }
+        $text = [string]$entry
+        if ($text -notmatch '<(JUNCTION|SYMLINKD|SYMLINK)>') {
+            continue
+        }
+        $tag = $Matches[1]
+        $shown = ''
+        if ($text -match '<(?:JUNCTION|SYMLINKD|SYMLINK)>\s+(.*?)\s+\[') {
+            $shown = $Matches[1].Trim()
+        }
+        if ($shown -ne $name) {
+            continue
+        }
+        if ($tag -eq 'JUNCTION') {
+            return 'Junction'
+        }
+        return 'SymbolicLink'
+    }
+    return ''
+}
+
+function New-RogGateWindowsJunction {
+    param(
+        [Parameter(Mandatory = $true)][string]$LinkPath,
+        [Parameter(Mandatory = $true)][string]$TargetPath
+    )
+
+    # mklink /J does not need Developer Mode. Try it before any symlink API so
+    # an elevated shell cannot silently substitute a symlink.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $null = & cmd.exe /d /c "mklink /J `"$LinkPath`" `"$TargetPath`"" 2>&1
+        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $LinkPath)) {
+            return $true
+        }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+    try {
+        New-Item -ItemType Junction -Path $LinkPath -Value $TargetPath -ErrorAction Stop | Out-Null
+        return $true
+    } catch {
+        try {
+            New-Item -ItemType Junction -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
+            return $true
+        } catch {
+            return $false
+        }
+    }
+}
+
+function New-RogGateSelfTestDirectoryLink {
+    param(
+        [Parameter(Mandatory = $true)][string]$LinkPath,
+        [Parameter(Mandatory = $true)][string]$TargetPath,
+        [ValidateSet('Auto', 'Junction', 'SymbolicLink')]
+        [string]$Kind = 'Auto'
+    )
+
+    if (-not (Test-Path -LiteralPath $TargetPath)) {
+        New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
+    }
+
+    $wantJunction = $false
+    if ($Kind -eq 'Junction') {
+        $wantJunction = $true
+    } elseif ($Kind -eq 'SymbolicLink') {
+        $wantJunction = $false
+    } else {
+        $wantJunction = Test-RogGateHostIsWindows
+    }
+
+    $created = $false
+    if ($wantJunction) {
+        $created = New-RogGateWindowsJunction -LinkPath $LinkPath -TargetPath $TargetPath
+    } else {
+        try {
+            New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
+            $created = $true
+        } catch {
+            try {
+                New-Item -ItemType SymbolicLink -Path $LinkPath -Value $TargetPath -ErrorAction Stop | Out-Null
+                $created = $true
+            } catch {
+                $created = $false
+            }
+        }
+    }
+
+    $linkType = ''
+    if ($created -and (Test-Path -LiteralPath $LinkPath)) {
+        $linkType = Get-RogGateSelfTestLinkType -LiteralPath $LinkPath
+    }
+    $expected = 'SymbolicLink'
+    if ($wantJunction) {
+        $expected = 'Junction'
+    }
+    return [pscustomobject]@{
+        Ok       = [bool]($created -and ($linkType -eq $expected))
+        Created  = [bool]$created
+        LinkType = [string]$linkType
+        Expected = [string]$expected
+    }
+}
+
+function Test-RogGateScriptTextEncoding {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    # Windows PowerShell 5.1 reads a BOM-less file as ANSI. Pure ASCII is
+    # unambiguous. A leading UTF-8 BOM (EF BB BF) selects UTF-8.
+    # ReadWrite share lets this check open the script while it is running.
+    $stream = $null
+    $bytes = $null
+    try {
+        $stream = [System.IO.File]::Open($LiteralPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $bytes = New-Object byte[] $stream.Length
+        $offset = 0
+        while ($offset -lt $bytes.Length) {
+            $read = $stream.Read($bytes, $offset, ($bytes.Length - $offset))
+            if ($read -le 0) {
+                throw "Could not read script bytes: $LiteralPath"
+            }
+            $offset = $offset + $read
+        }
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    if ($bytes.Length -ge 3) {
+        if (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) {
+            return $true
+        }
+    }
+    foreach ($value in $bytes) {
+        if (([int]$value) -gt 127) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Invoke-RogGateSelfTest {
     $script:RogGateSelfTestFailures = 0
 
@@ -1361,6 +2304,53 @@ function Invoke-RogGateSelfTest {
         }
     }
 
+    function Write-RogGateSelfTestSkip {
+        param([Parameter(Mandatory = $true)][string]$Name)
+        Write-Host "[SKIP] $Name"
+    }
+
+    $encodingPath = $PSCommandPath
+    if ([string]::IsNullOrWhiteSpace($encodingPath)) {
+        $encodingPath = $MyInvocation.MyCommand.Path
+    }
+    $encodingOk = $false
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($encodingPath)) {
+            if (Test-Path -LiteralPath $encodingPath -PathType Leaf) {
+                $encodingOk = Test-RogGateScriptTextEncoding -LiteralPath $encodingPath
+            }
+        }
+    } catch {
+        $encodingOk = $false
+    }
+    Assert-RogGateSelfTest -Name 'rog-gate-build.ps1 is pure ASCII or UTF-8 with BOM' -Condition $encodingOk
+
+    $directoryLinkKind = 'SymbolicLink'
+    if (Test-RogGateHostIsWindows) {
+        $directoryLinkKind = 'Junction'
+    }
+
+    # 0x80000 is FILE_ATTRIBUTE_PINNED. Windows PowerShell 5.1's FileAttributes
+    # enum does not define it, so 524320 (0x80020) must stay an integer.
+    $attrThrew = $false
+    $highReparse = $false
+    $lowReparse = $true
+    try {
+        $enumHigh = [Enum]::ToObject([System.IO.FileAttributes], [int64]0x80420)
+        $enumLow = [Enum]::ToObject([System.IO.FileAttributes], [int64]0x80020)
+        $highRaw = Test-RogGateAttributeBit -Attributes ([int64]0x80420) -Bit $script:RogGateAttributeReparsePoint
+        $highEnum = Test-RogGateAttributeBit -Attributes $enumHigh -Bit $script:RogGateAttributeReparsePoint
+        $highItem = Test-RogGateItemReparsePoint -Item ([pscustomobject]@{ Attributes = $enumHigh })
+        $lowRaw = Test-RogGateAttributeBit -Attributes ([int64]0x80020) -Bit $script:RogGateAttributeReparsePoint
+        $lowEnum = Test-RogGateAttributeBit -Attributes $enumLow -Bit $script:RogGateAttributeReparsePoint
+        $lowItem = Test-RogGateItemReparsePoint -Item ([pscustomobject]@{ Attributes = $enumLow })
+        $highReparse = $highRaw -and $highEnum -and $highItem
+        $lowReparse = $lowRaw -or $lowEnum -or $lowItem
+    } catch {
+        $attrThrew = $true
+    }
+    Assert-RogGateSelfTest -Name 'raw attributes 0x80420 are reparse and 0x80020 are not, without throwing' -Condition ((-not $attrThrew) -and $highReparse -and (-not $lowReparse))
+
     $normalized = ConvertTo-RogGateWindowsPath -Path 'D:/build-mxr/foo/./bar'
     Assert-RogGateSelfTest -Name 'normalize slashes and dots' -Condition ($normalized -eq 'D:\build-mxr\foo\bar')
     $normalized = ConvertTo-RogGateWindowsPath -Path 'D:\build-mxr\foo\..\bar\'
@@ -1369,15 +2359,15 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'strip extended path prefix' -Condition ($normalized -eq 'D:\build-mxr\pr20')
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path 'D:\..\MX' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path 'D:\..\MX' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject drive escape' -Condition $threw
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path '\\server\share\pr' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path '\\server\share\pr' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject UNC' -Condition $threw
 
     $threw = $false
-    try { ConvertTo-RogGateWindowsPath -Path 'build-mxr\pr' } catch { $threw = $true }
+    try { $null = ConvertTo-RogGateWindowsPath -Path 'build-mxr\pr' } catch { $threw = $true }
     Assert-RogGateSelfTest -Name 'reject relative path' -Condition $threw
 
     $safe = Get-RogGateLexicalSafety -BuildDir 'D:\build-mxr\pr20' -AllowedRoot 'D:\build-mxr\'
@@ -1409,7 +2399,7 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'deletion safety refuses D:\MX before any delete' -Condition (-not $combined.Safe)
 
     $mayThrew = $false
-    try { Assert-RogGateMayDelete -Safety $rootItself } catch { $mayThrew = $true }
+    try { $null = Assert-RogGateMayDelete -Safety $rootItself } catch { $mayThrew = $true }
     Assert-RogGateSelfTest -Name 'may-delete refuses the allowed root itself' -Condition $mayThrew
 
     $drives = @(Get-RogGateDrivesToCheck -NormalizedBuildDir 'D:\build-mxr\pr20' -NormalizedSourceDir 'E:\work\trial')
@@ -1427,7 +2417,7 @@ function Invoke-RogGateSelfTest {
     Assert-RogGateSelfTest -Name 'per-drive override replaces the default' -Condition (($eThreshold -eq 20) -and ($cThreshold -eq 10))
 
     $badOverride = $false
-    try { ConvertTo-RogGateDriveOverrides -Entries @('E') } catch { $badOverride = $true }
+    try { $null = ConvertTo-RogGateDriveOverrides -Entries @('E') } catch { $badOverride = $true }
     Assert-RogGateSelfTest -Name 'drive override without a value is rejected' -Condition $badOverride
 
     $floorScript = $PSCommandPath
@@ -1451,6 +2441,317 @@ function Invoke-RogGateSelfTest {
     $raisedDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=20', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
     $raisedDriveAccepted = ($raisedDrive.ExitCode -eq 1) -and ($raisedDrive.Text -match 'SourceDir not found') -and ($raisedDrive.Text -notmatch 'below the 10 GB floor')
     Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=20 is accepted and later checks still run' -Condition $raisedDriveAccepted
+
+    $buildProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SelfTestBuildExit', '2')
+    $buildExitOk = ($buildProbe.ExitCode -eq 2) -and ($buildProbe.Text -match 'Build failed \(exit 2\)') -and ($buildProbe.Text -match '\[ERROR\]')
+    Assert-RogGateSelfTest -Name 'stubbed build failure exits with the build code' -Condition $buildExitOk
+
+    function Invoke-RogGateExitWithNoise {
+        'noise'
+        0
+    }
+    function Invoke-RogGateExitOnly {
+        param([Parameter(Mandatory = $true)][int]$Code)
+        return $Code
+    }
+    $noisy = Invoke-RogGateExitWithNoise
+    $noisyResolved = Resolve-RogGateCollectedExit -Code $noisy
+    $noisyRejected = (-not $noisyResolved.Ok) -and ($noisyResolved.ExitCode -eq 1) -and ($noisyResolved.Detail -match 'type=') -and ($noisyResolved.Detail -match 'count=2')
+    Assert-RogGateSelfTest -Name 'exit code with extra pipeline output is rejected' -Condition $noisyRejected
+    $onlyZero = Invoke-RogGateExitOnly -Code 0
+    $zeroResolved = Resolve-RogGateCollectedExit -Code $onlyZero
+    Assert-RogGateSelfTest -Name 'single exit code 0 passes through unchanged' -Condition ($zeroResolved.Ok -and ($zeroResolved.ExitCode -eq 0) -and ($zeroResolved.ExitCode -is [int]))
+    $onlyTwo = Invoke-RogGateExitOnly -Code 2
+    $twoResolved = Resolve-RogGateCollectedExit -Code $onlyTwo
+    Assert-RogGateSelfTest -Name 'single exit code 2 passes through unchanged' -Condition ($twoResolved.Ok -and ($twoResolved.ExitCode -eq 2) -and ($twoResolved.ExitCode -is [int]))
+
+    $savedPlayDh = $env:MXH_PLAYDH_ROOT
+    $playdhTemp = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-playdh-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path $playdhTemp -Force | Out-Null
+    try {
+        $playdhSource = Join-Path -Path $playdhTemp -ChildPath 'src'
+        New-Item -ItemType Directory -Path $playdhSource -Force | Out-Null
+        $expectedPlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        $autoPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        $autoInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (auto)"
+        $autoOk = ($autoPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($autoPlayDh.Info -eq $autoInfo)
+        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT is set to the worktree PlayDH path' -Condition $autoOk
+
+        $presetPlayDh = 'D:\not-the-worktree\PlayDH'
+        $env:MXH_PLAYDH_ROOT = $presetPlayDh
+        $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        $overInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (overrode '$presetPlayDh')"
+        $overOk = ($overPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($overPlayDh.Path -ne $presetPlayDh) -and ($overPlayDh.Info -eq $overInfo)
+        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden to the SourceDir path' -Condition $overOk
+
+        $missingPlayDh = Join-Path -Path $playdhTemp -ChildPath 'missing'
+        $missingCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $missingPlayDh
+        $missingOk = (-not $missingCheck.Ok) -and ($missingCheck.Reason -match 'does not exist') -and ($missingCheck.Reason -match [regex]::Escape($missingPlayDh))
+        Assert-RogGateSelfTest -Name 'missing PlayDH directory fails preflight' -Condition $missingOk
+
+        $lfsRoot = Join-Path -Path $playdhTemp -ChildPath 'lfs'
+        $lfsItemDir = Join-Path -Path $lfsRoot -ChildPath 'Resource'
+        $lfsImageDir = Join-Path -Path (Join-Path -Path $lfsRoot -ChildPath 'Image') -ChildPath '2D'
+        New-Item -ItemType Directory -Path $lfsItemDir -Force | Out-Null
+        New-Item -ItemType Directory -Path $lfsImageDir -Force | Out-Null
+        $lfsItem = Join-Path -Path $lfsItemDir -ChildPath 'ItemList.bin'
+        $lfsLogin = Join-Path -Path $lfsImageDir -ChildPath 'login.dds'
+        [System.IO.File]::WriteAllBytes($lfsItem, [byte[]](0x4D, 0x48, 0x00, 0x01))
+        [System.IO.File]::WriteAllBytes($lfsLogin, [byte[]](0x44, 0x44, 0x53, 0x20))
+        $realCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $lfsRoot
+        $pointer = "version https://git-lfs.github.com/spec/v1`noid sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`nsize 4`n"
+        $utf8 = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($lfsLogin, $pointer, $utf8)
+        $pointerCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $lfsRoot
+        $lfsOk = $realCheck.Ok -and (-not $pointerCheck.Ok) -and ($pointerCheck.Reason -match 'LFS pointer') -and ($pointerCheck.Reason -match 'login\.dds')
+        Assert-RogGateSelfTest -Name 'LFS-pointer login.dds fails PlayDH preflight' -Condition $lfsOk
+
+        $ctestSample = @(
+            'Test project D:/build-mxr/pr',
+            '    Start 1: Alpha.One',
+            '1/4 Test #1: Alpha.One .....................***Skipped   0.01 sec',
+            '    Start 2: Beta.Two',
+            '2/4 Test #2: Beta.Two ......................   Passed    0.01 sec',
+            '    Start 9: Other.Fail',
+            '3/4 Test #9: Other.Fail ....................***Failed    0.02 sec',
+            '    Start 3: Gamma.Three',
+            '4/4 Test #3: Gamma.Three ...................***Skipped   0.01 sec',
+            '',
+            '50% tests passed, 2 tests skipped out of 4',
+            '',
+            'The following tests FAILED:',
+            '          9 - Other.Fail (Failed)',
+            '',
+            'The following tests did not run:',
+            '          1 - Alpha.One (Skipped)',
+            '          3 - Gamma.Three (Skipped)',
+            ''
+        ) -join "`n"
+        $skipReport = Get-RogGateCTestSkipReport -Text $ctestSample
+        $skipNames = (@($skipReport.Names) -join ',')
+        $skipLines = (@($skipReport.Lines) -join "`n")
+        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two')
+        Assert-RogGateSelfTest -Name 'CTest skipped tests are counted and named' -Condition $skipOk
+    } finally {
+        if ([string]::IsNullOrEmpty($savedPlayDh)) {
+            Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        } else {
+            $env:MXH_PLAYDH_ROOT = $savedPlayDh
+        }
+        $null = Remove-RogGateFixture -LiteralPath $playdhTemp
+    }
+
+    function Measure-RogGateSelfTestExclude {
+        param([string[]]$Arguments)
+        $count = 0
+        $value = ''
+        $index = 0
+        $items = @($Arguments)
+        while ($index -lt $items.Count) {
+            if ([string]$items[$index] -eq '-E') {
+                $count = $count + 1
+                if (($index + 1) -lt $items.Count) {
+                    $value = [string]$items[$index + 1]
+                }
+            }
+            $index = $index + 1
+        }
+        return [pscustomobject]@{
+            Count = $count
+            Value = $value
+        }
+    }
+
+    function Test-RogGateSelfTestHasPair {
+        param(
+            [string[]]$Arguments,
+            [Parameter(Mandatory = $true)][string]$Flag,
+            [Parameter(Mandatory = $true)][string]$Value
+        )
+        $index = 0
+        $items = @($Arguments)
+        while ($index -lt ($items.Count - 1)) {
+            if (([string]$items[$index] -eq $Flag) -and ([string]$items[$index + 1] -eq $Value)) {
+                return $true
+            }
+            $index = $index + 1
+        }
+        return $false
+    }
+
+    $savedE2EBase = $env:MXH_E2E_PORT_BASE
+    try {
+        $happyPorts = Get-RogGateE2EPortsFromBase -BaseText '26001'
+        $happyLine = Format-RogGateE2EPortsLine -Login $happyPorts.Login -Agent $happyPorts.Agent -Map $happyPorts.Map -Map12 $happyPorts.Map12
+        $plusPorts = Get-RogGateE2EPortsFromBase -BaseText '+26001'
+        $happyOk = $happyPorts.Ok -and ($happyPorts.Login -eq 26001) -and ($happyPorts.Agent -eq 27001) -and ($happyPorts.Map -eq 28001) -and ($happyPorts.Map12 -eq 28002) -and ($happyLine -eq '[INFO] E2E ports login=26001 agent=27001 map=28001 map12=28002') -and $plusPorts.Ok -and ($plusPorts.Login -eq 26001) -and ($plusPorts.Map12 -eq 28002)
+        Assert-RogGateSelfTest -Name 'E2E base 26001 yields login 26001 agent 27001 map 28001 map12 28002' -Condition $happyOk
+
+        $abcPorts = Get-RogGateE2EPortsFromBase -BaseText 'abc'
+        $decimalPorts = Get-RogGateE2EPortsFromBase -BaseText '12.5'
+        $emptyPorts = Get-RogGateE2EPortsFromBase -BaseText ''
+        $minusPorts = Get-RogGateE2EPortsFromBase -BaseText '-1'
+        $nonIntegerOk = (-not $abcPorts.Ok) -and ($abcPorts.Reason -eq 'MXH_E2E_PORT_BASE is not an integer: abc') -and (-not $decimalPorts.Ok) -and ($decimalPorts.Reason -eq 'MXH_E2E_PORT_BASE is not an integer: 12.5') -and (-not $emptyPorts.Ok) -and ($emptyPorts.Reason -match 'not an integer') -and (-not $minusPorts.Ok) -and ($minusPorts.Reason -match 'not an integer') -and ($abcPorts.Reason -notmatch 'outside') -and ($decimalPorts.Reason -notmatch 'forbidden')
+        Assert-RogGateSelfTest -Name 'non-integer MXH_E2E_PORT_BASE is rejected' -Condition $nonIntegerOk
+
+        $lowPorts = Get-RogGateE2EPortsFromBase -BaseText '80'
+        $belowPorts = Get-RogGateE2EPortsFromBase -BaseText '1023'
+        $floorPorts = Get-RogGateE2EPortsFromBase -BaseText '1024'
+        $ceilingPorts = Get-RogGateE2EPortsFromBase -BaseText '63534'
+        $abovePorts = Get-RogGateE2EPortsFromBase -BaseText '63535'
+        $rangeOk = (-not $lowPorts.Ok) -and ($lowPorts.Reason -eq 'E2E port 80 is outside 1024-65535.') -and (-not $belowPorts.Ok) -and ($belowPorts.Reason -eq 'E2E port 1023 is outside 1024-65535.') -and $floorPorts.Ok -and ($floorPorts.Login -eq 1024) -and ($floorPorts.Map12 -eq 3025) -and $ceilingPorts.Ok -and ($ceilingPorts.Map12 -eq 65535) -and (-not $abovePorts.Ok) -and ($abovePorts.Reason -eq 'E2E port 65536 is outside 1024-65535.') -and ($lowPorts.Reason -notmatch 'forbidden')
+        Assert-RogGateSelfTest -Name 'E2E ports outside 1024-65535 are rejected' -Condition $rangeOk
+
+        $forbiddenOk = $happyPorts.Ok
+        foreach ($forbiddenPort in @(16001, 17001, 18001, 36001, 37001, 38001)) {
+            $forbiddenPorts = Get-RogGateE2EPortsFromBase -BaseText ([string]$forbiddenPort)
+            $forbiddenReason = 'E2E port ' + [string]$forbiddenPort + ' is forbidden.'
+            if ($forbiddenPorts.Ok -or ($forbiddenPorts.Reason -ne $forbiddenReason)) {
+                $forbiddenOk = $false
+            }
+        }
+        $agentForbidden = Get-RogGateE2EPortsFromBase -BaseText '15001'
+        if ($agentForbidden.Ok -or ($agentForbidden.Reason -ne 'E2E port 16001 is forbidden.')) {
+            $forbiddenOk = $false
+        }
+        Assert-RogGateSelfTest -Name 'forbidden E2E ports 16001 17001 18001 36001 37001 38001 are rejected' -Condition $forbiddenOk
+
+        $null = Set-RogGateE2EPortBase
+        $fromEnv = Get-RogGateE2EPortsFromBase -BaseText $env:MXH_E2E_PORT_BASE
+        $setOk = ($env:MXH_E2E_PORT_BASE -eq '26001') -and $fromEnv.Ok -and ($fromEnv.Login -eq 26001) -and ($fromEnv.Agent -eq 27001) -and ($fromEnv.Map -eq 28001) -and ($fromEnv.Map12 -eq 28002)
+        Assert-RogGateSelfTest -Name 'MXH_E2E_PORT_BASE is set to 26001' -Condition $setOk
+
+        $listener = $null
+        $started = $false
+        $busyPort = 0
+        $busyOk = $false
+        try {
+            $listener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Loopback, 0)
+            $listener.Start()
+            $started = $true
+            $busyPort = [int]$listener.LocalEndpoint.Port
+            $foundBusy = Get-RogGateFirstBusyLoopbackPort -Ports @($busyPort)
+            $busyMessage = Format-RogGatePortInUseMessage -Port $busyPort
+            $busyOk = ($foundBusy -eq $busyPort) -and ($busyMessage -eq ('port ' + [string]$busyPort + ' in use'))
+        } catch {
+            $busyOk = $false
+        } finally {
+            if ($started -and $null -ne $listener) {
+                $listener.Stop()
+            }
+        }
+        Assert-RogGateSelfTest -Name 'an occupied loopback port is reported in use' -Condition $busyOk
+
+        $anyListener = $null
+        $anyStarted = $false
+        $anyOk = $false
+        try {
+            $anyListener = New-Object System.Net.Sockets.TcpListener -ArgumentList ([System.Net.IPAddress]::Any, 0)
+            $anyListener.Start()
+            $anyStarted = $true
+            $anyPort = [int]$anyListener.LocalEndpoint.Port
+            $foundAny = Get-RogGateFirstBusyLoopbackPort -Ports @($anyPort)
+            $anyMessage = Format-RogGatePortInUseMessage -Port $anyPort
+            $anyOk = ($foundAny -eq $anyPort) -and ($anyMessage -eq ('port ' + [string]$anyPort + ' in use'))
+        } catch {
+            $anyOk = $false
+        } finally {
+            if ($anyStarted -and $null -ne $anyListener) {
+                $anyListener.Stop()
+            }
+        }
+        Assert-RogGateSelfTest -Name 'a port held on IPAddress.Any is reported in use' -Condition $anyOk
+
+        $launcherText = @(
+            '1: Test command: "D:/build/mxh_client_e2e_ctest.EXE" "D:/build/mxh_client_e2e.exe" --login-exe "D:/build/login.exe"',
+            '1: Working Directory: D:/build-mxr/pr'
+        ) -join "`n"
+        $launcherListing = Get-RogGateE2EListing -Text $launcherText -ExitCode 0
+        $launcherPlan = Resolve-RogGateE2ERegistration -Listing $launcherListing
+        $launcherOk = $launcherListing.Registered -and $launcherListing.Launcher -and ($launcherListing.WorkingDirectory -eq 'D:/build-mxr/pr') -and ($launcherListing.Command -match 'mxh_client_e2e_ctest\.EXE') -and ($launcherPlan.Action -eq 'Run')
+        Assert-RogGateSelfTest -Name 'mxh_client_e2e_ctest listing is the port launcher' -Condition $launcherOk
+
+        $legacyText = '1: Test command: "D:/build/mxh_client_e2e.exe" --login-host 127.0.0.1'
+        $legacyListing = Get-RogGateE2EListing -Text $legacyText -ExitCode 0
+        $legacyError = Resolve-RogGateE2ERegistration -Listing $legacyListing
+        $legacySkip = Resolve-RogGateE2ERegistration -Listing $legacyListing -SkipE2E
+        $legacyOk = (-not $legacyListing.Launcher) -and ($legacyError.Action -eq 'Error') -and ($legacyError.Message -eq 'MoxianClientE2E is pre-#39 (no port launcher); refusing to run') -and ($legacySkip.Action -eq 'Skip') -and ($legacySkip.Message -eq '[WARN] E2E skipped by -SkipE2E')
+        Assert-RogGateSelfTest -Name 'pre-#39 MoxianClientE2E is refused unless SkipE2E' -Condition $legacyOk
+
+        $absentListing = Get-RogGateE2EListing -Text 'No tests were found!!!' -ExitCode 0
+        $absentPlan = Resolve-RogGateE2ERegistration -Listing $absentListing
+        $totalListing = Get-RogGateE2EListing -Text 'Total Tests: 0' -ExitCode 8
+        $totalPlan = Resolve-RogGateE2ERegistration -Listing $totalListing
+        $absentOk = $absentListing.Absent -and (-not $absentListing.Registered) -and ($absentPlan.Action -eq 'Error') -and ($absentPlan.Message -eq 'MoxianClientE2E not registered') -and $totalListing.Absent -and ($totalPlan.Action -eq 'Error') -and ($totalPlan.Message -eq 'MoxianClientE2E not registered')
+        Assert-RogGateSelfTest -Name 'missing MoxianClientE2E is not registered' -Condition $absentOk
+
+        $absentSkip = Resolve-RogGateE2ERegistration -Listing $absentListing -SkipE2E
+        $absentSkipOk = ($absentSkip.Action -eq 'Skip') -and ($absentSkip.Message -eq '[WARN] E2E skipped by -SkipE2E')
+        Assert-RogGateSelfTest -Name 'missing MoxianClientE2E with SkipE2E warns and continues' -Condition $absentSkipOk
+
+        $parseListing = Get-RogGateE2EListing -Text 'ctest failed with no listing' -ExitCode 1
+        $parsePlan = Resolve-RogGateE2ERegistration -Listing $parseListing
+        $multiText = "1: Test command: C:/build/mxh_client_e2e_ctest.exe`n2: Test command: C:/build/other.exe"
+        $multiListing = Get-RogGateE2EListing -Text $multiText -ExitCode 0
+        $multiPlan = Resolve-RogGateE2ERegistration -Listing $multiListing
+        $parseOk = (-not [string]::IsNullOrEmpty($parseListing.ParseError)) -and ($parsePlan.Action -eq 'Error') -and (-not [string]::IsNullOrEmpty($multiListing.ParseError)) -and ($multiPlan.Action -eq 'Error')
+        Assert-RogGateSelfTest -Name 'an unreadable E2E listing is an error' -Condition $parseOk
+
+        $mainNone = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @()
+        $noneExclude = Measure-RogGateSelfTestExclude -Arguments @($mainNone.Arguments)
+        $noneOk = ($noneExclude.Count -eq 1) -and ($noneExclude.Value -eq '^MoxianClientE2E$')
+        Assert-RogGateSelfTest -Name 'main CTest excludes only MoxianClientE2E' -Condition $noneOk
+
+        $mainExtra = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('-R', 'Foo', '-E', 'Bar')
+        $extraExclude = Measure-RogGateSelfTestExclude -Arguments @($mainExtra.Arguments)
+        $extraKept = Test-RogGateSelfTestHasPair -Arguments @($mainExtra.Arguments) -Flag '-R' -Value 'Foo'
+        $equalsForm = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('--exclude-regex=Bar')
+        $equalsExclude = Measure-RogGateSelfTestExclude -Arguments @($equalsForm.Arguments)
+        $extraOk = $extraKept -and ($extraExclude.Count -eq 1) -and ($extraExclude.Value -eq '(Bar)|(^MoxianClientE2E$)') -and ($equalsExclude.Count -eq 1) -and ($equalsExclude.Value -eq '(Bar)|(^MoxianClientE2E$)')
+        Assert-RogGateSelfTest -Name 'main CTest merges -R and -E with the E2E exclusion' -Condition $extraOk
+
+        $mainDup = Get-RogGateMainCTestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ExtraArgs @('-E', '^MoxianClientE2E$')
+        $dupExclude = Measure-RogGateSelfTestExclude -Arguments @($mainDup.Arguments)
+        $dupOk = ($dupExclude.Count -eq 1) -and ($dupExclude.Value -eq '^MoxianClientE2E$')
+        Assert-RogGateSelfTest -Name 'an extra E2E exclusion is not duplicated' -Condition $dupOk
+
+        $runPlan = Get-RogGateE2ECtestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ListOnly $false
+        $runArgs = @($runPlan.Arguments)
+        $runHasR = Test-RogGateSelfTestHasPair -Arguments $runArgs -Flag '-R' -Value '^MoxianClientE2E$'
+        $runExclude = Measure-RogGateSelfTestExclude -Arguments $runArgs
+        $runHasPort = $false
+        foreach ($runArg in $runArgs) {
+            $runText = [string]$runArg
+            if ($runText -eq '--login-port' -or $runText -eq '--agent-port' -or $runText -eq '--map-port' -or $runText -eq '--map12-port') {
+                $runHasPort = $true
+            }
+        }
+        $listPlan = Get-RogGateE2ECtestArguments -BuildDir 'D:\build-mxr\pr' -ConfigName 'Debug' -ListOnly $true
+        $listArgs = @($listPlan.Arguments)
+        $listHasN = $false
+        $listHasV = $false
+        foreach ($listArg in $listArgs) {
+            if ([string]$listArg -eq '-N') { $listHasN = $true }
+            if ([string]$listArg -eq '-V') { $listHasV = $true }
+        }
+        $listHasR = Test-RogGateSelfTestHasPair -Arguments $listArgs -Flag '-R' -Value '^MoxianClientE2E$'
+        $runHasNoTests = $false
+        foreach ($runArg in $runArgs) {
+            if ([string]$runArg -eq '--no-tests=error') {
+                $runHasNoTests = $true
+            }
+        }
+        $runOk = $runHasR -and ($runExclude.Count -eq 0) -and (-not $runHasPort) -and $listHasN -and $listHasV -and $listHasR
+        Assert-RogGateSelfTest -Name 'the separate E2E ctest uses -R and does not append port flags' -Condition $runOk
+        Assert-RogGateSelfTest -Name 'the separate E2E ctest passes --no-tests=error' -Condition $runHasNoTests
+    } finally {
+        if ([string]::IsNullOrEmpty($savedE2EBase)) {
+            Remove-Item -Path 'Env:MXH_E2E_PORT_BASE' -ErrorAction SilentlyContinue
+        } else {
+            $env:MXH_E2E_PORT_BASE = $savedE2EBase
+        }
+    }
 
     function Initialize-RogGateSelfTestRepo {
         param(
@@ -1500,35 +2801,28 @@ function Invoke-RogGateSelfTest {
         New-Item -ItemType Directory -Path $TargetPath -Force | Out-Null
         $innerTarget = Join-Path -Path $TargetPath -ChildPath 'inner-target'
         $innerLink = Join-Path -Path $TargetPath -ChildPath 'inner-link'
-        New-Item -ItemType Directory -Path $innerTarget -Force | Out-Null
-        try {
-            New-Item -ItemType SymbolicLink -Path $innerLink -Target $innerTarget -ErrorAction Stop | Out-Null
-        } catch {
-            if ($env:OS -eq 'Windows_NT') {
-                $null = & cmd.exe /d /c "mklink /J `"$innerLink`" `"$innerTarget`""
-            }
-        }
+        $inner = New-RogGateSelfTestDirectoryLink -LinkPath $innerLink -TargetPath $innerTarget
         Set-Content -LiteralPath (Join-Path -Path $TargetPath -ChildPath 'marker.txt') -Value 'keep' -Encoding ASCII
-        $created = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $LinkPath -Target $TargetPath -ErrorAction Stop | Out-Null
-            $created = $true
-        } catch {
-            $created = $false
+        $outer = New-RogGateSelfTestDirectoryLink -LinkPath $LinkPath -TargetPath $TargetPath
+        $linkType = [string]$outer.LinkType
+        return [pscustomobject]@{
+            Ok       = [bool]($inner.Ok -and $outer.Ok)
+            Created  = [bool]$outer.Created
+            LinkType = $linkType
         }
-        if ((-not $created) -and ($env:OS -eq 'Windows_NT')) {
-            $null = & cmd.exe /d /c "mklink /J `"$LinkPath`" `"$TargetPath`""
-            if ($LASTEXITCODE -eq 0) {
-                $created = $true
-            }
+    }
+    function Format-RogGateSelfTestLinkKind {
+        param([string]$LinkType)
+        if ([string]::IsNullOrWhiteSpace($LinkType)) {
+            return 'missing'
         }
-        return $created
+        return $LinkType
     }
     function Test-RogGatePreflightAllows {
         param([Parameter(Mandatory = $true)][string]$Path)
         $threw = $false
         try {
-            Assert-RogGateSparseReparsePreflight -SourceDir $Path
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $Path
         } catch {
             $threw = $true
         }
@@ -1543,20 +2837,22 @@ function Invoke-RogGateSelfTest {
         $neitherState = Get-RogGateSparseCheckoutState -Worktree $neither
         $neitherReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $neither)
         $neitherPass = $neitherReady -and (-not $neitherState.Active) -and ($neitherReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $neither)
-        Assert-RogGateSelfTest -Name 'neither sparse checkout nor a junction passes' -Condition $neitherPass
+        Assert-RogGateSelfTest -Name 'neither sparse checkout nor a junction passes (link=none)' -Condition $neitherPass
 
         $sparseOnly = Join-Path -Path $preflightRoot -ChildPath 'sparse-only'
         $sparseReady = Initialize-RogGateSelfTestRepo -Path $sparseOnly -Sparse $true
         $sparseState = Get-RogGateSparseCheckoutState -Worktree $sparseOnly
         $sparseReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $sparseOnly)
         $sparsePass = $sparseReady -and $sparseState.Active -and ($sparseState.SparseState -match 'core.sparseCheckout=true') -and ($sparseReparse.Count -eq 0) -and (Test-RogGatePreflightAllows -Path $sparseOnly)
-        Assert-RogGateSelfTest -Name 'sparse checkout alone passes' -Condition $sparsePass
+        Assert-RogGateSelfTest -Name 'sparse checkout alone passes (link=none)' -Condition $sparsePass
 
         $junctionOnly = Join-Path -Path $preflightRoot -ChildPath 'junction-only'
         $junctionTarget = Join-Path -Path $preflightRoot -ChildPath 'junction-target'
         $junctionReady = Initialize-RogGateSelfTestRepo -Path $junctionOnly -Sparse $false
         $junctionLink = Join-Path -Path $junctionOnly -ChildPath 'jump'
-        $junctionLinked = New-RogGateSelfTestReparseLink -LinkPath $junctionLink -TargetPath $junctionTarget
+        $junctionResult = New-RogGateSelfTestReparseLink -LinkPath $junctionLink -TargetPath $junctionTarget
+        $junctionLinked = [bool]$junctionResult.Ok
+        $junctionKind = Format-RogGateSelfTestLinkKind -LinkType $junctionResult.LinkType
         $junctionState = Get-RogGateSparseCheckoutState -Worktree $junctionOnly
         $junctionReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $junctionOnly)
         $junctionSawLink = $false
@@ -1569,20 +2865,22 @@ function Invoke-RogGateSelfTest {
                 $junctionFollowed = $true
             }
         }
-        $junctionPass = $junctionReady -and $junctionLinked -and (-not $junctionState.Active) -and $junctionSawLink -and (-not $junctionFollowed) -and (Test-RogGatePreflightAllows -Path $junctionOnly)
-        Assert-RogGateSelfTest -Name 'junction alone passes' -Condition $junctionPass
+        $junctionPass = $junctionReady -and $junctionLinked -and ($junctionKind -eq $directoryLinkKind) -and (-not $junctionState.Active) -and $junctionSawLink -and (-not $junctionFollowed) -and (Test-RogGatePreflightAllows -Path $junctionOnly)
+        Assert-RogGateSelfTest -Name ("junction alone passes (link={0})" -f $junctionKind) -Condition $junctionPass
 
         $both = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction'
         $bothTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-junction-target'
         $bothReady = Initialize-RogGateSelfTestRepo -Path $both -Sparse $true
         $bothLink = Join-Path -Path $both -ChildPath 'jump'
-        $bothLinked = New-RogGateSelfTestReparseLink -LinkPath $bothLink -TargetPath $bothTarget
+        $bothResult = New-RogGateSelfTestReparseLink -LinkPath $bothLink -TargetPath $bothTarget
+        $bothLinked = [bool]$bothResult.Ok
+        $bothKind = Format-RogGateSelfTestLinkKind -LinkType $bothResult.LinkType
         $bothState = Get-RogGateSparseCheckoutState -Worktree $both
         $bothReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $both)
         $bothMessage = ''
         $bothThrew = $false
         try {
-            Assert-RogGateSparseReparsePreflight -SourceDir $both
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $both
         } catch {
             $bothThrew = $true
             $bothMessage = $_.Exception.Message
@@ -1597,8 +2895,8 @@ function Invoke-RogGateSelfTest {
                 $bothFollowed = $true
             }
         }
-        $bothRejected = $bothReady -and $bothLinked -and $bothState.Active -and ($bothState.SparseState -match 'core.sparseCheckout=true') -and $bothThrew -and ($bothMessage -match 'sparse checkout is enabled') -and $bothNamesPaths -and (-not $bothFollowed) -and ($bothMessage -notmatch 'inner-link')
-        Assert-RogGateSelfTest -Name 'sparse checkout plus a junction is rejected' -Condition $bothRejected
+        $bothRejected = $bothReady -and $bothLinked -and ($bothKind -eq $directoryLinkKind) -and $bothState.Active -and ($bothState.SparseState -match 'core.sparseCheckout=true') -and $bothThrew -and ($bothMessage -match 'sparse checkout is enabled') -and $bothNamesPaths -and (-not $bothFollowed) -and ($bothMessage -notmatch 'inner-link')
+        Assert-RogGateSelfTest -Name ("sparse checkout plus a junction is rejected (link={0})" -f $bothKind) -Condition $bothRejected
 
         $worktreeBase = Join-Path -Path $preflightRoot -ChildPath 'worktree'
         $worktreeMain = Join-Path -Path $worktreeBase -ChildPath 'main'
@@ -1615,7 +2913,7 @@ function Invoke-RogGateSelfTest {
         $worktreeDotGitText = ''
         if (Test-Path -LiteralPath $worktreeDotGit) {
             $dotGitItem = Get-Item -LiteralPath $worktreeDotGit -Force
-            $dotGitIsDir = ($dotGitItem.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+            $dotGitIsDir = (Test-RogGateAttributeHasDirectory -Attributes $dotGitItem.Attributes)
             $worktreeDotGitFile = (-not $dotGitIsDir) -and (-not (Test-RogGateItemReparsePoint -Item $dotGitItem))
             if ($worktreeDotGitFile) {
                 $worktreeDotGitText = [System.IO.File]::ReadAllText($dotGitItem.FullName)
@@ -1623,8 +2921,11 @@ function Invoke-RogGateSelfTest {
         }
         $worktreeLink = Join-Path -Path $worktreeDir -ChildPath 'jump'
         $worktreeLinked = $false
+        $worktreeKind = 'missing'
         if ($worktreeSparse) {
-            $worktreeLinked = New-RogGateSelfTestReparseLink -LinkPath $worktreeLink -TargetPath $worktreeTarget
+            $worktreeResult = New-RogGateSelfTestReparseLink -LinkPath $worktreeLink -TargetPath $worktreeTarget
+            $worktreeLinked = [bool]$worktreeResult.Ok
+            $worktreeKind = Format-RogGateSelfTestLinkKind -LinkType $worktreeResult.LinkType
         }
         $worktreeGitDir = ''
         if ($worktreeAdded) {
@@ -1641,14 +2942,14 @@ function Invoke-RogGateSelfTest {
         $worktreeThrew = $false
         if ($worktreeLinked) {
             try {
-                Assert-RogGateSparseReparsePreflight -SourceDir $worktreeDir
+                $null = Assert-RogGateSparseReparsePreflight -SourceDir $worktreeDir
             } catch {
                 $worktreeThrew = $true
                 $worktreeMessage = $_.Exception.Message
             }
         }
-        $worktreeRejected = $worktreeReady -and $worktreeSparse -and $worktreeDotGitFile -and ($worktreeDotGitText -match '(?m)^\s*gitdir:') -and $worktreeLinked -and $worktreeThrew -and ($worktreeMessage -match 'core.sparseCheckout=true') -and ($worktreeLinkFull.Length -gt 0) -and ($worktreeMessage -match [regex]::Escape($worktreeLinkFull)) -and ($worktreeMessage -match 'worktrees') -and ($worktreeMessage -notmatch 'inner-link') -and ($worktreeGitDir -match 'worktrees')
-        Assert-RogGateSelfTest -Name 'sparse worktree whose .git file is a gitdir pointer is rejected when it contains a junction' -Condition $worktreeRejected
+        $worktreeRejected = $worktreeReady -and $worktreeSparse -and $worktreeDotGitFile -and ($worktreeDotGitText -match '(?m)^\s*gitdir:') -and $worktreeLinked -and ($worktreeKind -eq $directoryLinkKind) -and $worktreeThrew -and ($worktreeMessage -match 'core.sparseCheckout=true') -and ($worktreeLinkFull.Length -gt 0) -and ($worktreeMessage -match [regex]::Escape($worktreeLinkFull)) -and ($worktreeMessage -match 'worktrees') -and ($worktreeMessage -notmatch 'inner-link') -and ($worktreeGitDir -match 'worktrees')
+        Assert-RogGateSelfTest -Name ("sparse worktree whose .git file is a gitdir pointer is rejected when it contains a junction (link={0})" -f $worktreeKind) -Condition $worktreeRejected
 
         $bothProbe = Invoke-RogGateFloorProbe -ProbeArguments @('-SourceDir', $both, '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
         $bothLinkFull = ''
@@ -1660,10 +2961,60 @@ function Invoke-RogGateSelfTest {
         if (Test-Path -LiteralPath $markerPath) {
             $markerText = (Get-Content -LiteralPath $markerPath -Raw).Trim()
         }
-        $bothProbeRejected = $bothLinked -and ($bothLinkFull.Length -gt 0) -and ($bothProbe.ExitCode -eq 1) -and ($bothProbe.Text -match 'sparse checkout is enabled') -and ($bothProbe.Text -match [regex]::Escape($bothLinkFull)) -and ($bothProbe.Text -match 'core.sparseCheckout=true') -and ($bothProbe.Text -notmatch 'rev-parse') -and ($bothProbe.Text -notmatch 'inner-link') -and ($markerText -eq 'keep')
-        Assert-RogGateSelfTest -Name 'sparse plus junction exits 1 before git rev-parse' -Condition $bothProbeRejected
+        $bothProbeRejected = $bothLinked -and ($bothKind -eq $directoryLinkKind) -and ($bothLinkFull.Length -gt 0) -and ($bothProbe.ExitCode -eq 1) -and ($bothProbe.Text -match 'sparse checkout is enabled') -and ($bothProbe.Text -match [regex]::Escape($bothLinkFull)) -and ($bothProbe.Text -match 'core.sparseCheckout=true') -and ($bothProbe.Text -notmatch 'rev-parse') -and ($bothProbe.Text -notmatch 'inner-link') -and ($markerText -eq 'keep')
+        Assert-RogGateSelfTest -Name ("sparse plus junction exits 1 before git rev-parse (link={0})" -f $bothKind) -Condition $bothProbeRejected
+
+        if (Test-RogGateHostIsWindows) {
+            $mixed = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed'
+            $mixedJunctionTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed-junction-target'
+            $mixedSymlinkTarget = Join-Path -Path $preflightRoot -ChildPath 'sparse-mixed-symlink-target'
+            $mixedReady = Initialize-RogGateSelfTestRepo -Path $mixed -Sparse $true
+            $mixedJunction = Join-Path -Path $mixed -ChildPath 'jump-junction'
+            $mixedJunctionResult = New-RogGateSelfTestReparseLink -LinkPath $mixedJunction -TargetPath $mixedJunctionTarget
+            $mixedJunctionKind = Format-RogGateSelfTestLinkKind -LinkType $mixedJunctionResult.LinkType
+            $mixedName = 'windows sparse checkout with a junction and a directory symlink'
+            if (-not ($mixedReady -and $mixedJunctionResult.Ok -and ($mixedJunctionKind -eq 'Junction'))) {
+                Assert-RogGateSelfTest -Name ("{0} (link={1})" -f $mixedName, $mixedJunctionKind) -Condition $false
+            } else {
+                $mixedInnerTarget = Join-Path -Path $mixedSymlinkTarget -ChildPath 'inner-target'
+                $mixedInnerLink = Join-Path -Path $mixedSymlinkTarget -ChildPath 'inner-link'
+                $mixedInner = New-RogGateSelfTestDirectoryLink -LinkPath $mixedInnerLink -TargetPath $mixedInnerTarget -Kind Junction
+                $mixedSymlink = Join-Path -Path $mixed -ChildPath 'jump-symlink'
+                $mixedSymlinkResult = New-RogGateSelfTestDirectoryLink -LinkPath $mixedSymlink -TargetPath $mixedSymlinkTarget -Kind SymbolicLink
+                $mixedSymlinkKind = Format-RogGateSelfTestLinkKind -LinkType $mixedSymlinkResult.LinkType
+                if (-not $mixedInner.Ok) {
+                    Assert-RogGateSelfTest -Name ("{0} (link={1}+{2})" -f $mixedName, $mixedJunctionKind, $mixedSymlinkKind) -Condition $false
+                } elseif (-not $mixedSymlinkResult.Created) {
+                    Write-RogGateSelfTestSkip -Name ("{0} (directory symlink not permitted)" -f $mixedName)
+                } elseif ($mixedSymlinkResult.LinkType -ne 'SymbolicLink') {
+                    Assert-RogGateSelfTest -Name ("{0} (link={1}+{2})" -f $mixedName, $mixedJunctionKind, $mixedSymlinkKind) -Condition $false
+                } else {
+                    $mixedState = Get-RogGateSparseCheckoutState -Worktree $mixed
+                    $mixedReparse = @(Get-RogGateWorkingTreeReparsePoints -LiteralPath $mixed)
+                    $mixedMessage = ''
+                    $mixedThrew = $false
+                    try {
+                        $null = Assert-RogGateSparseReparsePreflight -SourceDir $mixed
+                    } catch {
+                        $mixedThrew = $true
+                        $mixedMessage = $_.Exception.Message
+                    }
+                    $mixedJunctionFull = (Get-Item -LiteralPath $mixedJunction -Force).FullName
+                    $mixedSymlinkFull = (Get-Item -LiteralPath $mixedSymlink -Force).FullName
+                    $mixedNames = ($mixedMessage -match [regex]::Escape($mixedJunctionFull)) -and ($mixedMessage -match [regex]::Escape($mixedSymlinkFull))
+                    $mixedFollowed = $false
+                    foreach ($reparsePath in $mixedReparse) {
+                        if ([string]$reparsePath -match 'inner-link') {
+                            $mixedFollowed = $true
+                        }
+                    }
+                    $mixedOk = $mixedState.Active -and $mixedThrew -and ($mixedMessage -match 'sparse checkout is enabled') -and ($mixedMessage -match 'core.sparseCheckout=true') -and $mixedNames -and (-not $mixedFollowed) -and ($mixedMessage -notmatch 'inner-link')
+                    Assert-RogGateSelfTest -Name ("{0} (link=Junction+SymbolicLink)" -f $mixedName) -Condition $mixedOk
+                }
+            }
+        }
     } finally {
-        Remove-RogGateFixture -LiteralPath $preflightRoot
+        $null = Remove-RogGateFixture -LiteralPath $preflightRoot
     }
 
     $required = [int64]10GB
@@ -1745,7 +3096,7 @@ function Invoke-RogGateSelfTest {
 
         $stampDir = Join-Path -Path $fixture -ChildPath 'stamp'
         New-Item -ItemType Directory -Path $stampDir | Out-Null
-        Write-RogGateStamp -BuildDirectory $stampDir -Sha $sha -GeneratorName 'NMake Makefiles' -ConfigName 'Debug'
+        $null = Write-RogGateStamp -BuildDirectory $stampDir -Sha $sha -GeneratorName 'NMake Makefiles' -ConfigName 'Debug'
         $stampRead = Read-RogGateStampSha -BuildDirectory $stampDir
         Assert-RogGateSelfTest -Name 'stamp round-trip keeps the SHA on the first line' -Condition ($stampRead.HasStamp -and ($stampRead.Sha -eq $sha))
 
@@ -1755,10 +3106,11 @@ function Invoke-RogGateSelfTest {
         $plainFile = Join-Path -Path $nested -ChildPath 'a.txt'
         [System.IO.File]::WriteAllBytes($plainFile, (New-Object byte[] 32))
         $plainItem = Get-Item -LiteralPath $plainFile -Force
-        $plainItem.Attributes = $plainItem.Attributes -bor [System.IO.FileAttributes]::ReadOnly
+        $plainBits = Get-RogGateAttributeValue -Attributes $plainItem.Attributes
+        $null = Set-RogGateRawAttributes -LiteralPath $plainFile -Value ($plainBits -bor $script:RogGateAttributeReadOnly)
         $sibling = Join-Path -Path $fixture -ChildPath 'keep.txt'
         [System.IO.File]::WriteAllText($sibling, 'keep')
-        Remove-RogGateDirectoryNoFollow -LiteralPath $plain
+        $null = Remove-RogGateDirectoryNoFollow -LiteralPath $plain
         Assert-RogGateSelfTest -Name 'no-follow delete removes a normal tree and keeps its sibling' -Condition ((-not (Test-Path -LiteralPath $plain)) -and (Test-Path -LiteralPath $sibling))
 
         $outside = Join-Path -Path $fixture -ChildPath 'outside'
@@ -1768,20 +3120,10 @@ function Invoke-RogGateSelfTest {
         $linkedBuild = Join-Path -Path $fixture -ChildPath 'linked-build'
         New-Item -ItemType Directory -Path $linkedBuild | Out-Null
         $link = Join-Path -Path $linkedBuild -ChildPath 'jump'
-        $linkCreated = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $link -Target $outside -ErrorAction Stop | Out-Null
-            $linkCreated = $true
-        } catch {
-            if ($env:OS -eq 'Windows_NT') {
-                $null = & cmd.exe /d /c "mklink /J `"$link`" `"$outside`""
-                if ($LASTEXITCODE -eq 0) {
-                    $linkCreated = $true
-                }
-            }
-        }
-        if (-not $linkCreated) {
-            Assert-RogGateSelfTest -Name 'create a directory symlink or junction' -Condition $false
+        $dirLink = New-RogGateSelfTestDirectoryLink -LinkPath $link -TargetPath $outside
+        $dirLinkKind = Format-RogGateSelfTestLinkKind -LinkType $dirLink.LinkType
+        if (-not $dirLink.Ok) {
+            Assert-RogGateSelfTest -Name ("create a directory reparse point (link={0})" -f $dirLinkKind) -Condition $false
         } else {
             $violations = @(Get-RogGateReparseViolations -LiteralPath $linkedBuild)
             $sawLink = $false
@@ -1790,7 +3132,7 @@ function Invoke-RogGateSelfTest {
                     $sawLink = $true
                 }
             }
-            Assert-RogGateSelfTest -Name 'directory symlink is reported and not descended into' -Condition ($sawLink -and (Test-Path -LiteralPath $marker))
+            Assert-RogGateSelfTest -Name ("directory reparse point is reported and not descended into (link={0})" -f $dirLinkKind) -Condition ($sawLink -and (Test-Path -LiteralPath $marker) -and ($dirLinkKind -eq $directoryLinkKind))
 
             $fileLink = Join-Path -Path $linkedBuild -ChildPath 'file.link'
             $fileLinkOk = $true
@@ -1812,7 +3154,7 @@ function Invoke-RogGateSelfTest {
 
             $deleteThrew = $false
             try {
-                Remove-RogGateDirectoryNoFollow -LiteralPath $linkedBuild
+                $null = Remove-RogGateDirectoryNoFollow -LiteralPath $linkedBuild
             } catch {
                 $deleteThrew = $true
             }
@@ -1826,29 +3168,19 @@ function Invoke-RogGateSelfTest {
             $realChild = Join-Path -Path $real -ChildPath 'child'
             New-Item -ItemType Directory -Path $realChild | Out-Null
             $ancestorLink = Join-Path -Path $fixture -ChildPath 'ancestor-link'
-            $ancestorOk = $false
-            try {
-                New-Item -ItemType SymbolicLink -Path $ancestorLink -Target $real -ErrorAction Stop | Out-Null
-                $ancestorOk = $true
-            } catch {
-                if ($env:OS -eq 'Windows_NT') {
-                    $null = & cmd.exe /d /c "mklink /J `"$ancestorLink`" `"$real`""
-                    if ($LASTEXITCODE -eq 0) {
-                        $ancestorOk = $true
-                    }
-                }
-            }
-            if ($ancestorOk) {
+            $ancestorLinkResult = New-RogGateSelfTestDirectoryLink -LinkPath $ancestorLink -TargetPath $real
+            $ancestorKind = Format-RogGateSelfTestLinkKind -LinkType $ancestorLinkResult.LinkType
+            $sawAncestor = $false
+            if ($ancestorLinkResult.Ok) {
                 $via = Join-Path -Path $ancestorLink -ChildPath 'child'
                 $ancestorHits = @(Get-RogGateReparseViolations -LiteralPath $via)
-                $sawAncestor = $false
                 foreach ($hit in $ancestorHits) {
                     if ($hit -eq $ancestorLink) {
                         $sawAncestor = $true
                     }
                 }
-                Assert-RogGateSelfTest -Name 'ancestor symlink is refused before descent' -Condition $sawAncestor
             }
+            Assert-RogGateSelfTest -Name ("ancestor reparse point is refused before descent (link={0})" -f $ancestorKind) -Condition ($ancestorLinkResult.Ok -and $sawAncestor -and ($ancestorKind -eq $directoryLinkKind))
         }
 
         $sizeRoot = Join-Path -Path $fixture -ChildPath 'sizes'
@@ -1863,14 +3195,10 @@ function Invoke-RogGateSelfTest {
         [System.IO.File]::WriteAllBytes((Join-Path -Path $sizeOutside -ChildPath 'huge.bin'), (New-Object byte[] 20000))
         [System.IO.File]::WriteAllBytes((Join-Path -Path $sizeRoot -ChildPath 'readme.txt'), (New-Object byte[] 10000))
         $sizeJump = Join-Path -Path $sizeRoot -ChildPath 'jump'
-        $sizeLinkOk = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $sizeJump -Target $sizeOutside -ErrorAction Stop | Out-Null
-            New-Item -ItemType SymbolicLink -Path (Join-Path -Path $small -ChildPath 'out') -Target $sizeOutside -ErrorAction Stop | Out-Null
-            $sizeLinkOk = $true
-        } catch {
-            $sizeLinkOk = $false
-        }
+        $sizeJumpLink = New-RogGateSelfTestDirectoryLink -LinkPath $sizeJump -TargetPath $sizeOutside
+        $sizeSmallLink = New-RogGateSelfTestDirectoryLink -LinkPath (Join-Path -Path $small -ChildPath 'out') -TargetPath $sizeOutside
+        $sizeKind = '{0}+{1}' -f (Format-RogGateSelfTestLinkKind -LinkType $sizeJumpLink.LinkType), (Format-RogGateSelfTestLinkKind -LinkType $sizeSmallLink.LinkType)
+        $sizeLinkOk = $sizeJumpLink.Ok -and $sizeSmallLink.Ok -and ($sizeJumpLink.LinkType -eq $directoryLinkKind) -and ($sizeSmallLink.LinkType -eq $directoryLinkKind)
         if ($sizeLinkOk) {
             $sizes = @(Get-RogGateTopLevelDirectorySizes -RootPath $sizeRoot)
             $sawReadme = $false
@@ -1902,28 +3230,22 @@ function Invoke-RogGateSelfTest {
                 $ordered = ($sizes[0].Path -like '*big')
             }
             $sizeOk = (-not $sawReadme) -and $ordered -and ($bigBytes -eq 4000) -and ($smallBytes -eq 50) -and $smallReparse -and $jumpReparse -and ($jumpBytes -eq -1)
-            Assert-RogGateSelfTest -Name 'top-level sizes skip files and do not follow symlinks' -Condition $sizeOk
+            Assert-RogGateSelfTest -Name ("top-level sizes skip files and do not follow directory links (link={0})" -f $sizeKind) -Condition $sizeOk
         } else {
-            Assert-RogGateSelfTest -Name 'top-level sizes skip files and do not follow symlinks' -Condition $false
+            Assert-RogGateSelfTest -Name ("top-level sizes skip files and do not follow directory links (link={0})" -f $sizeKind) -Condition $false
         }
 
         $reparseRoot = Join-Path -Path $fixture -ChildPath 'reparse-root'
         $reparseTarget = Join-Path -Path $fixture -ChildPath 'reparse-target'
-        New-Item -ItemType Directory -Path $reparseTarget | Out-Null
-        $rootLinkOk = $false
-        try {
-            New-Item -ItemType SymbolicLink -Path $reparseRoot -Target $reparseTarget -ErrorAction Stop | Out-Null
-            $rootLinkOk = $true
-        } catch {
-            $rootLinkOk = $false
+        $rootLink = New-RogGateSelfTestDirectoryLink -LinkPath $reparseRoot -TargetPath $reparseTarget
+        $rootKind = Format-RogGateSelfTestLinkKind -LinkType $rootLink.LinkType
+        $measureThrew = $false
+        if ($rootLink.Ok) {
+            try { $null = @(Get-RogGateTopLevelDirectorySizes -RootPath $reparseRoot) } catch { $measureThrew = $true }
         }
-        if ($rootLinkOk) {
-            $measureThrew = $false
-            try { Get-RogGateTopLevelDirectorySizes -RootPath $reparseRoot } catch { $measureThrew = $true }
-            Assert-RogGateSelfTest -Name 'measuring a reparse build root is refused' -Condition $measureThrew
-        }
+        Assert-RogGateSelfTest -Name ("measuring a reparse build root is refused (link={0})" -f $rootKind) -Condition ($rootLink.Ok -and ($rootKind -eq $directoryLinkKind) -and $measureThrew)
     } finally {
-        Remove-RogGateFixture -LiteralPath $fixture
+        $null = Remove-RogGateFixture -LiteralPath $fixture
     }
 
     Write-Host ("ROG gate self-test: {0} failed" -f $script:RogGateSelfTestFailures)
@@ -1953,21 +3275,21 @@ function Remove-RogGateFixture {
         }
         return
     }
-    $isDir = ($item.Attributes -band [System.IO.FileAttributes]::Directory) -ne 0
+    $isDir = (Test-RogGateAttributeHasDirectory -Attributes $item.Attributes)
     if (-not $isDir) {
-        Clear-RogGateReadOnlyAttribute -LiteralPath $item.FullName
+        $null = Clear-RogGateReadOnlyAttribute -LiteralPath $item.FullName
         Remove-Item -LiteralPath $item.FullName -Force
         return
     }
     $dirInfo = New-Object System.IO.DirectoryInfo $item.FullName
     foreach ($entry in @($dirInfo.EnumerateFileSystemInfos())) {
-        Remove-RogGateFixture -LiteralPath $entry.FullName
+        $null = Remove-RogGateFixture -LiteralPath $entry.FullName
     }
     Remove-Item -LiteralPath $item.FullName -Force
 }
 
 function Invoke-RogGateMain {
-    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
+    $null = Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($BuildDir) -or [string]::IsNullOrWhiteSpace($ExpectedSha)) {
         throw '-SourceDir, -BuildDir, and -ExpectedSha are required.'
     }
@@ -1994,7 +3316,7 @@ function Invoke-RogGateMain {
         throw "SourceDir not found: $normSource"
     }
     # Same gate as the script entry, before rev-parse, delete, or build.
-    Assert-RogGateSparseReparsePreflight -SourceDir $normSource
+    $null = Assert-RogGateSparseReparsePreflight -SourceDir $normSource
     $cmakeLists = Join-Path -Path (Join-Path -Path $normSource -ChildPath 'modern') -ChildPath 'CMakeLists.txt'
     if (-not (Test-Path -LiteralPath $cmakeLists)) {
         throw "modern/CMakeLists.txt not found under SourceDir: $cmakeLists"
@@ -2015,7 +3337,7 @@ function Invoke-RogGateMain {
     $decision = Get-RogGateCleanDecision -BuildDirExists $buildExists -HasStamp $stamp.HasStamp -StampSha $stamp.Sha -ExpectedSha $expected -HasCache $cache.HasCache -CacheGenerator $cache.Generator -RequestedGenerator $Generator
     $drives = @(Get-RogGateDrivesToCheck -NormalizedBuildDir $normBuild -NormalizedSourceDir $normSource)
 
-    Write-RogGateHeader -Source $normSource -Build $normBuild -Expected $expected -ConfigName $Config -GeneratorName $Generator -Allowed $normRoot -Clean $decision.Clean -Reason $decision.Reason -Drives $drives
+    $null = Write-RogGateHeader -Source $normSource -Build $normBuild -Expected $expected -ConfigName $Config -GeneratorName $Generator -Allowed $normRoot -Clean $decision.Clean -Reason $decision.Reason -Drives $drives
 
     $free = @{}
     foreach ($letter in $drives) {
@@ -2027,19 +3349,19 @@ function Invoke-RogGateMain {
     }
     $report = Get-RogGateFreeSpaceReport -Drives $drives -FreeBytesByDrive $free -MinFreeGB $MinFreeGB -Overrides $overrides
     Write-Host 'Free space:'
-    Write-RogGateFreeSpaceReport -Report $report
+    $null = Write-RogGateFreeSpaceReport -Report $report
     if (-not $report.Ok) {
-        Write-RogGateError 'Free space pre-flight failed. Refusing to delete or build.'
+        $freeSpaceFailure = Resolve-RogGateFailureExit -ExitCode 1 -Message 'Free space pre-flight failed. Refusing to delete or build.'
         try {
-            Write-RogGateLargestDirectories -Root $normRoot
+            $null = Write-RogGateLargestDirectories -Root $normRoot
         } catch {
             Write-RogGateError $_.Exception.Message
         }
-        exit 1
+        return $freeSpaceFailure
     }
 
     $safety = Get-RogGateDeletionSafety -BuildDir $normBuild -AllowedRoot $normRoot -ForbiddenRoot $script:RogGateForbiddenRoot
-    Assert-RogGateMayDelete -Safety $safety
+    $null = Assert-RogGateMayDelete -Safety $safety
 
     $dry = [bool]$DryRun
     if ($WhatIfPreference) {
@@ -2058,14 +3380,8 @@ function Invoke-RogGateMain {
         $buildCmd += '--target'
         $buildCmd += $targetName
     }
-    $ctest = @('ctest', '--test-dir', $normBuild, '-C', $Config, '--output-on-failure')
-    if ($null -ne $CtestArgs) {
-        foreach ($extra in $CtestArgs) {
-            if (-not [string]::IsNullOrEmpty($extra)) {
-                $ctest += $extra
-            }
-        }
-    }
+    $ctestPlan = Get-RogGateMainCTestArguments -BuildDir $normBuild -ConfigName $Config -ExtraArgs $CtestArgs
+    $ctest = @($ctestPlan.Arguments)
 
     if ($dry) {
         if ($decision.ShouldDelete) {
@@ -2093,40 +3409,36 @@ function Invoke-RogGateMain {
     Write-Host '[GATE] Checking cmake inside vcvarsall x86...'
     $cmakeProbe = Invoke-RogGateVcVarsCommand -CommandArguments @('cmake', '--version') -VcVarsAll $script:RogGateVcVarsAll
     if ($cmakeProbe -ne 0) {
-        Write-RogGateError "cmake --version failed inside vcvarsall x86 (exit $cmakeProbe). Refusing to delete or build."
-        exit $cmakeProbe
+        return (Resolve-RogGateFailureExit -ExitCode $cmakeProbe -Message "cmake --version failed inside vcvarsall x86 (exit $cmakeProbe). Refusing to delete or build.")
     }
     if ($Generator -eq 'NMake Makefiles') {
         Write-Host '[GATE] Checking nmake inside vcvarsall x86...'
         $nmakeProbe = Invoke-RogGateVcVarsCommand -CommandArguments @('nmake', '/?') -VcVarsAll $script:RogGateVcVarsAll -Quiet
         if ($nmakeProbe -ne 0) {
-            Write-RogGateError "nmake /? failed inside vcvarsall x86 (exit $nmakeProbe). Refusing to delete or build."
-            exit $nmakeProbe
+            return (Resolve-RogGateFailureExit -ExitCode $nmakeProbe -Message "nmake /? failed inside vcvarsall x86 (exit $nmakeProbe). Refusing to delete or build.")
         }
     }
 
     if ($decision.ShouldDelete) {
         Write-Host "[GATE] Deleting $normBuild"
-        Remove-RogGateDirectoryNoFollow -LiteralPath $normBuild
+        $null = Remove-RogGateDirectoryNoFollow -LiteralPath $normBuild
     }
 
     $buildStarted = [DateTime]::UtcNow
     Write-Host "[GATE] Configure $($Generator) $Config"
     $configureCode = Invoke-RogGateVcVarsCommand -CommandArguments $configure -VcVarsAll $script:RogGateVcVarsAll
     if ($configureCode -ne 0) {
-        Write-RogGateError "CMake configure failed (exit $configureCode). Tests will not run."
-        exit $configureCode
+        return (Resolve-RogGateFailureExit -ExitCode $configureCode -Message "CMake configure failed (exit $configureCode). Tests will not run.")
     }
 
     Write-Host "[GATE] Build $Config"
     $buildCode = Invoke-RogGateVcVarsCommand -CommandArguments $buildCmd -VcVarsAll $script:RogGateVcVarsAll
     if ($buildCode -ne 0) {
-        Write-RogGateError "Build failed (exit $buildCode). Tests will not run."
-        exit $buildCode
+        return (Resolve-RogGateFailureExit -ExitCode $buildCode -Message "Build failed (exit $buildCode). Tests will not run.")
     }
 
     if ($SkipTests) {
-        Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
+        $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
         Write-Host '[GATE] Build succeeded. Tests skipped. Stamp written.'
         return 0
     }
@@ -2148,29 +3460,110 @@ function Invoke-RogGateMain {
         Write-Host ("[GATE] {0} test executable(s) are newer than this rebuild." -f $testExes.Count)
     }
 
-    Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
-    Write-Host '[GATE] CTest'
-    $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll
-    if ($testCode -ne 0) {
-        Write-RogGateError "CTest failed (exit $testCode)."
+    $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
+    # Before CTest. The variable stays in this process for any later test child.
+    $playdh = Set-RogGatePlayDhRootForChildren -SourceDir $normSource
+    $playdhCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $playdh.Path
+    if (-not $playdhCheck.Ok) {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $playdhCheck.Reason)
     }
-    exit $testCode
+    # Ports come from MXH_E2E_PORT_BASE. The launcher adds --login-port,
+    # --agent-port, --map-port, and --map12-port. Do not append them here.
+    $null = Set-RogGateE2EPortBase
+    $e2ePorts = Get-RogGateE2EPortsFromBase -BaseText $env:MXH_E2E_PORT_BASE
+    if (-not $e2ePorts.Ok) {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $e2ePorts.Reason)
+    }
+    Write-Host (Format-RogGateE2EPortsLine -Login $e2ePorts.Login -Agent $e2ePorts.Agent -Map $e2ePorts.Map -Map12 $e2ePorts.Map12)
+    $e2eListPlan = Get-RogGateE2ECtestArguments -BuildDir $normBuild -ConfigName $Config -ListOnly $true
+    $e2eListText = ''
+    $e2eListCode = Invoke-RogGateVcVarsCommand -CommandArguments @($e2eListPlan.Arguments) -VcVarsAll $script:RogGateVcVarsAll -NoConsole -CapturedText ([ref]$e2eListText)
+    $e2eListing = Get-RogGateE2EListing -Text $e2eListText -ExitCode $e2eListCode
+    $e2ePlan = Resolve-RogGateE2ERegistration -Listing $e2eListing -SkipE2E:$SkipE2E
+    if ($e2ePlan.Action -eq 'Error') {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $e2ePlan.Message)
+    }
+    if ($e2ePlan.Action -eq 'Skip') {
+        Write-Host $e2ePlan.Message
+    }
+    if ($e2ePlan.Action -eq 'Run') {
+        $e2ePortList = @(
+            [int]$e2ePorts.Login,
+            [int]$e2ePorts.Agent,
+            [int]$e2ePorts.Map,
+            [int]$e2ePorts.Map12
+        )
+        $busyPort = Get-RogGateFirstBusyLoopbackPort -Ports $e2ePortList
+        if ($busyPort -ne 0) {
+            return (Resolve-RogGateFailureExit -ExitCode 1 -Message (Format-RogGatePortInUseMessage -Port $busyPort))
+        }
+    }
+    Write-Host '[GATE] CTest'
+    $ctestText = ''
+    $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$ctestText)
+    $skipReport = Get-RogGateCTestSkipReport -Text $ctestText
+    foreach ($skipLine in @($skipReport.Lines)) {
+        Write-Host $skipLine
+    }
+    if ($testCode -ne 0) {
+        return (Resolve-RogGateFailureExit -ExitCode $testCode -Message "CTest failed (exit $testCode).")
+    }
+    if ($e2ePlan.Action -ne 'Run') {
+        return 0
+    }
+    $e2eCommandText = [string]$e2eListing.Command
+    $e2eWork = [string]$e2eListing.WorkingDirectory
+    if ([string]::IsNullOrWhiteSpace($e2eWork)) {
+        $e2eWork = $normBuild
+    }
+    Write-Host "[INFO] E2E command: $e2eCommandText"
+    Write-Host "[INFO] E2E working directory: $e2eWork"
+    Write-Host '[GATE] MoxianClientE2E'
+    $e2eRunPlan = Get-RogGateE2ECtestArguments -BuildDir $normBuild -ConfigName $Config -ListOnly $false
+    $e2eText = ''
+    $e2eCode = Invoke-RogGateVcVarsCommand -CommandArguments @($e2eRunPlan.Arguments) -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$e2eText)
+    $e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText
+    foreach ($e2eSkipLine in @($e2eSkipReport.Lines)) {
+        Write-Host $e2eSkipLine
+    }
+    if ($e2eCode -ne 0) {
+        return (Resolve-RogGateFailureExit -ExitCode $e2eCode -Message "MoxianClientE2E failed (exit $e2eCode).")
+    }
+    return 0
 }
 
+$script:RogGateSawError = $false
+$collected = $null
 try {
     # Reject a threshold under 10 GB before self-test, git, delete, or build.
-    Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
-    # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
-    if (-not $SelfTest) {
-        Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+    $null = Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
+    if ($PSBoundParameters.ContainsKey('SelfTestBuildExit')) {
+        # Same reporter the real build-failure path uses. This stub does not
+        # call Invoke-RogGateMain. Exit once, below, so Windows PowerShell 5.1
+        # does not swallow the code inside try/catch.
+        $collected = Resolve-RogGateFailureExit -ExitCode $SelfTestBuildExit -Message "Build failed (exit $SelfTestBuildExit). Tests will not run."
+    } else {
+        # Sparse checkout plus a junction/symlink is refused before git, delete, or build.
+        if (-not $SelfTest) {
+            $null = Assert-RogGateSparseReparsePreflight -SourceDir $SourceDir
+        }
+        if ($SelfTest) {
+            $collected = Invoke-RogGateSelfTest
+        } else {
+            $collected = Invoke-RogGateMain
+        }
     }
-    if ($SelfTest) {
-        $selfTestCode = Invoke-RogGateSelfTest
-        exit $selfTestCode
-    }
-    $gateCode = Invoke-RogGateMain
-    exit $gateCode
 } catch {
     Write-RogGateError $_.Exception.Message
+    $collected = 1
+}
+$resolved = Resolve-RogGateCollectedExit -Code $collected
+if (-not $resolved.Ok) {
+    Write-RogGateError $resolved.Detail
     exit 1
 }
+$gateCode = $resolved.ExitCode
+if ($script:RogGateSawError -and $gateCode -eq 0) {
+    $gateCode = 1
+}
+exit $gateCode

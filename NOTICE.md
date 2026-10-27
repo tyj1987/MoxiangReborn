@@ -10,13 +10,22 @@
 
 ## 资源来源
 
-完整 1.3GB PlayDH 资源（`.bin` / `.pak` / `.bmhm` / 地图 / 音乐 / 动画
-/ 物品 / 任务 / UI 图片）**不在本仓库**。这是有意为之：
+PlayDH 资源树（`modern/data/PlayDH/`，约 5135 个文件）**已提交到本仓库**，
+作为 1:1 对照的 canonical 资源基线：
 
-- 资源归原版权方所有，本项目尊重版权
-- 资源通过单独的备份档案管理，**不**通过 Git 分发
-- 用户需要自行从 `墨香【源码配套资源】/PlayDH/` 复制到
-  `modern/data/PlayDH/` 才能跑 visual-smoke 与 .tif byte-compare 测试
+- 资源归原版权方所有，本项目尊重版权，仅用于研究与对照测试
+- Map / Character / Effect / monster 四个超过 100 MB 的 `.pak` 走 Git LFS，
+  其余文件为普通 Git blob（见 `.gitattributes`）；文件清单与哈希见
+  `reference/manifests/playdh-current.sha256.json`
+- 已提交的 PlayDH 内容保持现状，但**不构成先例**：今后不再向仓库提交
+  任何原版游戏字节（包括密钥和解码后的地图文本）
+- PlayDH 缺失、但原版客户端 Map.pak 中存在的条目，由
+  `modern/tools/pak_writer.py` 在本地从原版安装目录生成补充包
+  `zz_supplement.pak`（输出到任何 git 工作树之外，如
+  `D:\build-mxr\supplement\`，校验 `pakSha256` 后再复制到 PlayDH 根目录）（原版 96 字节包头格式，条目字节原样拷贝，不含解码表
+  或密钥）。该包**不提交到仓库**；仓库只保存条目名单、来源包、工单号以及
+  每条和整包的 sha256（`reference/manifests/playdh-supplemental-fill.json`），
+  部署时按 sha256 校验
 
 ## 代码协议
 

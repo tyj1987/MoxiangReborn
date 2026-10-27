@@ -58,6 +58,11 @@ Categories
 * ``extensionSubstituted`` — not found by name, but the same stem exists with
   another extension (``x.tga`` vs ``x.dds``). A fidelity gap: not found, not
   counted as missing, own counter and codequality entry (minor).
+* ``collision`` — the supplemental pak (``zz_supplement.pak`` at the top of
+  the root) shares an entry basename, case-insensitive, with another
+  top-level .pak. Runtime lookup falls back to basename, first hit in mount
+  order, so one copy would shadow the other. This fails without the strict
+  switch.
 
 Height fields 0, 4, 23, 24, 32, 33, 34, 94 and tile tables 0, 3, 4, 23, 24,
 32, 33, 34, 94, 198 are not referenced by the original and are never reported
@@ -135,6 +140,9 @@ def strict_enabled(cli_flag: bool = False) -> bool:
     """The one switch that turns this gate from warn-only into failing."""
     raw = os.environ.get(STRICT_ENV, "")
     return cli_flag or raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+SUPPLEMENTAL_PAK_NAME = "zz_supplement.pak"
 
 
 def _basename(name: str) -> str:
@@ -836,16 +844,52 @@ def _checkout_index(root: Path) -> _CheckoutIndex:
     return index
 
 
+def supplemental_pak_collisions(root: Path) -> list[dict]:
+    """Basenames the supplemental pak shares with another mounted pak.
+
+    Only top-level .pak files are mounted.  Runtime lookup tries the full
+    name, then the basename, first hit in mount order, so a shared
+    basename (case-insensitive) means one copy silently shadows the other.
+    """
+    if not root.is_dir():
+        return []
+    paks = sorted(p for p in root.iterdir() if p.is_file() and p.suffix.casefold() == ".pak")
+    supplemental = [p for p in paks if p.name.casefold() == SUPPLEMENTAL_PAK_NAME]
+    if not supplemental or is_lfs_pointer(supplemental[0]):
+        return []
+    read = _read_pak_entries(supplemental[0])
+    if read is None:
+        return [{"name": "", "pak": supplemental[0].name, "other": "", "reason": "supplemental pak is unreadable"}]
+    mine = {_casefold_name(e.canonical_name): e.canonical_name for e in read[1]}
+    rows: list[dict] = []
+    for other in paks:
+        if other == supplemental[0] or is_lfs_pointer(other):
+            continue
+        other_read = _read_pak_entries(other)
+        if other_read is None:
+            rows.append({"name": "", "pak": supplemental[0].name, "other": other.name,
+                         "reason": "other pak unreadable"})
+            continue
+        for entry in other_read[1]:
+            key = _casefold_name(entry.canonical_name)
+            if key in mine:
+                rows.append({"name": mine[key], "pak": supplemental[0].name,
+                             "other": f"{other.name}:{entry.canonical_name}",
+                             "reason": "supplemental pak shares a basename with another mounted pak"})
+    return rows
+
+
 def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = None) -> dict:
     """Compare a checkout to the manifest. Never loads a decoder plugin.
 
     ``pak`` is only hashed, to verify ``derivation.localDecoder``.
     """
-    return check_index(manifest, _checkout_index(root), strict=strict, pak=pak)
+    return check_index(manifest, _checkout_index(root), strict=strict, pak=pak,
+                       collisions=supplemental_pak_collisions(root))
 
 
 def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
-                pak: Path | None = None) -> dict:
+                pak: Path | None = None, collisions: list[dict] | None = None) -> dict:
     """``check`` against a prebuilt checkout index.
 
     Resolution order for a reference whose original exists:
@@ -1025,7 +1069,10 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
     for name in known:
         add_no_original(name, "known referenced-by-original name; no original file exists")
 
-    if status == "partial":
+    collisions = list(collisions or [])
+    if collisions:
+        conclusion = "collision"
+    elif status == "partial":
         conclusion = "partial"
     elif no_conclusion or pak_lfs_pointer or pak_index_unreadable:
         conclusion = "no conclusion"
@@ -1064,6 +1111,9 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
             "check": "CI and local checkouts, against the checked-in manifest only",
         },
     }
+    if collisions:
+        report["counts"]["pakBasenameCollisions"] = len(collisions)
+        report["pakBasenameCollisions"] = collisions
     if local_state is not None:
         report["counts"]["localDecoder"] = len(local_rows)
         report["localDecoder"] = {
@@ -1076,7 +1126,9 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
                 "stale": "pak SHA-256 mismatch; local-decoder conclusions are not-run (stale)",
             }[local_state],
         }
-    report["exitCode"] = 0 if not strict or conclusion == "clean" else 1
+    # A basename collision fails even without --strict: it changes which
+    # bytes the runtime loads.
+    report["exitCode"] = 1 if collisions else (0 if not strict or conclusion == "clean" else 1)
     return report
 
 
@@ -1102,6 +1154,8 @@ def format_report(report: dict) -> str:
     lines += [
         f"strict switch {STRICT_ENV}: {'on' if report['strict'] else 'off'}",
     ]
+    for row in report.get("pakBasenameCollisions", []):
+        lines.append(f"collision: {row['name']} in {row['pak']} vs {row['other']} ({row['reason']})")
     for row in report["missing"]:
         lines.append(f"missing: {row['name']} ({row['reason']})")
     for row in report["referencedButNoOriginalFile"]:
@@ -1142,6 +1196,8 @@ def _warnings(report: dict) -> list[tuple[str, str]]:
         lines.append(("resource reference check has no conclusion; this is not a pass", "info"))
     elif report["conclusion"] == "partial":
         lines.append(("resource reference check is partial; this is not a pass", "info"))
+    for row in report.get("pakBasenameCollisions", []):
+        lines.append((f"supplemental pak basename collision {row['name']} with {row['other']}", "info"))
     for row in report["missing"]:
         lines.append((f"missing referenced resource {row['name']}", "major"))
     for row in report["noConclusion"]:
