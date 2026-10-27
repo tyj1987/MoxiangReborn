@@ -55,6 +55,10 @@ enum class MhError {
     // which is not the classic MHFileEx wire format.  Keep it explicit so a
     // caller cannot mistake an undecoded payload for valid game data.
     UnsupportedOpaqueServerProfile,
+    // Installed Resource .bin container (same family as obfuscated .map).
+    // The reader refuses this shape. It does not strip the header or decode
+    // the body. Result::message contains "obfuscated container".
+    ObfuscatedContainer,
 };
 
 // Detect the current PlayDH server container without attempting to decode it.
@@ -87,6 +91,9 @@ template <typename T>
 struct Result {
     T value;
     MhError error = MhError::Ok;
+    // Populated for MhError::ObfuscatedContainer. Contains the phrase
+    // "obfuscated container". Empty for every other error.
+    std::string message;
 
     [[nodiscard]] bool ok() const noexcept { return error == MhError::Ok; }
     [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
@@ -103,6 +110,22 @@ struct Result {
 // Sniff first 12 bytes: returns true if it looks like a .bin file.
 // Heuristic: version is 1 (most common), type is one of {0,1,2,3,4}, file_size is plausible.
 [[nodiscard]] bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept;
+
+// Installed Resource .bin container, same family as obfuscated .map.
+// True only when all of the following hold:
+//   - the buffer is at least 20 bytes and fits in a uint32
+//   - the first little-endian uint32 equals the buffer size
+//   - the buffer is not a plausible plain SWorking .bin
+// A plain SWorking file whose version field happens to equal the file
+// size is not this container: the classic header is plausible when its
+// file_size fits, either as header+crc+payload+crc or as header+payload.
+// That exception applies below 20 bytes as well. A size-prefixed buffer
+// of 5..19 bytes uses the historical positional type-0 read only when
+// the classic header does not fit.
+// Shape check only. The 16 bytes after the length and the body are not
+// stripped, decoded, or transformed. No key is stored or derived.
+[[nodiscard]] bool is_obfuscated_bin_container(
+    std::span<const std::uint8_t> bytes) noexcept;
 
 // Load a .bin file from disk, performing XOR decryption.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);

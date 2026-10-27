@@ -51,13 +51,20 @@ OPTIONS:
 )";
 }
 
-int cmd_info(const fs::path& path) {
-    auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
+int fail_bin_read(const fs::path& path,
+                   const mxh::compat::Result<mxh::compat::MhFile>& result) {
+    if (!result.message.empty()) {
+        std::cerr << result.message << "\n";
+    } else {
         std::cerr << "ERROR: failed to read " << path << " (code="
                   << static_cast<int>(result.error) << ")\n";
-        return 1;
     }
+    return 1;
+}
+
+int cmd_info(const fs::path& path) {
+    auto result = mxh::compat::read_mh_bin(path);
+    if (!result.ok()) return fail_bin_read(path, result);
     const auto& file = result.value;
     std::cout << "File:        " << path << "\n";
     std::cout << "Header:\n";
@@ -202,10 +209,7 @@ int cmd_stm(const fs::path& path) {
 
 int cmd_extract(const fs::path& path, const fs::path& out_dir) {
     auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
-        std::cerr << "ERROR: read failed (code=" << static_cast<int>(result.error) << ")\n";
-        return 1;
-    }
+    if (!result.ok()) return fail_bin_read(path, result);
     fs::create_directories(out_dir);
     auto out = out_dir / (path.stem().string() + ".dec");
     std::ofstream f(out, std::ios::binary);

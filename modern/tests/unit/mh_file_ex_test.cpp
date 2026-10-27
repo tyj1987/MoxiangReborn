@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iterator>
+#include <string>
 #include <vector>
 #include "../support/playdh_env.hpp"
 
@@ -194,5 +195,132 @@ TEST(MhFileEx, WriteAndReadBack) {
     EXPECT_EQ(result.value.header.type, 0u);
     EXPECT_EQ(result.value.data, payload);
 
+    std::filesystem::remove(tmp);
+}
+
+namespace {
+
+std::vector<std::uint8_t> synthetic_obfuscated_bin(std::size_t body_len) {
+    const std::size_t size = 20 + body_len;
+    std::vector<std::uint8_t> bytes(size, 0xA5);
+    bytes[0] = static_cast<std::uint8_t>(size & 0xffu);
+    bytes[1] = static_cast<std::uint8_t>((size >> 8) & 0xffu);
+    bytes[2] = static_cast<std::uint8_t>((size >> 16) & 0xffu);
+    bytes[3] = static_cast<std::uint8_t>((size >> 24) & 0xffu);
+    for (std::size_t i = 0; i < body_len; ++i) {
+        bytes[20 + i] = static_cast<std::uint8_t>(0x3C ^ (i * 17u));
+    }
+    return bytes;
+}
+
+void write_bytes(const std::filesystem::path& path,
+                 const std::vector<std::uint8_t>& bytes) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out.write(reinterpret_cast<const char*>(bytes.data()),
+              static_cast<std::streamsize>(bytes.size()));
+}
+
+}  // namespace
+
+TEST(MhFileEx, RefusesSyntheticObfuscatedContainer) {
+    const auto bytes = synthetic_obfuscated_bin(32);
+    ASSERT_GE(bytes.size(), 20u);
+    EXPECT_TRUE(is_obfuscated_bin_container(bytes));
+    const auto tmp = std::filesystem::temp_directory_path() /
+                     "mxh_test_obfuscated_container.bin";
+    write_bytes(tmp, bytes);
+    const auto result = read_mh_bin(tmp);
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(result.error, MhError::ObfuscatedContainer);
+    EXPECT_NE(result.message.find("obfuscated container"), std::string::npos)
+        << result.message;
+    EXPECT_TRUE(result.value.data.empty());
+    std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, RefusesContainerOfExactly20Bytes) {
+    const auto bytes = synthetic_obfuscated_bin(0);
+    ASSERT_EQ(bytes.size(), 20u);
+    const auto tmp = std::filesystem::temp_directory_path() /
+                     "mxh_test_obfuscated_container_edge.bin";
+    write_bytes(tmp, bytes);
+    const auto result = read_mh_bin(tmp);
+    EXPECT_EQ(result.error, MhError::ObfuscatedContainer);
+    EXPECT_NE(result.message.find("obfuscated container"), std::string::npos)
+        << result.message;
+    EXPECT_NE(result.message.find("bytes=20"), std::string::npos) << result.message;
+    std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, PlainFileWhoseVersionEqualsSizeIsNotRejected) {
+    const std::vector<std::uint8_t> payload = {
+        'p', 'l', 'a', 'i', 'n', '-', 's', 'i', 'z', 'e'
+    };
+    constexpr std::uint32_t kType = 4;
+    const auto encrypted = encrypt_bin_payload(payload, kType);
+    const auto total = static_cast<std::uint32_t>(14 + payload.size());
+    std::vector<std::uint8_t> bytes(total);
+    MhFileHeader header{};
+    header.version = total;
+    header.type = kType;
+    header.file_size = static_cast<std::uint32_t>(payload.size());
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    bytes[12] = 0x11;
+    std::memcpy(bytes.data() + 13, encrypted.data(), encrypted.size());
+    bytes.back() = 0x22;
+    EXPECT_FALSE(is_obfuscated_bin_container(bytes));
+
+    const auto tmp = std::filesystem::temp_directory_path() /
+                     "mxh_test_plain_size_coincidence.bin";
+    write_bytes(tmp, bytes);
+    const auto result = read_mh_bin(tmp);
+    ASSERT_TRUE(result.ok()) << result.message;
+    EXPECT_EQ(result.value.header.version, total);
+    EXPECT_EQ(result.value.header.type, kType);
+    EXPECT_EQ(result.value.data, payload);
+    EXPECT_EQ(result.message.find("obfuscated container"), std::string::npos);
+    std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, ShortPlainFileWhoseVersionEqualsSizeIsNotRejected) {
+    const std::vector<std::uint8_t> payload = {'H', 'i'};
+    constexpr std::uint32_t kType = 1;
+    const auto encrypted = encrypt_bin_payload(payload, kType);
+    const auto total = static_cast<std::uint32_t>(14 + payload.size());
+    ASSERT_LT(total, 20u);
+    std::vector<std::uint8_t> bytes(total);
+    MhFileHeader header{};
+    header.version = total;
+    header.type = kType;
+    header.file_size = static_cast<std::uint32_t>(payload.size());
+    std::memcpy(bytes.data(), &header, sizeof(header));
+    bytes[12] = 0x11;
+    std::memcpy(bytes.data() + 13, encrypted.data(), encrypted.size());
+    bytes.back() = 0x22;
+    EXPECT_FALSE(is_obfuscated_bin_container(bytes));
+    const auto tmp = std::filesystem::temp_directory_path() /
+                     "mxh_test_short_plain_size_coincidence.bin";
+    write_bytes(tmp, bytes);
+    const auto result = read_mh_bin(tmp);
+    ASSERT_TRUE(result.ok()) << result.message;
+    EXPECT_EQ(result.value.header.type, kType);
+    EXPECT_EQ(result.value.data, payload);
+    std::filesystem::remove(tmp);
+}
+
+TEST(MhFileEx, ShortSizePrefixIsNotObfuscatedContainer) {
+    std::vector<std::uint8_t> bytes(19, 0x5A);
+    bytes[0] = 19;
+    bytes[1] = 0;
+    bytes[2] = 0;
+    bytes[3] = 0;
+    EXPECT_FALSE(is_obfuscated_bin_container(bytes));
+    const auto tmp = std::filesystem::temp_directory_path() /
+                     "mxh_test_short_size_prefix.bin";
+    write_bytes(tmp, bytes);
+    const auto result = read_mh_bin(tmp);
+    ASSERT_TRUE(result.ok()) << static_cast<int>(result.error);
+    EXPECT_EQ(result.value.header.type, 0u);
+    EXPECT_EQ(result.value.data.size(), 15u);
     std::filesystem::remove(tmp);
 }

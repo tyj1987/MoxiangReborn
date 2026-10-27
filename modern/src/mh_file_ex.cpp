@@ -17,22 +17,29 @@
 // so dwVersion is NOT validated. Only dwDataSize is trusted.
 // We replicate that behavior to stay 1:1 compatible.
 //
-// LEGACY 2008 PACKINGMAN FORMAT (R-17, seen in 107 server .bin files):
-//   Layout: [uint32 file_size (= total file size)] [payload bytes]
-//   Payload uses positional XOR (type=0) only. No version/type fields.
-//   Detection: first uint32 equals total file size AND file has at least 5 bytes.
-//   Modern format never satisfies this (modern +0 is a date+type+size hash
-//   like 20040308+type+size, which never equals the file size for non-trivial
-//   payloads). See modern/tests/unit/compat/resource_parse_all_bin_test.cpp
-//   and KNOWN_BUGS.md R-17 for the 107 FAIL -> PASS fix.
+// Installed Resource .bin container (same family as obfuscated .map):
+//   [uint32 LE file length][bytes through offset 20][body]
+//   The body is not a plain SWorking payload. Treating that shape as
+//   type 0 and keeping the container bytes in the payload is an artifact.
+//   is_obfuscated_bin_container detects it. read_mh_bin refuses with
+//   "obfuscated container" and does not strip the header or decode the body.
+//
+// A plain SWorking file whose version field equals the file size stays on
+// the classic path when the header's file_size fits, including a file
+// shorter than 20 bytes. A size-prefixed buffer of 5..19 bytes is too
+// small for this container; the historical positional type-0 read remains
+// only when that buffer is not a plausible plain SWorking .bin.
 
 #include "mxh/compat/mh_file_ex.hpp"
+
+#include "mxh/log/mlog.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 namespace mxh::compat {
 
@@ -41,6 +48,41 @@ namespace {
 // Note: original CMHFileEx::CheckHeader() is COMMENTED OUT, so dwVersion
 // is never validated at runtime. We replicate that behavior. The "valid"
 // version constants are documented for reference only.
+
+std::uint32_t read_le_u32(const std::uint8_t* p) noexcept {
+    return static_cast<std::uint32_t>(p[0]) |
+           (static_cast<std::uint32_t>(p[1]) << 8) |
+           (static_cast<std::uint32_t>(p[2]) << 16) |
+           (static_cast<std::uint32_t>(p[3]) << 24);
+}
+
+// Classic MHFileEx acceptance: file_size fits as header+crc+payload+crc,
+// or as header+payload when the CRC bytes are absent. This is the same
+// gate read_mh_bin uses after the container check. A zero file_size fits
+// any buffer of at least 12 bytes; callers still require 14 bytes before
+// the classic path runs, and container detection only starts at 20.
+bool plausible_plain_sworking_bin(std::span<const std::uint8_t> bytes) noexcept {
+    if (bytes.size() < sizeof(MhFileHeader)) return false;
+    MhFileHeader header{};
+    std::memcpy(&header, bytes.data(), sizeof(header));
+    constexpr std::uint32_t kMaxFileSize = 256u * 1024u * 1024u;
+    if (header.file_size > kMaxFileSize) return false;
+    const auto with_crc = static_cast<std::uint64_t>(sizeof(MhFileHeader)) + 2u +
+                          header.file_size;
+    const auto without_crc =
+        static_cast<std::uint64_t>(sizeof(MhFileHeader)) + header.file_size;
+    return bytes.size() >= with_crc || bytes.size() >= without_crc;
+}
+
+std::string obfuscated_bin_message(const std::filesystem::path& path,
+                                   std::size_t bytes) {
+    const auto filename = path.filename().string();
+    const std::string shown = filename.empty() ? "(unnamed)" : filename;
+    std::ostringstream out;
+    out << "ERROR [bin] obfuscated container: " << shown << " (bytes=" << bytes
+        << ")";
+    return out.str();
+}
 
 }  // namespace
 
@@ -52,6 +94,17 @@ bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept {
     // (or 20070522+...); CheckHeader is disabled, so we don't validate it.
     // We only sanity-check dwDataSize. dwType can be any positive integer.
     return h.file_size > 0 && h.file_size <= (1u << 28);  // 256 MB cap
+}
+
+bool is_obfuscated_bin_container(std::span<const std::uint8_t> bytes) noexcept {
+    // See the header comment. Length match alone is not enough: a plain
+    // SWorking .bin can coincidentally store its own size in the version
+    // field, and that file must keep parsing.
+    if (bytes.size() < 20 || bytes.size() > 0xffffffffu) return false;
+    if (read_le_u32(bytes.data()) != static_cast<std::uint32_t>(bytes.size())) {
+        return false;
+    }
+    return !plausible_plain_sworking_bin(bytes);
 }
 
 bool is_size_prefixed_opaque_server_profile(
@@ -136,18 +189,23 @@ Result<MhFile> read_mh_bin(const std::filesystem::path& path) {
         return r;
     }
 
-    // Legacy 2008 size-prefixed resources use positional decoding.  The same
-    // structural marker is also used by the newer opaque server profile; the
-    // caller must select the profile explicitly before treating the result as
-    // gameplay data.  Keep this compatibility behavior for existing fixtures.
-    //   layout: [uint32 file_size][payload bytes]
-    //   payload decryption: positional XOR (type=0) only.
-    //   file_size = total_size - 4, type = 0.
-    //   Modern format +0 is a hash like 20040308+type+size, never equals fs.
-    if (buf.size() >= 5) {
-        std::uint32_t legacy_size = 0;
-        std::memcpy(&legacy_size, buf.data(), sizeof(legacy_size));
-        if (legacy_size == static_cast<std::uint32_t>(buf.size())) {
+    // Installed Resource .bin container. Refuse before any decode. The
+    // message is the caller-visible error; nothing after the length is
+    // stripped or transformed.
+    if (is_obfuscated_bin_container(buf)) {
+        r.error = MhError::ObfuscatedContainer;
+        r.message = obfuscated_bin_message(path, buf.size());
+        MLOG_ERROR("%s", r.message.c_str());
+        return r;
+    }
+
+    // Historical positional type-0 read for a size-prefixed buffer that is
+    // too small to be the 20-byte container and is not a plain SWorking
+    // .bin. A plain file whose version equals its size is handled below.
+    if (buf.size() >= 5 && buf.size() < 20) {
+        const auto legacy_size = read_le_u32(buf.data());
+        if (legacy_size == static_cast<std::uint32_t>(buf.size()) &&
+            !plausible_plain_sworking_bin(buf)) {
             MhFile file;
             file.header.version = 0x00000001;
             file.header.type = 0;
