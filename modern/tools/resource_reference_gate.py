@@ -910,6 +910,10 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
        (neither 92- nor 96-byte layout) -> ``pakIndexUnreadable`` (reason
        ``pak-index-unreadable``, listing the paks). Same "could be inside
        any" rule, same no-conclusion treatment;
+       a pak already reported as unreadable by the supplemental-collision
+       check (``collisions``) is counted there only: it is left out of
+       ``pakIndexUnreadable``/``unreadablePaks`` and refs that could be inside
+       it are plain ``noConclusion`` pointing at ``pakBasenameCollisions``;
     5. same stem with a different extension (``x.tga`` vs ``x.dds``) ->
        ``extensionSubstituted``: a fidelity gap, not found, not missing;
     6. otherwise -> ``missing``.
@@ -924,6 +928,21 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
     known = list(manifest.get("knownReferencedNoOriginalFile") or KNOWN_NO_ORIGINAL)
     references = list(manifest.get("references") or [])
     pointer_names = index.pointers
+    collisions = list(collisions or [])
+    # One unreadable pak, one bucket: a pak the supplemental-collision check
+    # already reports as unreadable (other pak unreadable / supplemental pak
+    # is unreadable) belongs to pakBasenameCollisions only. The reference
+    # check excludes it from pakIndexUnreadable / unreadablePaks; references
+    # that could be inside it are plain no conclusion pointing at that row.
+    claimed = {
+        (row["other"] if row.get("reason") == "other pak unreadable" else row["pak"]).casefold()
+        for row in collisions
+        if row.get("reason") in ("other pak unreadable", "supplemental pak is unreadable")
+    }
+    bucket_unreadable = sorted((p for p in index.unreadable_paks if p.casefold() not in claimed),
+                               key=str.casefold)
+    collision_unreadable = sorted((p for p in index.unreadable_paks if p.casefold() in claimed),
+                                  key=str.casefold)
     local_info = derivation.get("localDecoder")
     local_state: str | None = None
     if isinstance(local_info, dict):
@@ -1040,15 +1059,22 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
                 "via": ref.get("via", ""),
                 "reason": "pak-lfs-pointer",
                 "paks": sorted(index.pointer_paks, key=str.casefold),
-                "unreadablePaks": sorted(index.unreadable_paks, key=str.casefold),
+                "unreadablePaks": bucket_unreadable,
             })
             continue
-        if index.unreadable_paks:
+        if bucket_unreadable:
             pak_index_unreadable.append({
                 "name": name,
                 "via": ref.get("via", ""),
                 "reason": "pak-index-unreadable",
-                "paks": sorted(index.unreadable_paks, key=str.casefold),
+                "paks": bucket_unreadable,
+            })
+            continue
+        if collision_unreadable:
+            no_conclusion.append({
+                "name": name,
+                "reason": "could be inside " + ", ".join(collision_unreadable)
+                          + " (unreadable; counted under pakBasenameCollisions); no conclusion, not a pass",
             })
             continue
         substitutes = sorted(index.stems.get(_stem_key(name), ()))
@@ -1069,7 +1095,6 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
     for name in known:
         add_no_original(name, "known referenced-by-original name; no original file exists")
 
-    collisions = list(collisions or [])
     if collisions:
         conclusion = "collision"
     elif status == "partial":

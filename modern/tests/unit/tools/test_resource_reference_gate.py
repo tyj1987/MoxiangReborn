@@ -710,6 +710,32 @@ class PakLfsPointerAndFidelityTests(unittest.TestCase):
             issues = gate.codequality_report(report)
             self.assertTrue(any("pak-index-unreadable" in i["description"] for i in issues))
 
+    def test_unreadable_pak_with_supplemental_is_counted_once_as_collision(self):
+        """One unreadable pak lands in exactly one place: the collision row."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "Broken.pak").write_bytes(struct.pack("<III", 1, 5, 0) + b"\xff" * 120)
+            (root / "zz_supplement.pak").write_bytes(build_playdh_pak([("npc\\guard.mod", b"g")]))
+            stderr = io.StringIO()
+            with redirect_stderr(stderr):
+                report = gate.check(self.manifest(["lost.mod", "guard.mod"]), root)
+            collisions = report["pakBasenameCollisions"]
+            self.assertEqual([(r["other"], r["reason"]) for r in collisions],
+                             [("Broken.pak", "other pak unreadable")])
+            self.assertEqual(report["conclusion"], "collision")
+            self.assertEqual(report["exitCode"], 1)
+            self.assertEqual(report["counts"]["pakIndexUnreadable"], 0)
+            self.assertEqual(report["pakIndexUnreadable"], [])
+            self.assertEqual(report["counts"]["missing"], 0)
+            places = sum("Broken.pak" in json.dumps(r) for r in collisions)
+            places += sum("Broken.pak" in json.dumps(r) for r in report["pakIndexUnreadable"])
+            places += sum("Broken.pak" in json.dumps(r.get("unreadablePaks", []))
+                          for r in report["pakLfsPointer"])
+            self.assertEqual(places, 1)
+            lost = [r for r in report["noConclusion"] if r["name"] == "lost.mod"]
+            self.assertEqual(len(lost), 1)
+            self.assertIn("pakBasenameCollisions", lost[0]["reason"])
+
     def test_pointer_and_unreadable_paks_keep_both_visible(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
