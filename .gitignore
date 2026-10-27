@@ -83,3 +83,6 @@
 /docs/**/run-*/
 /docs/**/baseline-*/
 /docs/**/screenshots/
+
+# Supplemental fill pak: built locally by modern/tools/pak_writer.py, never committed.
+[Zz][Zz]_[Ss][Uu][Pp][Pp][Ll][Ee][Mm][Ee][Nn][Tt].[Pp][Aa][Kk]

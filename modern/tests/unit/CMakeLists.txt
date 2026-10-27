@@ -63,6 +63,41 @@ gtest_add_tests(TARGET mxh_pack_file_header_tests
 set_tests_properties(${mxh_pack_file_header_test_list} PROPERTIES
     TIMEOUT 60)
 
+# modern/tools/pak_writer.py output read back by PackFile. The fixture pak
+# is generated from LCG bytes at build time; no original data is used.
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(MXH_PAK_WRITER_FIXTURE ${CMAKE_CURRENT_BINARY_DIR}/pak_writer_fixture.pak)
+add_custom_command(
+    OUTPUT ${MXH_PAK_WRITER_FIXTURE}
+    COMMAND Python3::Interpreter -B
+            ${CMAKE_SOURCE_DIR}/tests/unit/tools/make_pak_writer_fixture.py
+            ${MXH_PAK_WRITER_FIXTURE}
+    DEPENDS ${CMAKE_SOURCE_DIR}/tests/unit/tools/make_pak_writer_fixture.py
+            ${CMAKE_SOURCE_DIR}/tools/pak_writer.py
+            ${CMAKE_SOURCE_DIR}/tools/unpack_pak.py
+    VERBATIM)
+add_custom_target(mxh_pak_writer_fixture DEPENDS ${MXH_PAK_WRITER_FIXTURE})
+add_executable(mxh_pak_writer_packfile_tests
+    pak_writer_packfile_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+)
+add_dependencies(mxh_pak_writer_packfile_tests mxh_pak_writer_fixture)
+target_include_directories(mxh_pak_writer_packfile_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_pak_writer_packfile_tests PRIVATE
+    MXH_PAK_WRITER_FIXTURE="${MXH_PAK_WRITER_FIXTURE}")
+target_link_libraries(mxh_pak_writer_packfile_tests PRIVATE gtest_main)
+target_compile_features(mxh_pak_writer_packfile_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_pak_writer_packfile_tests PRIVATE
+        _CRT_SECURE_NO_WARNINGS)
+endif()
+gtest_add_tests(TARGET mxh_pak_writer_packfile_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pak_writer_packfile_test_list)
+set_tests_properties(${mxh_pak_writer_packfile_test_list} PROPERTIES
+    TIMEOUT 60)
+
 # Index-only pak open. Compiles pack_file.cpp and filesystem_file_storage.cpp
 # directly so the target does not link DirectX. Linux uses a tiny COM/Win32
 # stub; that stub is not on the include path of any other target.

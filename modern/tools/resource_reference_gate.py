@@ -26,14 +26,27 @@ Categories
 * ``partial`` — ``derive`` recorded status partial. Warned, never a pass.
   Unparsed containers are still listed under no conclusion. A ``.map``
   whose bytes have the obfuscated layout (uint32 length, 20-byte per-file
-  header, XOR body) is recorded with reason ``obfuscated-map`` and its
-  nothing is decoded and no header byte is stored.
+  header, XOR body) is recorded with reason ``obfuscated-map``; nothing is
+  decoded in the repo and no header byte is stored.
+  ``derive --local-decoder <plugin.py outside the repo>`` (or
+  ``MXH_LOCAL_MAP_DECODER``) loads a local decoder plugin; there is no
+  default. Its conclusions carry ``derivedBy: "local-decoder"`` and
+  ``derivation.localDecoder`` records version, --pak SHA-256 and decoded
+  .map SHA-256s. Maps the plugin cannot decode get
+  ``obfuscated-map-key-unavailable``. ``check`` never loads plugins; it
+  reports local-decoder conclusions separately and, given ``--pak`` with a
+  different SHA-256, turns them into not-run (stale).
   ``derivation.unparsedSummary`` only counts unparsed entries by reason.
   Header statistics exist only behind the local ``derive
   --local-header-stats`` flag, which prints to stdout and never touches the
   manifest; CI must not pass it.
 * ``no conclusion`` — derivation has not been run, or a checkout file is
   only a Git LFS pointer. Never a pass.
+* ``collision`` — the supplemental pak (``zz_supplement.pak`` at the top of
+  the root) shares an entry basename, case-insensitive, with another
+  top-level .pak. Runtime lookup falls back to basename, first hit in mount
+  order, so one copy would shadow the other. This fails without the strict
+  switch.
 
 Height fields 0, 4, 23, 24, 32, 33, 34, 94 and tile tables 0, 3, 4, 23, 24,
 32, 33, 34, 94, 198 are not referenced by the original and are never reported
@@ -111,6 +124,9 @@ def strict_enabled(cli_flag: bool = False) -> bool:
     """The one switch that turns this gate from warn-only into failing."""
     raw = os.environ.get(STRICT_ENV, "")
     return cli_flag or raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+SUPPLEMENTAL_PAK_NAME = "zz_supplement.pak"
 
 
 def _basename(name: str) -> str:
@@ -503,6 +519,65 @@ def is_obfuscated_map(data: bytes) -> bool:
     return not any(marker in upper for marker in (b"HEIGHT_FIELD", b"STATIC_MODEL", b"GX_OBJECT", b"GX_MAP"))
 
 
+OBFUSCATED_KEY_UNAVAILABLE_REASON = "obfuscated-map-key-unavailable"
+DECODED_NO_MARKERS_REASON = "local-decoder output did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT"
+LOCAL_DECODER_ENV = "MXH_LOCAL_MAP_DECODER"
+LOCAL_DECODER_TAG = "local-decoder"
+REPO_ROOT = TOOLS_DIR.parents[1]
+
+
+class LocalDecoderError(ValueError):
+    pass
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def resolve_local_decoder_path(cli_path: Path | None, environ=None) -> Path | None:
+    """Only an explicit --local-decoder or MXH_LOCAL_MAP_DECODER selects a plugin.
+
+    There is no default search path. ``check`` never calls this.
+    """
+    if cli_path is not None:
+        return Path(cli_path)
+    env = os.environ if environ is None else environ
+    value = env.get(LOCAL_DECODER_ENV, "").strip()
+    return Path(value) if value else None
+
+
+def load_local_decoder(path: Path, repo_root: Path = REPO_ROOT):
+    """Load a decoder plugin that lives outside the repository tree.
+
+    Contract: ``DECODER_VERSION: str`` and
+    ``decode_map(name: str, data: bytes) -> bytes | None``. The repository
+    ships no decoder; a path inside ``repo_root`` is refused.
+    """
+    import importlib.util
+
+    resolved = Path(path).expanduser().resolve()
+    root = Path(repo_root).resolve()
+    if resolved == root or root in resolved.parents:
+        raise LocalDecoderError(f"refusing to load a local decoder inside the repository: {resolved}")
+    if resolved.suffix != ".py" or not resolved.is_file():
+        raise LocalDecoderError(f"local decoder must be an existing .py file: {resolved}")
+    spec = importlib.util.spec_from_file_location("mxh_local_map_decoder", resolved)
+    if spec is None or spec.loader is None:
+        raise LocalDecoderError(f"cannot load local decoder: {resolved}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    version = getattr(module, "DECODER_VERSION", None)
+    if not isinstance(version, str) or not version:
+        raise LocalDecoderError("local decoder must define DECODER_VERSION: str")
+    if not callable(getattr(module, "decode_map", None)):
+        raise LocalDecoderError("local decoder must define decode_map(name, data)")
+    return module
+
+
 def _unparsed_summary(unparsed: list[dict]) -> dict:
     by_reason: dict[str, int] = {}
     for item in unparsed:
@@ -513,19 +588,31 @@ def _unparsed_summary(unparsed: list[dict]) -> dict:
 
 def derive(source: Path | None, pak: Path | None = None,
            known_no_original: tuple[str, ...] = KNOWN_NO_ORIGINAL,
-           local_header_stats: dict[int, int] | None = None) -> dict:
+           local_header_stats: dict[int, int] | None = None,
+           local_decoder=None) -> dict:
     """Build a name-only manifest from original .map / .stm / .hfl bytes.
 
     ``local_header_stats``, when a dict is passed (local CLI flag only), is
     filled in memory with per-file header byte 2 -> count for obfuscated
     maps. It is never written into the returned manifest.
+
+    ``local_decoder`` is a module loaded by ``load_local_decoder``. Its
+    plaintext output is parsed like a plaintext map; only names, the decoder
+    version, the --pak SHA-256 and each decoded original .map SHA-256 are
+    recorded. References from decoded maps carry ``derivedBy:
+    "local-decoder"``.
     """
+    if local_decoder is not None and pak is None:
+        raise LocalDecoderError(
+            "--local-decoder requires --pak: local-decoder conclusions must record the "
+            "source pak SHA-256 so check --pak can verify them")
     index, pak_info = _build_source_index(source, pak)
     references: list[dict] = []
     excluded: list[dict] = []
     unparsed: list[dict] = []
     seen_maps = 0
     consumed: set[str] = set()
+    decoded_maps: list[dict] = []
 
     map_names = [name for name in index.by_base if name.endswith(".map")]
     for map_name in sorted(map_names):
@@ -534,21 +621,42 @@ def derive(source: Path | None, pak: Path | None = None,
             unparsed.append({"name": map_name, "reason": "map bytes unavailable"})
             continue
         seen_maps += 1
-        try:
-            refs = parse_map_references(data)
-        except ValueError as exc:
-            unparsed.append({"name": map_name, "reason": str(exc)})
-            continue
-        if not refs and b"GX_MAP" not in data.upper() and b"HEIGHT_FIELD" not in data.upper():
-            if is_obfuscated_map(data):
-                unparsed.append({"name": map_name, "reason": OBFUSCATED_MAP_REASON})
-                if local_header_stats is not None:
-                    value = data[OBFUSCATED_MAP_PREFIX + 2]
-                    local_header_stats[value] = local_header_stats.get(value, 0) + 1
-            else:
-                unparsed.append({"name": map_name, "reason": NO_MARKERS_REASON})
-            continue
-        _absorb(references, excluded, refs, map_name, index)
+        derived_by: str | None = None
+        if local_decoder is not None and is_obfuscated_map(data):
+            plain = local_decoder.decode_map(map_name, data)
+            if plain is None:
+                unparsed.append({"name": map_name, "reason": OBFUSCATED_KEY_UNAVAILABLE_REASON})
+                continue
+            if not isinstance(plain, (bytes, bytearray)):
+                raise LocalDecoderError("decode_map must return bytes or None")
+            decoded_maps.append({"name": map_name, "sha256": hashlib.sha256(data).hexdigest()})
+            data = bytes(plain)
+            del plain
+            derived_by = LOCAL_DECODER_TAG
+            try:
+                refs = parse_map_references(data)
+            except ValueError:
+                refs = []
+            if not refs:
+                unparsed.append({"name": map_name, "reason": DECODED_NO_MARKERS_REASON})
+                continue
+        else:
+            try:
+                refs = parse_map_references(data)
+            except ValueError as exc:
+                unparsed.append({"name": map_name, "reason": str(exc)})
+                continue
+            if not refs and b"GX_MAP" not in data.upper() and b"HEIGHT_FIELD" not in data.upper():
+                if is_obfuscated_map(data):
+                    unparsed.append({"name": map_name, "reason": OBFUSCATED_MAP_REASON})
+                    if local_header_stats is not None:
+                        value = data[OBFUSCATED_MAP_PREFIX + 2]
+                        local_header_stats[value] = local_header_stats.get(value, 0) + 1
+                else:
+                    unparsed.append({"name": map_name, "reason": NO_MARKERS_REASON})
+                continue
+        del data
+        _absorb(references, excluded, refs, map_name, index, derived_by)
         for ref in refs:
             suffix = _suffix(ref["name"])
             if suffix not in {"hfl", "stm"}:
@@ -571,7 +679,7 @@ def derive(source: Path | None, pak: Path | None = None,
                 unparsed.append({"name": ref["name"], "reason": str(exc)})
                 continue
             nested = [_ref(texture, suffix, section) for texture in textures]
-            _absorb(references, excluded, nested, ref["name"], index)
+            _absorb(references, excluded, nested, ref["name"], index, derived_by)
 
     if seen_maps == 0:
         status = "not-run"
@@ -580,7 +688,7 @@ def derive(source: Path | None, pak: Path | None = None,
     else:
         status = "complete"
     public_pak = {key: value for key, value in pak_info.items() if key not in {"entries", "pakPath"}}
-    return {
+    document = {
         "schema": MANIFEST_SCHEMA,
         "derivation": {
             "status": status,
@@ -604,10 +712,17 @@ def derive(source: Path | None, pak: Path | None = None,
         },
         "knownReferencedNoOriginalFile": list(known_no_original),
     }
+    if local_decoder is not None:
+        document["derivation"]["localDecoder"] = {
+            "version": str(local_decoder.DECODER_VERSION),
+            "sourcePakSha256": _file_sha256(pak) if pak else None,
+            "decodedMaps": decoded_maps,
+        }
+    return document
 
 
 def _absorb(references: list[dict], excluded: list[dict], refs: list[dict],
-            via: str, index: _BlobIndex) -> None:
+            via: str, index: _BlobIndex, derived_by: str | None = None) -> None:
     have = {_casefold_name(item["name"]) for item in references}
     have_excluded = {_casefold_name(item["name"]) for item in excluded}
     for ref in refs:
@@ -619,6 +734,8 @@ def _absorb(references: list[dict], excluded: list[dict], refs: list[dict],
             "section": ref["section"],
             "originalExists": _original_exists(index, ref["name"]),
         }
+        if derived_by:
+            row["derivedBy"] = derived_by
         if kind:
             if key not in have_excluded:
                 row["kind"] = kind
@@ -653,7 +770,46 @@ def _checkout_index(root: Path) -> tuple[set[str], set[str]]:
     return present, pointers
 
 
-def check(manifest: dict, root: Path, strict: bool = False) -> dict:
+def supplemental_pak_collisions(root: Path) -> list[dict]:
+    """Basenames the supplemental pak shares with another mounted pak.
+
+    Only top-level .pak files are mounted.  Runtime lookup tries the full
+    name, then the basename, first hit in mount order, so a shared
+    basename (case-insensitive) means one copy silently shadows the other.
+    """
+    if not root.is_dir():
+        return []
+    paks = sorted(p for p in root.iterdir() if p.is_file() and p.suffix.casefold() == ".pak")
+    supplemental = [p for p in paks if p.name.casefold() == SUPPLEMENTAL_PAK_NAME]
+    if not supplemental or is_lfs_pointer(supplemental[0]):
+        return []
+    read = _read_pak_entries(supplemental[0])
+    if read is None:
+        return [{"name": "", "pak": supplemental[0].name, "other": "", "reason": "supplemental pak is unreadable"}]
+    mine = {_casefold_name(e.canonical_name): e.canonical_name for e in read[1]}
+    rows: list[dict] = []
+    for other in paks:
+        if other == supplemental[0] or is_lfs_pointer(other):
+            continue
+        other_read = _read_pak_entries(other)
+        if other_read is None:
+            rows.append({"name": "", "pak": supplemental[0].name, "other": other.name,
+                         "reason": "other pak unreadable"})
+            continue
+        for entry in other_read[1]:
+            key = _casefold_name(entry.canonical_name)
+            if key in mine:
+                rows.append({"name": mine[key], "pak": supplemental[0].name,
+                             "other": f"{other.name}:{entry.canonical_name}",
+                             "reason": "supplemental pak shares a basename with another mounted pak"})
+    return rows
+
+
+def check(manifest: dict, root: Path, strict: bool = False, pak: Path | None = None) -> dict:
+    """Compare a checkout to the manifest. Never loads a decoder plugin.
+
+    ``pak`` is only hashed, to verify ``derivation.localDecoder``.
+    """
     if manifest.get("schema") != MANIFEST_SCHEMA:
         raise ValueError("unsupported resource-reference manifest schema")
     derivation = manifest.get("derivation") or {}
@@ -661,6 +817,17 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
     known = list(manifest.get("knownReferencedNoOriginalFile") or KNOWN_NO_ORIGINAL)
     references = list(manifest.get("references") or [])
     present_names, pointer_names = _checkout_index(root)
+    local_info = derivation.get("localDecoder")
+    local_state: str | None = None
+    if isinstance(local_info, dict):
+        expected = local_info.get("sourcePakSha256")
+        if pak is None:
+            local_state = "unverified"
+        elif expected and Path(pak).is_file() and _file_sha256(Path(pak)) == expected:
+            local_state = "verified"
+        else:
+            local_state = "stale"
+    local_rows: list[dict] = []
 
     present: list[dict] = []
     missing: list[dict] = []
@@ -709,6 +876,18 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
         key = _casefold_name(name)
         if key in seen:
             continue
+        if local_state is not None and ref.get("derivedBy") == LOCAL_DECODER_TAG:
+            local_rows.append({"name": name, "via": ref.get("via", ""), "state": local_state})
+            if local_state == "stale":
+                seen.add(key)
+                no_conclusion.append({
+                    "name": name,
+                    "reason": (
+                        "local-decoder conclusion is not-run (stale): manifest sourcePakSha256 "
+                        "does not match the given pak; no conclusion, not a pass"
+                    ),
+                })
+                continue
         if matches_known_no_original(name, known) or ref.get("originalExists") is False:
             add_no_original(
                 name,
@@ -744,7 +923,10 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
     for name in known:
         add_no_original(name, "known referenced-by-original name; no original file exists")
 
-    if status == "partial":
+    collisions = supplemental_pak_collisions(root)
+    if collisions:
+        conclusion = "collision"
+    elif status == "partial":
         conclusion = "partial"
     elif no_conclusion:
         conclusion = "no conclusion"
@@ -775,7 +957,24 @@ def check(manifest: dict, root: Path, strict: bool = False) -> dict:
             "check": "CI and local checkouts, against the checked-in manifest only",
         },
     }
-    report["exitCode"] = 0 if not strict or conclusion == "clean" else 1
+    if collisions:
+        report["counts"]["pakBasenameCollisions"] = len(collisions)
+        report["pakBasenameCollisions"] = collisions
+    if local_state is not None:
+        report["counts"]["localDecoder"] = len(local_rows)
+        report["localDecoder"] = {
+            "state": local_state,
+            "version": local_info.get("version"),
+            "references": local_rows,
+            "note": {
+                "verified": "local-decoder conclusions match the given pak",
+                "unverified": "local-decoder conclusions, unverified by CI (no pak given); not a failure",
+                "stale": "pak SHA-256 mismatch; local-decoder conclusions are not-run (stale)",
+            }[local_state],
+        }
+    # A basename collision fails even without --strict: it changes which
+    # bytes the runtime loads.
+    report["exitCode"] = 1 if collisions else (0 if not strict or conclusion == "clean" else 1)
     return report
 
 
@@ -790,8 +989,15 @@ def format_report(report: dict) -> str:
             f"no-conclusion={report['counts']['noConclusion']}"
         ),
         "derive runs on ROG; CI only checks the checked-in manifest",
+    ]
+    if "localDecoder" in report:
+        info = report["localDecoder"]
+        lines.append(f"local-decoder={report['counts']['localDecoder']} state={info['state']} ({info['note']})")
+    lines += [
         f"strict switch {STRICT_ENV}: {'on' if report['strict'] else 'off'}",
     ]
+    for row in report.get("pakBasenameCollisions", []):
+        lines.append(f"collision: {row['name']} in {row['pak']} vs {row['other']} ({row['reason']})")
     for row in report["missing"]:
         lines.append(f"missing: {row['name']} ({row['reason']})")
     for row in report["referencedButNoOriginalFile"]:
@@ -817,6 +1023,8 @@ def warning_lines(report: dict) -> list[str]:
         lines.append("resource reference check has no conclusion; this is not a pass")
     elif report["conclusion"] == "partial":
         lines.append("resource reference check is partial; this is not a pass")
+    for row in report.get("pakBasenameCollisions", []):
+        lines.append(f"supplemental pak basename collision {row['name']} with {row['other']}")
     for row in report["missing"]:
         lines.append(f"missing referenced resource {row['name']}")
     for row in report["noConclusion"]:
@@ -868,6 +1076,10 @@ def main(argv: list[str] | None = None) -> int:
     derive_parser.add_argument("--pak", type=Path, help="original Map.pak (read to EOF, not the 4192-entry worktree pak)")
     derive_parser.add_argument("--output", type=Path, required=True)
     derive_parser.add_argument(
+        "--local-decoder", type=Path, default=None,
+        help=f"local only, never in CI: decoder plugin .py outside the repo (or {LOCAL_DECODER_ENV}); "
+             "no default search path")
+    derive_parser.add_argument(
         "--local-header-stats", action="store_true", default=False,
         help="local only, never in CI: print obfuscated-map header byte 2 counts to "
              "stdout; nothing is written to the manifest")
@@ -877,6 +1089,8 @@ def main(argv: list[str] | None = None) -> int:
     check_parser.add_argument("--root", type=Path, required=True)
     check_parser.add_argument("--report", type=Path)
     check_parser.add_argument("--codequality", type=Path)
+    check_parser.add_argument("--pak", type=Path, default=None,
+                              help="optional original Map.pak, only hashed to verify local-decoder conclusions")
     check_parser.add_argument("--strict", action="store_true",
                               help=f"same switch as {STRICT_ENV}=1; fail on missing files or no conclusion")
     args = parser.parse_args(argv)
@@ -885,7 +1099,17 @@ def main(argv: list[str] | None = None) -> int:
         if args.source is None and args.pak is None:
             parser.error("derive needs --source and/or --pak on the machine that has the original files")
         header_stats: dict[int, int] | None = {} if args.local_header_stats else None
-        document = derive(args.source, args.pak, local_header_stats=header_stats)
+        decoder_path = resolve_local_decoder_path(args.local_decoder)
+        decoder = None
+        if decoder_path is not None and args.pak is None:
+            parser.error(f"--local-decoder (or {LOCAL_DECODER_ENV}) requires --pak so the "
+                         "manifest records the source pak SHA-256")
+        if decoder_path is not None:
+            try:
+                decoder = load_local_decoder(decoder_path)
+            except LocalDecoderError as exc:
+                parser.error(str(exc))
+        document = derive(args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder)
         _write_json(args.output, document)
         print(
             f"wrote {args.output} status={document['derivation']['status']} "
@@ -901,7 +1125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     strict = strict_enabled(args.strict)
-    report = check(_load_json(args.manifest), args.root, strict=strict)
+    report = check(_load_json(args.manifest), args.root, strict=strict, pak=args.pak)
     text = format_report(report)
     print(text, end="")
     emit_warnings(report)

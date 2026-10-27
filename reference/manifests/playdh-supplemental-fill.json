@@ -1,0 +1,459 @@
+{
+  "schema": "mxh.playdh-supplemental-fill/1",
+  "note": "Names only, no content. The pak is never committed: it is built locally on ROG from the original client Map.pak by pak_writer.py and deploy verifies it against pakSha256. Entry sha256 and pakSha256 are null until that extraction; pak_writer.py refuses to pack an entry whose sha256 is null.",
+  "pak": "D:\\build-mxr\\supplement\\zz_supplement.pak (built locally on ROG outside any git worktree, never committed); deploy copies it into <PlayDH root>/zz_supplement.pak",
+  "pakSha256": null,
+  "format": "96-byte original header (docs/formats/pak.md variant B)",
+  "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out D:\\build-mxr\\supplement\\zz_supplement.pak --conflict-root <PlayDH root>",
+  "deploy": "verify sha256(D:\\build-mxr\\supplement\\zz_supplement.pak) == pakSha256, then copy it into <PlayDH root>/zz_supplement.pak (PlayDH lives in a git worktree, which pak_writer.py refuses as --out)",
+  "workflow": "Per-ticket commits (TYJ-148..151) change only this file: entry sha256 values and the expected pakSha256. The pak itself is never committed.",
+  "acceptance": [
+    "pak_writer.py on ROG builds D:\\build-mxr\\supplement\\zz_supplement.pak (outside any worktree) with sha256 == pakSha256, twice, identical; only then is it copied into <PlayDH root>",
+    "pak_writer.py --conflict-root <PlayDH root> passes: no basename shared with the 7 PlayDH paks",
+    "resource_reference_gate.py check on the PlayDH root: no collision, missing_playdh_in_mx for the ticket's maps drops to 0",
+    "ROG gate (MSVC) CTest mxh_pak_writer_packfile_tests passes: PackFile sees only the 96-byte layout",
+    "ROG actual client log [pak] mount order lists 8 paks with zz_supplement.pak last (this fill PR only; P1 stays at 7). The name was chosen so it should mount last (only 96-byte pak, sorts after the 7 PlayDH names), but that is an inference from FilesystemFileStorage; only this log is acceptance",
+    "map smoke for 90/401/321 and the TYJ-151 maps loads with no FSOpenFile failure",
+    "scripts/check-no-pak-changes.py passes: no *.pak path added or modified in the PR"
+  ],
+  "entries": [
+    {
+      "name": "12_plant_1.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "12_plant_2.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "12_treeWall_00_A.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "12_treeWall_01_A.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "12_treeWall_02_A.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "12_treeWall_03_A.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_alpa_yu.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_flower_02.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_lamp_00.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_lamp_00.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_light_yu_00.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_littletree_01.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_statue_00.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_Tree_commonA.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_Tree_commonB.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_tree_typeC.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_tree_willow.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_treeThinA.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_treeThinB.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_weapon_05.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_weapon_06.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "17_weapon_07.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "90.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "90.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-148"
+    },
+    {
+      "name": "202_bigtree_01.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_grass_01.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_01.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_02.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_03.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_04.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_05.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_06.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_tree_07.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_treewall_00.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "202_treewall_01.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "401.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "401.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "big_tree201_eff.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "big_tree201_eff_01.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-149"
+    },
+    {
+      "name": "107_leaf01.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "211_eff_fire00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_circle00.TIF",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_eye_00.MOD",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_flow_00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_grassPollution_00.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_GX_crystal00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_GX_trick00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_oil_00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_oil_00.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_OilColumn_00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_petroleum_00.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "212_petroleum_00.TIF",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "321.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "321.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-150"
+    },
+    {
+      "name": "01_Loginpage_01.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "01_Loginpage_01.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "15_fire.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "209.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "209.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "209_catapult01.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "209_montree_03.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "213_boss.chr",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "232_room_floor_05.tif",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "322.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "322.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "331.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "331.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "332.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "332.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "342.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "342.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "352.hfl",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    },
+    {
+      "name": "352.stm",
+      "sourcePak": "MX/client/Package/3DData/Map.pak",
+      "sha256": null,
+      "ticket": "TYJ-151"
+    }
+  ]
+}

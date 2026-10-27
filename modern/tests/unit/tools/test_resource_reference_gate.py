@@ -1,8 +1,10 @@
 """Synthetic fixtures for the warn-only MxhResourceReference resource gate."""
 
+import hashlib
 import importlib.util
 import io
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -433,6 +435,161 @@ class ObfuscatedMapReasonTests(unittest.TestCase):
                 gate.main(["derive", "--source", str(source), "--output", str(out), "--local-header-stats"])
             self.assertIn("local-only", buf.getvalue())
             self.assertNotIn("header", out.read_text(encoding="utf-8").lower().replace("headerentries", ""))
+
+
+# Made-up 8-byte key chosen by this test. Unrelated to any real key and not
+# derived from header bytes; the synthetic header below is all zeros.
+TEST_XOR_KEY = bytes([0x13, 0x37, 0xC0, 0xDE, 0x42, 0x99, 0x5E, 0xA1])
+TEST_DECODER_VERSION = "synthetic-test-decoder-1"
+FAKE_PLAIN_MAP = "\n".join([
+    "GX_MAP", "HEIGHT_FIELD", "fake_terrain.hfl", "GX_OBJECT", "fake_house.mod", "",
+]).encode("latin-1")
+
+PLUGIN_SOURCE = f"""
+DECODER_VERSION = {TEST_DECODER_VERSION!r}
+_KEY = {TEST_XOR_KEY!r}
+
+def decode_map(name, data):
+    if name == "nokey.map":
+        return None
+    body = data[24:]
+    return bytes(b ^ _KEY[i % 8] for i, b in enumerate(body))
+"""
+
+NONE_PLUGIN_SOURCE = """
+DECODER_VERSION = "synthetic-none-1"
+
+def decode_map(name, data):
+    return None
+"""
+
+
+def synthetic_xor_map(plain: bytes) -> bytes:
+    body = bytes(b ^ TEST_XOR_KEY[i % 8] for i, b in enumerate(plain))
+    payload = bytes(20) + body
+    return struct.pack("<I", 4 + len(payload)) + payload
+
+
+class LocalDecoderHookTests(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.addCleanup(self._tmp.cleanup)
+        self.obf = synthetic_xor_map(FAKE_PLAIN_MAP)
+        self.assertTrue(gate.is_obfuscated_map(self.obf))
+        self.pak = self.tmp / "Map.pak"
+        self.pak.write_bytes(build_original_pak([
+            ("1.map", self.obf),
+            ("nokey.map", synthetic_xor_map(FAKE_PLAIN_MAP + b"\n")),
+            ("fake_terrain.hfl", build_hfl(["fake_tex.tga"], 0)),
+        ]))
+        self.plugin_path = self.tmp / "plugin" / "fake_decoder.py"
+        self.plugin_path.parent.mkdir()
+        self.plugin_path.write_text(PLUGIN_SOURCE, encoding="utf-8")
+
+    def derive_with_plugin(self):
+        plugin = gate.load_local_decoder(self.plugin_path)
+        return gate.derive(None, self.pak, local_decoder=plugin)
+
+    def test_plugin_conclusions_are_tagged_and_manifest_holds_no_secrets(self):
+        manifest = self.derive_with_plugin()
+        refs = {ref["name"]: ref for ref in manifest["references"]}
+        for name in ("fake_terrain.hfl", "fake_house.mod", "fake_tex.tga"):
+            self.assertEqual(refs[name]["derivedBy"], "local-decoder")
+        info = manifest["derivation"]["localDecoder"]
+        self.assertEqual(info["version"], TEST_DECODER_VERSION)
+        self.assertEqual(info["sourcePakSha256"], hashlib.sha256(self.pak.read_bytes()).hexdigest())
+        self.assertEqual(info["decodedMaps"], [
+            {"name": "1.map", "sha256": hashlib.sha256(self.obf).hexdigest()}])
+        self.assertEqual(manifest["derivation"]["unparsed"], [
+            {"name": "nokey.map", "reason": "obfuscated-map-key-unavailable"}])
+        rendered = json.dumps(manifest)
+        # Section names are schema fields; plaintext runs, key and header are not.
+        plain_run = json.dumps(FAKE_PLAIN_MAP.decode("latin-1"))[1:21]
+        for leak in ("GX_MAP", plain_run, TEST_XOR_KEY.hex(), "header"):
+            self.assertNotIn(leak, rendered.replace("headerEntries", ""))
+
+    def test_plugin_returning_none_marks_key_unavailable(self):
+        none_plugin = self.tmp / "plugin" / "none_decoder.py"
+        none_plugin.write_text(NONE_PLUGIN_SOURCE, encoding="utf-8")
+        manifest = gate.derive(None, self.pak, local_decoder=gate.load_local_decoder(none_plugin))
+        reasons = {item["name"]: item["reason"] for item in manifest["derivation"]["unparsed"]}
+        self.assertEqual(reasons, {"1.map": "obfuscated-map-key-unavailable",
+                                   "nokey.map": "obfuscated-map-key-unavailable"})
+        self.assertEqual(manifest["references"], [])
+
+    def test_no_plugin_without_explicit_arg_or_env(self):
+        self.assertIsNone(gate.resolve_local_decoder_path(None, environ={}))
+        self.assertEqual(
+            gate.resolve_local_decoder_path(None, environ={gate.LOCAL_DECODER_ENV: str(self.plugin_path)}),
+            self.plugin_path)
+        out = self.tmp / "m.json"
+        old = os.environ.pop(gate.LOCAL_DECODER_ENV, None)
+        try:
+            with redirect_stdout(io.StringIO()):
+                gate.main(["derive", "--pak", str(self.pak), "--output", str(out)])
+        finally:
+            if old is not None:
+                os.environ[gate.LOCAL_DECODER_ENV] = old
+        manifest = json.loads(out.read_text(encoding="utf-8"))
+        self.assertNotIn("localDecoder", manifest["derivation"])
+        self.assertEqual({item["reason"] for item in manifest["derivation"]["unparsed"]}, {"obfuscated-map"})
+        with redirect_stdout(io.StringIO()):
+            gate.main(["derive", "--pak", str(self.pak), "--output", str(out),
+                       "--local-decoder", str(self.plugin_path)])
+        self.assertIn("localDecoder", json.loads(out.read_text(encoding="utf-8"))["derivation"])
+
+    def test_local_decoder_without_pak_is_refused(self):
+        plugin = gate.load_local_decoder(self.plugin_path)
+        with self.assertRaises(gate.LocalDecoderError):
+            gate.derive(self.tmp, None, local_decoder=plugin)
+        out = self.tmp / "nopak.json"
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as ctx:
+                gate.main(["derive", "--source", str(self.tmp), "--output", str(out),
+                           "--local-decoder", str(self.plugin_path)])
+        self.assertNotEqual(ctx.exception.code, 0)
+        self.assertFalse(out.exists())
+
+    def test_plugin_inside_repo_is_refused(self):
+        with self.assertRaises(gate.LocalDecoderError):
+            gate.load_local_decoder(SCRIPT)
+        with self.assertRaises(gate.LocalDecoderError):
+            gate.load_local_decoder(self.plugin_path, repo_root=self.tmp)
+
+    def test_check_separates_local_decoder_counts(self):
+        manifest = write_fixture_manifest(self.tmp, self.derive_with_plugin())
+        root = self.tmp / "checkout"
+        root.mkdir()
+        unverified = gate.check(manifest, root)
+        self.assertEqual(unverified["localDecoder"]["state"], "unverified")
+        self.assertEqual(unverified["counts"]["localDecoder"], 3)
+        self.assertEqual(unverified["exitCode"], 0)
+        self.assertIn("local-decoder=3 state=unverified", gate.format_report(unverified))
+        verified = gate.check(manifest, root, pak=self.pak)
+        self.assertEqual(verified["localDecoder"]["state"], "verified")
+        self.assertEqual(verified["counts"]["noConclusion"], unverified["counts"]["noConclusion"])
+
+    def test_pak_sha_mismatch_makes_local_conclusions_not_run(self):
+        manifest = write_fixture_manifest(self.tmp, self.derive_with_plugin())
+        other = self.tmp / "Other.pak"
+        other.write_bytes(build_original_pak([("x.map", b"GX_MAP\n")]))
+        root = self.tmp / "checkout"
+        root.mkdir()
+        report = gate.check(manifest, root, pak=other)
+        self.assertEqual(report["localDecoder"]["state"], "stale")
+        stale = [row for row in report["noConclusion"] if "not-run (stale)" in row["reason"]]
+        self.assertEqual({row["name"] for row in stale}, {"fake_terrain.hfl", "fake_house.mod", "fake_tex.tga"})
+
+    def test_old_manifest_report_has_no_local_decoder_fields(self):
+        manifest = {"schema": gate.MANIFEST_SCHEMA,
+                    "derivation": {"status": "partial", "unparsed": [{"name": "9.map", "reason": "obfuscated-map"}]},
+                    "references": [{"name": "a.tga", "via": "1.map", "section": "x", "originalExists": True}]}
+        report = gate.check(manifest, self.tmp, pak=self.pak)
+        self.assertEqual(set(report["counts"]),
+                         {"present", "missing", "referencedButNoOriginalFile", "noConclusion"})
+        self.assertNotIn("localDecoder", report)
+        self.assertNotIn("local-decoder", gate.format_report(report))
 
 if __name__ == "__main__":
     unittest.main()
