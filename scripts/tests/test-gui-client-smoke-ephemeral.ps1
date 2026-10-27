@@ -159,7 +159,12 @@ try {
     if (Test-Path -LiteralPath $liveDir) { Remove-Item -LiteralPath $liveDir -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
-$outside = Join-Path $env:HOME ('mxh-not-temp-' + [Guid]::NewGuid().ToString('N'))
+# Windows has no $env:HOME; use the profile directory (outside the temp root) on every OS.
+$outsideBase = [Environment]::GetFolderPath('UserProfile')
+if ([string]::IsNullOrEmpty($outsideBase)) { $outsideBase = $env:USERPROFILE }
+if ([string]::IsNullOrEmpty($outsideBase)) { $outsideBase = $env:HOME }
+Assert-True (-not [string]::IsNullOrEmpty($outsideBase)) 'no user profile directory for the outside-temp cleanup case'
+$outside = Join-Path $outsideBase ('mxh-not-temp-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $outside | Out-Null
 try {
     $cleanup = Invoke-EphemeralLocalCleanup -ProcessIds @() -DatabaseDirectory $outside
