@@ -47,6 +47,9 @@ on:
       - scripts/clean-deploy.ps1
       - scripts/rog-gate-build.cmd
       - scripts/clean-deploy.cmd
+      - scripts/gui-client-smoke.ps1
+      - scripts/gui-client-smoke-ephemeral.ps1
+      - scripts/tests/test-gui-client-smoke-ephemeral.ps1
       - .gitignore
       - "**.[Pp][Aa][Kk]"
       - .gitlab-ci.yml

@@ -357,12 +357,22 @@ try {
     }
     # ResourceRoot-Missing
     Assert-ResourceRootRejected (Join-Path $rrTemp 'missing') '`[ERROR`] gui smoke: -ResourceRoot does not exist*' 'ResourceRoot-Missing'
-    # ResourceRoot-UnderDMX (any case, either slash, trailing slash, \\?\ prefix)
-    foreach ($bad in @('D:\MX', 'D:\MX\', 'd:\mx\PlayDH', 'D:/MX/data/PlayDH', '\\?\D:\MX\PlayDH')) {
-        Assert-ResourceRootRejected $bad '`[ERROR`] gui smoke: -ResourceRoot must not be under D:\MX*' 'ResourceRoot-UnderDMX'
+    # ResourceRoot-UnderDMX: after collapsing these are D:\MX or below it.
+    foreach ($bad in @('D:\MX', 'D:\MX\', 'd:\mx\', 'D:\MX\.', 'd:\mx\PlayDH', 'D:/MX/data/PlayDH',
+                       'D:\x\..\MX\PlayDH', 'D:\build-mxr\..\MX\PlayDH', 'D:\MX\.\PlayDH\..', '\\?\D:\MX\PlayDH', 'D:\\MX\\PlayDH')) {
+        Assert-ResourceRootRejected $bad '`[ERROR`] gui smoke: -ResourceRoot resolves under D:\MX*' 'ResourceRoot-UnderDMX'
     }
-    # ResourceRoot-DotDot (cannot walk into D:\MX)
-    Assert-ResourceRootRejected 'D:\build-mxr\..\MX\PlayDH' "``[ERROR``] gui smoke: -ResourceRoot must not contain '..'*" 'ResourceRoot-DotDot'
+    # ResourceRoot-CollapseAllowed: collapse to a path outside D:\MX, so the
+    # D:\MX check passes them (they then fail only on existence/absolute rules).
+    foreach ($ok in @('D:\MX\..\x', 'D:\MXR', 'D:\MX2\PlayDH', 'D:\build-mxr\playdh-99debcba\modern\data\PlayDH', 'E:\MX')) {
+        $collapsedOk = Get-GuiSmokeCollapsedPathText -Path $ok
+        Assert-True (-not (Test-GuiSmokePathUnderOriginalRoot -CollapsedPath $collapsedOk)) "ResourceRoot-CollapseAllowed: '$ok' -> '$collapsedOk' must not count as D:\MX"
+        $message = $null
+        try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $ok } catch { $message = $_.Exception.Message }
+        Assert-True ($message -notlike '*resolves under D:\MX*') "ResourceRoot-CollapseAllowed: '$ok' was refused as D:\MX: $message"
+    }
+    Assert-True ((Get-GuiSmokeCollapsedPathText -Path 'D:\MX\..\x') -eq 'D:\x') 'ResourceRoot-Collapse: D:\MX\..\x must collapse to D:\x'
+    Assert-True ((Get-GuiSmokeCollapsedPathText -Path 'd:/x/../MX/./PlayDH/') -eq 'D:\MX\PlayDH') 'ResourceRoot-Collapse: d:/x/../MX/./PlayDH/ must collapse to D:\MX\PlayDH'
     # ResourceRoot-NotDMX: names that only start with MX are not D:\MX
     $mxLike = Join-Path $rrTemp 'MXR'
     New-Item -ItemType Directory -Force -Path $mxLike | Out-Null

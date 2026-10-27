@@ -201,6 +201,41 @@ function Copy-EphemeralEnvironmentForProcess {
     return $copy
 }
 
+function Get-GuiSmokeCollapsedPathText {
+    # Text-only Windows path collapse used for the D:\MX check. Does not touch
+    # the filesystem. Returns e.g. 'D:\MX\PlayDH' for 'd:/x/../MX/./PlayDH/'.
+    param([AllowEmptyString()][string]$Path)
+    if ([string]::IsNullOrEmpty($Path)) { return '' }
+    $text = $Path -replace '/', '\'
+    $text = $text -replace '^\\\\[?.]\\', ''
+    $prefix = ''
+    if ($text -match '^([A-Za-z]:)(.*)$') {
+        $prefix = $Matches[1].ToUpperInvariant()
+        $text = $Matches[2]
+    } elseif ($text.StartsWith('\\')) {
+        $prefix = '\\'
+        $text = $text.Substring(2)
+    }
+    $stack = [System.Collections.Generic.List[string]]::new()
+    foreach ($segment in $text.Split('\')) {
+        if ($segment -eq '' -or $segment -eq '.') { continue }
+        if ($segment -eq '..') {
+            if ($stack.Count -gt 0) { $stack.RemoveAt($stack.Count - 1) }
+            continue
+        }
+        $stack.Add($segment)
+    }
+    if ($prefix -eq '\\') { return '\\' + ($stack -join '\') }
+    return $prefix + '\' + ($stack -join '\')
+}
+
+function Test-GuiSmokePathUnderOriginalRoot {
+    param([AllowEmptyString()][string]$CollapsedPath)
+    if ([string]::IsNullOrEmpty($CollapsedPath)) { return $false }
+    $trimmed = $CollapsedPath.TrimEnd('\')
+    return ($trimmed -ieq 'D:\MX') -or $trimmed.StartsWith('D:\MX\', [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Resolve-GuiSmokeResourceRoot {
     # -ResourceRoot on gui-client-smoke.ps1. Empty keeps the repo PlayDH
     # (<RepoRoot>\modern\data\PlayDH), exactly as before. A value must be an
@@ -215,16 +250,15 @@ function Resolve-GuiSmokeResourceRoot {
     if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
         return (Join-Path $RepoRoot 'modern\data\PlayDH')
     }
-    # D:\MX is the read-only original install. Checked on the text first so it
-    # is refused on any host; '..' segments are refused so the prefix check
-    # cannot be walked around.
-    $normalized = ($ResourceRoot -replace '/', '\') -replace '^\\\\[?.]\\', ''
-    if (@($normalized -split '\\') -contains '..') {
-        throw "[ERROR] gui smoke: -ResourceRoot must not contain '..': $ResourceRoot"
-    }
-    $trimmed = $normalized.TrimEnd('\')
-    if ($trimmed -ieq 'D:\MX' -or $trimmed.StartsWith('D:\MX\', [StringComparison]::OrdinalIgnoreCase)) {
-        throw "[ERROR] gui smoke: -ResourceRoot must not be under D:\MX (read-only original install): $ResourceRoot"
+    # D:\MX is the read-only original install. The check runs on a collapsed
+    # copy of the text (as clean-deploy -PlayDhRoot does): '/' becomes '\',
+    # a \\?\ or \\.\ prefix is dropped, '.' and empty segments are removed,
+    # '..' pops a segment, and the compare ignores case. So D:\x\..\MX\PlayDH,
+    # d:\mx\ and D:\MX\. are refused, while D:\MX\..\x (= D:\x) passes. It is
+    # text-only, so the refusal also happens on a non-Windows host.
+    $collapsed = Get-GuiSmokeCollapsedPathText -Path $ResourceRoot
+    if (Test-GuiSmokePathUnderOriginalRoot -CollapsedPath $collapsed) {
+        throw "[ERROR] gui smoke: -ResourceRoot resolves under D:\MX (read-only original install): $ResourceRoot -> $collapsed"
     }
     $qualifiedMethod = [IO.Path].GetMethod('IsPathFullyQualified', [Type[]]@([string]))
     if ($null -ne $qualifiedMethod) {
@@ -238,6 +272,14 @@ function Resolve-GuiSmokeResourceRoot {
     }
     if (-not (Test-Path -LiteralPath $ResourceRoot -PathType Container)) {
         throw "[ERROR] gui smoke: -ResourceRoot does not exist: $ResourceRoot"
+    }
+    # A junction or symlink whose target is under D:\MX is refused as well.
+    $item = Get-Item -LiteralPath $ResourceRoot -Force
+    $target = $null
+    if ($item.PSObject.Properties.Name -contains 'LinkTarget') { $target = $item.LinkTarget }
+    if (-not [string]::IsNullOrWhiteSpace([string]$target) -and
+        (Test-GuiSmokePathUnderOriginalRoot -CollapsedPath (Get-GuiSmokeCollapsedPathText -Path ([string]$target)))) {
+        throw "[ERROR] gui smoke: -ResourceRoot resolves under D:\MX (read-only original install): $ResourceRoot -> $target"
     }
     return $ResourceRoot
 }
