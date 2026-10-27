@@ -31,7 +31,7 @@
 - 本轮对本机发现的五个 Map.pak 候选（含 D:/MX 与 D:/MoyoI）重新列包并抽取 Map17 HFL；9 个 `tile_17_mou_a_01..09` 均未作为准确纹理条目出现。结果见 `docs/evidence/original-map17-texture-source-search-20261015.json`；在找到准确来源前，Map17 不进入 1:1 视觉发布门禁。
 - BMHM/TTB/HFL/STM、天空和环境语义、角色动作、BEFF/BEFL/Effect.pak 触发、WAV/空间音效及全地图视觉音频对照尚未闭合。
 - `playdh-current` 的服务器资源编码与旧 `mhfileex-classic-rxmso` 配置不同；小型或非标准条目需要按实际配置验证，不能静默改用旧版解码。历史 Map10→Map12 和 Map101 地形缺失记录只作定位，不沿用其通过或数量结论。
-- **R-17**（legacy 2008 PackingMan，SWorking 服务端 `.bin`）仍在默认 `read_mh_bin` 和 `sworking-2008-reference` 上生效：`[uint32 file_size == 文件总长][payload]`，payload 走 positional type 0。这 107 个服务端文件继续走这条路径。安装版客户端容器和 R-17 的首字段相同，不能靠字节启发式拆开。`read_mh_bin(path, "playdh-current")` 在文件不少于 20 字节且首个 uint32 等于文件长度时拒绝，错误含 `obfuscated container`，不剥离、不解码。默认路径不会返回 `ObfuscatedContainer`。Refs TYJ-146。
+- **R-17**（legacy 2008 PackingMan，SWorking 服务端 `.bin`）仍在默认 `read_mh_bin` 和 `sworking-2008-reference` 上生效：`[uint32 file_size == 文件总长][payload]`，payload 走 positional type 0。这 107 个服务端文件继续走这条路径。安装版客户端容器和 R-17 的首字段相同，不能靠字节启发式拆开。拒绝只在显式 `read_mh_bin(path, "playdh-current")`：文件不少于 20 字节且首个 uint32 等于文件长度时返回含 `obfuscated container` 的错误，不剥离、不解码。库不读环境变量或全局配置。现有调用方（客户端资源、`read_server_mh_bin`、`MhFileReader::init_bin`、`player_monster_point`、`map_handler`）未切换。Refs TYJ-146。
 - 掉落表应使用经当前格式校验的入口；历史 `Resource/Server/MonsterDropItemList*.bin` 被识别为 AIGroup 的记录仍需作为防止错误回退的依据，不可仅因字节可读就启用。
 
 ## Unity 重制线

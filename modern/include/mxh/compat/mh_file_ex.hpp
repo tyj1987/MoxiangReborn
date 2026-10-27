@@ -127,7 +127,8 @@ struct Result {
 //   any other id: MhError::UnsupportedVersion.
 // The installed container and R-17 share the size prefix. The profile
 // argument is the only selector. There is no structural heuristic on the
-// default path.
+// default path. This library does not read the environment or any global
+// config to choose a profile. Existing callers stay on read_mh_bin(path).
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path,
                                          std::string_view profile_id);
 

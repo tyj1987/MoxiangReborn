@@ -100,10 +100,7 @@ std::optional<CharMakeOptionCatalog> CharMakeOptionCatalog::load(
                       "CharMake_SelectOption.bin";
     const auto decoded = mxh::compat::read_mh_bin(path);
     if (!decoded.ok()) {
-        if (error) {
-            if (!decoded.message.empty()) *error = decoded.message;
-            else *error = "read_mh_bin failed for " + path.string();
-        }
+        if (error) *error = "read_mh_bin failed for " + path.string();
         return std::nullopt;
     }
     const std::string_view payload(
