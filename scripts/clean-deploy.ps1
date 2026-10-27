@@ -1,6 +1,6 @@
-﻿<#
+<#
 .SYNOPSIS
-    One-command clean-machine deployment of the Moxian (墨香) modern stack.
+    One-command clean-machine deployment of the Moxian modern stack.
     Targets ROADMAP M6-A clean machine deployment automation and
     KNOWN_BUGS DEPLOY-MSSQL.
 
@@ -17,15 +17,22 @@
                           download for ODBC 18 + VS Build Tools 2022.
       4. PlayDH junction  modern/data/PlayDH -> <RepoRoot>/MoxiangResources/PlayDH
                           (ASCII-named so resource tooling handles argv cleanly).
+                          Then check reference/manifests/playdh-supplemental-fill.json.
+                          Empty pakSha256 and no zz_supplement.pak continues.
+                          A filled pakSha256 must match; the outside-repo pak is
+                          copied into the PlayDH root.
       5. Build modern     invokes scripts/build-modern.ps1 -Config <Config>.
       6. Run ctest        ctest -C <Config> --test-dir modern/build.
       7. Commercial smoke invokes scripts/commercial-smoke.ps1.
+                          When pakSha256 is set, [pak] mount order must end
+                          with zz_supplement.pak.
 
     Idempotency:
       - Prereq detection skips already-installed tools.
       - PlayDH junction: only created if missing; -Force resets stale target.
       - Build: CMake incremental (rebuilds only what changed).
       - ctest + commercial-smoke: safe to repeat.
+      - Supplemental pak: copied only when pakSha256 is set and matches.
 
     Exit codes:
       0  success.
@@ -60,6 +67,13 @@
 .PARAMETER Force
     Rebuild from scratch (reset PlayDH junction if target moved).
 
+.PARAMETER SelfTest
+    Run the supplemental-pak self-test and exit. Does not deploy, build,
+    or copy a pak into the repo. Prints PASS, FAIL, and SKIP counts.
+
+.EXAMPLE
+    PS> powershell -ExecutionPolicy Bypass -File scripts\clean-deploy.ps1 -SelfTest
+
 .EXAMPLE
     PS> powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1 -InstallPrereqs
 
@@ -77,10 +91,17 @@ param(
     [switch]$Force,
     [ValidateSet("Debug", "Release")]
     [string]$Config = "Debug",
-    [string]$RepoRoot = ""
+    [string]$RepoRoot = "",
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
+$script:CleanDeployScriptPath = $PSCommandPath
+if ([string]::IsNullOrWhiteSpace($script:CleanDeployScriptPath)) {
+    $script:CleanDeployScriptPath = $MyInvocation.MyCommand.Path
+}
+$script:CleanDeployScriptRoot = $PSScriptRoot
+$script:CleanDeploySupplementExpectedFilled = $false
 
 # ----------------------------------------------------------------------------
 # Helpers
@@ -113,9 +134,688 @@ function Test-Tool {
     return $null
 }
 
+function Get-CleanDeployLegacyPlayDhDirName {
+    # UTF-8 bytes of the legacy resource directory. Kept as bytes so this
+    # script stays pure ASCII for Windows PowerShell 5.1.
+    $bytes = [byte[]](
+        229, 162, 168, 233, 166, 153, 227, 128, 144, 230, 186, 144,
+        231, 160, 129, 233, 133, 141, 229, 165, 151, 232, 181, 132,
+        230, 186, 144, 227, 128, 145)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+function Join-CleanDeployPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Parent,
+        [Parameter(Mandatory = $true)][string]$Child
+    )
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    $hasBack = $Parent.Contains('\')
+    $hasForward = $Parent.Contains('/')
+    if ($hasBack -and -not $hasForward) {
+        $sep = '\'
+    } elseif ($hasForward -and -not $hasBack) {
+        $sep = '/'
+    } elseif ($Parent -match '^[A-Za-z]:') {
+        $sep = '\'
+    }
+    $trimmed = $Parent.TrimEnd('\', '/')
+    return ($trimmed + $sep + $Child)
+}
+
+function Get-CleanDeployPathLeaf {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return "" }
+    $norm = $Path.Replace('\', '/')
+    $idx = $norm.LastIndexOf('/')
+    if ($idx -ge 0 -and $idx -lt ($norm.Length - 1)) {
+        return $norm.Substring($idx + 1)
+    }
+    return $norm
+}
+
+function Test-CleanDeployPathUnderOriginalRoot {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $text = $Path.Replace('/', '\')
+    if ($text.StartsWith('\\?\')) { $text = $text.Substring(4) }
+    $text = $text.TrimEnd('\')
+    $lower = $text.ToLowerInvariant()
+    if ($lower -eq 'd:\mx') { return $true }
+    if ($lower.StartsWith('d:\mx\')) { return $true }
+    return $false
+}
+
+function Test-CleanDeployLinkUnderOriginalRoot {
+    param([string]$LiteralPath)
+    if ([string]::IsNullOrWhiteSpace($LiteralPath)) { return $false }
+    if (-not (Test-Path -LiteralPath $LiteralPath)) { return $false }
+    $item = $null
+    try {
+        $item = Get-Item -LiteralPath $LiteralPath -Force -ErrorAction Stop
+    } catch {
+        return $true
+    }
+    $targets = @()
+    try {
+        $targets = @($item.Target)
+    } catch {
+        return $true
+    }
+    foreach ($one in $targets) {
+        if ([string]::IsNullOrWhiteSpace([string]$one)) { continue }
+        if (Test-CleanDeployPathUnderOriginalRoot -Path ([string]$one)) { return $true }
+    }
+    return $false
+}
+
+function Test-CleanDeployShaFilled {
+    param($Value)
+    if ($null -eq $Value) { return $false }
+    return -not [string]::IsNullOrWhiteSpace([string]$Value)
+}
+
+function Test-CleanDeployShaEqual {
+    param([string]$Actual, [string]$Expected)
+    if ([string]::IsNullOrWhiteSpace($Actual)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Expected)) { return $false }
+    return $Actual.ToLowerInvariant() -eq $Expected.ToLowerInvariant()
+}
+
+function Get-CleanDeploySha256 {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+    $hash = Get-FileHash -LiteralPath $LiteralPath -Algorithm SHA256
+    return $hash.Hash.ToLowerInvariant()
+}
+
+function Read-CleanDeployUtf8Text {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $offset = 0
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+        $offset = 3
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding $false, $true
+    $text = $utf8.GetString($bytes, $offset, $bytes.Length - $offset)
+    if ($text.Length -gt 0 -and [int][char]$text[0] -eq 0xFEFF) {
+        $text = $text.Substring(1)
+    }
+    return $text
+}
+
+function Read-CleanDeployLogText {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 255 -and $bytes[1] -eq 254) {
+        return [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    if ($bytes.Length -ge 2 -and $bytes[0] -eq 254 -and $bytes[1] -eq 255) {
+        return [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
+    }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+        return [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+    }
+    $sample = $bytes.Length
+    if ($sample -gt 64) { $sample = 64 }
+    $oddZero = 0
+    $pairs = 0
+    for ($i = 1; $i -lt $sample; $i += 2) {
+        $pairs = $pairs + 1
+        if ($bytes[$i] -eq 0) { $oddZero = $oddZero + 1 }
+    }
+    if ($pairs -ge 8 -and $oddZero -eq $pairs) {
+        return [System.Text.Encoding]::Unicode.GetString($bytes)
+    }
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+function Get-CleanDeployScriptEncodingKind {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $ascii = $true
+    foreach ($b in $bytes) {
+        if ($b -gt 127) {
+            $ascii = $false
+            break
+        }
+    }
+    if ($ascii) { return "ascii" }
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+        try {
+            $utf8 = New-Object System.Text.UTF8Encoding $false, $true
+            [void]$utf8.GetString($bytes, 3, $bytes.Length - 3)
+            return "utf8-bom"
+        } catch {
+            return "bad"
+        }
+    }
+    return "bad"
+}
+
+function Get-CleanDeploySupplementSourceFromManifest {
+    param($Manifest)
+    if ($null -eq $Manifest) { return "" }
+    $pak = $Manifest.pak
+    if ($null -eq $pak) { return "" }
+    $text = ([string]$pak).Trim()
+    if ([string]::IsNullOrWhiteSpace($text)) { return "" }
+    # Manifest "pak" is "<outside-repo path> (how it is built...); deploy copies..."
+    # Tickets change sha256 fields only, so the path stays the text before " (".
+    $token = $text
+    $marker = " ("
+    $at = $text.IndexOf($marker)
+    if ($at -gt 0) { $token = $text.Substring(0, $at) }
+    if ((Get-CleanDeployPathLeaf -Path $token) -ne "zz_supplement.pak") { return "" }
+    return $token
+}
+
+function Write-CleanDeploySupplementLine {
+    param($Lines, [string]$Line)
+    [void]$Lines.Add($Line)
+    Write-Host $Line
+}
+
+function New-CleanDeploySupplementResult {
+    param([bool]$Ok, [bool]$ExpectedFilled, $Lines)
+    $copy = @()
+    if ($null -ne $Lines) { $copy = @($Lines.ToArray()) }
+    return [pscustomobject]@{
+        Ok = [bool]$Ok
+        ExpectedFilled = [bool]$ExpectedFilled
+        Lines = $copy
+    }
+}
+
+function Test-CleanDeployMountLineEndsWithSupplement {
+    param([string]$Line)
+    $marker = "[pak] mount order"
+    $at = $Line.IndexOf($marker)
+    if ($at -lt 0) { return $false }
+    $tail = $Line.Substring($at + $marker.Length).Trim()
+    if ($tail.StartsWith(":")) { $tail = $tail.Substring(1).Trim() }
+    if ([string]::IsNullOrWhiteSpace($tail)) { return $false }
+    $parts = @($tail -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($parts.Count -lt 1) { return $false }
+    $token = [string]$parts[$parts.Count - 1]
+    $name = $token
+    $eq = $name.LastIndexOf("=")
+    if ($eq -gt 0) {
+        $prefix = $name.Substring(0, $eq)
+        $digits = $prefix.Length -gt 0
+        foreach ($ch in $prefix.ToCharArray()) {
+            if ($ch -lt '0' -or $ch -gt '9') { $digits = $false; break }
+        }
+        if ($digits) { $name = $name.Substring($eq + 1) }
+    }
+    if ($name.Length -gt 2 -and $name.EndsWith(")")) {
+        $paren = $name.LastIndexOf("(")
+        if ($paren -gt 0) {
+            $tier = $name.Substring($paren + 1, $name.Length - $paren - 2)
+            $tierDigits = $tier.Length -gt 0
+            foreach ($ch in $tier.ToCharArray()) {
+                if ($ch -lt '0' -or $ch -gt '9') { $tierDigits = $false; break }
+            }
+            if ($tierDigits) { $name = $name.Substring(0, $paren) }
+        }
+    }
+    return $name -eq "zz_supplement.pak"
+}
+
+function Test-CleanDeploySupplementMountOrder {
+    param([string]$LogText)
+    $lines = New-Object System.Collections.Generic.List[string]
+    if ($null -eq $LogText) { $LogText = "" }
+    $found = 0
+    $bad = $false
+    foreach ($line in ($LogText -split '\r?\n')) {
+        if ($line.IndexOf("[pak] mount order") -lt 0) { continue }
+        $found = $found + 1
+        if (-not (Test-CleanDeployMountLineEndsWithSupplement -Line $line)) {
+            $bad = $true
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order must end with zz_supplement.pak"
+        }
+    }
+    if ($found -eq 0) {
+        $bad = $true
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] [pak] mount order line is missing"
+    }
+    if (-not $bad) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] [pak] mount order ends with zz_supplement.pak"
+    }
+    return (New-CleanDeploySupplementResult -Ok (-not $bad) -ExpectedFilled $true -Lines $lines)
+}
+
+function Get-CleanDeployClientSmokeLogText {
+    param([string]$BuildDir)
+    if ([string]::IsNullOrWhiteSpace($BuildDir)) { return "" }
+    $smokeRoot = Join-Path $BuildDir "runtime"
+    $smokeRoot = Join-Path $smokeRoot "gui-smoke"
+    if (-not (Test-Path -LiteralPath $smokeRoot)) { return "" }
+    $runs = @(Get-ChildItem -LiteralPath $smokeRoot -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
+    if ($runs.Count -lt 1) { return "" }
+    $logDir = Join-Path $runs[0].FullName "logs"
+    $chunks = New-Object System.Collections.Generic.List[string]
+    foreach ($name in @("client.out.log", "client.err.log")) {
+        $path = Join-Path $logDir $name
+        if (Test-Path -LiteralPath $path -PathType Leaf) {
+            [void]$chunks.Add((Read-CleanDeployLogText -Path $path))
+        }
+    }
+    return ($chunks.ToArray() -join "`n")
+}
+
+function Invoke-CleanDeploySupplementPak {
+    param(
+        [Parameter(Mandatory = $true)][string]$ManifestPath,
+        [Parameter(Mandatory = $true)][string]$PlayDhRoot,
+        [string]$SourcePak = "",
+        [switch]$DryRun
+    )
+    # Rules from reference/manifests/playdh-supplemental-fill.json:
+    #   pakSha256 empty + pak absent -> continue
+    #   pakSha256 empty + pak present (source or PlayDH root) -> error
+    #   pakSha256 filled + missing or hash mismatch -> error
+    #   pakSha256 filled + match -> copy the outside-repo pak into the PlayDH root
+    # The pak is never committed. Writes under D:\MX are refused. Reads are allowed.
+    $lines = New-Object System.Collections.Generic.List[string]
+    if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental manifest not found: $ManifestPath"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $false -Lines $lines)
+    }
+
+    $manifest = $null
+    try {
+        $manifest = (Read-CleanDeployUtf8Text -Path $ManifestPath) | ConvertFrom-Json
+    } catch {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental manifest could not be read: $ManifestPath"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $false -Lines $lines)
+    }
+
+    $filled = Test-CleanDeployShaFilled -Value $manifest.pakSha256
+    $expectedLog = "empty"
+    if ($filled) { $expectedLog = ([string]$manifest.pakSha256).Trim().ToLowerInvariant() }
+
+    $source = $SourcePak
+    if ([string]::IsNullOrWhiteSpace($source)) {
+        $source = Get-CleanDeploySupplementSourceFromManifest -Manifest $manifest
+    }
+    if ([string]::IsNullOrWhiteSpace($source)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=absent expected=$expectedLog"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] manifest pak source path is missing"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $filled -Lines $lines)
+    }
+    $leaf = Get-CleanDeployPathLeaf -Path $source
+    if ($leaf -ne "zz_supplement.pak") {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=absent expected=$expectedLog"
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] manifest pak source must be named zz_supplement.pak"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $filled -Lines $lines)
+    }
+
+    $target = Join-CleanDeployPath -Parent $PlayDhRoot -Child $leaf
+    $sourceExists = Test-Path -LiteralPath $source -PathType Leaf
+    $targetExists = Test-Path -LiteralPath $target -PathType Leaf
+    $actualSource = ""
+    $actualTarget = ""
+    if ($sourceExists) { $actualSource = Get-CleanDeploySha256 -LiteralPath $source }
+    if ($targetExists) { $actualTarget = Get-CleanDeploySha256 -LiteralPath $target }
+
+    $actualLog = "absent"
+    if ($sourceExists -and $targetExists -and ($actualSource -ne $actualTarget)) {
+        $actualLog = "source=$actualSource;target=$actualTarget"
+    } elseif ($sourceExists) {
+        $actualLog = $actualSource
+    } elseif ($targetExists) {
+        $actualLog = $actualTarget
+    }
+    Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak sha256 actual=$actualLog expected=$expectedLog"
+
+    if (-not $filled) {
+        if ($sourceExists -or $targetExists) {
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak is present but pakSha256 is empty"
+            return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $false -Lines $lines)
+        }
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak not yet built"
+        return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $false -Lines $lines)
+    }
+
+    if ((-not $sourceExists) -and (-not $targetExists)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak is missing"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+    }
+    if ($sourceExists -and -not (Test-CleanDeployShaEqual -Actual $actualSource -Expected $expectedLog)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak sha256 mismatch"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+    }
+    if ((-not $sourceExists) -and $targetExists -and -not (Test-CleanDeployShaEqual -Actual $actualTarget -Expected $expectedLog)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak sha256 mismatch"
+        return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+    }
+
+    $needsCopy = $false
+    if ($sourceExists) {
+        $targetMatches = $false
+        if ($targetExists) {
+            $targetMatches = Test-CleanDeployShaEqual -Actual $actualTarget -Expected $expectedLog
+        }
+        if (-not $targetMatches) { $needsCopy = $true }
+    }
+
+    if ($needsCopy) {
+        $forbidden = Test-CleanDeployPathUnderOriginalRoot -Path $PlayDhRoot
+        if (-not $forbidden) { $forbidden = Test-CleanDeployPathUnderOriginalRoot -Path $target }
+        if (-not $forbidden) { $forbidden = Test-CleanDeployLinkUnderOriginalRoot -LiteralPath $PlayDhRoot }
+        if ($forbidden) {
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] refusing to write supplemental pak under D:\MX"
+            return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+        }
+        if ($DryRun) {
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] would copy supplemental pak to $target"
+            return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
+        }
+        if (-not (Test-Path -LiteralPath $PlayDhRoot -PathType Container)) {
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] PlayDH root is not a directory: $PlayDhRoot"
+            return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+        }
+        try {
+            Copy-Item -LiteralPath $source -Destination $target -Force
+        } catch {
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak copy failed"
+            return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+        }
+        $copied = Get-CleanDeploySha256 -LiteralPath $target
+        if (-not (Test-CleanDeployShaEqual -Actual $copied -Expected $expectedLog)) {
+            try { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue } catch { }
+            Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak sha256 mismatch"
+            return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
+        }
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] copied supplemental pak to $target"
+        return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
+    }
+
+    Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] supplemental pak already matches pakSha256"
+    return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
+}
+
+function Assert-CleanDeploySelfTest {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)]$Condition
+    )
+    $ok = $false
+    if ($Condition) { $ok = $true }
+    if ($ok) {
+        $script:CleanDeploySelfTestPass = $script:CleanDeploySelfTestPass + 1
+        Write-Host "[PASS] $Name"
+    } else {
+        $script:CleanDeploySelfTestFail = $script:CleanDeploySelfTestFail + 1
+        Write-Host "[FAIL] $Name"
+    }
+}
+
+function Write-CleanDeploySelfTestSkip {
+    param([Parameter(Mandatory = $true)][string]$Name)
+    $script:CleanDeploySelfTestSkip = $script:CleanDeploySelfTestSkip + 1
+    Write-Host "[SKIP] $Name"
+}
+
+function New-CleanDeploySelfTestRun {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string]$Name,
+        [ValidateSet("null", "empty", "match-source", "match-target", "zeros")]
+        [string]$ShaMode = "null",
+        [string]$SourceBody = "",
+        [string]$TargetBody = "",
+        [switch]$WriteSource,
+        [switch]$WriteTarget,
+        [string]$PlayDhRoot = "",
+        [switch]$DryRun
+    )
+    $caseRoot = Join-Path $Root $Name
+    $sourceDir = Join-Path $caseRoot "source"
+    $playdh = Join-Path $caseRoot "playdh"
+    New-Item -ItemType Directory -Path $sourceDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $playdh -Force | Out-Null
+    $source = Join-CleanDeployPath -Parent $sourceDir -Child "zz_supplement.pak"
+    $target = Join-CleanDeployPath -Parent $playdh -Child "zz_supplement.pak"
+    if ($WriteSource) {
+        [System.IO.File]::WriteAllBytes($source, [System.Text.Encoding]::ASCII.GetBytes($SourceBody))
+    }
+    if ($WriteTarget) {
+        [System.IO.File]::WriteAllBytes($target, [System.Text.Encoding]::ASCII.GetBytes($TargetBody))
+    }
+    $shaJson = "null"
+    if ($ShaMode -eq "empty") {
+        $shaJson = '""'
+    } elseif ($ShaMode -eq "zeros") {
+        $shaJson = '"0000000000000000000000000000000000000000000000000000000000000000"'
+    } elseif ($ShaMode -eq "match-source") {
+        $shaJson = '"' + (Get-CleanDeploySha256 -LiteralPath $source) + '"'
+    } elseif ($ShaMode -eq "match-target") {
+        $shaJson = '"' + (Get-CleanDeploySha256 -LiteralPath $target) + '"'
+    }
+    $escaped = New-Object System.Text.StringBuilder
+    foreach ($ch in $source.ToCharArray()) {
+        if ($ch -eq '\') { [void]$escaped.Append('\\') }
+        elseif ($ch -eq '"') { [void]$escaped.Append('\"') }
+        else { [void]$escaped.Append($ch) }
+    }
+    $json = "{`n  `"pak`": `"" + $escaped.ToString() + " (built outside the worktree)`",`n  `"pakSha256`": " + $shaJson + "`n}`n"
+    $manifest = Join-Path $caseRoot "manifest.json"
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($manifest, $json, $utf8)
+    $rootForDeploy = $playdh
+    if (-not [string]::IsNullOrWhiteSpace($PlayDhRoot)) { $rootForDeploy = $PlayDhRoot }
+    $result = Invoke-CleanDeploySupplementPak -ManifestPath $manifest -PlayDhRoot $rootForDeploy -DryRun:$DryRun
+    return [pscustomobject]@{
+        Result = $result
+        Source = $source
+        Target = $target
+        PlayDh = $playdh
+    }
+}
+
+function Invoke-CleanDeploySelfTestCases {
+    param([Parameter(Mandatory = $true)][string]$Root)
+
+    $mismatch = New-CleanDeploySelfTestRun -Root $Root -Name "mismatch" -WriteSource -SourceBody "mismatch-bytes" -WriteTarget -TargetBody "keep-target" -ShaMode "zeros"
+    $mismatchHash = Get-CleanDeploySha256 -LiteralPath $mismatch.Source
+    $mismatchTargetHash = Get-CleanDeploySha256 -LiteralPath $mismatch.Target
+    $zeros = "0000000000000000000000000000000000000000000000000000000000000000"
+    $mismatchLine = "[INFO] supplemental pak sha256 actual=source=$mismatchHash;target=$mismatchTargetHash expected=$zeros"
+    Assert-CleanDeploySelfTest -Name "sha256 mismatch is an error" -Condition (-not $mismatch.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "sha256 mismatch prints [ERROR]" -Condition ($mismatch.Result.Lines -contains "[ERROR] supplemental pak sha256 mismatch")
+    Assert-CleanDeploySelfTest -Name "sha log line records actual and expected sha256" -Condition ($mismatch.Result.Lines -contains $mismatchLine)
+    $kept = ""
+    if (Test-Path -LiteralPath $mismatch.Target) {
+        $kept = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($mismatch.Target))
+    }
+    Assert-CleanDeploySelfTest -Name "sha256 mismatch does not replace the target pak" -Condition ($kept -eq "keep-target")
+
+    $missing = New-CleanDeploySelfTestRun -Root $Root -Name "missing" -ShaMode "zeros"
+    $missingLine = "[INFO] supplemental pak sha256 actual=absent expected=$zeros"
+    Assert-CleanDeploySelfTest -Name "missing pak is an error" -Condition (-not $missing.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "missing pak prints [ERROR]" -Condition ($missing.Result.Lines -contains "[ERROR] supplemental pak is missing")
+    Assert-CleanDeploySelfTest -Name "missing pak sha log line records actual and expected" -Condition ($missing.Result.Lines -contains $missingLine)
+
+    $present = New-CleanDeploySelfTestRun -Root $Root -Name "empty-source" -WriteSource -SourceBody "present-source" -ShaMode "null"
+    $presentHash = Get-CleanDeploySha256 -LiteralPath $present.Source
+    $presentLine = "[INFO] supplemental pak sha256 actual=$presentHash expected=empty"
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak present is an error" -Condition (-not $present.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak present prints [ERROR]" -Condition ($present.Result.Lines -contains "[ERROR] supplemental pak is present but pakSha256 is empty")
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak present logs actual and expected" -Condition ($present.Result.Lines -contains $presentLine)
+
+    $presentTarget = New-CleanDeploySelfTestRun -Root $Root -Name "empty-target" -WriteTarget -TargetBody "present-target" -ShaMode "null"
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with only the deploy target present is an error" -Condition (-not $presentTarget.Result.Ok)
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with only the deploy target prints [ERROR]" -Condition ($presentTarget.Result.Lines -contains "[ERROR] supplemental pak is present but pakSha256 is empty")
+
+    $absent = New-CleanDeploySelfTestRun -Root $Root -Name "empty-absent" -ShaMode "null"
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak absent continues" -Condition $absent.Result.Ok
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak absent prints [INFO] supplemental pak not yet built" -Condition ($absent.Result.Lines -contains "[INFO] supplemental pak not yet built")
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak absent logs actual and expected" -Condition ($absent.Result.Lines -contains "[INFO] supplemental pak sha256 actual=absent expected=empty")
+    Assert-CleanDeploySelfTest -Name "empty pakSha256 with the pak absent does not create a target" -Condition (-not (Test-Path -LiteralPath $absent.Target))
+
+    $absentEmpty = New-CleanDeploySelfTestRun -Root $Root -Name "empty-string" -ShaMode "empty"
+    Assert-CleanDeploySelfTest -Name "blank pakSha256 with the pak absent continues" -Condition $absentEmpty.Result.Ok
+
+    $copied = New-CleanDeploySelfTestRun -Root $Root -Name "copy" -WriteSource -SourceBody "good-pak-bytes" -ShaMode "match-source"
+    $copiedHash = ""
+    $targetHash = ""
+    if (Test-Path -LiteralPath $copied.Source) { $copiedHash = Get-CleanDeploySha256 -LiteralPath $copied.Source }
+    if (Test-Path -LiteralPath $copied.Target) { $targetHash = Get-CleanDeploySha256 -LiteralPath $copied.Target }
+    $copyLine = "[INFO] supplemental pak sha256 actual=$copiedHash expected=$copiedHash"
+    Assert-CleanDeploySelfTest -Name "filled pakSha256 copies a matching source into the PlayDH root" -Condition ($copied.Result.Ok -and ($copiedHash -eq $targetHash) -and ($copiedHash -ne ""))
+    Assert-CleanDeploySelfTest -Name "filled pakSha256 sha log line records actual and expected" -Condition ($copied.Result.Lines -contains $copyLine)
+
+    $dry = New-CleanDeploySelfTestRun -Root $Root -Name "dry-run" -WriteSource -SourceBody "good-pak-bytes" -ShaMode "match-source" -DryRun
+    $dryText = $dry.Result.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "dry-run does not copy the supplemental pak" -Condition ($dry.Result.Ok -and (-not (Test-Path -LiteralPath $dry.Target)) -and ($dryText.Contains("would copy")))
+
+    $stale = New-CleanDeploySelfTestRun -Root $Root -Name "stale" -WriteSource -SourceBody "new-pak-bytes" -WriteTarget -TargetBody "old-pak-bytes" -ShaMode "match-source"
+    $staleSource = Get-CleanDeploySha256 -LiteralPath $stale.Source
+    $staleTarget = ""
+    if (Test-Path -LiteralPath $stale.Target) { $staleTarget = Get-CleanDeploySha256 -LiteralPath $stale.Target }
+    Assert-CleanDeploySelfTest -Name "matching source replaces a stale target pak" -Condition ($stale.Result.Ok -and ($staleSource -eq $staleTarget))
+
+    $already = New-CleanDeploySelfTestRun -Root $Root -Name "already" -WriteTarget -TargetBody "already-there" -ShaMode "match-target"
+    Assert-CleanDeploySelfTest -Name "filled pakSha256 accepts a matching target when the source is absent" -Condition $already.Result.Ok
+    Assert-CleanDeploySelfTest -Name "matching target prints the sha log line" -Condition (($already.Result.Lines -join "`n").Contains("actual=") -and (($already.Result.Lines -join "`n").Contains("expected=")))
+
+    $forbidden = New-CleanDeploySelfTestRun -Root $Root -Name "forbidden" -WriteSource -SourceBody "do-not-write" -ShaMode "match-source" -PlayDhRoot "D:\MX\PlayDH"
+    $forbiddenText = $forbidden.Result.Lines -join "`n"
+    Assert-CleanDeploySelfTest -Name "refusing to write the supplemental pak under D:\MX" -Condition ((-not $forbidden.Result.Ok) -and ($forbiddenText.Contains("[ERROR] refusing to write supplemental pak under D:\MX")))
+    Assert-CleanDeploySelfTest -Name "D:\MX refusal does not create the pak" -Condition (-not (Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"))
+
+    $last = "[12:01:02.003] INFO filesystem_file_storage.cpp:338  [pak] mount order: 1=Character.pak(92) 2=Effect.pak(92) 3=Map.pak(92) 4=monster.pak(92) 5=npc.pak(92) 6=Pet.pak(92) 7=Titan.pak(92) 8=zz_supplement.pak(96)`n[pak] mount order: 1=Map.pak 2=zz_supplement.pak"
+    $lastResult = Test-CleanDeploySupplementMountOrder -LogText $last
+    Assert-CleanDeploySelfTest -Name "mount order lines that end with zz_supplement.pak pass" -Condition $lastResult.Ok
+
+    $notLast = "[pak] mount order: 1=zz_supplement.pak(96) 2=Titan.pak(92)"
+    $notLastResult = Test-CleanDeploySupplementMountOrder -LogText $notLast
+    Assert-CleanDeploySelfTest -Name "mount order that does not end with zz_supplement.pak is an error" -Condition (-not $notLastResult.Ok)
+    Assert-CleanDeploySelfTest -Name "mount order failure prints [ERROR]" -Condition ($notLastResult.Lines -contains "[ERROR] [pak] mount order must end with zz_supplement.pak")
+
+    $mixed = "[pak] mount order: 8=zz_supplement.pak(96)`n[pak] mount order: 1=Titan.pak(92)"
+    $mixedResult = Test-CleanDeploySupplementMountOrder -LogText $mixed
+    Assert-CleanDeploySelfTest -Name "one mount order line that is not last is an error" -Condition (-not $mixedResult.Ok)
+
+    $trick = "[pak] mount order: 1=not_zz_supplement.pak"
+    $trickResult = Test-CleanDeploySupplementMountOrder -LogText $trick
+    Assert-CleanDeploySelfTest -Name "a pak name that only ends with the same suffix is not last" -Condition (-not $trickResult.Ok)
+
+    $none = Test-CleanDeploySupplementMountOrder -LogText "client started"
+    Assert-CleanDeploySelfTest -Name "missing mount order line is an error" -Condition ((-not $none.Ok) -and ($none.Lines -contains "[ERROR] [pak] mount order line is missing"))
+
+    $build = Join-Path $Root "smoke-build"
+    $oldRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "old"
+    $newRun = Join-Path (Join-Path (Join-Path $build "runtime") "gui-smoke") "new"
+    $oldLogs = Join-Path $oldRun "logs"
+    $newLogs = Join-Path $newRun "logs"
+    New-Item -ItemType Directory -Path $oldLogs -Force | Out-Null
+    New-Item -ItemType Directory -Path $newLogs -Force | Out-Null
+    $badLine = "[pak] mount order: 1=zz_supplement.pak(96) 2=Titan.pak(92)`n"
+    $goodLine = "[12:01:02.003] INFO filesystem_file_storage.cpp:338  [pak] mount order: 1=Character.pak(92) 8=zz_supplement.pak(96)`n"
+    [System.IO.File]::WriteAllText((Join-Path $oldLogs "client.err.log"), $badLine)
+    $utf16 = New-Object System.Text.UnicodeEncoding $false, $true
+    $payload = $utf16.GetBytes($goodLine)
+    $preamble = $utf16.GetPreamble()
+    $encoded = New-Object byte[] ($preamble.Length + $payload.Length)
+    [System.Array]::Copy($preamble, 0, $encoded, 0, $preamble.Length)
+    [System.Array]::Copy($payload, 0, $encoded, $preamble.Length, $payload.Length)
+    [System.IO.File]::WriteAllBytes((Join-Path $newLogs "client.err.log"), $encoded)
+    (Get-Item -LiteralPath $oldRun).LastWriteTime = (Get-Date).AddHours(-3)
+    (Get-Item -LiteralPath $newRun).LastWriteTime = (Get-Date)
+    $smokeText = Get-CleanDeployClientSmokeLogText -BuildDir $build
+    $smokeMount = Test-CleanDeploySupplementMountOrder -LogText $smokeText
+    Assert-CleanDeploySelfTest -Name "newest client smoke log ends with zz_supplement.pak" -Condition $smokeMount.Ok
+
+    $scriptPath = $script:CleanDeployScriptPath
+    $kind = "bad"
+    if (-not [string]::IsNullOrWhiteSpace($scriptPath) -and (Test-Path -LiteralPath $scriptPath)) {
+        $kind = Get-CleanDeployScriptEncodingKind -Path $scriptPath
+    }
+    $encodingOk = ($kind -eq "ascii") -or ($kind -eq "utf8-bom")
+    Assert-CleanDeploySelfTest -Name "script bytes are pure ASCII or UTF-8 with BOM" -Condition $encodingOk
+    Assert-CleanDeploySelfTest -Name "script bytes are pure ASCII" -Condition ($kind -eq "ascii")
+
+    $scriptText = ""
+    if (-not [string]::IsNullOrWhiteSpace($scriptPath) -and (Test-Path -LiteralPath $scriptPath)) {
+        $scriptText = Read-CleanDeployUtf8Text -Path $scriptPath
+    }
+    $banned = [string]::Concat([char]63, [char]63)
+    $parallel = '-' + 'Parallel'
+    $syntaxOk = (-not $scriptText.Contains($banned)) -and (-not $scriptText.Contains($parallel))
+    Assert-CleanDeploySelfTest -Name "script stays on Windows PowerShell 5.1 syntax" -Condition $syntaxOk
+
+    $legacy = [System.Text.Encoding]::UTF8.GetBytes((Get-CleanDeployLegacyPlayDhDirName))
+    $wantLegacy = [byte[]](
+        229, 162, 168, 233, 166, 153, 227, 128, 144, 230, 186, 144,
+        231, 160, 129, 233, 133, 141, 229, 165, 151, 232, 181, 132,
+        230, 186, 144, 227, 128, 145)
+    $legacyOk = $legacy.Length -eq $wantLegacy.Length
+    if ($legacyOk) {
+        for ($i = 0; $i -lt $legacy.Length; $i++) {
+            if ($legacy[$i] -ne $wantLegacy[$i]) { $legacyOk = $false }
+        }
+    }
+    Assert-CleanDeploySelfTest -Name "legacy PlayDH directory name bytes are unchanged" -Condition $legacyOk
+
+    $repo = Split-Path -Parent $script:CleanDeployScriptRoot
+    $manifestPath = Join-Path (Join-Path $repo "reference") "manifests"
+    $manifestPath = Join-Path $manifestPath "playdh-supplemental-fill.json"
+    $parsedSource = ""
+    $manifestOk = $false
+    if (Test-Path -LiteralPath $manifestPath) {
+        $repoManifest = (Read-CleanDeployUtf8Text -Path $manifestPath) | ConvertFrom-Json
+        $parsedSource = Get-CleanDeploySupplementSourceFromManifest -Manifest $repoManifest
+        $manifestOk = $true
+    }
+    Assert-CleanDeploySelfTest -Name "manifest pak source path is D:\build-mxr\supplement\zz_supplement.pak" -Condition ($manifestOk -and ($parsedSource -eq "D:\build-mxr\supplement\zz_supplement.pak"))
+
+    $currentPath = Join-Path (Join-Path $repo "reference") "manifests"
+    $currentPath = Join-Path $currentPath "playdh-current.sha256.json"
+    $currentOk = $false
+    if (Test-Path -LiteralPath $currentPath) {
+        $currentText = Read-CleanDeployUtf8Text -Path $currentPath
+        $currentOk = $currentText.IndexOf("zz_supplement.pak") -lt 0
+    }
+    Assert-CleanDeploySelfTest -Name "playdh-current.sha256.json does not include zz_supplement.pak" -Condition $currentOk
+
+    $repoPlay = Join-Path (Join-Path (Join-Path $repo "modern") "data") "PlayDH"
+    $repoPak = Join-Path $repoPlay "zz_supplement.pak"
+    Assert-CleanDeploySelfTest -Name "self-test does not add zz_supplement.pak to the repo PlayDH" -Condition (-not (Test-Path -LiteralPath $repoPak))
+}
+
+function Invoke-CleanDeploySelfTest {
+    $script:CleanDeploySelfTestPass = 0
+    $script:CleanDeploySelfTestFail = 0
+    $script:CleanDeploySelfTestSkip = 0
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) ("clean-deploy-supplement-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    try {
+        Invoke-CleanDeploySelfTestCases -Root $root
+    } catch {
+        Write-Host ("[FAIL] self-test aborted: " + $_.Exception.Message)
+        $script:CleanDeploySelfTestFail = $script:CleanDeploySelfTestFail + 1
+    } finally {
+        if (Test-Path -LiteralPath $root) {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Write-Host ("clean-deploy self-test: PASS={0} FAIL={1} SKIP={2}" -f $script:CleanDeploySelfTestPass, $script:CleanDeploySelfTestFail, $script:CleanDeploySelfTestSkip)
+    if ($script:CleanDeploySelfTestFail -gt 0) { return 1 }
+    return 0
+}
 
 
 
+
+
+if ($SelfTest) {
+    $selfCode = Invoke-CleanDeploySelfTest
+    if ($selfCode -ne 0) { exit 1 }
+    exit 0
+}
 
 # ----------------------------------------------------------------------------
 # Resolve repo root
@@ -214,7 +914,7 @@ if ($missing.Count -gt 0 -and -not $InstallPrereqs) {
 Step "PlayDH junction"
 $dataDir      = Join-Path $RepoRoot "modern\data"
 $playdhLink   = Join-Path $dataDir "PlayDH"
-$playdhTarget = Join-Path $RepoRoot "墨香【源码配套资源】\PlayDH"
+$playdhTarget = Join-Path $RepoRoot (Join-CleanDeployPath -Parent (Get-CleanDeployLegacyPlayDhDirName) -Child "PlayDH")
 
 if (-not (Test-Path -LiteralPath $playdhTarget)) {
     Warn "PlayDH source not found at: $playdhTarget"
@@ -261,6 +961,20 @@ if (-not (Test-Path -LiteralPath $playdhTarget)) {
         }
     }
 }
+
+
+# ----------------------------------------------------------------------------
+# Step 3b: supplemental pak
+# The source path and pakSha256 come from playdh-supplemental-fill.json.
+# The pak itself stays outside the repo until this copy into the PlayDH root.
+# ----------------------------------------------------------------------------
+
+Step "supplemental pak"
+$supplementManifest = Join-Path $RepoRoot "reference\manifests\playdh-supplemental-fill.json"
+$supplement = Invoke-CleanDeploySupplementPak -ManifestPath $supplementManifest -PlayDhRoot $playdhLink -DryRun:$DryRun
+if ($null -eq $supplement) { exit 1 }
+$script:CleanDeploySupplementExpectedFilled = [bool]$supplement.ExpectedFilled
+if (-not $supplement.Ok) { exit 1 }
 
 
 # ----------------------------------------------------------------------------
@@ -333,6 +1047,18 @@ if (-not $SkipSmoke) {
 } else {
     Warn ('commercial-smoke SKIPPED')
 }
+if ($script:CleanDeploySupplementExpectedFilled) {
+    if ($DryRun) {
+        Write-Host "[INFO] would check [pak] mount order ends with zz_supplement.pak"
+    } elseif ($SkipSmoke) {
+        Write-Host "[INFO] supplemental pak mount order check skipped with -SkipSmoke"
+    } else {
+        $smokeLog = Get-CleanDeployClientSmokeLogText -BuildDir $buildDir
+        $mountOrder = Test-CleanDeploySupplementMountOrder -LogText $smokeLog
+        if (-not $mountOrder.Ok) { exit 1 }
+    }
+}
+
 # ----------------------------------------------------------------------------
 # Summary
 # ----------------------------------------------------------------------------
