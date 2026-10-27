@@ -132,9 +132,12 @@ struct PackEntry {
     std::uint32_t entry_offset = 0;         // position of this entry in .pak
     std::uint32_t data_offset = 0;          // position of file data in .pak
     std::uint32_t size = 0;                 // raw data size
-    // open_buffer() aliases bytes owned by that PackFile.
-    // open(path) does not retain payloads, so this span stays empty.
-    // Non-empty spans are valid only while that PackFile is alive.
+    // raw_view contract:
+    //   open(path) is a lazy read. It does not retain payloads, so raw_view
+    //   stays empty. Callers must get entry bytes via read(name) (or read_at).
+    //   open_buffer() is the only open that populates raw_view: it aliases
+    //   bytes owned by that PackFile. A non-empty span is valid only while
+    //   that PackFile is alive.
     std::span<const std::uint8_t> raw_view;
 };
 
@@ -150,8 +153,11 @@ public:
 
     // `error`, when non-null, is cleared on success and set on failure.
     // Existing callers omit it. Failure is still a null return.
+    // Lazy read of `path`: indexes the archive and leaves every
+    // PackEntry::raw_view empty. Entry bytes come from read(name).
     [[nodiscard]] static std::unique_ptr<PackFile> open(
         const std::filesystem::path& path, std::string* error = nullptr);
+    // Owns `bytes` and is the only open that fills PackEntry::raw_view.
     [[nodiscard]] static std::unique_ptr<PackFile> open_buffer(
         std::vector<std::uint8_t> bytes, std::string* error = nullptr);
 
