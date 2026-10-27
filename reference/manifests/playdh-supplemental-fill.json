@@ -343,117 +343,117 @@
       "ticket": "TYJ-150"
     },
     {
-      "name": "01_Loginpage_01.hfl",
+      "name": "01_loginpage_01.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "e7616248dee0accdebb786b0e4c2d09415192843474639c2321baf32144b64fa",
       "ticket": "TYJ-151"
     },
     {
-      "name": "01_Loginpage_01.stm",
+      "name": "01_loginpage_01.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "4d0769eb0ac817c39df6b36cb0b6f9e95baf9fba87e098d6da02ef24aa0f02b0",
       "ticket": "TYJ-151"
     },
     {
       "name": "15_fire.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "56ea00f20e83673e100cd9d954775e2b7926ca78a175d3f0d5b9efc8a37a262b",
       "ticket": "TYJ-151"
     },
     {
       "name": "209.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "38661ee790debcc92df6ad58baa9202d02e1d9984e3f39cbf0b25cc582d15cb5",
       "ticket": "TYJ-151"
     },
     {
       "name": "209.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "38da13fdde7383808020a10d8c417c4c4eeca9a7015921d2466c7714b2c7cc72",
       "ticket": "TYJ-151"
     },
     {
       "name": "209_catapult01.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "fc1063de0ab21ec79ccfbb2389b38536692a4f7f41764a73d6c79c3ab1e99928",
       "ticket": "TYJ-151"
     },
     {
       "name": "209_montree_03.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "5999510f15a79a7ea9a0b47e90c125f2e64de1758ad59d05dc6993ec05d3b792",
       "ticket": "TYJ-151"
     },
     {
       "name": "213_boss.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "6a44d2f1417c22849b9ae71456a02944592454f203ee28f045c5f71e8c7c64c1",
       "ticket": "TYJ-151"
     },
     {
       "name": "232_room_floor_05.tif",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "7d463e57d05ab9ebb9aebeea85f27e62632e4c74aaeb7b2758c295eb491fd1f0",
       "ticket": "TYJ-151"
     },
     {
       "name": "322.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "bc7735e9e90d816bdce1eb484eed29492cdcd55c38be756d02888647ef3e2da5",
       "ticket": "TYJ-151"
     },
     {
       "name": "322.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "ac8029e707b5bf29a3e2e1fa4e8bc6ace7577e35c2b967b35320c424de789110",
       "ticket": "TYJ-151"
     },
     {
       "name": "331.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "5d5d2ee666cbc757948691146e5dcc926656e3ce839695fba42b09fad7d9edc2",
       "ticket": "TYJ-151"
     },
     {
       "name": "331.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "851c3f1f1cf7f91da28450200e38c8972119cebe34e5b55fbbb37d6e1d0f48e7",
       "ticket": "TYJ-151"
     },
     {
       "name": "332.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "bc7735e9e90d816bdce1eb484eed29492cdcd55c38be756d02888647ef3e2da5",
       "ticket": "TYJ-151"
     },
     {
       "name": "332.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "cce3dec7638516113546e853477304ba81c3e93187347d73e84d6392b50cbf81",
       "ticket": "TYJ-151"
     },
     {
       "name": "342.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "373e62450d1b724e5ee73ca19839ac0ee9bd6c703ae2b2dd36f28216340e5a9e",
       "ticket": "TYJ-151"
     },
     {
       "name": "342.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "c13b9fa7f365b83879dda7c6956db79e7bdfe7097bdd2e75de3cb70a37f22843",
       "ticket": "TYJ-151"
     },
     {
       "name": "352.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "373e62450d1b724e5ee73ca19839ac0ee9bd6c703ae2b2dd36f28216340e5a9e",
       "ticket": "TYJ-151"
     },
     {
       "name": "352.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "ad85e76bc97ce7b7dd60f7195c4811ffebec97ecb97a3cc783a1d56d8df4d730",
       "ticket": "TYJ-151"
     }
   ]
