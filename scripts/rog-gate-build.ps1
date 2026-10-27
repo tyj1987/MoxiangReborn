@@ -75,10 +75,17 @@
     That launcher clears PSModulePath before Windows PowerShell 5.1
     (powershell.exe). A leaked PSModulePath hides Get-FileHash.
 
-    CTest skips are counted by test number. FilesystemFileStorage.* and
-    mxh_pak_lazy_read_tests must not skip, except
-    FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes when the
-    temp volume is NTFS and the skip reason is the case-distinct pak message.
+    CTest skips are counted by test number. Skip reasons are read from
+    Testing\Temporary\LastTest.log and matched by that CTest number.
+    ctest --output-on-failure does not echo skipped gtest output, so
+    stdout alone is not the reason source on a real run. Each listed
+    skip includes reason_source=LastTest.log, stdout, or none.
+    FilesystemFileStorage.* and mxh_pak_lazy_read_tests must not skip,
+    except FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes
+    when the temp volume is NTFS and the LastTest.log reason is exactly
+    "filesystem cannot store Data.pak and data.pak as distinct files".
+    A missing block or a different reason is still a failure. The same
+    test name under two numbers keeps a separate reason per number.
     After CTest, Map10 memory is sampled from mxh_render_tests.exe itself,
     launched with --gtest_filter for
     FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent.
@@ -1843,10 +1850,203 @@ function Get-RogGateCTestSkippedTests {
     }
 }
 
+function Split-RogGateLogLines {
+    param([AllowEmptyString()][string]$Text)
+
+    if ([string]::IsNullOrEmpty($Text)) {
+        return ,@()
+    }
+    # CTest on Windows writes CRLF. A lone CR is treated as a break too.
+    $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    return ,@([regex]::Split($normalized, "`n"))
+}
+
+function Test-RogGateLastTestTestingHeader {
+    param([AllowEmptyString()][string]$Line)
+
+    $result = [pscustomobject]@{
+        Found  = $false
+        Number = 0
+        Name   = ''
+    }
+    if ([string]::IsNullOrWhiteSpace($Line)) {
+        return $result
+    }
+    $match = [regex]::Match($Line.Trim(), '^(\d+)/(\d+)\s+Testing:\s+(.+?)\s*$')
+    if (-not $match.Success) {
+        return $result
+    }
+    $name = $match.Groups[3].Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return $result
+    }
+    $result.Found = $true
+    $result.Number = [int]$match.Groups[1].Value
+    $result.Name = $name
+    return $result
+}
+
+function Test-RogGateLastTestTestHeader {
+    param([AllowEmptyString()][string]$Line)
+
+    $result = [pscustomobject]@{
+        Found  = $false
+        Number = 0
+        Name   = ''
+    }
+    if ([string]::IsNullOrWhiteSpace($Line)) {
+        return $result
+    }
+    $match = [regex]::Match($Line.Trim(), '^(\d+)/(\d+)\s+Test:\s+(.+?)\s*$')
+    if (-not $match.Success) {
+        return $result
+    }
+    $name = $match.Groups[3].Value.Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) {
+        return $result
+    }
+    $result.Found = $true
+    $result.Number = [int]$match.Groups[1].Value
+    $result.Name = $name
+    return $result
+}
+
+function Get-RogGateSkipReasonForName {
+    param(
+        [string[]]$Lines,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $items = @($Lines)
+    $index = 0
+    $limit = $items.Count
+    while ($index -lt $limit) {
+        $trimmed = [string]$items[$index]
+        $trimmed = $trimmed.Trim()
+        $match = [regex]::Match($trimmed, '^\[\s+SKIPPED\s+\]\s+(\S+)')
+        if ($match.Success -and ($match.Groups[1].Value -ceq $Name)) {
+            $reason = Get-RogGateSkipReasonAround -Lines $items -Index $index
+            if (-not [string]::IsNullOrWhiteSpace($reason)) {
+                return [string]$reason
+            }
+        }
+        $index = $index + 1
+    }
+    return ''
+}
+
+function Get-RogGateLastTestSkipReasons {
+    param([AllowEmptyString()][string]$Text)
+
+    # One row per LastTest.log block. The key is the CTest number in
+    # "N/total Testing:", which is the same number as "Test #N" on stdout.
+    # Blocks are not merged by test name.
+    $rows = New-Object 'System.Collections.Generic.List[object]'
+    $lines = @(Split-RogGateLogLines -Text $Text)
+    $limit = $lines.Count
+    $index = 0
+    while ($index -lt $limit) {
+        $header = Test-RogGateLastTestTestingHeader -Line ([string]$lines[$index])
+        if (-not $header.Found) {
+            $index = $index + 1
+            continue
+        }
+        $bodyStart = $index + 1
+        $confirmed = $false
+        if ($bodyStart -lt $limit) {
+            $testHeader = Test-RogGateLastTestTestHeader -Line ([string]$lines[$bodyStart])
+            if ($testHeader.Found -and ($testHeader.Number -eq $header.Number) -and ($testHeader.Name -ceq $header.Name)) {
+                $confirmed = $true
+                $bodyStart = $bodyStart + 1
+            }
+        }
+        if (-not $confirmed) {
+            $index = $index + 1
+            continue
+        }
+        $bodyEnd = $bodyStart
+        while ($bodyEnd -lt $limit) {
+            $nextHeader = Test-RogGateLastTestTestingHeader -Line ([string]$lines[$bodyEnd])
+            if ($nextHeader.Found) {
+                break
+            }
+            $bodyEnd = $bodyEnd + 1
+        }
+        $body = New-Object 'System.Collections.Generic.List[string]'
+        $cursor = $bodyStart
+        while ($cursor -lt $bodyEnd) {
+            $body.Add([string]$lines[$cursor])
+            $cursor = $cursor + 1
+        }
+        $reason = Get-RogGateSkipReasonForName -Lines @($body.ToArray()) -Name $header.Name
+        $rows.Add([pscustomobject]@{
+            Number = [int]$header.Number
+            Name   = [string]$header.Name
+            Reason = [string]$reason
+        })
+        $index = $bodyEnd
+    }
+    return ,@($rows.ToArray())
+}
+
+function Get-RogGateLastTestReasonText {
+    param(
+        [object[]]$Rows,
+        [Parameter(Mandatory = $true)][int]$Number,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    foreach ($row in @($Rows)) {
+        if ($null -eq $row) {
+            continue
+        }
+        $rowNumber = [int]$row.Number
+        $rowName = [string]$row.Name
+        if (($rowNumber -eq $Number) -and ($rowName -ceq $Name)) {
+            $candidate = [string]$row.Reason
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                return $candidate
+            }
+        }
+    }
+    return ''
+}
+
+function Read-RogGateLastTestLogText {
+    param([Parameter(Mandatory = $true)][string]$BuildDir)
+
+    $testing = Join-Path -Path $BuildDir -ChildPath 'Testing'
+    $temporary = Join-Path -Path $testing -ChildPath 'Temporary'
+    $path = Join-Path -Path $temporary -ChildPath 'LastTest.log'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        Write-Host ('[INFO] CTest LastTest.log missing: ' + $path)
+        return ''
+    }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+    } catch {
+        Write-Host ('[INFO] CTest LastTest.log unreadable: ' + $path)
+        return ''
+    }
+    if ($null -eq $bytes -or $bytes.Length -eq 0) {
+        return ''
+    }
+    $offset = 0
+    if (($bytes.Length -ge 3) -and ($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) {
+        $offset = 3
+    }
+    if ($offset -ge $bytes.Length) {
+        return ''
+    }
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    return $utf8.GetString($bytes, $offset, ($bytes.Length - $offset))
+}
+
 function Get-RogGateCTestSkipReport {
     param(
         [AllowEmptyString()][string]$Text,
-        [object]$VolumeIsNtfs = $null
+        [object]$VolumeIsNtfs = $null,
+        [AllowEmptyString()][string]$LastTestLog
     )
 
     $parsed = Get-RogGateCTestSkippedTests -Text $Text
@@ -1856,8 +2056,19 @@ function Get-RogGateCTestSkipReport {
     } else {
         $ntfs = Test-RogGateVolumeIsNtfs
     }
-    $reasonMap = Get-RogGateGTestSkipReasonMap -Text $Text
-    $exemptionBudget = Get-RogGateExactTrimmedLineCount -Text $Text -Expected $script:RogGateNtfsCasePakSkipReason
+    # When LastTestLog is supplied, it is the only reason source. Stdout
+    # from ctest --output-on-failure does not contain skipped gtest output,
+    # and a reason that belongs to a different test number must not be reused.
+    $useLastTestLog = $PSBoundParameters.ContainsKey('LastTestLog')
+    $lastReasons = @()
+    $reasonMap = $null
+    $exemptionBudget = 0
+    if ($useLastTestLog) {
+        $lastReasons = @(Get-RogGateLastTestSkipReasons -Text $LastTestLog)
+    } else {
+        $reasonMap = Get-RogGateGTestSkipReasonMap -Text $Text
+        $exemptionBudget = Get-RogGateExactTrimmedLineCount -Text $Text -Expected $script:RogGateNtfsCasePakSkipReason
+    }
     $lines = New-Object 'System.Collections.Generic.List[string]'
     $lines.Add(('[INFO] CTest skipped={0}' -f [int]$parsed.Count))
     $policyParts = New-Object 'System.Collections.Generic.List[string]'
@@ -1865,19 +2076,33 @@ function Get-RogGateCTestSkipReport {
         $name = [string]$row.Name
         $number = [int]$row.Number
         $reason = ''
-        if ($reasonMap.ContainsKey($name)) {
-            $queue = $reasonMap[$name]
-            if ($queue.Count -gt 0) {
-                $reason = [string]$queue.Dequeue()
+        $reasonSource = 'none'
+        if ($useLastTestLog) {
+            $reason = Get-RogGateLastTestReasonText -Rows $lastReasons -Number $number -Name $name
+            if (-not [string]::IsNullOrWhiteSpace($reason)) {
+                $reasonSource = 'LastTest.log'
+            } else {
+                $reason = ''
+                $reasonSource = 'none'
             }
-        }
-        if ($reason -ceq $script:RogGateNtfsCasePakSkipReason) {
-            if ($exemptionBudget -gt 0) {
+        } else {
+            if ($null -ne $reasonMap -and $reasonMap.ContainsKey($name)) {
+                $queue = $reasonMap[$name]
+                if ($queue.Count -gt 0) {
+                    $reason = [string]$queue.Dequeue()
+                }
+            }
+            if ($reason -ceq $script:RogGateNtfsCasePakSkipReason) {
+                if ($exemptionBudget -gt 0) {
+                    $exemptionBudget = $exemptionBudget - 1
+                }
+            } elseif ([string]::IsNullOrWhiteSpace($reason) -and ($name -ceq $script:RogGateNtfsCasePakSkipName) -and ($exemptionBudget -gt 0)) {
+                $reason = $script:RogGateNtfsCasePakSkipReason
                 $exemptionBudget = $exemptionBudget - 1
             }
-        } elseif ([string]::IsNullOrWhiteSpace($reason) -and ($name -ceq $script:RogGateNtfsCasePakSkipName) -and ($exemptionBudget -gt 0)) {
-            $reason = $script:RogGateNtfsCasePakSkipReason
-            $exemptionBudget = $exemptionBudget - 1
+            if (-not [string]::IsNullOrWhiteSpace($reason)) {
+                $reasonSource = 'stdout'
+            }
         }
         $reasonText = $reason
         if ([string]::IsNullOrWhiteSpace($reasonText)) {
@@ -1887,7 +2112,7 @@ function Get-RogGateCTestSkipReport {
         if ($ntfs -and ($name -ceq $script:RogGateNtfsCasePakSkipName) -and ($reason -ceq $script:RogGateNtfsCasePakSkipReason)) {
             $exempt = $true
         }
-        $line = '[INFO] CTest skip: ' + $name + ' #' + [string]$number + ' reason=' + $reasonText
+        $line = '[INFO] CTest skip: ' + $name + ' #' + [string]$number + ' reason=' + $reasonText + ' reason_source=' + $reasonSource
         if ($exempt) {
             $line = $line + ' exemption=NTFS case-distinct pak names'
         }
@@ -3230,7 +3455,7 @@ function Invoke-RogGateSelfTest {
     ) -join "`n"
     $dupReport = Get-RogGateCTestSkipReport -Text $dupSample -VolumeIsNtfs $false
     $dupLines = (@($dupReport.Lines) -join "`n")
-    $dupOk = ($dupReport.Count -eq 2) -and $dupReport.PolicyOk -and ($dupLines.Contains('#83')) -and ($dupLines.Contains('#728')) -and ($dupLines.Contains('reason=first copy skipped')) -and ($dupLines.Contains('reason=second copy skipped'))
+    $dupOk = ($dupReport.Count -eq 2) -and $dupReport.PolicyOk -and ($dupLines.Contains('#83')) -and ($dupLines.Contains('#728')) -and ($dupLines.Contains('reason=first copy skipped reason_source=stdout')) -and ($dupLines.Contains('reason=second copy skipped reason_source=stdout'))
     Assert-RogGateSelfTest -Name 'duplicate CTest names are counted by test number' -Condition $dupOk
 
     $exemptName = $script:RogGateNtfsCasePakSkipName
@@ -3243,7 +3468,7 @@ function Invoke-RogGateSelfTest {
     ) -join "`n"
     $exemptReport = Get-RogGateCTestSkipReport -Text $exemptSample -VolumeIsNtfs $true
     $exemptLines = (@($exemptReport.Lines) -join "`n")
-    $exemptOk = ($exemptReport.Count -eq 1) -and $exemptReport.PolicyOk -and ($exemptLines.Contains('exemption=NTFS case-distinct pak names')) -and ($exemptLines.Contains('reason=' + $exemptReason))
+    $exemptOk = ($exemptReport.Count -eq 1) -and $exemptReport.PolicyOk -and ($exemptLines.Contains('exemption=NTFS case-distinct pak names')) -and ($exemptLines.Contains('reason=' + $exemptReason + ' reason_source=stdout'))
     Assert-RogGateSelfTest -Name 'NTFS case-distinct pak skip is listed and exempt' -Condition $exemptOk
 
     $offNtfs = Get-RogGateCTestSkipReport -Text $exemptSample -VolumeIsNtfs $false
@@ -3281,6 +3506,157 @@ function Invoke-RogGateSelfTest {
     $lazyReport = Get-RogGateCTestSkipReport -Text $lazySample -VolumeIsNtfs $true
     $lazyOk = (-not $lazyReport.PolicyOk) -and ($lazyReport.PolicyMessage.Contains('#90 mxh_pak_lazy_read_tests')) -and ($lazyReport.PolicyMessage.Contains('#91 mxh_pak_lazy_read_tests.ReadsHeader'))
     Assert-RogGateSelfTest -Name 'mxh_pak_lazy_read_tests skips fail the gate' -Condition $lazyOk
+
+    function New-RogGateSelfTestStdoutSkip {
+        param(
+            [Parameter(Mandatory = $true)][int]$Slot,
+            [Parameter(Mandatory = $true)][int]$Total,
+            [Parameter(Mandatory = $true)][int]$Number,
+            [Parameter(Mandatory = $true)][string]$Name
+        )
+        return ('{0}/{1} Test #{2}: {3} .....................***Skipped   0.01 sec' -f $Slot, $Total, $Number, $Name)
+    }
+
+    function New-RogGateSelfTestLastTestBlockLines {
+        param(
+            [Parameter(Mandatory = $true)][int]$Number,
+            [Parameter(Mandatory = $true)][string]$Name,
+            [AllowEmptyString()][string]$Reason,
+            [string]$Location = 'E:\Workspaces\_worktrees\gate-pr30\modern\tests\unit\render\filesystem_file_storage_test.cpp(667): Skipped',
+            [int]$Total = 12660
+        )
+        $blockLines = New-Object 'System.Collections.Generic.List[string]'
+        $blockLines.Add(('{0}/{1} Testing: {2}' -f $Number, $Total, $Name))
+        $blockLines.Add(('{0}/{1} Test: {2}' -f $Number, $Total, $Name))
+        $blockLines.Add('Command: "D:\build-mxr\gate\mxh_render_tests.exe"')
+        $blockLines.Add('Directory: D:\build-mxr\gate')
+        $blockLines.Add(('"{0}" start time: Oct 27 06:00 Eastern Daylight Time' -f $Name))
+        $blockLines.Add('Output:')
+        $blockLines.Add('----------------------------------------------------------')
+        $blockLines.Add(('[ RUN      ] {0}' -f $Name))
+        if (-not [string]::IsNullOrWhiteSpace($Reason)) {
+            $blockLines.Add($Location)
+            $blockLines.Add($Reason)
+            $blockLines.Add('')
+        }
+        $blockLines.Add(('[  SKIPPED ] {0} (1 ms)' -f $Name))
+        $blockLines.Add('[  SKIPPED ] 1 test, listed below:')
+        $blockLines.Add(('[  SKIPPED ] {0}' -f $Name))
+        $blockLines.Add('----------------------------------------------------------')
+        $blockLines.Add('Test time =   0.01 sec')
+        $blockLines.Add('----------------------------------------------------------')
+        $blockLines.Add('Test Pass Reason:')
+        $blockLines.Add('Skip regular expression found in output. Regex=[\[  SKIPPED \]]')
+        $blockLines.Add(('"{0}" end time: Oct 27 06:00 Eastern Daylight Time' -f $Name))
+        $blockLines.Add(('"{0}" time elapsed: 00:00:00' -f $Name))
+        $blockLines.Add('----------------------------------------------------------')
+        return @($blockLines.ToArray())
+    }
+
+    function Join-RogGateSelfTestLog {
+        param(
+            [Parameter(Mandatory = $true)][string[]]$Lines,
+            [Parameter(Mandatory = $true)][string]$Separator
+        )
+        return ($Lines -join $Separator)
+    }
+
+    $logStdout = New-RogGateSelfTestStdoutSkip -Slot 17 -Total 12660 -Number 1887 -Name $exemptName
+    $logBlock = @(New-RogGateSelfTestLastTestBlockLines -Number 1887 -Name $exemptName -Reason $exemptReason)
+    $logPreamble = @(
+        'Start testing: Oct 27 06:00 Eastern Daylight Time',
+        '----------------------------------------------------------'
+    )
+    $logPieces = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($logLine in $logPreamble) {
+        $logPieces.Add([string]$logLine)
+    }
+    foreach ($logLine in $logBlock) {
+        $logPieces.Add([string]$logLine)
+    }
+    $logPieces.Add('End testing: Oct 27 06:01 Eastern Daylight Time')
+    $logCrlf = Join-RogGateSelfTestLog -Lines @($logPieces.ToArray()) -Separator "`r`n"
+    $logRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-lasttest-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+    try {
+        $logTesting = Join-Path -Path $logRoot -ChildPath 'Testing'
+        $logTemporary = Join-Path -Path $logTesting -ChildPath 'Temporary'
+        New-Item -ItemType Directory -Path $logTemporary -Force | Out-Null
+        $logPath = Join-Path -Path $logTemporary -ChildPath 'LastTest.log'
+        $logUtf8 = New-Object System.Text.UTF8Encoding $false
+        [System.IO.File]::WriteAllText($logPath, $logCrlf, $logUtf8)
+        $logLoaded = Read-RogGateLastTestLogText -BuildDir $logRoot
+        $logReport = Get-RogGateCTestSkipReport -Text $logStdout -LastTestLog $logLoaded -VolumeIsNtfs $true
+        $logLines = (@($logReport.Lines) -join "`n")
+        $logWanted = '[INFO] CTest skip: ' + $exemptName + ' #1887 reason=' + $exemptReason + ' reason_source=LastTest.log exemption=NTFS case-distinct pak names'
+        $logOk = $logReport.PolicyOk -and ($logReport.Count -eq 1) -and $logLines.Contains($logWanted) -and $logLoaded.Contains("`r") -and (-not $logStdout.Contains($exemptReason)) -and (-not $logLines.Contains('Skip regular expression')) -and (-not $logLines.Contains('filesystem_file_storage_test.cpp'))
+        Assert-RogGateSelfTest -Name 'CRLF LastTest.log CaseDistinct reason is exempt when stdout only shows Skipped' -Condition $logOk
+    } finally {
+        $null = Remove-RogGateFixture -LiteralPath $logRoot
+    }
+
+    $lfLog = Join-RogGateSelfTestLog -Lines $logBlock -Separator "`n"
+    $lfReport = Get-RogGateCTestSkipReport -Text $logStdout -LastTestLog $lfLog -VolumeIsNtfs $true
+    $lfLines = (@($lfReport.Lines) -join "`n")
+    $lfWanted = '[INFO] CTest skip: ' + $exemptName + ' #1887 reason=' + $exemptReason + ' reason_source=LastTest.log exemption=NTFS case-distinct pak names'
+    $lfOk = $lfReport.PolicyOk -and ($lfReport.Count -eq 1) -and $lfLines.Contains($lfWanted) -and (-not $lfLog.Contains("`r"))
+    Assert-RogGateSelfTest -Name 'LF LastTest.log CaseDistinct block with a Windows skipped path is exempt' -Condition $lfOk
+
+    $mismatchBlock = @(New-RogGateSelfTestLastTestBlockLines -Number 1887 -Name $exemptName -Reason 'different reason')
+    $mismatchLog = Join-RogGateSelfTestLog -Lines $mismatchBlock -Separator "`r`n"
+    $mismatchReport = Get-RogGateCTestSkipReport -Text $logStdout -LastTestLog $mismatchLog -VolumeIsNtfs $true
+    $mismatchLines = (@($mismatchReport.Lines) -join "`n")
+    $mismatchWanted = '[INFO] CTest skip: ' + $exemptName + ' #1887 reason=different reason reason_source=LastTest.log'
+    $mismatchOk = (-not $mismatchReport.PolicyOk) -and $mismatchLines.Contains($mismatchWanted) -and (-not $mismatchLines.Contains('exemption=')) -and $mismatchReport.PolicyMessage.Contains('#1887') -and $mismatchReport.PolicyMessage.Contains($exemptName)
+    Assert-RogGateSelfTest -Name 'CaseDistinct skip with a mismatched LastTest.log reason is not exempt' -Condition $mismatchOk
+
+    $missingName = 'ChrModelRealSampleTest.LoadsTestExtract11160Chr'
+    $missingBlock = @(New-RogGateSelfTestLastTestBlockLines -Number 83 -Name $missingName -Reason $exemptReason)
+    $missingLog = Join-RogGateSelfTestLog -Lines $missingBlock -Separator "`r`n"
+    $missingReport = Get-RogGateCTestSkipReport -Text $logStdout -LastTestLog $missingLog -VolumeIsNtfs $true
+    $missingLines = (@($missingReport.Lines) -join "`n")
+    $missingWanted = '[INFO] CTest skip: ' + $exemptName + ' #1887 reason=reason not in log reason_source=none'
+    $missingOk = (-not $missingReport.PolicyOk) -and $missingLines.Contains($missingWanted) -and (-not $missingLines.Contains('exemption=')) -and (-not $missingLines.Contains('reason_source=LastTest.log')) -and (-not $missingLines.Contains('reason=' + $exemptReason))
+    Assert-RogGateSelfTest -Name 'CaseDistinct skip whose LastTest.log block is missing is not exempt' -Condition $missingOk
+
+    $otherFsName = 'FilesystemFileStorage.OtherCase'
+    $otherFsBlock = @(New-RogGateSelfTestLastTestBlockLines -Number 86 -Name $otherFsName -Reason $exemptReason)
+    $otherFsLog = Join-RogGateSelfTestLog -Lines $otherFsBlock -Separator "`n"
+    $otherFsStdout = New-RogGateSelfTestStdoutSkip -Slot 1 -Total 1 -Number 86 -Name $otherFsName
+    $otherFsReport = Get-RogGateCTestSkipReport -Text $otherFsStdout -LastTestLog $otherFsLog -VolumeIsNtfs $true
+    $otherFsLines = (@($otherFsReport.Lines) -join "`n")
+    $otherFsWanted = '[INFO] CTest skip: ' + $otherFsName + ' #86 reason=' + $exemptReason + ' reason_source=LastTest.log'
+    $otherFsOk = (-not $otherFsReport.PolicyOk) -and $otherFsLines.Contains($otherFsWanted) -and (-not $otherFsLines.Contains('exemption=')) -and $otherFsReport.PolicyMessage.Contains('#86 FilesystemFileStorage.OtherCase') -and $otherFsReport.PolicyMessage.Contains('SKIP=0')
+    Assert-RogGateSelfTest -Name 'another FilesystemFileStorage skip fails even with the case-distinct reason' -Condition $otherFsOk
+
+    $numberedName = 'ChrModelRealSampleTest.LoadsTestExtract11160Chr'
+    $numberedFirst = @(New-RogGateSelfTestLastTestBlockLines -Number 728 -Name $numberedName -Reason 'second copy skipped' -Location 'E:\Workspaces\_worktrees\gate-pr30\modern\tests\unit\render\chr_model_test.cpp(11): Skipped')
+    $numberedSecond = @(New-RogGateSelfTestLastTestBlockLines -Number 83 -Name $numberedName -Reason 'first copy skipped' -Location 'E:\Workspaces\_worktrees\gate-pr30\modern\tests\unit\render\chr_model_test.cpp(10): Skipped')
+    $numberedPieces = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($logLine in $numberedFirst) {
+        $numberedPieces.Add([string]$logLine)
+    }
+    foreach ($logLine in $numberedSecond) {
+        $numberedPieces.Add([string]$logLine)
+    }
+    $numberedLog = Join-RogGateSelfTestLog -Lines @($numberedPieces.ToArray()) -Separator "`n"
+    $numberedStdout = @(
+        (New-RogGateSelfTestStdoutSkip -Slot 1 -Total 2 -Number 83 -Name $numberedName),
+        (New-RogGateSelfTestStdoutSkip -Slot 2 -Total 2 -Number 728 -Name $numberedName)
+    ) -join "`n"
+    $numberedReport = Get-RogGateCTestSkipReport -Text $numberedStdout -LastTestLog $numberedLog -VolumeIsNtfs $false
+    $numberedLines = (@($numberedReport.Lines) -join "`n")
+    $numbered83 = '[INFO] CTest skip: ' + $numberedName + ' #83 reason=first copy skipped reason_source=LastTest.log'
+    $numbered728 = '[INFO] CTest skip: ' + $numberedName + ' #728 reason=second copy skipped reason_source=LastTest.log'
+    $numberedOk = ($numberedReport.Count -eq 2) -and $numberedReport.PolicyOk -and $numberedLines.Contains($numbered83) -and $numberedLines.Contains($numbered728) -and (-not $numberedStdout.Contains('first copy skipped')) -and (-not $numberedStdout.Contains('second copy skipped'))
+    Assert-RogGateSelfTest -Name 'same test name under #83 and #728 keeps each LastTest.log reason' -Condition $numberedOk
+
+    $wiredText = ''
+    if (-not [string]::IsNullOrWhiteSpace($encodingPath) -and (Test-Path -LiteralPath $encodingPath -PathType Leaf)) {
+        $wiredText = [System.IO.File]::ReadAllText($encodingPath)
+    }
+    $wiredOk = $wiredText.Contains('Read-RogGateLastTestLogText -BuildDir $normBuild') -and $wiredText.Contains('$skipReport = Get-RogGateCTestSkipReport -Text $ctestText -LastTestLog $lastTestText') -and $wiredText.Contains('$e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText -LastTestLog $e2eLastTestText')
+    Assert-RogGateSelfTest -Name 'main and E2E CTest reports read Testing\Temporary\LastTest.log' -Condition $wiredOk
 
     $statusName = $script:RogGateMap10TestName
     $statusPassed = Get-RogGateMap10GtestStatus -Text ('[       OK ] ' + $statusName + ' (1 ms)') -ExitCode 0 -TestName $statusName
@@ -3418,7 +3794,7 @@ function Invoke-RogGateSelfTest {
         $skipReport = Get-RogGateCTestSkipReport -Text $ctestSample
         $skipNames = (@($skipReport.Names) -join ',')
         $skipLines = (@($skipReport.Lines) -join "`n")
-        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two') -and $skipReport.PolicyOk
+        $skipOk = ($skipReport.Count -eq 2) -and ($skipNames -eq 'Alpha.One,Gamma.Three') -and ($skipLines -match '\[INFO\] CTest skipped=2') -and ($skipLines -match 'CTest skip: Alpha\.One') -and ($skipLines -match 'CTest skip: Gamma\.Three') -and ($skipLines.Contains('reason_source=none')) -and (-not $skipLines.Contains('reason_source=stdout')) -and ($skipNames -notmatch 'Other\.Fail') -and ($skipNames -notmatch 'Beta\.Two') -and $skipReport.PolicyOk
         Assert-RogGateSelfTest -Name 'CTest skipped tests are counted and named' -Condition $skipOk
     } finally {
         if ([string]::IsNullOrEmpty($savedPlayDh)) {
@@ -4389,7 +4765,8 @@ function Invoke-RogGateMain {
     Write-Host '[GATE] CTest'
     $ctestText = ''
     $testCode = Invoke-RogGateVcVarsCommand -CommandArguments $ctest -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$ctestText)
-    $skipReport = Get-RogGateCTestSkipReport -Text $ctestText
+    $lastTestText = Read-RogGateLastTestLogText -BuildDir $normBuild
+    $skipReport = Get-RogGateCTestSkipReport -Text $ctestText -LastTestLog $lastTestText
     foreach ($skipLine in @($skipReport.Lines)) {
         Write-Host $skipLine
     }
@@ -4428,7 +4805,8 @@ function Invoke-RogGateMain {
     $e2eRunPlan = Get-RogGateE2ECtestArguments -BuildDir $normBuild -ConfigName $Config -ListOnly $false
     $e2eText = ''
     $e2eCode = Invoke-RogGateVcVarsCommand -CommandArguments @($e2eRunPlan.Arguments) -VcVarsAll $script:RogGateVcVarsAll -CapturedText ([ref]$e2eText)
-    $e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText
+    $e2eLastTestText = Read-RogGateLastTestLogText -BuildDir $normBuild
+    $e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText -LastTestLog $e2eLastTestText
     foreach ($e2eSkipLine in @($e2eSkipReport.Lines)) {
         Write-Host $e2eSkipLine
     }
