@@ -346,14 +346,27 @@ try {
     Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot '') -eq $repoPlayDh) 'empty -ResourceRoot must keep the repo PlayDH'
     Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $null) -eq $repoPlayDh) 'null -ResourceRoot must keep the repo PlayDH'
     Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $deployRoot) -eq $deployRoot) 'explicit -ResourceRoot must be returned unchanged'
-    foreach ($bad in @('relative\PlayDH', 'PlayDH')) {
-        $threw = $false
-        try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $bad } catch { $threw = $_.Exception.Message -like 'gui smoke: -ResourceRoot must be an absolute path*' }
-        Assert-True $threw "relative -ResourceRoot '$bad' must be rejected"
+    function Assert-ResourceRootRejected([string]$Value, [string]$Like, [string]$Name) {
+        $message = $null
+        try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $Value } catch { $message = $_.Exception.Message }
+        Assert-True ($message -like $Like) "${Name}: '$Value' expected '$Like', got '$message'"
     }
-    $threw = $false
-    try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot (Join-Path $rrTemp 'missing') } catch { $threw = $_.Exception.Message -like 'gui smoke: -ResourceRoot does not exist*' }
-    Assert-True $threw 'missing -ResourceRoot must be rejected'
+    # ResourceRoot-Relative
+    foreach ($bad in @('relative\PlayDH', 'PlayDH', '.\PlayDH')) {
+        Assert-ResourceRootRejected $bad '`[ERROR`] gui smoke: -ResourceRoot must be an absolute path*' 'ResourceRoot-Relative'
+    }
+    # ResourceRoot-Missing
+    Assert-ResourceRootRejected (Join-Path $rrTemp 'missing') '`[ERROR`] gui smoke: -ResourceRoot does not exist*' 'ResourceRoot-Missing'
+    # ResourceRoot-UnderDMX (any case, either slash, trailing slash, \\?\ prefix)
+    foreach ($bad in @('D:\MX', 'D:\MX\', 'd:\mx\PlayDH', 'D:/MX/data/PlayDH', '\\?\D:\MX\PlayDH')) {
+        Assert-ResourceRootRejected $bad '`[ERROR`] gui smoke: -ResourceRoot must not be under D:\MX*' 'ResourceRoot-UnderDMX'
+    }
+    # ResourceRoot-DotDot (cannot walk into D:\MX)
+    Assert-ResourceRootRejected 'D:\build-mxr\..\MX\PlayDH' "``[ERROR``] gui smoke: -ResourceRoot must not contain '..'*" 'ResourceRoot-DotDot'
+    # ResourceRoot-NotDMX: names that only start with MX are not D:\MX
+    $mxLike = Join-Path $rrTemp 'MXR'
+    New-Item -ItemType Directory -Force -Path $mxLike | Out-Null
+    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $mxLike) -eq $mxLike) 'ResourceRoot-NotDMX'
 
     $clientArgs = Get-SmokeClientArguments $deployRoot
     $rootValues = Get-ArgValue $clientArgs '--resource-root'

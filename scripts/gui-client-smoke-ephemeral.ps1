@@ -204,7 +204,7 @@ function Copy-EphemeralEnvironmentForProcess {
 function Resolve-GuiSmokeResourceRoot {
     # -ResourceRoot on gui-client-smoke.ps1. Empty keeps the repo PlayDH
     # (<RepoRoot>\modern\data\PlayDH), exactly as before. A value must be an
-    # absolute path to an existing directory; it is returned unchanged so the
+    # absolute path to an existing directory outside D:\MX; it is returned unchanged so the
     # client's --resource-root, the map server's --resource-root and the
     # optional audits all read the same tree (sprite atlas and pak mounts in
     # mxh_client both follow --resource-root).
@@ -215,6 +215,17 @@ function Resolve-GuiSmokeResourceRoot {
     if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
         return (Join-Path $RepoRoot 'modern\data\PlayDH')
     }
+    # D:\MX is the read-only original install. Checked on the text first so it
+    # is refused on any host; '..' segments are refused so the prefix check
+    # cannot be walked around.
+    $normalized = ($ResourceRoot -replace '/', '\') -replace '^\\\\[?.]\\', ''
+    if (@($normalized -split '\\') -contains '..') {
+        throw "[ERROR] gui smoke: -ResourceRoot must not contain '..': $ResourceRoot"
+    }
+    $trimmed = $normalized.TrimEnd('\')
+    if ($trimmed -ieq 'D:\MX' -or $trimmed.StartsWith('D:\MX\', [StringComparison]::OrdinalIgnoreCase)) {
+        throw "[ERROR] gui smoke: -ResourceRoot must not be under D:\MX (read-only original install): $ResourceRoot"
+    }
     $qualifiedMethod = [IO.Path].GetMethod('IsPathFullyQualified', [Type[]]@([string]))
     if ($null -ne $qualifiedMethod) {
         $qualified = [IO.Path]::IsPathFullyQualified($ResourceRoot)
@@ -223,10 +234,10 @@ function Resolve-GuiSmokeResourceRoot {
         $qualified = [IO.Path]::IsPathRooted($ResourceRoot) -and ($ResourceRoot -notmatch '^[\\/](?![\\/])') -and ($ResourceRoot -notmatch '^[A-Za-z]:(?![\\/])')
     }
     if (-not $qualified) {
-        throw "gui smoke: -ResourceRoot must be an absolute path: $ResourceRoot"
+        throw "[ERROR] gui smoke: -ResourceRoot must be an absolute path: $ResourceRoot"
     }
     if (-not (Test-Path -LiteralPath $ResourceRoot -PathType Container)) {
-        throw "gui smoke: -ResourceRoot does not exist: $ResourceRoot"
+        throw "[ERROR] gui smoke: -ResourceRoot does not exist: $ResourceRoot"
     }
     return $ResourceRoot
 }
