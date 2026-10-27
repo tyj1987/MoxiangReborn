@@ -2251,6 +2251,43 @@ function New-RogGateSelfTestDirectoryLink {
     }
 }
 
+function Test-RogGateScriptTextEncoding {
+    param([Parameter(Mandatory = $true)][string]$LiteralPath)
+
+    # Windows PowerShell 5.1 reads a BOM-less file as ANSI. Pure ASCII is
+    # unambiguous. A leading UTF-8 BOM (EF BB BF) selects UTF-8.
+    # ReadWrite share lets this check open the script while it is running.
+    $stream = $null
+    $bytes = $null
+    try {
+        $stream = [System.IO.File]::Open($LiteralPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $bytes = New-Object byte[] $stream.Length
+        $offset = 0
+        while ($offset -lt $bytes.Length) {
+            $read = $stream.Read($bytes, $offset, ($bytes.Length - $offset))
+            if ($read -le 0) {
+                throw "Could not read script bytes: $LiteralPath"
+            }
+            $offset = $offset + $read
+        }
+    } finally {
+        if ($null -ne $stream) {
+            $stream.Dispose()
+        }
+    }
+    if ($bytes.Length -ge 3) {
+        if (($bytes[0] -eq 0xEF) -and ($bytes[1] -eq 0xBB) -and ($bytes[2] -eq 0xBF)) {
+            return $true
+        }
+    }
+    foreach ($value in $bytes) {
+        if (([int]$value) -gt 127) {
+            return $false
+        }
+    }
+    return $true
+}
+
 function Invoke-RogGateSelfTest {
     $script:RogGateSelfTestFailures = 0
 
@@ -2271,6 +2308,22 @@ function Invoke-RogGateSelfTest {
         param([Parameter(Mandatory = $true)][string]$Name)
         Write-Host "[SKIP] $Name"
     }
+
+    $encodingPath = $PSCommandPath
+    if ([string]::IsNullOrWhiteSpace($encodingPath)) {
+        $encodingPath = $MyInvocation.MyCommand.Path
+    }
+    $encodingOk = $false
+    try {
+        if (-not [string]::IsNullOrWhiteSpace($encodingPath)) {
+            if (Test-Path -LiteralPath $encodingPath -PathType Leaf) {
+                $encodingOk = Test-RogGateScriptTextEncoding -LiteralPath $encodingPath
+            }
+        }
+    } catch {
+        $encodingOk = $false
+    }
+    Assert-RogGateSelfTest -Name 'rog-gate-build.ps1 is pure ASCII or UTF-8 with BOM' -Condition $encodingOk
 
     $directoryLinkKind = 'SymbolicLink'
     if (Test-RogGateHostIsWindows) {
