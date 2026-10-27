@@ -941,11 +941,15 @@ function Invoke-CleanDeploySupplementPak {
         if (-not [string]::IsNullOrWhiteSpace($forcedRehash)) {
             $copied = $forcedRehash.Trim().ToLowerInvariant()
         }
+        $landedFile = New-Object System.IO.FileInfo $target
+        $landedSize = $landedFile.Length
         if (-not (Test-CleanDeployShaEqual -Actual $copied -Expected $expectedLog)) {
             try { Remove-Item -LiteralPath $target -Force -ErrorAction SilentlyContinue } catch { }
+            Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] post-copy sha256 mismatch actual=" + $copied + " expected=" + $expectedLog)
             Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] supplemental pak sha256 mismatch"
             return (New-CleanDeploySupplementResult -Ok $false -ExpectedFilled $true -Lines $lines)
         }
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[INFO] post-copy sha256 actual=" + $copied + " expected=" + $expectedLog + " size=" + $landedSize)
         Write-CleanDeploySupplementLine -Lines $lines -Line "[INFO] copied supplemental pak to $target"
         return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
     }
@@ -1217,6 +1221,7 @@ function Invoke-CleanDeploySelfTestCases {
     $dry = New-CleanDeploySelfTestRun -Root $Root -Name "dry-run" -WriteSource -SourceBody "good-pak-bytes" -ShaMode "match-source" -DryRun
     $dryText = $dry.Result.Lines -join "`n"
     Assert-CleanDeploySelfTest -Name "dry-run does not copy the supplemental pak" -Condition ($dry.Result.Ok -and (-not (Test-Path -LiteralPath $dry.Target)) -and ($dryText.Contains("would copy")))
+    Assert-CleanDeploySelfTest -Name "dry-run prints no post-copy sha256 line" -Condition (-not $dryText.Contains("post-copy sha256"))
 
     $stale = New-CleanDeploySelfTestRun -Root $Root -Name "stale" -WriteSource -SourceBody "new-pak-bytes" -WriteTarget -TargetBody "old-pak-bytes" -ShaMode "match-source"
     $staleSource = Get-CleanDeploySha256 -LiteralPath $stale.Source
@@ -1745,8 +1750,9 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     Assert-CleanDeploySelfTest -Name "script text has no junction or link command" -Condition $noJunctionCmd
     Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the fake repo tree unchanged" -Condition ($positiveTree -eq $treeBefore)
     Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the real data stamp unchanged" -Condition ($positiveReal -eq $realBefore)
-    $dryCopyOk = $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy")
+    $dryCopyOk = $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy") -and (-not $dryCopyText.Contains("post-copy sha256"))
     Assert-CleanDeploySelfTest -Name "dry-run copy reports would copy and writes no pak" -Condition $dryCopyOk
+    Assert-CleanDeploySelfTest -Name "dry-run copy prints no post-copy sha256 line" -Condition (-not $dryCopyText.Contains("post-copy sha256"))
     $dryChildExitOk = ($dryChild.ExitCode -eq 0)
     $dryChildRootOk = $dryChild.Text.Contains($rootLine)
     $dryChildClean = -not $dryChild.Text.Contains("[ERROR]")
@@ -1756,6 +1762,7 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     Assert-CleanDeploySelfTest -Name "dry child exits 0" -Condition $dryChildExitOk
     Assert-CleanDeploySelfTest -Name "dry child prints the PlayDH root line" -Condition $dryChildRootOk
     Assert-CleanDeploySelfTest -Name "dry child has no [ERROR]" -Condition $dryChildClean
+    Assert-CleanDeploySelfTest -Name "dry child prints no post-copy sha256 line" -Condition (-not $dryChild.Text.Contains("post-copy sha256"))
 
     $savedPlay = $env:MXH_PLAYDH_ROOT
     $hadPlay = $false
@@ -1886,8 +1893,9 @@ function Invoke-CleanDeploySelfTestSkipCases {
         "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $playFull, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke"
     ) -Environment $isolated
     $dryText = [string]$dryChild.Text
-    $dryOk = ($dryChild.ExitCode -eq 0) -and ($dryText.Contains("[INFO] prereqs required for this run: none")) -and ($dryText.Contains("[WARN] cmake : MISSING")) -and ($dryText.Contains("[WARN] sqllocaldb : MISSING")) -and (-not $dryText.Contains("[FAIL] missing prereqs")) -and ($dryText.Contains("supplemental pak")) -and ($dryText.Contains("[SKIP] step 4 build")) -and ($dryText.Contains("[SKIP] step 5 ctest")) -and ($dryText.Contains("[SKIP] step 6 commercial-smoke")) -and ($dryText.Contains("build:") -and $dryText.Contains("SKIPPED"))
+    $dryOk = ($dryChild.ExitCode -eq 0) -and ($dryText.Contains("[INFO] prereqs required for this run: none")) -and ($dryText.Contains("[WARN] cmake : MISSING")) -and ($dryText.Contains("[WARN] sqllocaldb : MISSING")) -and (-not $dryText.Contains("[FAIL] missing prereqs")) -and ($dryText.Contains("supplemental pak")) -and ($dryText.Contains("[SKIP] step 4 build")) -and ($dryText.Contains("[SKIP] step 5 ctest")) -and ($dryText.Contains("[SKIP] step 6 commercial-smoke")) -and ($dryText.Contains("build:") -and $dryText.Contains("SKIPPED")) -and (-not $dryText.Contains("post-copy sha256"))
     Assert-CleanDeploySelfTest -Name "SkipBuild SkipTests SkipSmoke does not fail when cmake and sqllocaldb are missing" -Condition $dryOk
+    Assert-CleanDeploySelfTest -Name "SkipBuild dry-run prints no post-copy sha256 line" -Condition (-not $dryText.Contains("post-copy sha256"))
 
     $blocked = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
         "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-DryRun"
@@ -1918,9 +1926,16 @@ function Invoke-CleanDeploySelfTestSkipCases {
     $copiedText = [string]$copiedChild.Text
     $shaLine = "[INFO] supplemental pak sha256 actual=" + $sourceHash + " expected=" + $sourceHash
     $copiedHash = ""
-    if (Test-Path -LiteralPath $targetPak) { $copiedHash = Get-CleanDeploySha256 -LiteralPath $targetPak }
+    $copiedSize = 0
+    if (Test-Path -LiteralPath $targetPak) {
+        $copiedHash = Get-CleanDeploySha256 -LiteralPath $targetPak
+        $copiedInfo = New-Object System.IO.FileInfo $targetPak
+        $copiedSize = $copiedInfo.Length
+    }
+    $postCopyLine = "[INFO] post-copy sha256 actual=" + $sourceHash + " expected=" + $sourceHash + " size=" + $copiedSize
     $copiedOk = ($copiedChild.ExitCode -eq 0) -and ($copiedText.Contains($shaLine)) -and ($copiedText.Contains("[INFO] copied supplemental pak to ")) -and ($copiedHash -eq $sourceHash) -and ($copiedText.Contains("[SKIP] step 4 build")) -and ($copiedText.Contains("[SKIP] step 5 ctest")) -and ($copiedText.Contains("[SKIP] step 6 commercial-smoke"))
     Assert-CleanDeploySelfTest -Name "SkipBuild success exits 0 only after pak copy and matching rehash" -Condition $copiedOk
+    Assert-CleanDeploySelfTest -Name "SkipBuild success logs matching post-copy sha256 and size" -Condition (($copiedChild.ExitCode -eq 0) -and $copiedText.Contains($postCopyLine))
 
     $rehashPlay = Join-Path $case "playdh-rehash"
     New-Item -ItemType Directory -Path $rehashPlay -Force | Out-Null
@@ -1931,8 +1946,10 @@ function Invoke-CleanDeploySelfTestSkipCases {
     ) -Environment $rehashEnv
     $rehashText = [string]$rehashChild.Text
     $rehashTarget = Join-CleanDeployPath -Parent $rehashFull -Child "zz_supplement.pak"
+    $rehashError = "[ERROR] post-copy sha256 mismatch actual=forced-rehash-mismatch expected=" + $sourceHash
     $rehashOk = ($rehashChild.ExitCode -ne 0) -and ($rehashText.Contains("[ERROR] supplemental pak sha256 mismatch")) -and (-not (Test-Path -LiteralPath $rehashTarget))
     Assert-CleanDeploySelfTest -Name "post-copy rehash mismatch exits non-zero" -Condition $rehashOk
+    Assert-CleanDeploySelfTest -Name "post-copy rehash mismatch logs the post-copy sha256 error" -Condition (($rehashChild.ExitCode -ne 0) -and $rehashText.Contains($rehashError))
 
     $badRoot = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
         "-RepoRoot", $repoFull, "-PlayDhRoot", "relative\playdh", "-SkipBuild", "-SkipTests", "-SkipSmoke"
