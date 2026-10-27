@@ -105,13 +105,13 @@ struct PakHeaderClassification {
     bool original96_valid = false;
 };
 
-// Try both entry walks via mxh::compat::probe_pak_layouts. PlayDh92 uses
+// Try both entry walks via mxh::compat::probe_pak_file. PlayDh92 uses
 // the uint32 at offset 4 and the 92-byte layout walk. Original96 uses the
 // uint32 at offset 92 and the strict 96-byte walk. A count of 0 does not
 // validate. Exactly one walk that finishes at EOF selects that kind.
-// Neither or both is Unrecognized. `opener == nullptr` uses
-// read_pak_header_prefix for the open / short-header checks. Does not
-// open the archive via PackFile.
+// Neither or both is Unrecognized. The walk seeks to entry headers and
+// does not read payloads. `opener == nullptr` uses read_pak_header_prefix
+// for the open / short-header checks. Does not open the archive via PackFile.
 [[nodiscard]] PakHeaderClassification classify_pak_header(
     const std::filesystem::path& path,
     PakHeaderOpener opener = nullptr);
@@ -196,7 +196,9 @@ private:
     std::filesystem::path root_;
     FilesystemFileStorageOptions options_{};
     PakHeaderOpener header_opener_ = nullptr;
-    std::vector<std::unique_ptr<mxh::compat::PackFile>> packs_;
+    // shared_ptr so an FSOpenFile handle keeps its PackFile alive when
+    // Initialize() clears this vector on every mount.
+    std::vector<std::shared_ptr<mxh::compat::PackFile>> packs_;
     std::vector<std::string> pack_names_;  // parallel to packs_
 };
 

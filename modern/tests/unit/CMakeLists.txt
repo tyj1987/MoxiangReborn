@@ -98,6 +98,33 @@ gtest_add_tests(TARGET mxh_pak_writer_packfile_tests
 set_tests_properties(${mxh_pak_writer_packfile_test_list} PROPERTIES
     TIMEOUT 60)
 
+# Index-only pak open. Compiles pack_file.cpp and filesystem_file_storage.cpp
+# directly so the target does not link DirectX. Linux uses a tiny COM/Win32
+# stub; that stub is not on the include path of any other target.
+add_executable(mxh_pak_lazy_read_tests
+    pak_lazy_read_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+    ${CMAKE_SOURCE_DIR}/src/render/filesystem_file_storage.cpp
+    ${CMAKE_SOURCE_DIR}/src/log/mlog.cpp
+)
+target_include_directories(mxh_pak_lazy_read_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+if(NOT WIN32)
+    target_include_directories(mxh_pak_lazy_read_tests BEFORE PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/support/win32_stub)
+endif()
+target_link_libraries(mxh_pak_lazy_read_tests PRIVATE gtest_main)
+target_compile_features(mxh_pak_lazy_read_tests PRIVATE cxx_std_20)
+if(WIN32)
+    target_compile_definitions(mxh_pak_lazy_read_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(mxh_pak_lazy_read_tests PRIVATE psapi)
+endif()
+gtest_add_tests(TARGET mxh_pak_lazy_read_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pak_lazy_read_test_list)
+set_tests_properties(${mxh_pak_lazy_read_test_list} PROPERTIES
+    TIMEOUT 180)
+
 
 # -----------------------------------------------------------------------------
 # mxh_crypto tests ????HSEL stream cipher (Phase 3.2)
