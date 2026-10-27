@@ -269,18 +269,39 @@ try {
 } finally {
     $anyHolder.Stop()
 }
-# [::] listener: must be reported as port-in-use too.
-if ([System.Net.Sockets.Socket]::OSSupportsIPv6) {
-    $v6Holder = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::IPv6Any, [int]$customPlan.AgentPort)
-    $v6Holder.Start()
+# [::] listener on the map port: must be reported as port-in-use too.
+$v6Holder = $null
+$v6SkipReason = $null
+if (-not [System.Net.Sockets.Socket]::OSSupportsIPv6) {
+    $v6SkipReason = 'OSSupportsIPv6=false'
+} else {
+    try {
+        $v6Holder = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::IPv6Any, [int]$customPlan.MapPort)
+        $v6Holder.Start()
+    } catch {
+        $v6SkipReason = "cannot listen on [::]: $($_.Exception.Message)"
+        $v6Holder = $null
+    }
+}
+if ($null -ne $v6SkipReason) {
+    Write-Output "[ephemeral] SKIP [::] listener case: $v6SkipReason"
+} else {
     try {
         $v6Violation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
-        Assert-True ($v6Violation -eq "ephemeral safety: port-in-use $($customPlan.AgentPort)") "[::] listener reported '$v6Violation'"
+        Assert-True ($v6Violation -eq "ephemeral safety: port-in-use $($customPlan.MapPort)") "[::] listener reported '$v6Violation'"
     } finally {
         $v6Holder.Stop()
     }
-} else {
-    Write-Output '[ephemeral] skip [::] listener case: IPv6 not supported'
+}
+# Listener enumeration failure must fail closed (port treated as in use).
+$realListeners = ${function:Get-EphemeralActiveTcpListeners}
+Assert-True ($null -ne $realListeners) 'Get-EphemeralActiveTcpListeners must exist'
+Set-Item -Path Function:\Get-EphemeralActiveTcpListeners -Value { throw 'simulated enumeration failure' }
+try {
+    $enumViolation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
+    Assert-True ($enumViolation -eq "ephemeral safety: port-in-use $($customPlan.LoginPort)") "enumeration failure must fail closed, got '$enumViolation'"
+} finally {
+    Set-Item -Path Function:\Get-EphemeralActiveTcpListeners -Value $realListeners
 }
 $freeViolation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
 Assert-True ([string]::IsNullOrEmpty($freeViolation)) "free plan rejected: $freeViolation"

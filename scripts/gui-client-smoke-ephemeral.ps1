@@ -362,14 +362,21 @@ function Resolve-EphemeralPortPlan {
     }
 }
 
+function Get-EphemeralActiveTcpListeners {
+    # Separate so the SelfTest can make the enumeration fail.
+    return @([System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners())
+}
+
 function Test-EphemeralPortOccupied {
     param([Parameter(Mandatory)][int]$Port)
-    # Occupied if any of these holds:
+    # Occupied if either holds:
     # 1. GetActiveTcpListeners() lists the port on 0.0.0.0, 127.0.0.1, :: or ::1
     #    (main check: Windows does not set ExclusiveAddressUse by default, so a
-    #    127.0.0.1 bind can still succeed while another socket holds 0.0.0.0);
-    # 2. an ExclusiveAddressUse bind of 127.0.0.1 fails;
-    # 3. an ExclusiveAddressUse bind of 0.0.0.0 (IPAddress.Any) fails.
+    #    127.0.0.1 bind can still succeed while another socket holds 0.0.0.0).
+    #    If the enumeration itself fails, the port is treated as occupied
+    #    (fail closed) and a [WARN] line is written;
+    # 2. an ExclusiveAddressUse bind of 127.0.0.1 fails.
+    # We never bind 0.0.0.0 ourselves: on Windows that can raise a firewall prompt.
     $watched = @(
         [System.Net.IPAddress]::Any,
         [System.Net.IPAddress]::Loopback,
@@ -377,26 +384,27 @@ function Test-EphemeralPortOccupied {
         [System.Net.IPAddress]::IPv6Loopback
     )
     try {
-        $active = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
-        foreach ($endpoint in @($active)) {
-            if ($endpoint.Port -ne $Port) { continue }
-            foreach ($address in $watched) {
-                if ($endpoint.Address.Equals($address)) { return $true }
-            }
+        $active = Get-EphemeralActiveTcpListeners
+    } catch {
+        [Console]::Error.WriteLine("[WARN] listener enumeration failed (port $Port treated as in use): $($_.Exception.Message)")
+        return $true
+    }
+    foreach ($endpoint in @($active)) {
+        if ($endpoint.Port -ne $Port) { continue }
+        foreach ($address in $watched) {
+            if ($endpoint.Address.Equals($address)) { return $true }
         }
-    } catch {}
-    foreach ($address in @([System.Net.IPAddress]::Loopback, [System.Net.IPAddress]::Any)) {
-        $listener = $null
-        try {
-            $listener = [System.Net.Sockets.TcpListener]::new($address, $Port)
-            $listener.ExclusiveAddressUse = $true
-            $listener.Start()
-        } catch {
-            return $true
-        } finally {
-            if ($null -ne $listener) {
-                try { $listener.Stop() } catch {}
-            }
+    }
+    $listener = $null
+    try {
+        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
+        $listener.ExclusiveAddressUse = $true
+        $listener.Start()
+    } catch {
+        return $true
+    } finally {
+        if ($null -ne $listener) {
+            try { $listener.Stop() } catch {}
         }
     }
     return $false
