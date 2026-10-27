@@ -57,7 +57,7 @@ if ($SkipMssql) {
 if ($SkipGui) {
     Write-Host "GUI_CLIENT_SMOKE SKIPPED (explicit -SkipGui)" -ForegroundColor Yellow
 } else {
-    & (Join-Path $PSScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir
+    & (Join-Path $PSScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir -EphemeralLocalServer
     if ($LASTEXITCODE -ne 0) {
         throw "GUI client smoke failed with exit code $LASTEXITCODE"
     }

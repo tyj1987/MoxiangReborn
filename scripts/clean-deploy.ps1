@@ -15,15 +15,21 @@
                           ODBC 18, VC++ Redist, Chocolatey.
       3. Install prereqs  (only with -InstallPrereqs) via chocolatey + direct
                           download for ODBC 18 + VS Build Tools 2022.
-      4. PlayDH junction  modern/data/PlayDH -> <RepoRoot>/MoxiangResources/PlayDH
-                          (ASCII-named so resource tooling handles argv cleanly).
+      4. PlayDH root      Required -PlayDhRoot, an existing absolute directory.
+                          Refused when the path is missing, relative, normalizes
+                          under D:\MX, or normalizes inside RepoRoot. The script
+                          does not create or modify modern/data/PlayDH and does
+                          not create a junction. Supplemental pak copies go to
+                          -PlayDhRoot. ctest and commercial-smoke inherit
+                          MXH_PLAYDH_ROOT set to that path.
                           Then check reference/manifests/playdh-supplemental-fill.json.
                           The source path is the buildPath field only.
                           Empty pakSha256 and no zz_supplement.pak continues.
                           A filled pakSha256 must match; the outside-repo pak is
-                          copied into the PlayDH root.
+                          copied into -PlayDhRoot.
       5. Build modern     invokes scripts/build-modern.ps1 -Config <Config>.
       6. Run ctest        ctest -C <Config> --test-dir modern/build.
+                          MXH_PLAYDH_ROOT is -PlayDhRoot.
       7. Commercial smoke invokes scripts/commercial-smoke.ps1.
                           When pakSha256 is set, this run's [pak] mount order
                           line must list exactly 8 paks, with zz_supplement.pak
@@ -31,7 +37,8 @@
 
     Idempotency:
       - Prereq detection skips already-installed tools.
-      - PlayDH junction: only created if missing; -Force resets stale target.
+      - PlayDH root: the caller supplies -PlayDhRoot. Nothing under
+        modern/data/PlayDH is created or replaced.
       - Build: CMake incremental (rebuilds only what changed).
       - ctest + commercial-smoke: safe to repeat.
       - Supplemental pak: copied only when pakSha256 is set and matches.
@@ -45,8 +52,18 @@
       5  commercial-smoke failed.
 
 
+.PARAMETER PlayDhRoot
+    Required for deployment. Absolute path of a directory that already
+    exists. Refused, with [ERROR] and no write, when it is missing,
+    relative, normalizes under D:\MX, or normalizes inside RepoRoot.
+    Normalization collapses ".", "..", mixed slashes, and trailing
+    separators, then compares without case. -DryRun prints the chosen
+    root and does not copy or create anything. -SelfTest does not
+    require this parameter.
+
 .PARAMETER DryRun
     Print every step that would run, do not actually mutate the system.
+    Prints the chosen -PlayDhRoot and does not copy the supplemental pak.
 
 .PARAMETER InstallPrereqs
     Install missing prereqs via Chocolatey (or direct download for ODBC 18).
@@ -67,11 +84,13 @@
     Override repo root. Defaults to the parent of $PSScriptRoot.
 
 .PARAMETER Force
-    Rebuild from scratch (reset PlayDH junction if target moved).
+    Rebuild from scratch (remove modern/build before the build step).
 
 .PARAMETER SelfTest
     Run the supplemental-pak self-test and exit. Does not deploy, build,
     or copy a pak into the repo. Prints PASS, FAIL, and SKIP counts.
+    Covers a missing, relative, D:\MX, and in-repo -PlayDhRoot, plus an
+    external directory that receives the supplemental pak.
 
 .EXAMPLE
     PS> powershell -ExecutionPolicy Bypass -File scripts\clean-deploy.ps1 -SelfTest
@@ -94,6 +113,7 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Config = "Debug",
     [string]$RepoRoot = "",
+    [string]$PlayDhRoot = "",
     [switch]$SelfTest
 )
 
@@ -176,15 +196,122 @@ function Get-CleanDeployPathLeaf {
     return $norm
 }
 
+function Get-CleanDeployCollapsedPath {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return "" }
+    $raw = $Path
+    if ($raw.StartsWith('\\?\') -or $raw.StartsWith('//?/')) {
+        $raw = $raw.Substring(4)
+    }
+    $slash = [string][char]47
+    $backslash = [string][char]92
+    $useBack = $false
+    if ($raw -match '^[A-Za-z]:' -or $raw.StartsWith($backslash + $backslash) -or $raw.StartsWith($slash + $slash)) {
+        $useBack = $true
+    } elseif ($raw.Contains($backslash) -and -not $raw.StartsWith($slash)) {
+        $useBack = $true
+    }
+    $parts = New-Object System.Collections.Generic.List[string]
+    if ($useBack) {
+        $text = $raw.Replace($slash, $backslash)
+        $unc = $false
+        if ($text.StartsWith($backslash + $backslash)) {
+            $unc = $true
+            $text = $text.TrimStart($backslash)
+        }
+        $drive = ""
+        if (-not $unc -and $text -match '^[A-Za-z]:') {
+            $drive = $text.Substring(0, 2)
+            $text = $text.Substring(2).TrimStart($backslash)
+        } else {
+            $text = $text.Trim($backslash)
+        }
+        foreach ($seg in $text.Split($backslash)) {
+            if ($seg -eq "" -or $seg -eq ".") { continue }
+            if ($seg -eq "..") {
+                if ($parts.Count -gt 0) { $parts.RemoveAt($parts.Count - 1) }
+                continue
+            }
+            [void]$parts.Add($seg)
+        }
+        $joined = ""
+        foreach ($part in $parts) {
+            if ($joined.Length -gt 0) { $joined = $joined + $backslash }
+            $joined = $joined + $part
+        }
+        if ($unc) {
+            if ($joined.Length -eq 0) { return $backslash + $backslash }
+            return $backslash + $backslash + $joined
+        }
+        if ($drive.Length -gt 0) {
+            if ($joined.Length -eq 0) { return $drive + $backslash }
+            return $drive + $backslash + $joined
+        }
+        return $joined
+    }
+    $text = $raw.Replace($backslash, $slash)
+    $absolute = $text.StartsWith($slash)
+    $text = $text.Trim($slash)
+    foreach ($seg in $text.Split($slash)) {
+        if ($seg -eq "" -or $seg -eq ".") { continue }
+        if ($seg -eq "..") {
+            if ($parts.Count -gt 0) { $parts.RemoveAt($parts.Count - 1) }
+            continue
+        }
+        [void]$parts.Add($seg)
+    }
+    $joined = ""
+    foreach ($part in $parts) {
+        if ($joined.Length -gt 0) { $joined = $joined + $slash }
+        $joined = $joined + $part
+    }
+    if ($absolute) {
+        if ($joined.Length -eq 0) { return $slash }
+        return $slash + $joined
+    }
+    return $joined
+}
+
+function Test-CleanDeployPathIsAbsolute {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $slash = [string][char]47
+    $backslash = [string][char]92
+    if ($Path.StartsWith($backslash + $backslash + '?' + $backslash)) { return $true }
+    if ($Path.StartsWith($slash + $slash + '?' + $slash)) { return $true }
+    if ($Path -match '^[A-Za-z]:[\\/]') { return $true }
+    if ($Path.StartsWith($backslash + $backslash)) { return $true }
+    if ($Path.StartsWith($slash + $slash)) { return $true }
+    $sep = [string][System.IO.Path]::DirectorySeparatorChar
+    if (($sep -eq $slash) -and $Path.StartsWith($slash)) { return $true }
+    return $false
+}
+
 function Test-CleanDeployPathUnderOriginalRoot {
     param([string]$Path)
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
-    $text = $Path.Replace('/', '\')
-    if ($text.StartsWith('\\?\')) { $text = $text.Substring(4) }
-    $text = $text.TrimEnd('\')
-    $lower = $text.ToLowerInvariant()
+    $norm = Get-CleanDeployCollapsedPath -Path $Path
+    if ([string]::IsNullOrWhiteSpace($norm)) { return $false }
+    $lower = $norm.TrimEnd('\').ToLowerInvariant()
     if ($lower -eq 'd:\mx') { return $true }
     if ($lower.StartsWith('d:\mx\')) { return $true }
+    return $false
+}
+
+function Test-CleanDeployPathInsideRoot {
+    param([string]$Path, [string]$Root)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Root)) { return $false }
+    $normPath = Get-CleanDeployCollapsedPath -Path $Path
+    $normRoot = Get-CleanDeployCollapsedPath -Path $Root
+    if ([string]::IsNullOrWhiteSpace($normPath)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($normRoot)) { return $false }
+    $pathCmp = $normPath.TrimEnd('\', '/').ToLowerInvariant()
+    $rootCmp = $normRoot.TrimEnd('\', '/').ToLowerInvariant()
+    if ($pathCmp -eq $rootCmp) { return $true }
+    $sep = '\'
+    if ($rootCmp.StartsWith('/')) { $sep = '/' }
+    if ($pathCmp.StartsWith($rootCmp + $sep)) { return $true }
     return $false
 }
 
@@ -209,6 +336,103 @@ function Test-CleanDeployLinkUnderOriginalRoot {
         if (Test-CleanDeployPathUnderOriginalRoot -Path ([string]$one)) { return $true }
     }
     return $false
+}
+
+function New-CleanDeployPlayDhDecision {
+    param([bool]$Ok, [string]$Path, $Lines)
+    $copy = @()
+    if ($null -ne $Lines) { $copy = @($Lines.ToArray()) }
+    return [pscustomobject]@{
+        Ok = [bool]$Ok
+        Path = [string]$Path
+        Lines = $copy
+    }
+}
+
+function Test-CleanDeployLinkInsideRoot {
+    param([string]$LiteralPath, [string]$Root)
+    if ([string]::IsNullOrWhiteSpace($LiteralPath)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Root)) { return $false }
+    if (-not (Test-Path -LiteralPath $LiteralPath)) { return $false }
+    $item = $null
+    try {
+        $item = Get-Item -LiteralPath $LiteralPath -Force -ErrorAction Stop
+    } catch {
+        return $false
+    }
+    $targets = @()
+    try {
+        $targets = @($item.Target)
+    } catch {
+        return $false
+    }
+    foreach ($one in $targets) {
+        if ([string]::IsNullOrWhiteSpace([string]$one)) { continue }
+        if (Test-CleanDeployPathInsideRoot -Path ([string]$one) -Root $Root) { return $true }
+    }
+    return $false
+}
+
+function Resolve-CleanDeployPlayDhRoot {
+    param(
+        [AllowEmptyString()][string]$PlayDhRoot,
+        [AllowEmptyString()][string]$RepoRoot
+    )
+    # Read-only. Callers must exit before creating or copying anything when Ok is false.
+    $lines = New-Object System.Collections.Generic.List[string]
+    if ([string]::IsNullOrWhiteSpace($PlayDhRoot)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line "[ERROR] -PlayDhRoot is required"
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
+    }
+    if (-not (Test-CleanDeployPathIsAbsolute -Path $PlayDhRoot)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot must be an absolute path: " + $PlayDhRoot)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
+    }
+    $norm = Get-CleanDeployCollapsedPath -Path $PlayDhRoot
+    if ([string]::IsNullOrWhiteSpace($norm)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot must be an absolute path: " + $PlayDhRoot)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
+    }
+    if (Test-CleanDeployPathUnderOriginalRoot -Path $norm) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot resolves under D:\MX: " + $norm)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
+    }
+    if (Test-CleanDeployPathInsideRoot -Path $norm -Root $RepoRoot) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot resolves inside the repo: " + $norm)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
+    }
+    if (-not (Test-Path -LiteralPath $norm -PathType Container)) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot must be an existing directory: " + $norm)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
+    }
+    if (Test-CleanDeployLinkUnderOriginalRoot -LiteralPath $norm) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot resolves under D:\MX: " + $norm)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
+    }
+    if (Test-CleanDeployLinkInsideRoot -LiteralPath $norm -Root $RepoRoot) {
+        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot resolves inside the repo: " + $norm)
+        return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
+    }
+    return (New-CleanDeployPlayDhDecision -Ok $true -Path $norm -Lines $lines)
+}
+
+function Publish-CleanDeployPlayDhRoot {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [switch]$DryRun
+    )
+    $lines = New-Object System.Collections.Generic.List[string]
+    $rootLine = "[INFO] PlayDH root: " + $Path
+    Write-CleanDeploySupplementLine -Lines $lines -Line $rootLine
+    if ($DryRun) {
+        $envLine = "[INFO] MXH_PLAYDH_ROOT=" + $Path + " (dry-run)"
+        Write-CleanDeploySupplementLine -Lines $lines -Line $envLine
+        return (New-CleanDeployPlayDhDecision -Ok $true -Path $Path -Lines $lines)
+    }
+    $env:MXH_PLAYDH_ROOT = $Path
+    $envLine = "[INFO] MXH_PLAYDH_ROOT=" + $Path
+    Write-CleanDeploySupplementLine -Lines $lines -Line $envLine
+    return (New-CleanDeployPlayDhDecision -Ok $true -Path $Path -Lines $lines)
 }
 
 function Test-CleanDeployShaFilled {
@@ -1000,6 +1224,290 @@ function Invoke-CleanDeploySelfTestCases {
     $repoPlay = Join-Path (Join-Path (Join-Path $repo "modern") "data") "PlayDH"
     $repoPak = Join-Path $repoPlay "zz_supplement.pak"
     Assert-CleanDeploySelfTest -Name "self-test does not add zz_supplement.pak to the repo PlayDH" -Condition (-not (Test-Path -LiteralPath $repoPak))
+
+    Invoke-CleanDeploySelfTestPlayDhRootCases -Root $Root -Repo $repo
+}
+
+function Get-CleanDeploySelfTestTreeText {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+    $prefix = $RootPath.TrimEnd('\', '/')
+    $items = @(Get-ChildItem -LiteralPath $RootPath -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+        $_.FullName.Substring($prefix.Length).ToLowerInvariant()
+    })
+    $sorted = @($items | Sort-Object)
+    return ($sorted -join "`n")
+}
+
+function Get-CleanDeploySelfTestDataStamp {
+    param([string]$Repo)
+    $data = Join-Path (Join-Path $Repo "modern") "data"
+    if (-not (Test-Path -LiteralPath $data)) { return "missing" }
+    $names = @(Get-ChildItem -LiteralPath $data -Force | ForEach-Object { $_.Name + "=" + [int]$_.Attributes })
+    return (($names | Sort-Object) -join "|")
+}
+
+function Test-CleanDeploySelfTestReparse {
+    param([string]$LiteralPath)
+    if (-not (Test-Path -LiteralPath $LiteralPath)) { return $false }
+    $item = Get-Item -LiteralPath $LiteralPath -Force
+    return [bool]($item.Attributes -band [IO.FileAttributes]::ReparsePoint)
+}
+
+function Invoke-CleanDeploySelfTestChild {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkRoot,
+        [string[]]$ArgumentList
+    )
+    try {
+        $exe = ""
+        try {
+            $exe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+        } catch {
+            $exe = ""
+        }
+        if ([string]::IsNullOrWhiteSpace($exe)) {
+            $exe = (Get-Process -Id $PID).Path
+        }
+        $quote = [string][char]34
+        $argText = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + $quote + $script:CleanDeployScriptPath + $quote
+        foreach ($one in $ArgumentList) {
+            $escaped = ([string]$one).Replace($quote, ('\' + $quote))
+            $argText = $argText + " " + $quote + $escaped + $quote
+        }
+        $proc = New-Object System.Diagnostics.Process
+        $proc.StartInfo.FileName = $exe
+        $proc.StartInfo.Arguments = $argText
+        $proc.StartInfo.WorkingDirectory = $WorkRoot
+        $proc.StartInfo.UseShellExecute = $false
+        $proc.StartInfo.RedirectStandardOutput = $true
+        $proc.StartInfo.RedirectStandardError = $true
+        $proc.StartInfo.CreateNoWindow = $true
+        [void]$proc.Start()
+        $outTask = $proc.StandardOutput.ReadToEndAsync()
+        $errTask = $proc.StandardError.ReadToEndAsync()
+        $finished = $proc.WaitForExit(90000)
+        if (-not $finished) {
+            try { $proc.Kill() } catch { }
+            [void]$proc.WaitForExit()
+        }
+        $text = [string]$outTask.Result
+        $errText = [string]$errTask.Result
+        if (-not [string]::IsNullOrEmpty($errText)) {
+            if ($text.Length -gt 0) { $text = $text + "`n" }
+            $text = $text + $errText
+        }
+        return [pscustomobject]@{
+            ExitCode = [int]$proc.ExitCode
+            Text = $text
+        }
+    } catch {
+        return [pscustomobject]@{
+            ExitCode = -1
+            Text = [string]$_.Exception.Message
+        }
+    }
+}
+
+function Test-CleanDeployCommercialSmokeEphemeral {
+    param([string]$Text)
+    $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $physical = $normalized.Split([char]10)
+    $logical = New-Object System.Collections.Generic.List[string]
+    $buffer = ""
+    $tick = [string][char]96
+    foreach ($physicalLine in $physical) {
+        $piece = [string]$physicalLine
+        $continued = $false
+        if ($piece.EndsWith($tick)) {
+            $continued = $true
+            if ($piece.Length -gt 0) { $piece = $piece.Substring(0, $piece.Length - 1) }
+        }
+        if ($buffer.Length -eq 0) {
+            $buffer = $piece
+        } else {
+            $buffer = $buffer + " " + $piece.Trim()
+        }
+        if (-not $continued) {
+            [void]$logical.Add($buffer)
+            $buffer = ""
+        }
+    }
+    if ($buffer.Length -gt 0) { [void]$logical.Add($buffer) }
+    $hits = 0
+    $bad = 0
+    foreach ($line in $logical) {
+        $trim = $line.Trim()
+        if ($trim.Length -eq 0) { continue }
+        if ($trim.StartsWith("#")) { continue }
+        if ($trim.Contains("gui-client-smoke.ps1")) {
+            $hits = $hits + 1
+            if (-not $trim.Contains("-EphemeralLocalServer")) { $bad = $bad + 1 }
+        }
+    }
+    return [pscustomobject]@{
+        Hits = $hits
+        Bad = $bad
+    }
+}
+
+function Invoke-CleanDeploySelfTestPlayDhRootCases {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string]$Repo
+    )
+    $fake = Join-Path $Root "fake-repo"
+    $fakeModern = Join-Path $fake "modern"
+    New-Item -ItemType Directory -Path $fakeModern -Force | Out-Null
+    $inside = Join-Path $fake "inside-playdh"
+    New-Item -ItemType Directory -Path $inside -Force | Out-Null
+    $positive = Join-Path $Root "positive-root"
+    New-Item -ItemType Directory -Path $positive -Force | Out-Null
+    $dryDir = Join-Path $Root "dry-root"
+    New-Item -ItemType Directory -Path $dryDir -Force | Out-Null
+    $fakeFull = [System.IO.Path]::GetFullPath($fake)
+    $insideFull = [System.IO.Path]::GetFullPath($inside)
+    $positiveFull = [System.IO.Path]::GetFullPath($positive)
+    $dryFull = [System.IO.Path]::GetFullPath($dryDir)
+    $treeBefore = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $realBefore = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $repoPlay = Join-Path (Join-Path (Join-Path $Repo "modern") "data") "PlayDH"
+    $repoPak = Join-Path $repoPlay "zz_supplement.pak"
+
+    $missingFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot "" -RepoRoot $fakeFull
+    $blankFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot "   " -RepoRoot $fakeFull
+    $missingText = ($missingFn.Lines -join "`n")
+    $blankText = ($blankFn.Lines -join "`n")
+    $missingChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull)
+    $missingTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $missingReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $missingOk = (-not $missingFn.Ok) -and (-not $blankFn.Ok) -and $missingText.Contains("[ERROR] -PlayDhRoot is required") -and $blankText.Contains("[ERROR] -PlayDhRoot is required") -and ($missingChild.ExitCode -ne 0) -and $missingChild.Text.Contains("[ERROR] -PlayDhRoot is required") -and ($missingTree -eq $treeBefore) -and ($missingReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "missing -PlayDhRoot fails with [ERROR] and no write" -Condition $missingOk
+
+    $relativeRaw = "relative\playdh"
+    $relativeDot = ".\PlayDH"
+    $relativeFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $relativeRaw -RepoRoot $fakeFull
+    $relativeDotFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $relativeDot -RepoRoot $fakeFull
+    $relativeText = ($relativeFn.Lines -join "`n")
+    $relativeDotText = ($relativeDotFn.Lines -join "`n")
+    $relativeChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $relativeRaw)
+    $relativeTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $relativeReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $relativeOk = (-not $relativeFn.Ok) -and (-not $relativeDotFn.Ok) -and $relativeText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and $relativeDotText.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeChild.ExitCode -ne 0) -and $relativeChild.Text.Contains("[ERROR] -PlayDhRoot must be an absolute path:") -and ($relativeTree -eq $treeBefore) -and ($relativeReal -eq $realBefore) -and (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "relative -PlayDhRoot fails with [ERROR] and no write" -Condition $relativeOk
+
+    $mxCases = @(
+        "D:\MX",
+        "D:\MX\",
+        "d:\mx\PlayDH",
+        "D:/MX/PlayDH",
+        "D:\foo\..\MX\PlayDH",
+        "D:\MX\.\PlayDH\",
+        "\\?\D:\MX\PlayDH"
+    )
+    $mxAll = $true
+    foreach ($mxCase in $mxCases) {
+        $mxFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $mxCase -RepoRoot $fakeFull
+        $mxFnText = ($mxFn.Lines -join "`n")
+        if ($mxFn.Ok -or -not $mxFnText.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:")) { $mxAll = $false }
+    }
+    $escapedMx = Resolve-CleanDeployPlayDhRoot -PlayDhRoot "D:\MX\..\safe\playdh" -RepoRoot $fakeFull
+    $escapedText = ($escapedMx.Lines -join "`n")
+    $escapedOk = (-not $escapedMx.Ok) -and $escapedText.Contains("[ERROR] -PlayDhRoot must be an existing directory:") -and (-not $escapedText.Contains("under D:\MX"))
+    $mxChildArg = "D:\foo\..\MX\PlayDH"
+    $mxChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $mxChildArg)
+    $mxTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $mxReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $mxCreated = Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"
+    $mxOk = $mxAll -and $escapedOk -and ($mxChild.ExitCode -ne 0) -and $mxChild.Text.Contains("[ERROR] -PlayDhRoot resolves under D:\MX:") -and ($mxTree -eq $treeBefore) -and ($mxReal -eq $realBefore) -and (-not $mxCreated) -and (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot under D:\MX fails with [ERROR] and no write" -Condition $mxOk
+
+    $dottedInside = $insideFull.TrimEnd('\', '/') + "/../inside-playdh/"
+    $insideFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $insideFull -RepoRoot $fakeFull
+    $selfFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $fakeFull -RepoRoot $fakeFull
+    $trailFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot ($insideFull.TrimEnd('\', '/') + "/") -RepoRoot $fakeFull
+    $dottedFn = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $dottedInside -RepoRoot $fakeFull
+    $insideText = ($insideFn.Lines -join "`n")
+    $selfText = ($selfFn.Lines -join "`n")
+    $trailText = ($trailFn.Lines -join "`n")
+    $dottedText = ($dottedFn.Lines -join "`n")
+    $insideChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $insideFull)
+    $insideTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $insideReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $insideOk = (-not $insideFn.Ok) -and (-not $selfFn.Ok) -and (-not $trailFn.Ok) -and (-not $dottedFn.Ok) -and $insideText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $selfText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $trailText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $dottedText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideChild.ExitCode -ne 0) -and $insideChild.Text.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideTree -eq $treeBefore) -and ($insideReal -eq $realBefore) -and (-not (Test-Path -LiteralPath (Join-Path (Join-Path $fakeModern "data") "PlayDH"))) -and (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot inside RepoRoot fails with [ERROR] and no write" -Condition $insideOk
+
+    $positiveResolved = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $positiveFull -RepoRoot $fakeFull
+    $copied = New-CleanDeploySelfTestRun -Root $Root -Name "positive-pak" -WriteSource -SourceBody "positive-pak-bytes" -ShaMode "match-source" -PlayDhRoot $positiveResolved.Path
+    $landed = Join-CleanDeployPath -Parent $positiveResolved.Path -Child "zz_supplement.pak"
+    $landedOk = $false
+    $landedHash = ""
+    $sourceHash = ""
+    if (Test-Path -LiteralPath $landed) { $landedHash = Get-CleanDeploySha256 -LiteralPath $landed }
+    if (Test-Path -LiteralPath $copied.Source) { $sourceHash = Get-CleanDeploySha256 -LiteralPath $copied.Source }
+    if (($landedHash -ne "") -and ($landedHash -eq $sourceHash)) { $landedOk = $true }
+    $dryCopy = New-CleanDeploySelfTestRun -Root $Root -Name "dry-external" -WriteSource -SourceBody "dry-pak-bytes" -ShaMode "match-source" -PlayDhRoot $dryFull -DryRun
+    $dryPak = Join-CleanDeployPath -Parent $dryFull -Child "zz_supplement.pak"
+    $dryCopyText = ($dryCopy.Result.Lines -join "`n")
+    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipTests", "-SkipSmoke")
+    $rootLine = "[INFO] PlayDH root: " + $positiveResolved.Path
+    $positiveTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
+    $positiveReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
+    $fakePlay = Join-Path (Join-Path $fakeModern "data") "PlayDH"
+    $junctionNeedle = "New-Item -ItemType " + "Junction"
+    $linkToolNeedle = "mk" + "link"
+    $scriptText = ""
+    if (-not [string]::IsNullOrWhiteSpace($script:CleanDeployScriptPath) -and (Test-Path -LiteralPath $script:CleanDeployScriptPath)) {
+        $scriptText = Read-CleanDeployUtf8Text -Path $script:CleanDeployScriptPath
+    }
+    $noJunctionCmd = (-not $scriptText.Contains($junctionNeedle)) -and (-not $scriptText.ToLowerInvariant().Contains($linkToolNeedle))
+    $positiveReparse = Test-CleanDeploySelfTestReparse -LiteralPath $positiveResolved.Path
+    $repoReparse = Test-CleanDeploySelfTestReparse -LiteralPath $repoPlay
+    $childReparse = $false
+    foreach ($childItem in @(Get-ChildItem -LiteralPath $positiveResolved.Path -Recurse -Force -ErrorAction SilentlyContinue)) {
+        if ($childItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { $childReparse = $true }
+    }
+    $positiveOk = $positiveResolved.Ok -and $copied.Result.Ok -and $landedOk -and (-not (Test-Path -LiteralPath $repoPak)) -and (-not (Test-Path -LiteralPath $fakePlay)) -and (-not $positiveReparse) -and (-not $repoReparse) -and (-not $childReparse) -and $noJunctionCmd -and ($positiveTree -eq $treeBefore) -and ($positiveReal -eq $realBefore) -and $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy") -and $dryChild.Text.Contains($rootLine) -and (-not $dryChild.Text.Contains("[ERROR]"))
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot receives the pak and creates no repo PlayDH junction" -Condition $positiveOk
+
+    $savedPlay = $env:MXH_PLAYDH_ROOT
+    $hadPlay = $false
+    if ($null -ne $savedPlay) { $hadPlay = $true }
+    $envOk = $false
+    try {
+        $env:MXH_PLAYDH_ROOT = "preset-playdh-value"
+        $dryPub = Publish-CleanDeployPlayDhRoot -Path $positiveResolved.Path -DryRun
+        $dryPubText = ($dryPub.Lines -join "`n")
+        $stillPreset = ($env:MXH_PLAYDH_ROOT -eq "preset-playdh-value")
+        $livePub = Publish-CleanDeployPlayDhRoot -Path $positiveResolved.Path
+        $liveText = ($livePub.Lines -join "`n")
+        $envAssign = '$env:MXH_PLAYDH_ROOT = $Path'
+        $envOk = $stillPreset -and $dryPubText.Contains($rootLine) -and $dryPubText.Contains("(dry-run)") -and ($env:MXH_PLAYDH_ROOT -eq $positiveResolved.Path) -and $liveText.Contains("[INFO] MXH_PLAYDH_ROOT=" + $positiveResolved.Path) -and $scriptText.Contains($envAssign)
+    } finally {
+        if ($hadPlay) {
+            $env:MXH_PLAYDH_ROOT = $savedPlay
+        } else {
+            Remove-Item -Path "Env:MXH_PLAYDH_ROOT" -ErrorAction SilentlyContinue
+        }
+    }
+    Assert-CleanDeploySelfTest -Name "MXH_PLAYDH_ROOT is set from -PlayDhRoot and dry-run leaves it unchanged" -Condition $envOk
+
+    $smokePath = Join-Path $script:CleanDeployScriptRoot "commercial-smoke.ps1"
+    $smokeText = ""
+    if (Test-Path -LiteralPath $smokePath) {
+        $smokeText = Read-CleanDeployUtf8Text -Path $smokePath
+    }
+    $ephemeral = Test-CleanDeployCommercialSmokeEphemeral -Text $smokeText
+    $ephemeralOk = ($ephemeral.Hits -ge 1) -and ($ephemeral.Bad -eq 0)
+    Assert-CleanDeploySelfTest -Name "commercial-smoke passes -EphemeralLocalServer to gui-client-smoke" -Condition $ephemeralOk
+
+    $cmdPath = Join-Path $script:CleanDeployScriptRoot "clean-deploy.cmd"
+    if (Test-Path -LiteralPath $cmdPath -PathType Leaf) {
+        $cmdText = [System.IO.File]::ReadAllText($cmdPath)
+        $cmdOk = $cmdText.Contains("%*") -and $cmdText.Contains("clean-deploy.ps1") -and $cmdText.Contains('set "PSModulePath="')
+        Assert-CleanDeploySelfTest -Name "clean-deploy.cmd forwards arguments including -PlayDhRoot" -Condition $cmdOk
+    } else {
+        Write-CleanDeploySelfTestSkip -Name "clean-deploy.cmd forwards arguments including -PlayDhRoot"
+    }
 }
 
 function Invoke-CleanDeploySelfTest {
@@ -1044,6 +1552,12 @@ $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
 if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot "modern"))) {
     Fail "RepoRoot does not look like a moxiang checkout: $RepoRoot"
 }
+
+# Refuse a bad -PlayDhRoot before preflight, prereq install, pak copy, or build.
+$resolvedPlayDh = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $PlayDhRoot -RepoRoot $RepoRoot
+if (-not $resolvedPlayDh.Ok) { exit 1 }
+$script:CleanDeployChosenPlayDhRoot = $resolvedPlayDh.Path
+[void](Publish-CleanDeployPlayDhRoot -Path $script:CleanDeployChosenPlayDhRoot -DryRun:$DryRun)
 
 # ----------------------------------------------------------------------------
 # Step 1: preflight
@@ -1124,70 +1638,24 @@ if ($missing.Count -gt 0 -and -not $InstallPrereqs) {
 
 
 # ----------------------------------------------------------------------------
-# Step 3: PlayDH junction
+# Step 3: PlayDH root
+# -PlayDhRoot was validated above. Do not create or modify modern/data/PlayDH.
 # ----------------------------------------------------------------------------
 
-Step "PlayDH junction"
-$dataDir      = Join-Path $RepoRoot "modern\data"
-$playdhLink   = Join-Path $dataDir "PlayDH"
-$playdhTarget = Join-Path $RepoRoot (Join-CleanDeployPath -Parent (Get-CleanDeployLegacyPlayDhDirName) -Child "PlayDH")
-
-if (-not (Test-Path -LiteralPath $playdhTarget)) {
-    Warn "PlayDH source not found at: $playdhTarget"
-    Warn "PlayDH-dependent ctest cases will be skipped"
-} else {
-    if (-not (Test-Path -LiteralPath $dataDir)) {
-        if ($DryRun) {
-            Info "would mkdir $dataDir"
-        } else {
-            New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
-        }
-    }
-
-    $needsLink = $true
-    if (Test-Path -LiteralPath $playdhLink) {
-        $item = Get-Item -LiteralPath $playdhLink -Force
-        if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-            $existingTarget = $item.Target | Select-Object -First 1
-            if ($existingTarget -eq $playdhTarget) {
-                Ok "junction already correct: $playdhLink"
-                $needsLink = $false
-            } elseif ($Force) {
-                if ($DryRun) {
-                    Info "would remove stale junction $playdhLink"
-                } else {
-                    Remove-Item -LiteralPath $playdhLink -Force
-                }
-            } else {
-                Warn "junction target differs ($existingTarget); rerun with -Force to reset"
-                $needsLink = $false
-            }
-        } else {
-            Warn "$playdhLink exists and is not a junction; rerun with -Force to replace"
-            $needsLink = $false
-        }
-    }
-
-    if ($needsLink) {
-        if ($DryRun) {
-            Info "would create junction $playdhLink -> $playdhTarget"
-        } else {
-            New-Item -ItemType Junction -Path $playdhLink -Target $playdhTarget | Out-Null
-            Ok "junction created: $playdhLink -> $playdhTarget"
-        }
-    }
-}
+Step "PlayDH root"
+Info ("-PlayDhRoot " + $script:CleanDeployChosenPlayDhRoot)
+Ok "PlayDH root accepted"
 
 
 # ----------------------------------------------------------------------------
 # Step 3b: supplemental pak
 # The source path is the buildPath field. The pak description is not parsed.
-# The pak itself stays outside the repo until this copy into the PlayDH root.
+# The pak itself stays outside the repo until this copy into -PlayDhRoot.
 # ----------------------------------------------------------------------------
 
 Step "supplemental pak"
 $supplementManifest = Join-Path $RepoRoot "reference\manifests\playdh-supplemental-fill.json"
-$supplement = Invoke-CleanDeploySupplementPak -ManifestPath $supplementManifest -PlayDhRoot $playdhLink -DryRun:$DryRun
+$supplement = Invoke-CleanDeploySupplementPak -ManifestPath $supplementManifest -PlayDhRoot $script:CleanDeployChosenPlayDhRoot -DryRun:$DryRun
 if ($null -eq $supplement) { exit 1 }
 $script:CleanDeploySupplementExpectedFilled = [bool]$supplement.ExpectedFilled
 if (-not $supplement.Ok) { exit 1 }
@@ -1286,7 +1754,7 @@ if ($script:CleanDeploySupplementExpectedFilled) {
 Step "summary"
 Info "Repo:               $RepoRoot"
 Info "Config:             $Config"
-Info "PlayDH junction:    $playdhLink"
+Info ("PlayDH root:        " + $script:CleanDeployChosenPlayDhRoot)
 Info ("ctest:              {0}" -f $(if ($SkipTests) { "SKIPPED" } else { "PASSED" }))
 Info ("commercial-smoke:   {0}" -f $(if ($SkipSmoke) { "SKIPPED" } else { "PASSED" }))
 Info "Next step (manual): scripts/start-server.ps1 -Mode start (legacy stack) OR launch modern mxh_* servers from modern\build\bin"
