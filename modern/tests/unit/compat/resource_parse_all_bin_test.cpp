@@ -3,16 +3,25 @@
 //
 // Phase E1 / C-Batch-E1: targets all 59 deploy/Resource .bin files
 // (the legacy server shipping set). Each file is opened via
-// read_mh_bin. A plain SWorking file must return MhError::Ok, with the
-// payload size checked against header.file_size. An installed obfuscated
-// container is refused (message contains "obfuscated container") and is
-// not decoded.
+// read_mh_bin. The project baseline is plain SWorking: every file must
+// return MhError::Ok, and the payload size is checked against
+// header.file_size. Misclassifying a real SWorking .bin as an obfuscated
+// container fails the test.
+//
+// The installed client tree is the existing resource profile
+// playdh-current. Set MXH_RESOURCE_PROFILE=playdh-current only when the
+// resource directory (MXH_PLAYDH_ROOT, or the upward search) is that
+// installed tree. That is the only setting that accepts
+// MhError::ObfuscatedContainer as a refusal: the message must contain
+// "obfuscated container" and the payload stays empty. Unset, empty,
+// sworking-2008-reference, and any other value stay strict.
 
 #include "mxh/compat/mh_file_ex.hpp"
 
 #define _SILENCE_CXX20_U8PATH_DEPRECATION_WARNING
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -91,12 +100,25 @@ fs::path find_server_resource_dir() {
     return {};
 }
 
-// Plain files continue into the caller's size checks. An obfuscated
-// container is a successful refusal: stop before those checks, which
-// describe a decoded payload this reader must not produce.
+// Installed-client assertion profile. Reuses the resource profile id
+// playdh-current (see ClientSettings / read_server_mh_bin). This does not
+// change find_resource_dir(); point that search with MXH_PLAYDH_ROOT.
+// Default and every other MXH_RESOURCE_PROFILE value are the SWorking
+// baseline and require ok().
+inline bool resource_profile_accepts_obfuscated_container() {
+    const char* value = std::getenv("MXH_RESOURCE_PROFILE");
+    return value != nullptr && std::string(value) == "playdh-current";
+}
+
+// Plain files continue into the caller's size checks. ObfuscatedContainer
+// is a successful refusal only for MXH_RESOURCE_PROFILE=playdh-current;
+// stop before the payload-size checks, which describe a decoded body this
+// reader must not produce. Otherwise ObfuscatedContainer fails
+// ASSERT_TRUE(ok()), same as any other read error.
 #define MXH_EXPECT_PLAIN_OR_OBFUSCATED(result, name)                           \
     do {                                                                       \
-        if ((result).error == mxh::compat::MhError::ObfuscatedContainer) {    \
+        if (resource_profile_accepts_obfuscated_container() &&                 \
+            (result).error == mxh::compat::MhError::ObfuscatedContainer) {    \
             EXPECT_NE((result).message.find("obfuscated container"),          \
                       std::string::npos)                                       \
                 << (name) << " " << (result).message;                          \
