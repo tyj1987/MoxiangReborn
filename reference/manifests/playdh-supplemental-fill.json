@@ -163,93 +163,93 @@
       "ticket": "TYJ-148"
     },
     {
-      "name": "202_bigtree_01.MOD",
+      "name": "202_bigtree_01.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "2bfe658651c92fa512fc70253e2f259b68d1bd0884179debdd53d8718e0cd763",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_grass_01.MOD",
+      "name": "202_grass_01.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "bf07e2d4d389cd3f27935a79ff5dcb557a6b4dc8dbb67a928518afb08d553031",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_01.MOD",
+      "name": "202_tree_01.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "512646e748b71286a7a528af614326e4b9446e3cd5c05131beb6ab1a6d18492c",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_02.MOD",
+      "name": "202_tree_02.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "0ac4aee3ddb9a6b8a64e0e87bbe18d6e32bbdb8ce90d8d9795d45662205b55e5",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_03.MOD",
+      "name": "202_tree_03.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "dab011b47e1a5dfa2b9cba1046a0a664e0ff736210474a1429671a3abed698cd",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_04.MOD",
+      "name": "202_tree_04.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "9387cafbf6d51ce30d44994725d0167900702a942ebc5372e589906ff1f98065",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_05.MOD",
+      "name": "202_tree_05.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "f3c43803cf703f86ecdb00ff51efc4ea11229f5af2ea943434ae81d7fd69e7fb",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_06.MOD",
+      "name": "202_tree_06.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "4db1d8303a48dd24223c980bf815a198bfb9d055ef096ca06e2bc356f2f80709",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_tree_07.MOD",
+      "name": "202_tree_07.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "2654a3321737cc911892c415518a04947201c28db4ba0946b82f05333411d81c",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_treewall_00.MOD",
+      "name": "202_treewall_00.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "d4029f62f1f1e7de6d28f2e9c7620253e97ba015b7a033c3568dd3a59e1dc7eb",
       "ticket": "TYJ-149"
     },
     {
-      "name": "202_treewall_01.MOD",
+      "name": "202_treewall_01.mod",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "6205a5ca6d5fd16ef560c25f63180089e6073db1630f71fcfc8e0e018d330756",
       "ticket": "TYJ-149"
     },
     {
       "name": "401.hfl",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8",
       "ticket": "TYJ-149"
     },
     {
       "name": "401.stm",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "175f50af06adc4eedb778c418a8a1842f3df6d4af4768caec09b052666040645",
       "ticket": "TYJ-149"
     },
     {
       "name": "big_tree201_eff.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "5d132aa61fe04d069b305a210e25154bfeb6415e0e1dabaa4fc088571cc11c91",
       "ticket": "TYJ-149"
     },
     {
       "name": "big_tree201_eff_01.chr",
       "sourcePak": "MX/client/Package/3DData/Map.pak",
-      "sha256": null,
+      "sha256": "bb2d478d09064bd759dd584281c999fe2ab7ac8ec05b051f29b4096d67949255",
       "ticket": "TYJ-149"
     },
     {
