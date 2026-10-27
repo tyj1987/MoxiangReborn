@@ -75,6 +75,32 @@ original_governance_and_python_tests:
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
 
+rog_gate_self_test:
+  extends: .linux_trusted
+  image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+  script:
+    - |
+      set -eu
+      pwsh_dir="$(mktemp -d)"
+      pwsh_tarball="${pwsh_dir}/powershell-7.6.9-linux-x64.tar.gz"
+      curl -fsSL -o "${pwsh_tarball}" "https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/powershell-7.6.9-linux-x64.tar.gz"
+      echo "1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b  ${pwsh_tarball}" | sha256sum -c -
+      tar -xzf "${pwsh_tarball}" -C "${pwsh_dir}"
+      export PATH="${pwsh_dir}:${PATH}"
+      export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+      pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+      pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
+
 original_lfs_integrity:
   extends: .linux_trusted
   stage: resources
