@@ -81,6 +81,14 @@
 
 .EXAMPLE
     PS> powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1 -DryRun
+
+.NOTES
+    Launch scripts\clean-deploy.cmd from a PowerShell 7 remote shell.
+    That launcher clears PSModulePath before Windows PowerShell 5.1
+    (powershell.exe). A leaked PSModulePath hides Get-FileHash.
+
+.EXAMPLE
+    PS> scripts\clean-deploy.cmd -SelfTest
 #>
 
 [CmdletBinding()]
@@ -777,6 +785,47 @@ function New-CleanDeploySelfTestRun {
 function Invoke-CleanDeploySelfTestCases {
     param([Parameter(Mandatory = $true)][string]$Root)
 
+    $hashOk = $false
+    $hashFile = Join-Path ([System.IO.Path]::GetTempPath()) ("clean-deploy-hash-" + [Guid]::NewGuid().ToString("N") + ".txt")
+    try {
+        $hashCommand = Get-Command -Name Get-FileHash -ErrorAction SilentlyContinue
+        if ($null -ne $hashCommand) {
+            $utf8Hash = New-Object System.Text.UTF8Encoding $false
+            [System.IO.File]::WriteAllText($hashFile, "clean-deploy", $utf8Hash)
+            $hash = Get-FileHash -LiteralPath $hashFile -Algorithm SHA256
+            $hashText = [string]$hash.Hash
+            $hashOk = ($hashText -match "^[0-9A-Fa-f]{64}$")
+        }
+    } catch {
+        $hashOk = $false
+    } finally {
+        if (Test-Path -LiteralPath $hashFile) {
+            Remove-Item -LiteralPath $hashFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    if (-not $hashOk) {
+        Write-Host "Get-FileHash is not available. Clear PSModulePath or launch scripts\clean-deploy.cmd before Windows PowerShell 5.1."
+    }
+    Assert-CleanDeploySelfTest -Name "Get-FileHash is available (use clean-deploy.cmd if PSModulePath hides it)" -Condition $hashOk
+
+    $launcherPath = Join-Path $script:CleanDeployScriptRoot "clean-deploy.cmd"
+    $launcherOk = $false
+    if (Test-Path -LiteralPath $launcherPath -PathType Leaf) {
+        $launcherBytes = [System.IO.File]::ReadAllBytes($launcherPath)
+        $launcherAscii = $true
+        if ($launcherBytes.Length -ge 3) {
+            if (($launcherBytes[0] -eq 0xEF) -and ($launcherBytes[1] -eq 0xBB) -and ($launcherBytes[2] -eq 0xBF)) {
+                $launcherAscii = $false
+            }
+        }
+        foreach ($launcherByte in $launcherBytes) {
+            if (([int]$launcherByte) -gt 127) { $launcherAscii = $false }
+        }
+        $launcherText = [System.IO.File]::ReadAllText($launcherPath)
+        $launcherOk = $launcherAscii -and ($launcherText.Contains('set "PSModulePath="')) -and ($launcherText.Contains("powershell.exe")) -and ($launcherText.Contains("clean-deploy.ps1"))
+    }
+    Assert-CleanDeploySelfTest -Name "clean-deploy.cmd clears PSModulePath before powershell.exe" -Condition $launcherOk
+
     $mismatch = New-CleanDeploySelfTestRun -Root $Root -Name "mismatch" -WriteSource -SourceBody "mismatch-bytes" -WriteTarget -TargetBody "keep-target" -ShaMode "zeros"
     $mismatchHash = Get-CleanDeploySha256 -LiteralPath $mismatch.Source
     $mismatchTargetHash = Get-CleanDeploySha256 -LiteralPath $mismatch.Target
@@ -959,6 +1008,14 @@ function Invoke-CleanDeploySelfTestCases {
     $oldParser = "Get-CleanDeploySupplement" + "SourceFromManifest"
     $syntaxOk = (-not $scriptText.Contains($banned)) -and (-not $scriptText.Contains($parallel))
     Assert-CleanDeploySelfTest -Name "script stays on Windows PowerShell 5.1 syntax" -Condition $syntaxOk
+    $notesStart = $scriptText.IndexOf(".NOTES")
+    $notesEnd = $scriptText.IndexOf("#>")
+    $notesRegion = ""
+    if (($notesStart -ge 0) -and ($notesEnd -gt $notesStart)) {
+        $notesRegion = $scriptText.Substring($notesStart, ($notesEnd - $notesStart))
+    }
+    $launcherMention = ($notesRegion.IndexOf("clean-deploy.cmd") -ge 0) -and ($notesRegion.IndexOf("PSModulePath") -ge 0)
+    Assert-CleanDeploySelfTest -Name "help mentions clean-deploy.cmd and PSModulePath" -Condition $launcherMention
     Assert-CleanDeploySelfTest -Name "script does not select a smoke log by LastWriteTime" -Condition (-not $scriptText.Contains($newestNeedle))
     Assert-CleanDeploySelfTest -Name "script does not parse the pak description" -Condition (-not $scriptText.Contains($oldParser))
 
