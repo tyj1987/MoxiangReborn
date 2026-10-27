@@ -97,6 +97,9 @@
 #include "mxh/server/quest_script_loader.hpp"
 #include "mxh/game/npc_role.hpp"
 
+#include "../../tests/support/e2e_ports.hpp"
+#include "../../tests/support/playdh_env.hpp"
+
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -107,6 +110,7 @@
 #include <cstring>
 #include <filesystem>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -150,10 +154,13 @@ struct CliArgs {
     std::string agent_host;  // empty = LoginAck agent_addr, else override
     std::string map_host;    // reserved; GameIn uses persistent AgentSession
     bool login_host_explicit = false;
-    int login_port = 16001;
-    int agent_port = 17001;
-    int map_port = 18001;
-    int map12_port = 18002;
+    // MXH_E2E_PORT_BASE, read at startup, replaces these when a port flag is
+    // omitted. Resolved ports must be in 1024..65535. 16001/17001/18001 and
+    // 36001/37001/38001 are refused before any server starts.
+    int login_port = mxh::test::kE2eDefaultLoginPort;
+    int agent_port = mxh::test::kE2eDefaultAgentPort;
+    int map_port = mxh::test::kE2eDefaultMapPort;
+    int map12_port = mxh::test::kE2eDefaultMap12Port;
     bool dump_cli = false;
     int  timeout_s = 10;
     int  map_number = 10;
@@ -187,27 +194,10 @@ std::string resolve_server_exe(const char* argv0,
 }
 
 std::filesystem::path find_e2e_playdh_root(const std::string& map_exe) {
-    std::error_code ec;
-    std::vector<std::filesystem::path> bases;
-    bases.push_back(std::filesystem::current_path(ec));
-    auto base = std::filesystem::absolute(std::filesystem::path(map_exe), ec).parent_path();
-    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        bases.push_back(base);
-        const auto parent = base.parent_path();
-        if (parent == base) break;
-        base = parent;
-    }
-    for (const auto& candidate_base : bases) {
-        for (const auto& root : {
-                 candidate_base / "modern" / "data" / "PlayDH",
-                 candidate_base / "data" / "PlayDH"}) {
-            if (std::filesystem::exists(root / "Resource" / "Server") &&
-                std::filesystem::exists(root / "Image" / "InterfaceScript")) {
-                return std::filesystem::weakly_canonical(root, ec);
-            }
-        }
-    }
-    return {};
+    // MXH_PLAYDH_ROOT replaces the upward search. A set value that is empty,
+    // not a directory, or missing Resource/Server or Image/InterfaceScript
+    // throws; it must not fall back or be skipped.
+    return mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
 }
 
 CliArgs parse_cli(int argc, char** argv) {
@@ -223,6 +213,10 @@ CliArgs parse_cli(int argc, char** argv) {
     // MSSQL default matches the verified LocalDB command from the P0 E2E:
     //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
     a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;encrypt=no;trust_server_certificate=yes;";
+    bool login_port_explicit = false;
+    bool agent_port_explicit = false;
+    bool map_port_explicit = false;
+    bool map12_port_explicit = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view s = argv[i];
         if      (s == "--login-exe" && i + 1 < argc) a.login_exe = argv[++i];
@@ -245,10 +239,22 @@ CliArgs parse_cli(int argc, char** argv) {
         }
         else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
         else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
-        else if (s == "--login-port" && i + 1 < argc) a.login_port = std::atoi(argv[++i]);
-        else if (s == "--agent-port" && i + 1 < argc) a.agent_port = std::atoi(argv[++i]);
-        else if (s == "--map-port" && i + 1 < argc) a.map_port = std::atoi(argv[++i]);
-        else if (s == "--map12-port" && i + 1 < argc) a.map12_port = std::atoi(argv[++i]);
+        else if (s == "--login-port" && i + 1 < argc) {
+            a.login_port = std::atoi(argv[++i]);
+            login_port_explicit = true;
+        }
+        else if (s == "--agent-port" && i + 1 < argc) {
+            a.agent_port = std::atoi(argv[++i]);
+            agent_port_explicit = true;
+        }
+        else if (s == "--map-port" && i + 1 < argc) {
+            a.map_port = std::atoi(argv[++i]);
+            map_port_explicit = true;
+        }
+        else if (s == "--map12-port" && i + 1 < argc) {
+            a.map12_port = std::atoi(argv[++i]);
+            map12_port_explicit = true;
+        }
         else if (s == "--map-number" && i + 1 < argc) a.map_number = std::atoi(argv[++i]);
         else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
@@ -281,12 +287,26 @@ CliArgs parse_cli(int argc, char** argv) {
         }
         a.password = value;
     }
-    const int ports[] = {a.login_port, a.agent_port, a.map_port, a.map12_port};
-    for (const int port : ports) {
-        if (port < 1 || port > 65535) {
-            std::fprintf(stderr, "port must be in 1..65535\n");
-            std::exit(3);
-        }
+    try {
+        const auto resolved = mxh::test::resolve_e2e_cli_ports(
+            std::getenv(mxh::test::kE2ePortBaseEnv),
+            login_port_explicit, a.login_port,
+            agent_port_explicit, a.agent_port,
+            map_port_explicit, a.map_port,
+            map12_port_explicit, a.map12_port);
+        a.login_port = resolved.login;
+        a.agent_port = resolved.agent;
+        a.map_port = resolved.map;
+        a.map12_port = resolved.map12;
+    } catch (const std::runtime_error& error) {
+        std::fprintf(stderr, "%s\n", error.what());
+        std::exit(3);
+    }
+    const auto rejected = mxh::test::e2e_ports_reject_reason(
+        a.login_port, a.agent_port, a.map_port, a.map12_port);
+    if (!rejected.empty()) {
+        std::fprintf(stderr, "%s\n", rejected.c_str());
+        std::exit(3);
     }
     if (a.login_port == a.agent_port || a.login_port == a.map_port ||
         a.login_port == a.map12_port || a.agent_port == a.map_port ||
@@ -579,7 +599,13 @@ int run_e2e(const CliArgs& cli) {
         LOG("WSAStartup failed (err=%d)", rc);
         return 1;
     }
-    const auto e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    std::filesystem::path e2e_playdh_root;
+    try {
+        e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    } catch (const std::runtime_error& error) {
+        LOG("%s", error.what());
+        return 3;
+    }
     if (e2e_playdh_root.empty()) {
         LOG("unable to locate canonical PlayDH root for MapServer");
         return 3;
@@ -743,7 +769,13 @@ int run_e2e(const CliArgs& cli) {
     // servers so GameIn exercises the real UI/effect dependency gate rather
     // than falling back to a headless "root missing" path.
     {
-        const auto root = find_e2e_playdh_root(cli.map_exe);
+        std::filesystem::path root;
+        try {
+            root = find_e2e_playdh_root(cli.map_exe);
+        } catch (const std::runtime_error& error) {
+            LOG("%s", error.what());
+            return 3;
+        }
         if (!root.empty()) {
             engine.SetPlaydhRoot(root);
             LOG("using explicit PlayDH root: %s",

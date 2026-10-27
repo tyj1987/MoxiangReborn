@@ -30,6 +30,15 @@ target_compile_features(mxh_playdh_env_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_playdh_env_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# MoxianClientE2E port base. Header-only; no servers and no Win32.
+add_executable(mxh_e2e_ports_tests
+    e2e_ports_test.cpp
+)
+target_link_libraries(mxh_e2e_ports_tests PRIVATE gtest_main)
+target_compile_features(mxh_e2e_ports_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_e2e_ports_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
