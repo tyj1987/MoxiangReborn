@@ -325,7 +325,12 @@ FilesystemFileStorage::Location FilesystemFileStorage::locate(const char* name) 
     if (!name || !*name) return out;
     std::string normalized(name);
     std::replace(normalized.begin(), normalized.end(), '/', '\\');
-    const std::string basename = std::filesystem::path(normalized).filename().string();
+    // Pak entry names use '\\'. std::filesystem::path only splits on '\\'
+    // on Windows, so take the last separator explicitly.
+    const auto slash = normalized.find_last_of('\\');
+    const std::string basename = slash == std::string::npos
+                                     ? normalized
+                                     : normalized.substr(slash + 1);
     for (std::size_t i = 0; i < packs_.size(); ++i) {
         const auto* entry = packs_[i]->find(normalized);
         if ((!entry || !packs_[i]->has_payload(*entry)) && basename != normalized)
