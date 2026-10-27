@@ -1683,7 +1683,9 @@ function Test-RogGateSkipReasonLine {
 
 function Get-RogGateSkipReasonWalk {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string[]]$Lines,
         [Parameter(Mandatory = $true)][int]$Index,
         [Parameter(Mandatory = $true)][int]$Direction
     )
@@ -1726,7 +1728,9 @@ function Get-RogGateSkipReasonWalk {
 
 function Get-RogGateSkipReasonAround {
     param(
-        [Parameter(Mandatory = $true)][string[]]$Lines,
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string[]]$Lines,
         [Parameter(Mandatory = $true)][int]$Index
     )
 
@@ -1854,11 +1858,13 @@ function Split-RogGateLogLines {
     param([AllowEmptyString()][string]$Text)
 
     if ([string]::IsNullOrEmpty($Text)) {
-        return ,@()
+        return @()
     }
     # CTest on Windows writes CRLF. A lone CR is treated as a break too.
     $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
-    return ,@([regex]::Split($normalized, "`n"))
+    # Return the lines themselves. A wrapped array becomes one element and
+    # strict mode then cannot see properties on the rows built from it.
+    return [regex]::Split($normalized, "`n")
 }
 
 function Test-RogGateLastTestTestingHeader {
@@ -1913,6 +1919,7 @@ function Test-RogGateLastTestTestHeader {
 
 function Get-RogGateSkipReasonForName {
     param(
+        [AllowEmptyString()]
         [string[]]$Lines,
         [Parameter(Mandatory = $true)][string]$Name
     )
@@ -1986,7 +1993,7 @@ function Get-RogGateLastTestSkipReasons {
         })
         $index = $bodyEnd
     }
-    return ,@($rows.ToArray())
+    return $rows.ToArray()
 }
 
 function Get-RogGateLastTestReasonText {
@@ -3555,7 +3562,9 @@ function Invoke-RogGateSelfTest {
 
     function Join-RogGateSelfTestLog {
         param(
-            [Parameter(Mandatory = $true)][string[]]$Lines,
+            [Parameter(Mandatory = $true)]
+            [AllowEmptyString()]
+            [string[]]$Lines,
             [Parameter(Mandatory = $true)][string]$Separator
         )
         return ($Lines -join $Separator)
