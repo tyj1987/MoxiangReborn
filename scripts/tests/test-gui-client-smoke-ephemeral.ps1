@@ -269,6 +269,19 @@ try {
 } finally {
     $anyHolder.Stop()
 }
+# [::] listener: must be reported as port-in-use too.
+if ([System.Net.Sockets.Socket]::OSSupportsIPv6) {
+    $v6Holder = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::IPv6Any, [int]$customPlan.AgentPort)
+    $v6Holder.Start()
+    try {
+        $v6Violation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
+        Assert-True ($v6Violation -eq "ephemeral safety: port-in-use $($customPlan.AgentPort)") "[::] listener reported '$v6Violation'"
+    } finally {
+        $v6Holder.Stop()
+    }
+} else {
+    Write-Output '[ephemeral] skip [::] listener case: IPv6 not supported'
+}
 $freeViolation = Get-EphemeralPortInUseViolation -Ports @($customPlan.Ports)
 Assert-True ([string]::IsNullOrEmpty($freeViolation)) "free plan rejected: $freeViolation"
 

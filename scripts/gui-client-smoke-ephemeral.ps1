@@ -364,22 +364,32 @@ function Resolve-EphemeralPortPlan {
 
 function Test-EphemeralPortOccupied {
     param([Parameter(Mandatory)][int]$Port)
-    # A port counts as occupied if any TCP listener (any address, IPv4 or IPv6)
-    # already uses it, or if 127.0.0.1 can't be bound. Windows lets 127.0.0.1
-    # bind while another socket listens on 0.0.0.0, so the bind probe alone is
-    # not enough there. We never bind 0.0.0.0 ourselves (that can raise a
-    # firewall prompt on Windows).
+    # Occupied if any of these holds:
+    # 1. GetActiveTcpListeners() lists the port on 0.0.0.0, 127.0.0.1, :: or ::1
+    #    (main check: Windows does not set ExclusiveAddressUse by default, so a
+    #    127.0.0.1 bind can still succeed while another socket holds 0.0.0.0);
+    # 2. an ExclusiveAddressUse bind of 127.0.0.1 fails;
+    # 3. an ExclusiveAddressUse bind of 0.0.0.0 (IPAddress.Any) fails.
+    $watched = @(
+        [System.Net.IPAddress]::Any,
+        [System.Net.IPAddress]::Loopback,
+        [System.Net.IPAddress]::IPv6Any,
+        [System.Net.IPAddress]::IPv6Loopback
+    )
     try {
         $active = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
         foreach ($endpoint in @($active)) {
-            if ($endpoint.Port -eq $Port) { return $true }
+            if ($endpoint.Port -ne $Port) { continue }
+            foreach ($address in $watched) {
+                if ($endpoint.Address.Equals($address)) { return $true }
+            }
         }
     } catch {}
-    foreach ($address in @([System.Net.IPAddress]::Loopback)) {
+    foreach ($address in @([System.Net.IPAddress]::Loopback, [System.Net.IPAddress]::Any)) {
         $listener = $null
         try {
             $listener = [System.Net.Sockets.TcpListener]::new($address, $Port)
-            try { $listener.ExclusiveAddressUse = $true } catch {}
+            $listener.ExclusiveAddressUse = $true
             $listener.Start()
         } catch {
             return $true
