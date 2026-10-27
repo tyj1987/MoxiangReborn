@@ -134,3 +134,19 @@ python modern/tools/unpack_pak.py D:\MX\client\Package\3DData\Map.pak --named --
 `resource_reference_gate.py derive` 遇到没有明文节标记、且字节符合上述布局（uint32 长度等于整个条目长度，不以 `GX_` 开头，正文非空，不含明文节标记（不按可打印比例判断，部分真实混淆正文 XOR 后可打印字符超过 85%）；见 `original-map-obfuscation.md`）的 `.map` 时，`derivation.unparsed` 的 reason 记为纯字符串 `obfuscated-map`，不记录任何头部字节，不解码正文。不符合布局的仍记原来的 `map did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT`。`derivation.unparsedSummary` 只按 reason 计数。`check` 照旧把每条 unparsed 记为 no conclusion。
 
 逐文件头的统计只能在持有原版文件的机器上用 `derive --local-header-stats` 打印到 stdout，不写入清单；CI 不得传此参数，输出不得提交或粘贴到 CI/issue。
+
+### 资源引用检查与 Git LFS 指针包（TYJ-147）
+
+`resource_reference_gate.py check` 建索引时，文件内容以 `version https://git-lfs.github.com/spec/v1` 开头才算 LFS 指针（不按大小判断）。指针 `.pak` 读不到条目，其中的名字不进索引。对 original 存在的引用，判定顺序：
+
+1. 索引里有完全同大小写的基名：`present`。
+2. 只有大小写折叠后才匹配（Windows 规则）：仍算 `present`，另列 `caseMismatch`（severity minor）。索引保留原始大小写。
+3. 该基名本身是指针文件：`noConclusion`（原有行为）。
+4. root 下有一个或多个指针 `.pak`：记入 `pakLfsPointer`（reason `pak-lfs-pointer`），单独计数，既不算 missing 也不算 present，结论为 no conclusion。
+   规则：清单不记录引用属于哪个包，同一类名字也分散在 Map/Character/Effect/monster 中，没有可靠的引用→包映射，所以**任何未解析的引用都视为可能在任一指针包内**。因此只要有指针包，`missing` 不会出现；真实缺失要在真包上（ROG）判定。
+4b. 否则，若 root 下有真实 `.pak` 的条目表读不出（92/96 字节布局都不成立，`_read_pak_entries` 返回 None，并打印 ERROR 行）：记入 `pakIndexUnreadable`（reason `pak-index-unreadable`，列出这些包），同样按“可能在任一此类包内”处理，单独计数，不算 missing 也不算 present，结论为 no conclusion。
+   两类同时存在时：条目留在 `pakLfsPointer`，行内同时列出 `paks`（指针包）和 `unreadablePaks`（读不出的包），codequality 另有一条 info 说明读不出的包，两者都可见。
+5. 同主名、不同扩展名（如引用 `x.tga`，索引只有 `x.dds`）：不算找到，记入 `extensionSubstituted`（保真缺口，单独计数和 codequality 条目，severity minor），不算 missing。第 4 步在前，因为指针包里仍可能有原名文件。
+6. 其余：`missing`。
+
+报告原有字段（`counts.present/missing/referencedButNoOriginalFile/noConclusion` 及同名列表）保持不变，新增 `counts.pakLfsPointer/pakIndexUnreadable/caseMismatch/extensionSubstituted` 和同名列表。
