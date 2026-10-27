@@ -570,8 +570,12 @@ def load_local_decoder(path: Path, repo_root: Path = REPO_ROOT):
     """Load a decoder plugin that lives outside the repository tree.
 
     Contract: ``DECODER_VERSION: str`` and
-    ``decode_map(name: str, data: bytes) -> bytes | None``. The repository
-    ships no decoder; a path inside ``repo_root`` is refused.
+    ``decode_map(name: str, data: bytes) -> bytes | None``. Optional:
+    ``key_source(name: str) -> str | None``, called after a successful
+    decode_map, records how that map's key was obtained (for example a table
+    lookup versus statistical recovery) as ``keySource`` so that later work can
+    re-check one group only. The repository ships no decoder; a path inside
+    ``repo_root`` is refused.
     """
     import importlib.util
 
@@ -591,7 +595,25 @@ def load_local_decoder(path: Path, repo_root: Path = REPO_ROOT):
         raise LocalDecoderError("local decoder must define DECODER_VERSION: str")
     if not callable(getattr(module, "decode_map", None)):
         raise LocalDecoderError("local decoder must define decode_map(name, data)")
+    key_source = getattr(module, "key_source", None)
+    if key_source is not None and not callable(key_source):
+        raise LocalDecoderError("local decoder key_source must be callable(name)")
     return module
+
+
+_KEY_SOURCE_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+
+
+def _local_key_source(local_decoder, map_name: str) -> str | None:
+    hook = getattr(local_decoder, "key_source", None)
+    if hook is None:
+        return None
+    value = hook(map_name)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _KEY_SOURCE_RE.match(value):
+        raise LocalDecoderError("key_source must return a short lowercase label or None")
+    return value
 
 
 def _unparsed_summary(unparsed: list[dict]) -> dict:
@@ -645,7 +667,11 @@ def derive(source: Path | None, pak: Path | None = None,
                 continue
             if not isinstance(plain, (bytes, bytearray)):
                 raise LocalDecoderError("decode_map must return bytes or None")
-            decoded_maps.append({"name": map_name, "sha256": hashlib.sha256(data).hexdigest()})
+            decoded_entry = {"name": map_name, "sha256": hashlib.sha256(data).hexdigest()}
+            key_source = _local_key_source(local_decoder, map_name)
+            if key_source is not None:
+                decoded_entry["keySource"] = key_source
+            decoded_maps.append(decoded_entry)
             data = bytes(plain)
             del plain
             derived_by = LOCAL_DECODER_TAG
@@ -734,6 +760,12 @@ def derive(source: Path | None, pak: Path | None = None,
             "sourcePakSha256": _file_sha256(pak) if pak else None,
             "decodedMaps": decoded_maps,
         }
+        key_sources: dict[str, int] = {}
+        for entry in decoded_maps:
+            if "keySource" in entry:
+                key_sources[entry["keySource"]] = key_sources.get(entry["keySource"], 0) + 1
+        if key_sources:
+            document["derivation"]["localDecoder"]["keySourceCounts"] = dict(sorted(key_sources.items()))
     return document
 
 
