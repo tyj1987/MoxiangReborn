@@ -3,7 +3,7 @@
 pak_writer.py - write an original-layout (96-byte header) .pak.
 
   pak_writer.py --manifest <json> --input-dir <dir> --out <pak>
-                [--conflict-root <dir>]...
+                (--conflict-root <dir>... | --no-conflict-check)
 
 Layout (docs/formats/pak.md, variant B), exactly what unpack_pak.py
 and PackFile read:
@@ -29,6 +29,8 @@ Fails (exit 1, nothing left at --out) when:
     unpack_pak.read_entries).  The runtime falls back to basename
     lookup, first hit in mount order, so a shared basename would be
     shadowed or shadow another pak.  --out itself is skipped;
+  * no --conflict-root is given (pass --no-conflict-check to skip the
+    collision check explicitly; it prints a WARN to stderr);
   * manifest "pakSha256" is set and the built pak hashes differently;
   * --out (resolved real path, so symlinks and junctions count) is in a
     git working tree, inside the repository that holds this tool, under
@@ -226,13 +228,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input-dir", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--conflict-root", action="append", type=Path, default=[],
-                        help="directory whose top-level .pak entries must not share a basename")
+                        help="directory whose top-level .pak entries must not share a basename (required unless --no-conflict-check)")
+    parser.add_argument("--no-conflict-check", action="store_true",
+                        help="explicitly skip the basename collision check (prints a WARN)")
     parser.add_argument("--forbidden-root", action="append", default=[],
                         help=f"never write under this directory (also {FORBIDDEN_ENV})")
     args = parser.parse_args(argv)
+    if args.no_conflict_check:
+        print("WARN: --no-conflict-check: basename collision check against mounted paks skipped",
+              file=sys.stderr)
+    elif not args.conflict_root:
+        print("ERROR: at least one --conflict-root is required (or pass --no-conflict-check)",
+              file=sys.stderr)
+        return 1
     try:
         manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-        digest = write_pak(manifest, args.input_dir, args.out, args.conflict_root,
+        digest = write_pak(manifest, args.input_dir, args.out,
+                           [] if args.no_conflict_check else args.conflict_root,
                            args.forbidden_root)
     except (OSError, ValueError, struct.error) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

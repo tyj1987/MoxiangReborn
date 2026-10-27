@@ -793,6 +793,8 @@ def supplemental_pak_collisions(root: Path) -> list[dict]:
             continue
         other_read = _read_pak_entries(other)
         if other_read is None:
+            rows.append({"name": "", "pak": supplemental[0].name, "other": other.name,
+                         "reason": "other pak unreadable"})
             continue
         for entry in other_read[1]:
             key = _casefold_name(entry.canonical_name)

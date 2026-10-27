@@ -17,7 +17,7 @@ import struct
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 _TOOLS_DIR = Path(__file__).resolve().parents[3] / "tools"
@@ -150,6 +150,45 @@ class PakWriterTest(unittest.TestCase):
         (root / "Map.pak").unlink()
         write_92_pak(root / "Map.pak", [("map\\other.tif", os.urandom(5))])
         self.assertEqual(gate.supplemental_pak_collisions(root), [])
+
+    def test_gate_unreadable_other_pak_is_collision(self):
+        root = self.tmp / "root"
+        root.mkdir()
+        pak_writer.write_pak(self.manifest, self.src, root / "zz_supplement.pak")
+        (root / "Broken.pak").write_bytes(b"\xff" * 7)
+        (root / "Lfs.pak").write_text(
+            "version https://git-lfs.github.com/spec/v1\noid sha256:" + "0" * 64 + "\nsize 1\n")
+        rows = gate.supplemental_pak_collisions(root)
+        self.assertEqual([(r["other"], r["reason"]) for r in rows],
+                         [("Broken.pak", "other pak unreadable")])
+        manifest = {"schema": gate.MANIFEST_SCHEMA, "derivation": {"status": "complete"},
+                    "references": [], "knownReferencedNoOriginalFile": []}
+        report = gate.check(manifest, root)
+        self.assertEqual(report["conclusion"], "collision")
+        self.assertEqual(report["exitCode"], 1)
+        (root / "Broken.pak").unlink()
+        self.assertEqual(gate.supplemental_pak_collisions(root), [])
+
+    def test_cli_requires_conflict_root(self):
+        out = self.tmp / "out" / "zz_supplement.pak"
+        err = io.StringIO()
+        with redirect_stderr(err):
+            code = pak_writer.main(["--manifest", str(self._manifest_file()),
+                                    "--input-dir", str(self.src), "--out", str(out)])
+        self.assertEqual(code, 1)
+        self.assertIn("--conflict-root is required", err.getvalue())
+        self.assertFalse(out.exists())
+
+    def test_cli_no_conflict_check_warns_and_writes(self):
+        out = self.tmp / "out" / "zz_supplement.pak"
+        err = io.StringIO()
+        with redirect_stderr(err), redirect_stdout(io.StringIO()):
+            code = pak_writer.main(["--manifest", str(self._manifest_file()),
+                                    "--input-dir", str(self.src), "--out", str(out),
+                                    "--no-conflict-check"])
+        self.assertEqual(code, 0)
+        self.assertIn("WARN", err.getvalue())
+        self.assertTrue(out.is_file())
 
     def test_checked_in_manifest_is_names_only(self):
         path = Path(__file__).resolve().parents[4] / "reference" / "manifests" / "playdh-supplemental-fill.json"
