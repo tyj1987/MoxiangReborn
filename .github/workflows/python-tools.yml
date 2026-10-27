@@ -31,6 +31,25 @@
 # Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
 # 只在容器里装 git。pull_request 拉 merge ref；push 按 GITHUB_SHA 取本次提交，
 # 避免连续合并时拉到分支尖上后一个提交。这不是 GitLab script 的一部分。
+#
+# rog_gate_self_test
+# - 与 GitLab job rog_gate_self_test 同步。image 含 digest，script 命令逐字相同。
+# - 镜像是 mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04 的 linux/amd64
+#   manifest（index digest 为
+#   sha256:7ee7da33a68d997971660d91ecc8372e55a38a777c3c6bd6808daf91928052db）。
+#   镜像里已有 git、curl、sha256sum 和 /bin/sleep。官方 PowerShell 7.6.9
+#   linux-x64 tar.gz 下载后按发行版 hashes.sha256 校验再解压。不跑 apt，
+#   也不拉未固定的包。
+# - 不用 MCR powershell:7.5-ubuntu-24.04
+#   （sha256:042240d57ec9e47e511033b92625a8d95875ee5860af3015992c248b58a8be81）：
+#   该 tag 仍是 7.5.0-preview.5，且没有 git。
+# - 校验后的命令是：
+#     pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+#     pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
+#   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
+# - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
+# - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
+#   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
 
 name: original_governance_and_python_tests
 
@@ -160,3 +179,47 @@ jobs:
         if: always()
         run: |
           python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
+
+  rog_gate_self_test:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: rog_gate_self_test
+        run: |
+          set -eu
+          pwsh_dir="$(mktemp -d)"
+          pwsh_tarball="${pwsh_dir}/powershell-7.6.9-linux-x64.tar.gz"
+          curl -fsSL -o "${pwsh_tarball}" "https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/powershell-7.6.9-linux-x64.tar.gz"
+          echo "1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b  ${pwsh_tarball}" | sha256sum -c -
+          tar -xzf "${pwsh_tarball}" -C "${pwsh_dir}"
+          export PATH="${pwsh_dir}:${PATH}"
+          export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+          pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+          pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
