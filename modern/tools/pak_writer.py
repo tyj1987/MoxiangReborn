@@ -175,17 +175,28 @@ def load_inputs(manifest: dict, input_dir: Path) -> list[tuple[str, bytes]]:
 
 
 def verify_pak(pak_path: Path, entries: list[tuple[str, bytes]]) -> None:
+    """Read the pak back.  Names must equal the manifest names exactly
+    (case-sensitive bytes, no folding); size and bytes must match per entry."""
     kind, _off4, declared, read = unpack_pak.read_entries(str(pak_path))
-    if kind != "96-byte" or declared != len(entries):
+    if kind != "96-byte" or declared != len(entries) or len(read) != len(entries):
         raise PakWriteError(f"read-back: layout {kind} count {declared}, want 96-byte {len(entries)}")
     expected = {name.encode("ascii"): data for name, data in entries}
+    seen: set[bytes] = set()
     with pak_path.open("rb") as f:
         for entry in read:
-            want = expected.pop(entry.name_bytes, None)
+            raw = bytes(entry.name_bytes)
+            if raw in seen:
+                raise PakWriteError(f"read-back: duplicate entry name {entry.name!r}")
+            seen.add(raw)
+            want = expected.pop(raw, None)
+            if want is None:
+                raise PakWriteError(f"read-back: entry name {entry.name!r} is not an exact (case-sensitive) manifest name")
             f.seek(entry.data_offset)
             got = f.read(entry.real_size)
-            if want is None or hashlib.sha256(got).digest() != hashlib.sha256(want).digest():
-                raise PakWriteError(f"read-back mismatch for {entry.name}")
+            if entry.real_size != len(want) or len(got) != len(want):
+                raise PakWriteError(f"read-back size mismatch for {entry.name}: {entry.real_size}, want {len(want)}")
+            if got != want:
+                raise PakWriteError(f"read-back bytes mismatch for {entry.name}")
     if expected:
         raise PakWriteError(f"read-back missing {len(expected)} entr(ies)")
 
