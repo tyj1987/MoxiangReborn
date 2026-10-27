@@ -364,20 +364,32 @@ function Resolve-EphemeralPortPlan {
 
 function Test-EphemeralPortOccupied {
     param([Parameter(Mandatory)][int]$Port)
-    # Bind 127.0.0.1 only. A listener on 0.0.0.0 still occupies this address.
-    $listener = $null
+    # A port counts as occupied if any TCP listener (any address, IPv4 or IPv6)
+    # already uses it, or if 127.0.0.1 can't be bound. Windows lets 127.0.0.1
+    # bind while another socket listens on 0.0.0.0, so the bind probe alone is
+    # not enough there. We never bind 0.0.0.0 ourselves (that can raise a
+    # firewall prompt on Windows).
     try {
-        $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse('127.0.0.1'), $Port)
-        try { $listener.ExclusiveAddressUse = $true } catch {}
-        $listener.Start()
-        return $false
-    } catch {
-        return $true
-    } finally {
-        if ($null -ne $listener) {
-            try { $listener.Stop() } catch {}
+        $active = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners()
+        foreach ($endpoint in @($active)) {
+            if ($endpoint.Port -eq $Port) { return $true }
+        }
+    } catch {}
+    foreach ($address in @([System.Net.IPAddress]::Loopback)) {
+        $listener = $null
+        try {
+            $listener = [System.Net.Sockets.TcpListener]::new($address, $Port)
+            try { $listener.ExclusiveAddressUse = $true } catch {}
+            $listener.Start()
+        } catch {
+            return $true
+        } finally {
+            if ($null -ne $listener) {
+                try { $listener.Stop() } catch {}
+            }
         }
     }
+    return $false
 }
 
 function Get-EphemeralPortInUseViolation {
