@@ -78,11 +78,13 @@
 
 .PARAMETER LastTestLog
     Offline parse mode, together with -CTestStdoutLog. Absolute path of an
-    existing LastTest.log. The gate does not build, run ctest, or write files.
+    existing LastTest.log, including a UNC path. -SourceDir and -BuildDir
+    are rejected. The gate does not build, run ctest, or write files.
 
 .PARAMETER CTestStdoutLog
     Offline parse mode, together with -LastTestLog. Absolute path of an
-    existing ctest stdout log.
+    existing ctest stdout log, including a UNC path. -SourceDir and
+    -BuildDir are rejected.
 
 .PARAMETER AssumeNtfs
     Offline parse mode only. Pass it for the NTFS case-distinct pak exemption.
@@ -105,8 +107,9 @@
     A missing block or a different reason is still a failure. The same
     test name under two numbers keeps a separate reason per number.
     Offline mode reads -LastTestLog and -CTestStdoutLog with that same
-    report. Pass -AssumeNtfs when the exemption should apply. An unreadable
-    LastTest.log or a missing block fails closed with reason_source=none.
+    report and rejects -SourceDir or -BuildDir. Pass -AssumeNtfs when the
+    exemption should apply. An unreadable LastTest.log is logged as a
+    warning and, like a missing block, fails closed with reason_source=none.
     After CTest, Map10 memory is sampled from mxh_render_tests.exe itself,
     launched with --gtest_filter for
     FilesystemFileStorage.Map10TerrainAndStaticDependenciesArePresent.
@@ -2086,7 +2089,7 @@ function Read-RogGateLastTestLogText {
     }
     $read = Read-RogGateUtf8TextFile -LiteralPath $path
     if (-not $read.Ok) {
-        Write-Host ('[INFO] CTest LastTest.log unreadable: ' + $path)
+        Write-Host ('[WARN] CTest LastTest.log unreadable: ' + $path)
         return ''
     }
     return [string]$read.Text
@@ -2095,13 +2098,27 @@ function Read-RogGateLastTestLogText {
 function Test-RogGateOfflinePathIsAbsolute {
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path)
 
+    # Pure classification: no filesystem access. Relative names, a
+    # drive-relative path (D:name), and a single leading separator stay
+    # rejected. UNC (\\server\share or //server/share) is absolute.
+    # IsPathFullyQualified treats a backslash UNC as absolute only where
+    # '\' is a separator, and Windows PowerShell 5.1 does not have it.
     if ([string]::IsNullOrWhiteSpace($Path)) {
         return $false
     }
-    if (Test-RogGateHostIsWindows) {
-        return ($Path -match '^[A-Za-z]:[\\/]')
+    if ($Path -match '^[\\/]{2}[^\\/]') {
+        return $true
     }
-    return $Path.StartsWith('/')
+    $qualifiedMethod = $null
+    try {
+        $qualifiedMethod = [System.IO.Path].GetMethod('IsPathFullyQualified', [type[]]@([string]))
+    } catch {
+        $qualifiedMethod = $null
+    }
+    if ($null -ne $qualifiedMethod) {
+        return [bool]$qualifiedMethod.Invoke($null, @([string]$Path))
+    }
+    return ($Path -match '^[A-Za-z]:[\\/]')
 }
 
 function Invoke-RogGateOfflineSkipReport {
@@ -2135,7 +2152,7 @@ function Invoke-RogGateOfflineSkipReport {
     $lastRead = Read-RogGateUtf8TextFile -LiteralPath $LastTestPath
     $lastText = ''
     if (-not $lastRead.Ok) {
-        Write-Host ('[INFO] CTest LastTest.log unreadable: ' + $LastTestPath)
+        Write-Host ('[WARN] CTest LastTest.log unreadable: ' + $LastTestPath)
         $lastText = ''
     } else {
         $lastText = [string]$lastRead.Text
@@ -3395,39 +3412,69 @@ function Invoke-RogGateSelfTest {
         $directoryLinkKind = 'Junction'
     }
 
+    # Probes are unique children of the self-test temp root and must not
+    # exist. The guards throw before any filesystem change, so nothing
+    # here is created and nothing is deleted.
     $savedNoLinks = [bool]$script:RogGateSelfTestNoLinks
-    $script:RogGateSelfTestNoLinks = $true
+    $guardToken = [guid]::NewGuid().ToString('n')
+    $guardTempRoot = [System.IO.Path]::GetTempPath()
+    $guardJunctionLink = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-junction-link')
+    $guardJunctionTarget = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-junction-target')
+    $guardSymlinkLink = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-symlink-link')
+    $guardSymlinkTarget = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-symlink-target')
+    $guardDirLink = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-dir-link')
+    $guardDirTarget = Join-Path -Path $guardTempRoot -ChildPath ('rog-gate-nolink-' + $guardToken + '-dir-target')
+    $guardProbePaths = @(
+        $guardJunctionLink,
+        $guardJunctionTarget,
+        $guardSymlinkLink,
+        $guardSymlinkTarget,
+        $guardDirLink,
+        $guardDirTarget
+    )
+    $guardAbsent = $true
+    foreach ($guardProbePath in $guardProbePaths) {
+        if (Test-Path -LiteralPath $guardProbePath) {
+            $guardAbsent = $false
+            Assert-RogGateSelfTest -Name ('link guard probe already exists and was left in place: ' + $guardProbePath) -Condition $false
+        }
+    }
     $junctionGuardThrew = $false
     $symlinkGuardThrew = $false
     $dirGuardThrew = $false
     $guardLeak = $false
     try {
-        try {
-            $null = New-RogGateWindowsJunction -LinkPath 'C:\rog-gate-nolink\link' -TargetPath 'C:\rog-gate-nolink\target'
-        } catch {
-            $junctionGuardThrew = $true
-        }
-        try {
-            $null = New-RogGateWindowsSymbolicLink -LinkPath 'C:\rog-gate-nolink\link' -TargetPath 'C:\rog-gate-nolink\target'
-        } catch {
-            $symlinkGuardThrew = $true
-        }
-        try {
-            $null = New-RogGateSelfTestDirectoryLink -LinkPath 'C:\rog-gate-nolink\link' -TargetPath 'C:\rog-gate-nolink\target'
-        } catch {
-            $dirGuardThrew = $true
-        }
-    } finally {
-        foreach ($guardLeakPath in @('C:\rog-gate-nolink\target', 'C:\rog-gate-nolink\link')) {
-            if (Test-Path -LiteralPath $guardLeakPath) {
-                $guardLeak = $true
-                Remove-Item -LiteralPath $guardLeakPath -Recurse -Force -ErrorAction SilentlyContinue
+        $script:RogGateSelfTestNoLinks = $true
+        if ($guardAbsent) {
+            try {
+                $null = New-RogGateWindowsJunction -LinkPath $guardJunctionLink -TargetPath $guardJunctionTarget
+            } catch {
+                $junctionGuardThrew = $true
+            }
+            try {
+                $null = New-RogGateWindowsSymbolicLink -LinkPath $guardSymlinkLink -TargetPath $guardSymlinkTarget
+            } catch {
+                $symlinkGuardThrew = $true
+            }
+            try {
+                $null = New-RogGateSelfTestDirectoryLink -LinkPath $guardDirLink -TargetPath $guardDirTarget
+            } catch {
+                $dirGuardThrew = $true
             }
         }
+    } finally {
         $script:RogGateSelfTestNoLinks = $savedNoLinks
+        foreach ($guardProbePath in $guardProbePaths) {
+            if (Test-Path -LiteralPath $guardProbePath) {
+                $guardLeak = $true
+                Assert-RogGateSelfTest -Name ('link guard probe exists after the guard and was left in place: ' + $guardProbePath) -Condition $false
+            }
+        }
     }
-    $guardOk = $junctionGuardThrew -and $symlinkGuardThrew -and $dirGuardThrew -and (-not $guardLeak)
-    Assert-RogGateSelfTest -Name 'link guard throws in no-links mode' -Condition $guardOk
+    if ($guardAbsent) {
+        $guardOk = $junctionGuardThrew -and $symlinkGuardThrew -and $dirGuardThrew -and (-not $guardLeak)
+        Assert-RogGateSelfTest -Name 'link guard throws in no-links mode' -Condition $guardOk
+    }
 
     # 0x80000 is FILE_ATTRIBUTE_PINNED. Windows PowerShell 5.1's FileAttributes
     # enum does not define it, so 524320 (0x80020) must stay an integer.
@@ -3836,9 +3883,34 @@ function Invoke-RogGateSelfTest {
     $wiredOk = $wiredText.Contains('Read-RogGateLastTestLogText -BuildDir $normBuild') -and $wiredText.Contains('$skipReport = Get-RogGateCTestSkipReport -Text $ctestText -LastTestLog $lastTestText') -and $wiredText.Contains('$e2eSkipReport = Get-RogGateCTestSkipReport -Text $e2eText -LastTestLog $e2eLastTestText')
     Assert-RogGateSelfTest -Name 'main and E2E CTest reports read Testing\Temporary\LastTest.log' -Condition $wiredOk
 
+    $warnNeedle = '[WARN]' + ' CTest LastTest.log unreadable: '
+    $infoNeedle = '[INFO]' + ' CTest LastTest.log unreadable: '
+    $missingNeedle = '[INFO]' + ' CTest LastTest.log missing: '
+    $warnCount = [regex]::Matches($wiredText, [regex]::Escape($warnNeedle)).Count
+    $infoCount = [regex]::Matches($wiredText, [regex]::Escape($infoNeedle)).Count
+    $warnOk = ($warnCount -eq 2) -and ($infoCount -eq 0) -and $wiredText.Contains($missingNeedle)
+    Assert-RogGateSelfTest -Name 'an unreadable LastTest.log is logged as a warning' -Condition $warnOk
+
     $noLinkAlone = Invoke-RogGateFloorProbe -ProbeArguments @('-SelfTestNoLinks')
     $noLinkAloneOk = ($noLinkAlone.ExitCode -ne 0) -and ($noLinkAlone.Text -match '\[ERROR\]') -and ($noLinkAlone.Text -match 'SelfTestNoLinks requires -SelfTest') -and ($noLinkAlone.Text -notmatch '\[PASS\]') -and ($noLinkAlone.Text -notmatch '\[FAIL\]') -and ($noLinkAlone.Text -notmatch '\[GATE\]') -and ($noLinkAlone.Text -notmatch 'ROG gate self-test:')
     Assert-RogGateSelfTest -Name '-SelfTestNoLinks without -SelfTest errors' -Condition $noLinkAloneOk
+
+    $uncBack = Test-RogGateOfflinePathIsAbsolute -Path '\\server\share\LastTest.log'
+    $uncFwd = Test-RogGateOfflinePathIsAbsolute -Path '//server/share/LastTest.log'
+    $relName = Test-RogGateOfflinePathIsAbsolute -Path 'LastTest.log'
+    $relDot = Test-RogGateOfflinePathIsAbsolute -Path '.\LastTest.log'
+    $relDotFwd = Test-RogGateOfflinePathIsAbsolute -Path './LastTest.log'
+    $driveRel = Test-RogGateOfflinePathIsAbsolute -Path 'D:LastTest.log'
+    $rootRel = Test-RogGateOfflinePathIsAbsolute -Path '\LastTest.log'
+    $rootRelFwd = Test-RogGateOfflinePathIsAbsolute -Path '/LastTest.log'
+    $blankAbs = Test-RogGateOfflinePathIsAbsolute -Path ''
+    $classOk = $uncBack -and $uncFwd -and (-not $relName) -and (-not $relDot) -and (-not $relDotFwd) -and (-not $driveRel) -and (-not $rootRel) -and (-not $blankAbs)
+    if (Test-RogGateHostIsWindows) {
+        $classOk = $classOk -and (Test-RogGateOfflinePathIsAbsolute -Path 'D:\build-mxr\LastTest.log') -and (Test-RogGateOfflinePathIsAbsolute -Path 'D:/build-mxr/LastTest.log') -and (-not $rootRelFwd)
+    } else {
+        $classOk = $classOk -and (Test-RogGateOfflinePathIsAbsolute -Path '/tmp/rog-gate/LastTest.log') -and $rootRelFwd -and (-not (Test-RogGateOfflinePathIsAbsolute -Path 'D:\build-mxr\LastTest.log'))
+    }
+    Assert-RogGateSelfTest -Name 'offline absolute paths include UNC and reject relative paths' -Condition $classOk
 
     $offlineRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-offline-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Path $offlineRoot -Force | Out-Null
@@ -3898,6 +3970,15 @@ function Invoke-RogGateSelfTest {
         $offlineMissingFile = Invoke-RogGateFloorProbe -ProbeArguments @('-LastTestLog', $offlineMissingPath, '-CTestStdoutLog', $offlineStdoutPath, '-AssumeNtfs')
         $offlineRelativeOk = ($offlineRelativeLast.ExitCode -ne 0) -and ($offlineRelativeLast.Text -match '\[ERROR\]') -and ($offlineRelativeLast.Text -match 'absolute') -and ($offlineRelativeLast.Text -notmatch '\[GATE\]') -and ($offlineRelativeLast.Text -notmatch 'CTest skipped') -and ($offlineRelativeStdout.ExitCode -ne 0) -and ($offlineRelativeStdout.Text -match '\[ERROR\]') -and ($offlineRelativeStdout.Text -match 'absolute') -and ($offlineMissingFile.ExitCode -ne 0) -and ($offlineMissingFile.Text -match '\[ERROR\]') -and ($offlineMissingFile.Text -match 'not found') -and ($offlineMissingFile.Text -notmatch 'absolute')
         Assert-RogGateSelfTest -Name 'offline mode with a relative path errors' -Condition $offlineRelativeOk
+
+        $offlineDirMessage = [regex]::Escape('cannot be combined with -SourceDir or -BuildDir')
+        $offlineWithBoth = Invoke-RogGateFloorProbe -ProbeArguments @('-LastTestLog', $offlineCrlfPath, '-CTestStdoutLog', $offlineStdoutPath, '-AssumeNtfs', '-SourceDir', $offlineRoot, '-BuildDir', $offlineRoot)
+        $offlineWithSource = Invoke-RogGateFloorProbe -ProbeArguments @('-LastTestLog', $offlineCrlfPath, '-CTestStdoutLog', $offlineStdoutPath, '-SourceDir', $offlineRoot)
+        $offlineWithBuild = Invoke-RogGateFloorProbe -ProbeArguments @('-LastTestLog', $offlineCrlfPath, '-CTestStdoutLog', $offlineStdoutPath, '-BuildDir', $offlineRoot)
+        $offlineDirsOk = ($offlineWithBoth.ExitCode -ne 0) -and ($offlineWithBoth.Text -match '\[ERROR\]') -and ($offlineWithBoth.Text -match $offlineDirMessage) -and ($offlineWithBoth.Text -notmatch '\[GATE\]') -and ($offlineWithBoth.Text -notmatch 'CTest skipped')
+        $offlineDirsOk = $offlineDirsOk -and ($offlineWithSource.ExitCode -ne 0) -and ($offlineWithSource.Text -match '\[ERROR\]') -and ($offlineWithSource.Text -match $offlineDirMessage) -and ($offlineWithSource.Text -notmatch '\[GATE\]') -and ($offlineWithSource.Text -notmatch 'CTest skipped')
+        $offlineDirsOk = $offlineDirsOk -and ($offlineWithBuild.ExitCode -ne 0) -and ($offlineWithBuild.Text -match '\[ERROR\]') -and ($offlineWithBuild.Text -match $offlineDirMessage) -and ($offlineWithBuild.Text -notmatch '\[GATE\]') -and ($offlineWithBuild.Text -notmatch 'CTest skipped')
+        Assert-RogGateSelfTest -Name 'offline mode rejects -SourceDir and -BuildDir' -Condition $offlineDirsOk
     } finally {
         $null = Remove-RogGateFixture -LiteralPath $offlineRoot
     }
@@ -5119,6 +5200,9 @@ try {
             $collected = 1
         } elseif ((-not $PSBoundParameters.ContainsKey('LastTestLog')) -or (-not $PSBoundParameters.ContainsKey('CTestStdoutLog'))) {
             Write-RogGateError '-LastTestLog and -CTestStdoutLog are both required.'
+            $collected = 1
+        } elseif ($PSBoundParameters.ContainsKey('SourceDir') -or $PSBoundParameters.ContainsKey('BuildDir')) {
+            Write-RogGateError '-LastTestLog and -CTestStdoutLog cannot be combined with -SourceDir or -BuildDir.'
             $collected = 1
         } else {
             $collected = Invoke-RogGateOfflineSkipReport -LastTestPath $LastTestLog -StdoutPath $CTestStdoutLog -AssumeNtfs:$AssumeNtfs
