@@ -42,6 +42,15 @@
   still raises a shorter value to 180 and -ExerciseMovement raises a
   shorter value to 60. If the wait expires, the thrown error says
   "timeout" and prints the seconds actually used.
+
+.PARAMETER ResourceRoot
+  PlayDH root passed as the client --resource-root, as the ephemeral map
+  server --resource-root (server root <ResourceRoot>\Resource\Server unless
+  MXH_SERVER_RESOURCE_ROOT is set) and to -AuditMapDependencies /
+  -AuditNpcDependencies. Default empty keeps <repo>\modern\data\PlayDH.
+  A value must be an absolute path to an existing directory, for example
+  the -PlayDhRoot given to clean-deploy. The script prints
+  resource_root=<path> once.
 #>
 [CmdletBinding()]
 param(
@@ -68,7 +77,11 @@ param(
     # login=base, agent=base+1000, map=base+2000. Ignored unless -EphemeralLocalServer.
     # Default avoids 16001/17001/18001, 36001/37001/38001 and 36101/37101/38101-38103.
     [ValidateRange(1, 65533)]
-    [int]$EphemeralPortBase = 26001
+    [int]$EphemeralPortBase = 26001,
+    # PlayDH root for the client --resource-root, the ephemeral map server and
+    # the optional audits. Empty keeps <repo>\modern\data\PlayDH. Otherwise an
+    # absolute path to an existing directory, e.g. a clean-deploy -PlayDhRoot.
+    [string]$ResourceRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -87,6 +100,10 @@ if ($EphemeralLocalServer) {
 }
 . (Join-Path $PSScriptRoot 'gui-client-smoke-ephemeral.ps1')
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+# PowerShell names are case-insensitive: $ResourceRoot is the parameter, so
+# the resolved value lives in $smokeResourceRoot.
+$smokeResourceRoot = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $ResourceRoot
+Write-Output "resource_root=$smokeResourceRoot"
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
 $clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
@@ -159,7 +176,7 @@ try {
         '--state-frames-dir', (Join-Path $runRoot 'state-frames'),
         '--smoke-settle-frames', '20',
         '--exit-after-gamein',
-        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
+        '--resource-root', $smokeResourceRoot
     )
     if ($FollowCamera) { $arguments += '--follow-camera' }
     if ($EphemeralLocalServer) {
@@ -169,7 +186,7 @@ try {
     }
     if ($EphemeralLocalServer) {
         # Safety gate before any process, including the optional python audit.
-        $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot
+        $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $smokeResourceRoot
         $mapExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe'
         $agentExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianAgentServer' -FileName 'mxh_agent_server_CHINA.exe'
         $loginExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianLoginServer' -FileName 'mxh_login_server.exe'
@@ -197,7 +214,7 @@ try {
     if ($AuditMapDependencies) {
         $dependencyAudit = Join-Path $repoRoot 'modern\tools\audit_map_dependencies.py'
         $dependencyOutput = Join-Path $runRoot 'map-dependencies.txt'
-        & python $dependencyAudit $MapNumber (Join-Path $repoRoot 'modern\data\PlayDH') `
+        & python $dependencyAudit $MapNumber $smokeResourceRoot `
             --build-dir $buildRoot --output $dependencyOutput
         if ($LASTEXITCODE -ne 0) {
             throw "GUI smoke static map dependency gate failed for Map $MapNumber; report=$dependencyOutput"
@@ -360,12 +377,12 @@ try {
         if (-not (Test-Path -LiteralPath $explorer -PathType Leaf)) {
             throw "Missing resource explorer required for NPC dependency gate: $explorer"
         }
-        $catalogLines = & $explorer npc-chx (Join-Path $repoRoot 'modern\data\PlayDH\Resource\Client\NpcChxList.bin')
+        $catalogLines = & $explorer npc-chx (Join-Path $smokeResourceRoot 'Resource\Client\NpcChxList.bin')
         $catalog = @{}
         foreach ($line in $catalogLines) {
             if ($line -match '^([0-9]+)\s+(.+)$') { $catalog[[int]$Matches[1]] = $Matches[2].Trim() }
         }
-        $packLines = & $explorer list (Join-Path $repoRoot 'modern\data\PlayDH\npc.pak')
+        $packLines = & $explorer list (Join-Path $smokeResourceRoot 'npc.pak')
         $packNames = @($packLines | ForEach-Object {
             if ($_ -match '^\s*[0-9]+\s+(.+)$') { $Matches[1].Trim() }
         })
