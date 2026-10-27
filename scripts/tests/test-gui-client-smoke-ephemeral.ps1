@@ -306,4 +306,93 @@ Assert-True (-not (Test-EphemeralNonLoopbackText '999.1.1.1')) 'octet above 255 
 Assert-True (-not (Test-EphemeralNonLoopbackText '256.1.1.1')) '256 is not an octet'
 Assert-Rejects 'non-loopback' @{ ServerArguments = @('--bind-address', '10.0.0.5:16001') }
 
+# -ResourceRoot: the passed PlayDH root reaches the client command line,
+# the ephemeral map server and the audits; empty keeps the repo PlayDH.
+$rrParam = @($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'ResourceRoot' })
+Assert-True ($rrParam.Count -eq 1) 'ResourceRoot parameter missing'
+Assert-True ($rrParam[0].StaticType.Name -eq 'String') 'ResourceRoot must be a string'
+Assert-True ($rrParam[0].DefaultValue.Extent.Text -eq "''") "ResourceRoot default must be empty, got $($rrParam[0].DefaultValue.Extent.Text)"
+Assert-True ($mainText.Contains('$smokeResourceRoot = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $ResourceRoot')) 'main must resolve -ResourceRoot once'
+Assert-True ($mainText.Contains('Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $smokeResourceRoot')) 'ephemeral layout must get the resolved root'
+Assert-True ($mainText.Contains('& python $dependencyAudit $MapNumber $smokeResourceRoot')) 'map dependency audit must use the resolved root'
+Assert-True ($mainText.Contains("(Join-Path `$smokeResourceRoot 'Resource\Client\NpcChxList.bin')")) 'NPC catalog audit must use the resolved root'
+Assert-True ($mainText.Contains("(Join-Path `$smokeResourceRoot 'npc.pak')")) 'NPC pak audit must use the resolved root'
+Assert-True (-not $mainText.Contains("Join-Path `$repoRoot 'modern\data\PlayDH")) 'main must not hardcode the repo PlayDH any more'
+
+# Evaluate the real client $arguments assignment from gui-client-smoke.ps1.
+$argsAssign = @($ast.FindAll({
+    param($n)
+    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+    $n.Left.Extent.Text -eq '$arguments' -and $n.Operator -eq 'Equals'
+}, $true))
+Assert-True ($argsAssign.Count -eq 1) "expected one client `$arguments assignment, got $($argsAssign.Count)"
+function Get-SmokeClientArguments([string]$Root) {
+    $smokeResourceRoot = $Root
+    $clientLoginPort = '26001'; $clientMapPort = '28001'; $characterName = 'GUItest'
+    $frame = 'frame.tga'; $runRoot = 'run'
+    return @(& ([scriptblock]::Create($argsAssign[0].Right.Extent.Text)))
+}
+function Get-ArgValue([string[]]$List, [string]$Name) {
+    $hits = @()
+    for ($i = 0; $i -lt $List.Count - 1; $i++) { if ($List[$i] -eq $Name) { $hits += $List[$i + 1] } }
+    return ,$hits
+}
+
+$rrTemp = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-rr-' + [Guid]::NewGuid().ToString('N'))
+$deployRoot = Join-Path $rrTemp 'playdh-deploy'
+New-Item -ItemType Directory -Force -Path $deployRoot | Out-Null
+try {
+    $repoPlayDh = Join-Path $repoRoot 'modern\data\PlayDH'
+    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot '') -eq $repoPlayDh) 'empty -ResourceRoot must keep the repo PlayDH'
+    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $null) -eq $repoPlayDh) 'null -ResourceRoot must keep the repo PlayDH'
+    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $deployRoot) -eq $deployRoot) 'explicit -ResourceRoot must be returned unchanged'
+    foreach ($bad in @('relative\PlayDH', 'PlayDH')) {
+        $threw = $false
+        try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $bad } catch { $threw = $_.Exception.Message -like 'gui smoke: -ResourceRoot must be an absolute path*' }
+        Assert-True $threw "relative -ResourceRoot '$bad' must be rejected"
+    }
+    $threw = $false
+    try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot (Join-Path $rrTemp 'missing') } catch { $threw = $_.Exception.Message -like 'gui smoke: -ResourceRoot does not exist*' }
+    Assert-True $threw 'missing -ResourceRoot must be rejected'
+
+    $clientArgs = Get-SmokeClientArguments $deployRoot
+    $rootValues = Get-ArgValue $clientArgs '--resource-root'
+    Assert-True ($rootValues.Count -eq 1) "client must get exactly one --resource-root, got $($rootValues.Count)"
+    Assert-True ($rootValues[0] -eq $deployRoot) "client --resource-root must be the passed root, got '$($rootValues[0])'"
+    $defaultArgs = Get-SmokeClientArguments (Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot '')
+    Assert-True ((Get-ArgValue $defaultArgs '--resource-root')[0] -eq $repoPlayDh) 'switch-off client --resource-root must stay the repo PlayDH'
+
+    $savedServerRoot = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', $null, 'Process')
+        $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $deployRoot
+        Assert-True ($layout.ResourceRoot -eq $deployRoot) 'ephemeral layout must use the passed root'
+        Assert-True ($layout.ServerResourceRoot -eq (Join-Path $deployRoot 'Resource\Server')) 'ephemeral server root must derive from the passed root'
+        Assert-True ($layout.ResourceProfileId -eq 'playdh-current') 'resource profile id must stay playdh-current'
+        $defaultLayout = Get-EphemeralResourceLayout -RepoRoot $repoRoot
+        Assert-True ($defaultLayout.ResourceRoot -eq (Join-Path $repoRoot 'modern/data/PlayDH')) "default layout must stay the profile source, got '$($defaultLayout.ResourceRoot)'"
+        [Environment]::SetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', (Join-Path $rrTemp 'server-override'), 'Process')
+        $overrideLayout = Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $deployRoot
+        Assert-True ($overrideLayout.ServerResourceRoot -eq (Join-Path $rrTemp 'server-override')) 'MXH_SERVER_RESOURCE_ROOT must still win for the server root'
+    } finally {
+        [Environment]::SetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', $savedServerRoot, 'Process')
+    }
+
+    $rrDb = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+    $rrSpec = New-EphemeralServerLaunchSpec `
+        -MapExecutable 'C:\build\mxh_map_server_CHINA.exe' `
+        -AgentExecutable 'C:\build\mxh_agent_server_CHINA.exe' `
+        -LoginExecutable 'C:\build\mxh_login_server.exe' `
+        -MapNumber 10 `
+        -ResourceRoot $layout.ResourceRoot -ServerResourceRoot $layout.ServerResourceRoot `
+        -DatabaseDirectory $rrDb `
+        -ProcessEnvironment @{} `
+        -ClientArguments $clientArgs
+    $rrMapArgs = [string[]]@($rrSpec.Processes[0].Arguments)
+    Assert-True ((Get-ArgValue $rrMapArgs '--resource-root')[0] -eq $deployRoot) 'map server --resource-root must be the passed root'
+    Assert-True ((Get-ArgValue $rrMapArgs '--server-resource-root')[0] -eq (Join-Path $deployRoot 'Resource\Server')) 'map server --server-resource-root must derive from the passed root'
+} finally {
+    Remove-Item -LiteralPath $rrTemp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Write-Output 'PASS: gui-client-smoke ephemeral safety checks'

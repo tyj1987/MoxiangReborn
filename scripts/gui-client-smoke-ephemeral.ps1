@@ -201,8 +201,42 @@ function Copy-EphemeralEnvironmentForProcess {
     return $copy
 }
 
+function Resolve-GuiSmokeResourceRoot {
+    # -ResourceRoot on gui-client-smoke.ps1. Empty keeps the repo PlayDH
+    # (<RepoRoot>\modern\data\PlayDH), exactly as before. A value must be an
+    # absolute path to an existing directory; it is returned unchanged so the
+    # client's --resource-root, the map server's --resource-root and the
+    # optional audits all read the same tree (sprite atlas and pak mounts in
+    # mxh_client both follow --resource-root).
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [AllowEmptyString()][AllowNull()][string]$ResourceRoot
+    )
+    if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
+        return (Join-Path $RepoRoot 'modern\data\PlayDH')
+    }
+    $qualifiedMethod = [IO.Path].GetMethod('IsPathFullyQualified', [Type[]]@([string]))
+    if ($null -ne $qualifiedMethod) {
+        $qualified = [IO.Path]::IsPathFullyQualified($ResourceRoot)
+    } else {
+        # Windows PowerShell 5.1: rooted, and not \foo or C:foo (drive-relative).
+        $qualified = [IO.Path]::IsPathRooted($ResourceRoot) -and ($ResourceRoot -notmatch '^[\\/](?![\\/])') -and ($ResourceRoot -notmatch '^[A-Za-z]:(?![\\/])')
+    }
+    if (-not $qualified) {
+        throw "gui smoke: -ResourceRoot must be an absolute path: $ResourceRoot"
+    }
+    if (-not (Test-Path -LiteralPath $ResourceRoot -PathType Container)) {
+        throw "gui smoke: -ResourceRoot does not exist: $ResourceRoot"
+    }
+    return $ResourceRoot
+}
+
 function Get-EphemeralResourceLayout {
-    param([Parameter(Mandatory)][string]$RepoRoot)
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        # Optional explicit PlayDH root from gui-client-smoke.ps1 -ResourceRoot.
+        [AllowEmptyString()][AllowNull()][string]$ResourceRoot = ''
+    )
     $manifestPath = Join-Path $RepoRoot 'deploy\resource-profiles.json'
     if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
         throw "Missing resource profile manifest: $manifestPath"
@@ -210,7 +244,11 @@ function Get-EphemeralResourceLayout {
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
     $profile = $manifest.profiles.'playdh-current'
     if ($null -eq $profile) { throw 'playdh-current resource profile is missing' }
-    $resourceRoot = Join-Path $RepoRoot ([string]$profile.source)
+    if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
+        $resourceRoot = Join-Path $RepoRoot ([string]$profile.source)
+    } else {
+        $resourceRoot = $ResourceRoot
+    }
     $configured = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', 'Process')
     if ([string]::IsNullOrWhiteSpace($configured)) {
         $serverRoot = Join-Path $resourceRoot 'Resource\Server'
