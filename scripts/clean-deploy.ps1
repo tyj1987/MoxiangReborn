@@ -184,15 +184,28 @@ function Test-Tool {
     return $null
 }
 
-function Test-CleanDeployPrereqForcedAbsent {
-    param([string]$Name)
-    # Self-test only. Production never sets MXH_CLEAN_DEPLOY_PREREQ_ABSENT.
-    $raw = [string]$env:MXH_CLEAN_DEPLOY_PREREQ_ABSENT
-    if ([string]::IsNullOrWhiteSpace($raw)) { return $false }
-    foreach ($part in $raw.Split(",")) {
+function Test-CleanDeployPrereqNameListed {
+    param(
+        [string]$Name,
+        [string]$Raw
+    )
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return $false }
+    foreach ($part in $Raw.Split(",")) {
         if ($part.Trim() -eq $Name) { return $true }
     }
     return $false
+}
+
+function Test-CleanDeployPrereqForcedAbsent {
+    param([string]$Name)
+    # Self-test only. Production never sets MXH_CLEAN_DEPLOY_PREREQ_ABSENT.
+    return Test-CleanDeployPrereqNameListed -Name $Name -Raw ([string]$env:MXH_CLEAN_DEPLOY_PREREQ_ABSENT)
+}
+
+function Test-CleanDeployPrereqForcedPresent {
+    param([string]$Name)
+    # Self-test only. Production never sets MXH_CLEAN_DEPLOY_PREREQ_PRESENT.
+    return Test-CleanDeployPrereqNameListed -Name $Name -Raw ([string]$env:MXH_CLEAN_DEPLOY_PREREQ_PRESENT)
 }
 
 function Get-CleanDeployRequiredPrereqNames {
@@ -941,6 +954,26 @@ function Invoke-CleanDeploySupplementPak {
     return (New-CleanDeploySupplementResult -Ok $true -ExpectedFilled $true -Lines $lines)
 }
 
+function Write-CleanDeploySelfTestChildDetail {
+    param(
+        $Child,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+    $code = -1
+    $text = ""
+    if ($null -ne $Child) {
+        $code = [int]$Child.ExitCode
+        $text = [string]$Child.Text
+    }
+    Write-Host ("[FAIL-DETAIL] " + $Name + " exit=" + $code)
+    $shown = 0
+    foreach ($line in ($text -split '\r?\n')) {
+        if ($shown -ge 25) { break }
+        Write-Host ("[FAIL-DETAIL] " + $line)
+        $shown = $shown + 1
+    }
+}
+
 function Assert-CleanDeploySelfTest {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -1568,6 +1601,14 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $insideFull = [System.IO.Path]::GetFullPath($inside)
     $positiveFull = [System.IO.Path]::GetFullPath($positive)
     $dryFull = [System.IO.Path]::GetFullPath($dryDir)
+    # Placeholder manifest so a later dry-run child can pass step 3b.
+    # The sha is filled in after the in-process copy, before that child.
+    # Path list (not contents) is what the tree snapshot compares.
+    $notBuiltPak = Join-CleanDeployPath -Parent (Join-Path $Root "not-built-source") -Child "zz_supplement.pak"
+    $fakeManifest = Join-Path $fakeFull "reference"
+    $fakeManifest = Join-Path $fakeManifest "manifests"
+    $fakeManifest = Join-Path $fakeManifest "playdh-supplemental-fill.json"
+    New-CleanDeploySelfTestManifestFile -Path $fakeManifest -BuildPath $notBuiltPak -ShaJson "null"
     $treeBefore = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $realBefore = Get-CleanDeploySelfTestDataStamp -Repo $Repo
     $repoPlay = Join-Path (Join-Path (Join-Path $Repo "modern") "data") "PlayDH"
@@ -1633,8 +1674,22 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $insideChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $insideFull)
     $insideTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $insideReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
-    $insideOk = (-not $insideFn.Ok) -and (-not $selfFn.Ok) -and (-not $trailFn.Ok) -and (-not $dottedFn.Ok) -and $insideText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $selfText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $trailText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and $dottedText.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideChild.ExitCode -ne 0) -and $insideChild.Text.Contains("[ERROR] -PlayDhRoot resolves inside the repo:") -and ($insideTree -eq $treeBefore) -and ($insideReal -eq $realBefore) -and (-not (Test-Path -LiteralPath (Join-Path (Join-Path $fakeModern "data") "PlayDH"))) -and (-not (Test-Path -LiteralPath $repoPak))
-    Assert-CleanDeploySelfTest -Name "PlayDhRoot inside RepoRoot fails with [ERROR] and no write" -Condition $insideOk
+    $insideErr = "[ERROR] -PlayDhRoot resolves inside the repo:"
+    $fakeDataPlay = Join-Path (Join-Path $fakeModern "data") "PlayDH"
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot inside the repo is rejected" -Condition (-not $insideFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot equal to RepoRoot is rejected" -Condition (-not $selfFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot with a trailing slash inside the repo is rejected" -Condition (-not $trailFn.Ok)
+    Assert-CleanDeploySelfTest -Name "PlayDhRoot with dot-dot inside the repo is rejected" -Condition (-not $dottedFn.Ok)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot error names the inside path" -Condition $insideText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "RepoRoot PlayDhRoot error names the inside path" -Condition $selfText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "trailing-slash PlayDhRoot error names the inside path" -Condition $trailText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "dot-dot PlayDhRoot error names the inside path" -Condition $dottedText.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot child exits non-zero" -Condition ($insideChild.ExitCode -ne 0)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot child prints the inside-repo error" -Condition $insideChild.Text.Contains($insideErr)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot leaves the fake repo tree unchanged" -Condition ($insideTree -eq $treeBefore)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot leaves the real data stamp unchanged" -Condition ($insideReal -eq $realBefore)
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot does not create modern/data/PlayDH" -Condition (-not (Test-Path -LiteralPath $fakeDataPlay))
+    Assert-CleanDeploySelfTest -Name "inside PlayDhRoot does not add a repo pak" -Condition (-not (Test-Path -LiteralPath $repoPak))
 
     $positiveResolved = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $positiveFull -RepoRoot $fakeFull
     $copied = New-CleanDeploySelfTestRun -Root $Root -Name "positive-pak" -WriteSource -SourceBody "positive-pak-bytes" -ShaMode "match-source" -PlayDhRoot $positiveResolved.Path
@@ -1648,7 +1703,14 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     $dryCopy = New-CleanDeploySelfTestRun -Root $Root -Name "dry-external" -WriteSource -SourceBody "dry-pak-bytes" -ShaMode "match-source" -PlayDhRoot $dryFull -DryRun
     $dryPak = Join-CleanDeployPath -Parent $dryFull -Child "zz_supplement.pak"
     $dryCopyText = ($dryCopy.Result.Lines -join "`n")
-    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipTests", "-SkipSmoke")
+    # Earlier children exit at PlayDhRoot validation and never reach step 4.
+    # This child has a valid root, so it must not depend on host cmake/vs2022.
+    # -SkipBuild keeps it out of the build. The manifest sha matches the pak
+    # already copied above so step 3b does not treat that pak as an error.
+    if (($landedHash -ne "") -and ($landedHash -eq $sourceHash)) {
+        New-CleanDeploySelfTestManifestFile -Path $fakeManifest -BuildPath $notBuiltPak -ShaJson ('"' + $landedHash + '"')
+    }
+    $dryChild = Invoke-CleanDeploySelfTestChild -WorkRoot $fakeFull -ArgumentList @("-RepoRoot", $fakeFull, "-PlayDhRoot", $positiveResolved.Path, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke")
     $rootLine = "[INFO] PlayDH root: " + $positiveResolved.Path
     $positiveTree = Get-CleanDeploySelfTestTreeText -RootPath $fakeFull
     $positiveReal = Get-CleanDeploySelfTestDataStamp -Repo $Repo
@@ -1666,8 +1728,26 @@ function Invoke-CleanDeploySelfTestPlayDhRootCases {
     foreach ($childItem in @(Get-ChildItem -LiteralPath $positiveResolved.Path -Recurse -Force -ErrorAction SilentlyContinue)) {
         if ($childItem.Attributes -band [IO.FileAttributes]::ReparsePoint) { $childReparse = $true }
     }
-    $positiveOk = $positiveResolved.Ok -and $copied.Result.Ok -and $landedOk -and (-not (Test-Path -LiteralPath $repoPak)) -and (-not (Test-Path -LiteralPath $fakePlay)) -and (-not $positiveReparse) -and (-not $repoReparse) -and (-not $childReparse) -and $noJunctionCmd -and ($positiveTree -eq $treeBefore) -and ($positiveReal -eq $realBefore) -and $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy") -and $dryChild.Text.Contains($rootLine) -and (-not $dryChild.Text.Contains("[ERROR]"))
-    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot receives the pak and creates no repo PlayDH junction" -Condition $positiveOk
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot resolves" -Condition $positiveResolved.Ok
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot copy succeeds" -Condition $copied.Result.Ok
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot landed hash matches the source" -Condition $landedOk
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot does not add a repo pak" -Condition (-not (Test-Path -LiteralPath $repoPak))
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot does not create a fake repo PlayDH" -Condition (-not (Test-Path -LiteralPath $fakePlay))
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot target is not a reparse point" -Condition (-not $positiveReparse)
+    Assert-CleanDeploySelfTest -Name "repo PlayDH is not a reparse point" -Condition (-not $repoReparse)
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot children are not reparse points" -Condition (-not $childReparse)
+    Assert-CleanDeploySelfTest -Name "script text has no junction or link command" -Condition $noJunctionCmd
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the fake repo tree unchanged" -Condition ($positiveTree -eq $treeBefore)
+    Assert-CleanDeploySelfTest -Name "absolute PlayDhRoot leaves the real data stamp unchanged" -Condition ($positiveReal -eq $realBefore)
+    $dryCopyOk = $dryCopy.Result.Ok -and (-not (Test-Path -LiteralPath $dryPak)) -and $dryCopyText.Contains("would copy")
+    Assert-CleanDeploySelfTest -Name "dry-run copy reports would copy and writes no pak" -Condition $dryCopyOk
+    $dryChildRootOk = $dryChild.Text.Contains($rootLine)
+    $dryChildClean = -not $dryChild.Text.Contains("[ERROR]")
+    if ((-not $dryChildRootOk) -or (-not $dryChildClean)) {
+        Write-CleanDeploySelfTestChildDetail -Child $dryChild -Name "dry child"
+    }
+    Assert-CleanDeploySelfTest -Name "dry child prints the PlayDH root line" -Condition $dryChildRootOk
+    Assert-CleanDeploySelfTest -Name "dry child has no [ERROR]" -Condition $dryChildClean
 
     $savedPlay = $env:MXH_PLAYDH_ROOT
     $hadPlay = $false
@@ -1739,6 +1819,7 @@ function New-CleanDeploySelfTestToolEnvironment {
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [string]$Absent = "",
+        [string]$Present = "",
         [string]$RehashOverride = ""
     )
     $emptyPath = Join-Path $Root "empty-path"
@@ -1751,6 +1832,9 @@ function New-CleanDeploySelfTestToolEnvironment {
     }
     if (-not [string]::IsNullOrWhiteSpace($Absent)) {
         $map["MXH_CLEAN_DEPLOY_PREREQ_ABSENT"] = $Absent
+    }
+    if (-not [string]::IsNullOrWhiteSpace($Present)) {
+        $map["MXH_CLEAN_DEPLOY_PREREQ_PRESENT"] = $Present
     }
     if (-not [string]::IsNullOrWhiteSpace($RehashOverride)) {
         $map["MXH_CLEAN_DEPLOY_REHASH_OVERRIDE"] = $RehashOverride
@@ -1848,6 +1932,21 @@ function Invoke-CleanDeploySelfTestSkipCases {
     $badText = [string]$badRoot.Text
     $badOk = ($badRoot.ExitCode -ne 0) -and ($badText.Contains("[ERROR] -PlayDhRoot must be an absolute path:")) -and (-not $badText.Contains("[deploy] DONE"))
     Assert-CleanDeploySelfTest -Name "invalid PlayDhRoot exits non-zero when build and tests are skipped" -Condition $badOk
+
+    $hostPlay = Join-Path $case "playdh-host-tools"
+    New-Item -ItemType Directory -Path $hostPlay -Force | Out-Null
+    $hostPlayFull = [System.IO.Path]::GetFullPath($hostPlay)
+    $hostEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "host-with-cmake") -Absent "sqllocaldb" -Present "cmake,vs2022"
+    $hostChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $hostPlayFull, "-DryRun", "-SkipBuild", "-SkipTests", "-SkipSmoke"
+    ) -Environment $hostEnv
+    $hostText = [string]$hostChild.Text
+    $hostRoot = "[INFO] PlayDH root: " + $hostPlayFull
+    $hostOk = ($hostChild.ExitCode -eq 0) -and $hostText.Contains($hostRoot) -and (-not $hostText.Contains("[ERROR]")) -and $hostText.Contains("[OK]   cmake : self-test-present") -and $hostText.Contains("[OK]   vs2022 : self-test-present") -and $hostText.Contains("[WARN] sqllocaldb : MISSING") -and $hostText.Contains("[INFO] prereqs required for this run: none")
+    if (-not $hostOk) {
+        Write-CleanDeploySelfTestChildDetail -Child $hostChild -Name "cmake present sqllocaldb absent"
+    }
+    Assert-CleanDeploySelfTest -Name "SkipBuild dry-run with cmake and vs2022 present and sqllocaldb absent prints the PlayDH root and exits 0" -Condition $hostOk
 }
 
 function Invoke-CleanDeploySelfTest {
@@ -1984,7 +2083,11 @@ if (-not [string]::IsNullOrWhiteSpace([string]$programFilesX86)) {
 }
 
 foreach ($key in @("cmake","git","sqlcmd","sqllocaldb","vcredist","odbc18","chocolatey","vs2022")) {
-    if (Test-CleanDeployPrereqForcedAbsent -Name $key) { $state[$key] = $null }
+    if (Test-CleanDeployPrereqForcedAbsent -Name $key) {
+        $state[$key] = $null
+    } elseif ((-not $state[$key]) -and (Test-CleanDeployPrereqForcedPresent -Name $key)) {
+        $state[$key] = "self-test-present"
+    }
     if ($state[$key]) {
         Ok "$key : $($state[$key])"
     } else {
