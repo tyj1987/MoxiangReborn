@@ -23,6 +23,9 @@ workflow:
         - scripts/check-no-pak-changes.py
         - scripts/check-ps1-encoding.py
         - scripts/rog-gate-build.ps1
+        - scripts/clean-deploy.ps1
+        - scripts/rog-gate-build.cmd
+        - scripts/clean-deploy.cmd
         - .gitignore
         - "**/*.[Pp][Aa][Kk]"
         - .gitlab-ci.yml
