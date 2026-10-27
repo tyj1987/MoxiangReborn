@@ -3,7 +3,7 @@
   "note": "Names only, no content. The pak is never committed: it is built locally on ROG from the original client Map.pak by pak_writer.py and deploy verifies it against pakSha256. Entry sha256 and pakSha256 are null until that extraction; pak_writer.py refuses to pack an entry whose sha256 is null. Deploy reads buildPath and does not parse the pak description.",
   "pak": "D:\\build-mxr\\supplement\\zz_supplement.pak (built locally on ROG outside any git worktree, never committed); deploy copies it into <PlayDH root>/zz_supplement.pak",
   "buildPath": "D:\\build-mxr\\supplement\\zz_supplement.pak",
-  "pakSha256": null,
+  "pakSha256": "62302d777b7f802693e4f3575f7b79bb751f2614837e9ba14b2287e40be07cb8",
   "format": "96-byte original header (docs/formats/pak.md variant B)",
   "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out D:\\build-mxr\\supplement\\zz_supplement.pak --conflict-root <PlayDH root>",
   "deploy": "verify sha256(D:\\build-mxr\\supplement\\zz_supplement.pak) == pakSha256, then copy it into <PlayDH root>/zz_supplement.pak (PlayDH lives in a git worktree, which pak_writer.py refuses as --out)",
