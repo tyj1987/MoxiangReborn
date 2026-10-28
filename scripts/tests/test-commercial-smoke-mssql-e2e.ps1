@@ -1094,6 +1094,9 @@ try {
             $statFound = @($statIds)
             Assert-True ($statFound -contains [int]$ownedIdentity.Id) "status PPid scan missed owned pid $($ownedIdentity.Id); found [$($statFound -join ',')]"
             Assert-True ($statFound -contains [int]$decoyIdentity.Id) "status PPid scan missed decoy pid $($decoyIdentity.Id); found [$($statFound -join ',')]"
+            $kernel = Get-CommercialSmokeKernelStart -ProcessId ([int]$ownedIdentity.Id)
+            Assert-True ($kernel -gt 0) "kernel starttime missing for owned pid $($ownedIdentity.Id)"
+            Assert-True ([int64]$ownedIdentity.KernelStart -eq $kernel) "identity kernel starttime was $($ownedIdentity.KernelStart), live is $kernel"
         }
         Stop-CommercialSmokeOwnedProcess -ProcessId $decoyIdentity.Id -StartTicks ([int64]1)
         Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $ownedIdentity.Id; StartTicks = ([int64]1) })
@@ -1153,7 +1156,17 @@ try {
                 if ($line.StartsWith('PPid:')) { $childPpid = $line.Substring(5).Trim(); break }
             }
         }
-        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid)"
+        $ownedLine = ''
+        foreach ($line in ($spawnText -split "`n")) {
+            if ($line.Trim().StartsWith('MSSQL_E2E OWNED ')) { $ownedLine = $line.Trim() }
+        }
+        $ownedIds = @()
+        $ownedPrefix = 'MSSQL_E2E OWNED '
+        if ($ownedLine.StartsWith($ownedPrefix)) {
+            $ownedIds = @($ownedLine.Substring($ownedPrefix.Length).Split(',') | Where-Object { $_ -match '^\d+$' })
+        }
+        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid) [$ownedLine]"
+        Assert-True ($ownedIds -contains [string]$pathChildPid) "owned PID list did not include child $pathChildPid [$ownedLine]"
         Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
     } finally {
         Stop-TestProcess -Process $pathDecoy
