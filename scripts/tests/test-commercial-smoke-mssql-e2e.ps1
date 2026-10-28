@@ -436,28 +436,71 @@ function Read-SqlCmdLog {
 function Get-DatabaseBlock {
     param(
         [string]$Text,
-        [string]$Label
+        [string]$When,
+        [string]$Server
     )
-    $start = "MSSQL_E2E DATABASES $Label"
-    $end = "MSSQL_E2E DATABASES $Label END"
-    $names = New-Object System.Collections.Generic.List[string]
-    $capturing = $false
-    $sawEnd = $false
+    $prefix = '[' + $Server + '] databases ' + $When + ': '
     foreach ($line in ($Text -split "`n")) {
         $trim = $line.Trim()
-        if (-not $capturing) {
-            if ($trim -eq $start) { $capturing = $true }
-            continue
+        if (-not $trim.StartsWith($prefix)) { continue }
+        $rest = $trim.Substring($prefix.Length).Trim()
+        $names = @()
+        if ($rest.Length -gt 0 -and $rest -ne 'UNREADABLE') {
+            $names = @($rest.Split(' ') | Where-Object { $_.Length -gt 0 })
         }
-        if ($trim -eq $end) {
-            $sawEnd = $true
-            break
+        return [pscustomobject]@{
+            Complete = $true
+            Names = @($names)
+            Line = $trim
         }
-        $names.Add($trim)
     }
     return [pscustomobject]@{
-        Complete = $sawEnd
-        Names = $names.ToArray()
+        Complete = $false
+        Names = @()
+        Line = ''
+    }
+}
+
+function Get-SqlCmdArgGroups {
+    param([string]$Log)
+    $groups = New-Object System.Collections.Generic.List[object]
+    $current = New-Object System.Collections.Generic.List[string]
+    foreach ($line in ($Log -split "`n")) {
+        if ($line -eq '---') {
+            if ($current.Count -gt 0) {
+                $groups.Add($current.ToArray())
+            }
+            $current = New-Object System.Collections.Generic.List[string]
+            continue
+        }
+        if ($line.Length -gt 0) { $current.Add($line) }
+    }
+    return ,$groups.ToArray()
+}
+
+function Assert-SqlCmdTargetsInstance {
+    param(
+        [string]$Log,
+        [string]$Server,
+        [int]$ExpectedCalls
+    )
+    $groups = Get-SqlCmdArgGroups -Log $Log
+    Assert-True ($groups.Count -eq $ExpectedCalls) "sqlcmd call count was $($groups.Count), expected $ExpectedCalls, log [$Log]"
+    foreach ($group in $groups) {
+        $args = @($group)
+        $hasE = $false
+        $sawS = $false
+        for ($i = 0; $i -lt $args.Count; $i++) {
+            if ($args[$i] -eq '-E') { $hasE = $true }
+            if ($args[$i] -eq '-S') {
+                $sawS = $true
+                $next = ''
+                if (($i + 1) -lt $args.Count) { $next = [string]$args[$i + 1] }
+                Assert-True ($next -eq $Server) "sqlcmd -S value was [$next], expected [$Server], args [$($args -join ' ')]"
+            }
+        }
+        Assert-True $hasE "sqlcmd call missing -E, args [$($args -join ' ')]"
+        Assert-True $sawS "sqlcmd call missing -S, args [$($args -join ' ')]"
     }
 }
 
@@ -698,7 +741,20 @@ try {
         'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_;',
         'backend=mssql_odbc;host=.\SQLEXPRESS;database=;',
         'backend=mssql_odbc;database=MxE2E_Ok;',
-        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok space;'
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok space;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;host=(local)\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;Server=.\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;Data Source=.\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;addr=.\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;address=.\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;network address=.\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=10.1.1.1\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=db.example\SQLEXPRESS;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=.;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=localhost;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=(local);database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=127.0.0.1;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS,1433;database=MxE2E_Ok;'
     )
     $rejectBuild = New-BuildDir -WithExe
     foreach ($badConn in $rejected) {
@@ -716,18 +772,50 @@ try {
         }
     }
 
+    $hostCases = @(
+        @{ Conn = 'backend=mssql_odbc;database=MxE2E_Ok;encrypt=no;'; Fragment = 'no host= value' },
+        @{ Conn = 'backend=mssql_odbc;host=.\SQLEXPRESS;host=.\OTHER;database=MxE2E_Ok;'; Fragment = 'multiple host= values' },
+        @{ Conn = 'backend=mssql_odbc;host=.\SQLEXPRESS;Server=localhost\SQLEXPRESS;database=MxE2E_Ok;'; Fragment = 'alternate server key server= is not allowed' },
+        @{ Conn = 'backend=mssql_odbc;host=192.168.1.5\SQLEXPRESS;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' },
+        @{ Conn = 'backend=mssql_odbc;host=.;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' }
+    )
+    foreach ($hostCase in $hostCases) {
+        $state = New-SqlCmdState -Root $script:Root -Names $baseNames
+        $hostRun = Invoke-Smoke -BuildDir $rejectBuild.Build -PathValue $sqlPath -MssqlDb $hostCase.Conn -StubEnv $state.Env
+        $hostText = Get-SmokeText $hostRun.Stdout
+        Assert-True ($hostRun.ExitCode -eq 1) "host guard exit was $($hostRun.ExitCode) for [$($hostCase.Conn)], stdout [$hostText] stderr [$($hostRun.Stderr)]"
+        Assert-True ($hostText.Contains('rejected before connect')) "host guard missing refuse line for [$($hostCase.Conn)], got [$hostText]"
+        Assert-True ($hostText.Contains($hostCase.Fragment)) "host guard fragment [$($hostCase.Fragment)] missing for [$($hostCase.Conn)], got [$hostText]"
+        Assert-True ((Read-SqlCmdLog -Path $state.Log).Length -eq 0) "host guard must not call sqlcmd for [$($hostCase.Conn)]"
+        Assert-True ($null -eq (Read-InvokedArgs -Exe $rejectBuild.Exe)) "host guard must not invoke E2E for [$($hostCase.Conn)]"
+        if (Test-Path -LiteralPath ($rejectBuild.Exe + '.invoked')) {
+            Remove-Item -LiteralPath ($rejectBuild.Exe + '.invoked') -Force
+        }
+    }
+    Assert-True (Test-CommercialSmokeLocalNamedInstance -Value '.\SQLEXPRESS') '.\SQLEXPRESS must be a local named instance'
+    Assert-True (Test-CommercialSmokeLocalNamedInstance -Value '(local)\SQLEXPRESS') '(local)\SQLEXPRESS must be a local named instance'
+    Assert-True (Test-CommercialSmokeLocalNamedInstance -Value 'localhost\SQLEXPRESS') 'localhost\SQLEXPRESS must be a local named instance'
+    Assert-True (Test-CommercialSmokeLocalNamedInstance -Value '127.0.0.1\SQLEXPRESS') '127.0.0.1\SQLEXPRESS must be a local named instance'
+    Assert-True (Test-CommercialSmokeLocalNamedInstance -Value 'LOCALHOST\Inst_1') 'LOCALHOST\Inst_1 must be a local named instance'
+    Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '.')) 'bare dot must be rejected'
+    Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value 'localhost')) 'bare localhost must be rejected'
+    Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '(local)')) 'bare (local) must be rejected'
+    Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '127.0.0.1')) 'bare 127.0.0.1 must be rejected'
+
     $existsState = New-SqlCmdState -Root $script:Root -Names ($baseNames + @('MxE2E_Already'))
     $existsBuild = New-BuildDir -WithExe
     $existsConn = 'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Already;encrypt=no;'
     $existsRun = Invoke-Smoke -BuildDir $existsBuild.Build -PathValue $sqlPath -MssqlDb $existsConn -StubEnv $existsState.Env
     $existsText = Get-SmokeText $existsRun.Stdout
     $existsLog = Read-SqlCmdLog -Path $existsState.Log
-    $existsBefore = Get-DatabaseBlock -Text $existsText -Label 'BEFORE'
+    $existsBefore = Get-DatabaseBlock -Text $existsText -When 'before' -Server '.\SQLEXPRESS'
     Assert-True ($existsRun.ExitCode -ne 0) "pre-existing database exit was $($existsRun.ExitCode); stdout [$existsText] stderr [$($existsRun.Stderr)]"
     Assert-True ($existsText.Contains('MSSQL_E2E REFUSED (database MxE2E_Already already exists; refusing to touch it)')) "pre-existing refuse line missing in [$existsText]"
     Assert-True ($existsBefore.Complete -and ($existsBefore.Names -contains 'MxE2E_Already')) "pre-existing BEFORE list missing the name in [$existsText]"
-    Assert-True (-not $existsText.Contains('MSSQL_E2E DATABASES AFTER')) 'pre-existing database must not print an AFTER list'
+    Assert-True ($existsBefore.Line.StartsWith('[.\SQLEXPRESS] databases before:')) "pre-existing list must name the instance, got [$($existsBefore.Line)]"
+    Assert-True (-not $existsText.Contains('databases after:')) 'pre-existing database must not print an AFTER list'
     Assert-True (-not $existsLog.Contains('DROP DATABASE')) "pre-existing database must not be dropped, log [$existsLog]"
+    Assert-SqlCmdTargetsInstance -Log $existsLog -Server '.\SQLEXPRESS' -ExpectedCalls 1
     Assert-True ($null -eq (Read-InvokedArgs -Exe $existsBuild.Exe)) 'pre-existing database must not invoke E2E'
     Assert-True (-not $existsText.Contains('PASS')) 'pre-existing database must not pass'
 
@@ -736,8 +824,8 @@ try {
     $okRun = Invoke-Smoke -BuildDir $okBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $okState.Env
     $okText = Get-SmokeText $okRun.Stdout
     $okLog = Read-SqlCmdLog -Path $okState.Log
-    $okBefore = Get-DatabaseBlock -Text $okText -Label 'BEFORE'
-    $okAfter = Get-DatabaseBlock -Text $okText -Label 'AFTER'
+    $okBefore = Get-DatabaseBlock -Text $okText -When 'before' -Server '.\SQLEXPRESS'
+    $okAfter = Get-DatabaseBlock -Text $okText -When 'after' -Server '.\SQLEXPRESS'
     Assert-True ($okRun.ExitCode -eq 0) "explicit MSSQL success exit was $($okRun.ExitCode); stdout [$okText] stderr [$($okRun.Stderr)]"
     Assert-True ((Count-SmokeLine $okText 'MSSQL_E2E PASS (explicit -MssqlDb, one command)') -eq 1) "explicit pass line missing in [$okText]"
     Assert-True ((Count-SmokeLine $okText $DoneLine) -eq 1) "explicit success must finish smoke, got [$okText]"
@@ -745,12 +833,12 @@ try {
     Assert-True (-not $okText.Contains($PassLine)) 'explicit MSSQL must not report the LocalDB pass line'
     Assert-True ($okBefore.Complete -and -not ($okBefore.Names -contains $goodDb)) "BEFORE list must not contain $goodDb, got [$($okBefore.Names -join ',')]"
     Assert-True ($okAfter.Complete -and -not ($okAfter.Names -contains $goodDb)) "AFTER list must not contain $goodDb, got [$($okAfter.Names -join ',')]"
+    Assert-True ((Count-SmokeLine $okText '[.\SQLEXPRESS] databases before: master model msdb tempdb') -eq 1) "before list line missing in [$okText]"
+    Assert-True ((Count-SmokeLine $okText '[.\SQLEXPRESS] databases after: master model msdb tempdb') -eq 1) "after list line missing in [$okText]"
     Assert-True ((Count-SmokeLine $okText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "drop confirmation missing in [$okText]"
     Assert-True ($okLog.Contains('DROP DATABASE [' + $goodDb + ']')) "drop SQL missing in [$okLog]"
-    Assert-True ($okLog.Contains('-E')) 'sqlcmd must use integrated auth -E'
     Assert-True (-not $okLog.Contains("`n-U`n") -and -not $okLog.Contains("`n-P`n")) "sqlcmd log must not pass a SQL login, log [$okLog]"
-    $okGroups = @($okLog.Split("`n") | Where-Object { $_ -eq '---' })
-    Assert-True ($okGroups.Count -eq 3) "success path must query, drop, and verify (--- count $($okGroups.Count)), log [$okLog]"
+    Assert-SqlCmdTargetsInstance -Log $okLog -Server '.\SQLEXPRESS' -ExpectedCalls 3
     $okArgs = @(Read-InvokedArgs -Exe $okBuild.Exe)
     Assert-True ($null -ne $okArgs -and ($okArgs -join "`n") -eq ($expectedExplicit -join "`n")) "explicit E2E args were [$($okArgs -join '|')]"
 
@@ -766,7 +854,8 @@ try {
     Assert-True ((Count-SmokeLine $failText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "E2E failure drop confirmation missing in [$failText]"
     Assert-True (-not $failText.Contains('COMMERCIAL_SMOKE PASS')) 'E2E failure must not finish as smoke pass'
     Assert-True (-not $failText.Contains('MSSQL_E2E PASS')) 'E2E failure must not report MSSQL pass'
-    $failAfter = Get-DatabaseBlock -Text $failText -Label 'AFTER'
+    $failAfter = Get-DatabaseBlock -Text $failText -When 'after' -Server '.\SQLEXPRESS'
+    Assert-SqlCmdTargetsInstance -Log $failLog -Server '.\SQLEXPRESS' -ExpectedCalls 3
     Assert-True ($failAfter.Complete -and -not ($failAfter.Names -contains $goodDb)) 'E2E failure AFTER list must not contain the database'
 
     $dropState = New-SqlCmdState -Root $script:Root -Names $baseNames -DropExit 1
@@ -777,6 +866,9 @@ try {
     Assert-True ($dropRun.ExitCode -ne 0) "drop failure must be non-zero, exit $($dropRun.ExitCode), stdout [$dropText] stderr [$($dropRun.Stderr)]"
     Assert-True ($dropText.Contains("MSSQL_E2E DROP FAILED (database $goodDb; sqlcmd exit 1)")) "drop failure line missing in [$dropText]"
     Assert-True ($dropLog.Contains('DROP DATABASE [' + $goodDb + ']')) "drop failure must still issue DROP, log [$dropLog]"
+    Assert-SqlCmdTargetsInstance -Log $dropLog -Server '.\SQLEXPRESS' -ExpectedCalls 3
+    Assert-True ($dropText.Contains('[.\SQLEXPRESS] databases before:')) "drop failure before list must name the instance, got [$dropText]"
+    Assert-True ($dropText.Contains('[.\SQLEXPRESS] databases after:')) "drop failure after list must name the instance, got [$dropText]"
     Assert-True (-not $dropText.Contains('MSSQL_E2E PASS')) 'drop failure must not report MSSQL pass'
     Assert-True (-not $dropText.Contains('COMMERCIAL_SMOKE PASS')) 'drop failure must not finish as smoke pass'
 
@@ -784,7 +876,8 @@ try {
     $keepBuild = New-BuildDir -WithExe
     $keepRun = Invoke-Smoke -BuildDir $keepBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $keepState.Env
     $keepText = Get-SmokeText $keepRun.Stdout
-    $keepAfter = Get-DatabaseBlock -Text $keepText -Label 'AFTER'
+    $keepAfter = Get-DatabaseBlock -Text $keepText -When 'after' -Server '.\SQLEXPRESS'
+    Assert-True ($keepText.Contains('[.\SQLEXPRESS] databases after:')) "still-present after list must name the instance, got [$keepText]"
     Assert-True ($keepRun.ExitCode -ne 0) "database still present after drop must be non-zero, exit $($keepRun.ExitCode), stdout [$keepText]"
     Assert-True ($keepText.Contains("MSSQL_E2E DROP FAILED (database $goodDb still present after DROP DATABASE)")) "still-present line missing in [$keepText]"
     Assert-True ($keepAfter.Complete -and ($keepAfter.Names -contains $goodDb)) 'AFTER list must still show the database when drop did not remove it'

@@ -26,9 +26,16 @@
 
     -MssqlDb is an ODBC or mxh_client_e2e kv connection string. It is
     passed verbatim to mxh_client_e2e --db. The database= value must
-    match ^MxE2E_[A-Za-z0-9_]{1,100}$. sqlcmd -E lists sys.databases
-    before E2E and drops that database afterwards. -SkipMssql together
-    with -MssqlDb is refused.
+    match ^MxE2E_[A-Za-z0-9_]{1,100}$. sqlcmd always runs as
+    sqlcmd -E -S <host> for the existence check, DROP, and the
+    post-drop check. <host> is the host= value. There is no call
+    without -S and no default-instance fallback. host= is required
+    exactly once. server=, data source=, addr=, address=, and
+    network address= are rejected. The host must be a local named
+    instance: machine is ., (local), localhost, or 127.0.0.1, then
+    \ and an instance name [A-Za-z0-9_]+. A bare machine, a remote
+    host, and a port suffix are rejected before connect.
+    -SkipMssql together with -MssqlDb is refused.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/commercial-smoke.ps1 -MssqlDb "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_RogSmoke;encrypt=no;trust_server_certificate=yes;"
@@ -145,12 +152,13 @@ function Test-CommercialSmokeDatabaseName {
     return [regex]::IsMatch($Name, '^MxE2E_[A-Za-z0-9_]{1,100}$')
 }
 
-function Test-CommercialSmokeSqlServerToken {
+function Test-CommercialSmokeLocalNamedInstance {
     param([string]$Value)
+    # Machine is case-insensitive and must be exactly one of the local
+    # tokens. A named instance is required. No port, no second slash,
+    # and no default instance (bare "." / localhost / (local) / 127.0.0.1).
     if ([string]::IsNullOrWhiteSpace($Value)) { return $false }
-    if ($Value.Length -gt 200) { return $false }
-    if ($Value.StartsWith('-')) { return $false }
-    return [regex]::IsMatch($Value, '^[A-Za-z0-9_.\\(),]+$')
+    return [regex]::IsMatch($Value, '^(?i:\.|\(local\)|localhost|127\.0\.0\.1)\\[A-Za-z0-9_]+$')
 }
 
 function Resolve-CommercialSmokeMssqlConnection {
@@ -166,7 +174,8 @@ function Resolve-CommercialSmokeMssqlConnection {
         }
     }
     $databases = New-Object System.Collections.Generic.List[string]
-    $servers = New-Object System.Collections.Generic.List[string]
+    $hosts = New-Object System.Collections.Generic.List[string]
+    $alternates = New-Object System.Collections.Generic.List[string]
     foreach ($segment in $segments) {
         if ([string]::IsNullOrWhiteSpace($segment)) { continue }
         $eq = $segment.IndexOf('=')
@@ -182,8 +191,43 @@ function Resolve-CommercialSmokeMssqlConnection {
         $value = $segment.Substring($eq + 1).Trim()
         if ($key -eq 'database') {
             $databases.Add($value)
-        } elseif ($key -eq 'host' -or $key -eq 'server' -or $key -eq 'data source' -or $key -eq 'addr' -or $key -eq 'address' -or $key -eq 'network address') {
-            $servers.Add($value)
+        } elseif ($key -eq 'host') {
+            $hosts.Add($value)
+        } elseif ($key -eq 'server' -or $key -eq 'data source' -or $key -eq 'addr' -or $key -eq 'address' -or $key -eq 'network address') {
+            $alternates.Add($key)
+        }
+    }
+    if ($alternates.Count -gt 0) {
+        return [pscustomobject]@{
+            Ok = $false
+            Server = ''
+            Database = ''
+            Message = $refused + 'alternate server key ' + $alternates[0] + '= is not allowed)'
+        }
+    }
+    if ($hosts.Count -eq 0) {
+        return [pscustomobject]@{
+            Ok = $false
+            Server = ''
+            Database = ''
+            Message = $refused + 'no host= value)'
+        }
+    }
+    if ($hosts.Count -ne 1) {
+        return [pscustomobject]@{
+            Ok = $false
+            Server = ''
+            Database = ''
+            Message = $refused + 'multiple host= values)'
+        }
+    }
+    $server = [string]$hosts[0]
+    if (-not (Test-CommercialSmokeLocalNamedInstance -Value $server)) {
+        return [pscustomobject]@{
+            Ok = $false
+            Server = ''
+            Database = ''
+            Message = $refused + 'host= must be a local named instance (.\Instance, (local)\Instance, localhost\Instance, or 127.0.0.1\Instance))'
         }
     }
     if ($databases.Count -eq 0) {
@@ -209,31 +253,6 @@ function Resolve-CommercialSmokeMssqlConnection {
             Server = ''
             Database = ''
             Message = $refused + 'database= value must match ^MxE2E_[A-Za-z0-9_]{1,100}$)'
-        }
-    }
-    if ($servers.Count -eq 0) {
-        return [pscustomobject]@{
-            Ok = $false
-            Server = ''
-            Database = ''
-            Message = $refused + 'no host= or server= value)'
-        }
-    }
-    if ($servers.Count -ne 1) {
-        return [pscustomobject]@{
-            Ok = $false
-            Server = ''
-            Database = ''
-            Message = $refused + 'multiple host/server values)'
-        }
-    }
-    $server = [string]$servers[0]
-    if (-not (Test-CommercialSmokeSqlServerToken -Value $server)) {
-        return [pscustomobject]@{
-            Ok = $false
-            Server = ''
-            Database = ''
-            Message = $refused + 'host value is not a server name)'
         }
     }
     return [pscustomobject]@{
@@ -276,6 +295,14 @@ function Invoke-CommercialSmokeSqlCmd {
         [Parameter(Mandatory = $true)][string]$Server,
         [Parameter(Mandatory = $true)][string]$Query
     )
+    # Every sqlcmd invocation is -E -S <host from host=>. Never omit -S:
+    # a missing server argument would target the default instance.
+    if (-not (Test-CommercialSmokeLocalNamedInstance -Value $Server)) {
+        return [pscustomobject]@{
+            ExitCode = 1
+            Names = @()
+        }
+    }
     $cmdArgs = @('-E', '-S', $Server, '-d', 'master', '-b', '-h-1', '-W', '-w65535', '-Q', $Query)
     $code = 1
     $output = $null
@@ -296,15 +323,18 @@ function Invoke-CommercialSmokeSqlCmd {
 
 function Write-CommercialSmokeDatabaseList {
     param(
-        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][string]$Server,
+        [Parameter(Mandatory = $true)][string]$When,
         [string[]]$Names
     )
-    Write-Host "MSSQL_E2E DATABASES $Label"
+    $shown = New-Object System.Collections.Generic.List[string]
     foreach ($name in @($Names)) {
         if ([string]::IsNullOrWhiteSpace([string]$name)) { continue }
-        Write-Host ([string]$name).Trim()
+        $shown.Add(([string]$name).Trim())
     }
-    Write-Host "MSSQL_E2E DATABASES $Label END"
+    $joined = ''
+    if ($shown.Count -gt 0) { $joined = ($shown.ToArray() -join ' ') }
+    Write-Host ('[' + $Server + '] databases ' + $When + ': ' + $joined)
 }
 
 function Test-CommercialSmokeDatabaseListed {
@@ -344,7 +374,7 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
             Invoked = $false
         }
     }
-    Write-CommercialSmokeDatabaseList -Label 'BEFORE' -Names $before.Names
+    Write-CommercialSmokeDatabaseList -Server $Server -When 'before' -Names $before.Names
     if (Test-CommercialSmokeDatabaseListed -Name $DatabaseName -Names $before.Names) {
         Write-Host "MSSQL_E2E REFUSED (database $DatabaseName already exists; refusing to touch it)" -ForegroundColor Red
         return [pscustomobject]@{
@@ -377,11 +407,9 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
             $drop = Invoke-CommercialSmokeSqlCmd -SqlCmd $sqlcmd -Server $Server -Query $dropQuery
             $after = Invoke-CommercialSmokeSqlCmd -SqlCmd $sqlcmd -Server $Server -Query $listQuery
             if ($after.ExitCode -eq 0) {
-                Write-CommercialSmokeDatabaseList -Label 'AFTER' -Names $after.Names
+                Write-CommercialSmokeDatabaseList -Server $Server -When 'after' -Names $after.Names
             } else {
-                Write-Host 'MSSQL_E2E DATABASES AFTER'
-                Write-Host 'MSSQL_E2E DATABASES AFTER UNREADABLE'
-                Write-Host 'MSSQL_E2E DATABASES AFTER END'
+                Write-Host ('[' + $Server + '] databases after: UNREADABLE')
             }
             $stillThere = $false
             if ($after.ExitCode -eq 0) {
