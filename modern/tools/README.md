@@ -77,11 +77,86 @@ and writes only names to
 `reference/manifests/original-resource-references.json`. CI does not have
 those originals and must not invent `N.hfl` / `N.ttb` from map numbers.
 
+`originalExists` looks only under `--client-root`. Loose files are keyed by
+their path relative to that root (`Resource/Map/x.hfl`, not
+`client/Resource/Map/x.hfl`). Every regular `.pak` under that root is
+mounted. Files under `server/`, `src/`, or `database/` do not count.
+Matching follows the client: loose relative path first, then paks in mount
+order (PlayDH 92-byte, then original 96-byte, then `pak_filename_less` on
+the path relative to `--client-root`), full name then basename, ASCII
+case-insensitive (`pack_file.cpp` `eq_ci`,
+`filesystem_file_storage.cpp` `locate`). Extensions are not rewritten.
+Render code maps `.tga` to `.dds` in more than one place
+(`texture_loader.cpp` `compiledTextureName`, `terrain_scene.cpp`,
+`static_scene.cpp`, `entity_scene.cpp`); those are not the storage lookup,
+so a `.tga` reference hits only a `.tga` entry.
+`originalHit` records the client-relative loose or pak path
+(`loose:<path>` or `pak:<path>`, forward slashes, empty when missed).
+`check` ignores `originalHit`.
+
+After that index is built, `derive` calls `locate` for every
+`KNOWN_NO_ORIGINAL` name and for the same stem with `.dds`. The `.dds`
+name is the original with its extension replaced (`test4` gains `.dds`).
+Those names are not in `references`, so the reference walk never checks
+them, and storage lookup does not rewrite `.tga` to `.dds` by itself.
+A non-empty hit exits non-zero, prints `name -> hit` (the relative
+`loose:` or `pak:` label only), and does not write the manifest. When
+every lookup misses, the manifest is unchanged. The guard uses the same
+index as `originalExists`: `--client-root`, or `--source` when
+`--client-root` is omitted. An explicit `--client-root` that does not exist
+or is not a directory exits 2 before any index is built and writes nothing.
+
+Which maps are parsed is unchanged: casefolded basenames of loose files
+under `--source`, plus basenames of entries in `--pak`. A `.map` that
+exists only in some other pak is not parsed. `parsedMapCount` and
+`decodedMaps` therefore stay on that older set.
+
+`derive` still writes `derivation.localDecoder` (`version`,
+`sourcePakSha256`, `decodedMaps` with name and sha256, `keySourceCounts`)
+so `check --pak` can verify it. `trim` leaves that node alone and removes
+decoder filesystem paths and any `.py` path. `pak.path` stays. Do not
+commit the checked-in manifest from this change. The committed manifest
+has 4026 `originalExists: false` rows out of 4674 references.
+
+On ROG only `D:\build-mxr` is writable. `--local-decoder` is the existing
+external decoder path used for check153. It is not in this repo.
+
 ```bash
 python3 modern/tools/resource_reference_gate.py derive \
-    --source <original 3DData directory> \
+    --source D:/MX/client/Package/3DData \
+    --client-root D:/MX/client \
     --pak D:/MX/client/Package/3DData/Map.pak \
-    --output reference/manifests/original-resource-references.json
+    --local-decoder <existing external decoder path used for check153> \
+    --output D:/build-mxr/tyj165/derive-a.json
+
+python3 modern/tools/resource_reference_gate.py derive \
+    --source D:/MX/client/Package/3DData \
+    --client-root D:/MX/client \
+    --pak D:/MX/client/Package/3DData/Map.pak \
+    --local-decoder <existing external decoder path used for check153> \
+    --output D:/build-mxr/tyj165/derive-b.json
+
+python3 modern/tools/resource_reference_gate.py trim \
+    --input D:/build-mxr/tyj165/derive-a.json \
+    --output D:/build-mxr/tyj165/derive-a.trimmed.json
+
+python3 modern/tools/resource_reference_gate.py trim \
+    --input D:/build-mxr/tyj165/derive-b.json \
+    --output D:/build-mxr/tyj165/derive-b.trimmed.json
+```
+
+`Get-FileHash -Algorithm SHA256` on the two trimmed files must be equal.
+Acceptance is that hash match, plus this compare printing
+`OTHER_FIELD_DIFFS 0` and `DECODED_MAPS_EQUAL`. The compare counts every
+field except `originalExists` and `originalHit`. It also prints
+`FALSE_BY_EXT`, `FALSE_BY_VIA`, and the nine `tile_17_mou_a_*.tga` values.
+Names and counts only. The checked-in baseline has 4026 false rows out of
+4674 references.
+
+```bash
+python3 modern/tools/resource_reference_gate.py compare-manifests \
+    reference/manifests/original-resource-references.json \
+    D:/build-mxr/tyj165/derive-a.trimmed.json
 ```
 
 `check` runs in CI against that manifest. It exits 0 and prints warnings.

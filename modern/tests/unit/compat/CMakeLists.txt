@@ -73,7 +73,10 @@ gtest_add_tests(TARGET mxh_resource_byte_level_tests
 )
 
 add_executable(mxh_resource_reference_tests resource_reference_test.cpp)
-target_link_libraries(mxh_resource_reference_tests PRIVATE gtest_main bcrypt)
+target_link_libraries(mxh_resource_reference_tests PRIVATE gtest_main)
+if(WIN32)
+    target_link_libraries(mxh_resource_reference_tests PRIVATE bcrypt)
+endif()
 target_include_directories(mxh_resource_reference_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_reference_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)

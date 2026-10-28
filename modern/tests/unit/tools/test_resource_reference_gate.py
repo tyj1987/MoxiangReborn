@@ -17,8 +17,14 @@ SCRIPT = Path(__file__).resolve().parents[4] / "modern" / "tools" / "resource_re
 SPEC = importlib.util.spec_from_file_location("resource_reference_gate", SCRIPT)
 gate = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(gate)
+import pak_writer  # noqa: E402
 
 LFS_POINTER = b"version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 1\n"
+
+
+def manifest_text(document: dict) -> str:
+    """Same bytes ``derive`` writes, without a timestamp or a resolved path."""
+    return json.dumps(document, ensure_ascii=False, indent=2) + "\n"
 
 
 def build_hfl(names: list[str], used_slot: int) -> bytes:
@@ -164,6 +170,40 @@ class ResourceReferenceGateTests(unittest.TestCase):
             self.assertTrue(wall["name"].endswith(".TGA"))
             mou = next(ref for ref in manifest["references"] if ref["name"] == "tile_17_mou_a_01.tga")
             self.assertFalse(mou["originalExists"])
+            # None of the recorded-absent names are files here. The guard
+            # must leave this manifest byte-identical to the pre-guard derive.
+            self.assertEqual(set(manifest), {
+                "schema",
+                "derivation",
+                "references",
+                "excludedNotReferenced",
+                "notReferencedByOriginal",
+                "knownReferencedNoOriginalFile",
+            })
+            self.assertEqual(
+                manifest["knownReferencedNoOriginalFile"], list(gate.KNOWN_NO_ORIGINAL))
+            index = gate._build_exists_index(source)
+            self.assertEqual(gate._dds_stem_name("tile_17_mou_a_03.tga"), "tile_17_mou_a_03.dds")
+            self.assertEqual(gate._dds_stem_name("Monster_203.bin"), "Monster_203.dds")
+            self.assertEqual(gate._dds_stem_name("test4"), "test4.dds")
+            for name in gate.KNOWN_NO_ORIGINAL:
+                self.assertIsNone(index.locate(name), name)
+                dds = gate._dds_stem_name(name)
+                self.assertNotEqual(gate._ascii_fold(dds), gate._ascii_fold(name))
+                self.assertIsNone(index.locate(dds), dds)
+            blob = manifest_text(manifest)
+            self.assertEqual(
+                hashlib.sha256(blob.encode("utf-8")).hexdigest(),
+                "85d85efd7c1431f58de333bd4a51506c42b43b0aa759a26c3d98965464257715")
+            output = source / "derived.json"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = gate.main([
+                    "derive", "--source", str(source), "--output", str(output)])
+            self.assertEqual(code, 0, stderr.getvalue())
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(output.read_text(encoding="utf-8"), blob)
 
     def test_check_categories_warn_only_and_strict_switch(self):
         manifest = {
@@ -793,6 +833,474 @@ class PakLfsPointerAndFidelityTests(unittest.TestCase):
             report = gate.check(self.manifest([]), Path(directory))
             for key in ("present", "missing", "referencedButNoOriginalFile", "noConclusion"):
                 self.assertIn(key, report["counts"])
+
+
+class OriginalExistsScopeTests(unittest.TestCase):
+    """originalExists searches every pak under --source, not only Map.pak.
+
+    Archives are built with pak_writer (96-byte). The 92-byte fixture uses
+    the same synthetic layout the reader already accepts; pak_writer does
+    not emit that layout.
+    """
+
+    def _source(self, root: Path) -> Path:
+        source = root / "client"
+        (source / "packs").mkdir(parents=True)
+        (source / "nested").mkdir()
+        (source / "0.map").write_text("\n".join([
+            "GX_MAP",
+            "HEIGHT_FIELD",
+            "terrain.hfl",
+            "STATIC_MODEL",
+            "town.stm",
+            "GX_OBJECT",
+            "house.mod",
+            "absent.bin",
+            "empty.tga",
+        ]), encoding="latin-1")
+        (source / "terrain.hfl").write_bytes(build_hfl(["only-in-character.tga"], 0))
+        (source / "town.stm").write_bytes(build_stm([
+            "LooseWall.tga",
+            "CaseHit.TGA",
+            "author.tga",
+            "nested/deep.tga",
+            "empty.tga",
+            "shadow.tga",
+        ]))
+        (source / "LooseWall.tga").write_bytes(b"loose-wall")
+        (source / "casehit.tga").write_bytes(b"case-hit")
+        (source / "nested" / "Deep.TGA").write_bytes(b"deep")
+        (source / "Map.pak").write_bytes(pak_writer.build_pak_bytes([
+            ("decoy.tga", b"decoy"),
+        ]))
+        # Zero-length shadow.tga is first. find() returns that entry and
+        # has_payload rejects it, so the later payload does not count.
+        (source / "packs" / "Character.pak").write_bytes(pak_writer.build_pak_bytes([
+            ("only-in-character.tga", b"chr"),
+            ("House.MOD", b"mod"),
+            ("author.dds", b"dds"),
+            ("textures\\hidden.tga", b"hid"),
+            ("LooseWall.tga", b"from-pak"),
+            ("empty.tga", b""),
+            ("shadow.tga", b""),
+            ("shadow.tga", b"payload"),
+        ]))
+        return source
+
+    def test_derive_indexes_every_pak_and_is_byte_identical(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = self._source(Path(directory))
+            first = gate.derive(source, None)
+            second = gate.derive(source, None)
+            blob = manifest_text(first)
+            self.assertEqual(blob, manifest_text(second))
+            self.assertNotIn(str(source), blob)
+            self.assertNotRegex(blob, r"[A-Za-z]:[\\/]")
+            self.assertEqual(first["schema"], gate.MANIFEST_SCHEMA)
+            self.assertEqual(first["derivation"]["status"], "complete")
+            self.assertEqual(first["derivation"]["pak"]["path"], "")
+
+            rows = {ref["name"]: ref for ref in first["references"]}
+            self.assertEqual(rows["only-in-character.tga"]["originalHit"], "pak:packs/Character.pak")
+            self.assertTrue(rows["only-in-character.tga"]["originalExists"])
+            self.assertNotIn("Map.pak", rows["only-in-character.tga"]["originalHit"])
+            self.assertEqual(rows["LooseWall.tga"]["originalHit"], "loose:LooseWall.tga")
+            self.assertTrue(rows["LooseWall.tga"]["originalExists"])
+            self.assertEqual(rows["CaseHit.TGA"]["originalHit"], "loose:casehit.tga")
+            self.assertTrue(rows["CaseHit.TGA"]["originalExists"])
+            self.assertEqual(rows["house.mod"]["originalHit"], "pak:packs/Character.pak")
+            self.assertTrue(rows["house.mod"]["originalExists"])
+            self.assertFalse(rows["absent.bin"]["originalExists"])
+            self.assertEqual(rows["absent.bin"]["originalHit"], "")
+            self.assertFalse(rows["author.tga"]["originalExists"])
+            self.assertEqual(rows["author.tga"]["originalHit"], "")
+            self.assertEqual(rows["nested/deep.tga"]["originalHit"], "loose:nested/Deep.TGA")
+            self.assertTrue(rows["nested/deep.tga"]["originalExists"])
+            self.assertFalse(rows["empty.tga"]["originalExists"])
+            self.assertEqual(rows["empty.tga"]["via"], "0.map")
+            self.assertFalse(rows["shadow.tga"]["originalExists"])
+
+            index = gate._build_exists_index(source)
+            self.assertEqual([pack.rel for pack in index.packs], ["Map.pak", "packs/Character.pak"])
+            self.assertEqual(index.locate("decoy.tga").label, "pak:Map.pak")
+            self.assertIsNone(index.locate("hidden.tga"))
+            self.assertIsNone(index.locate("other/hidden.tga"))
+            self.assertEqual(index.locate("textures/hidden.tga").label, "pak:packs/Character.pak")
+            self.assertEqual(
+                index.locate("dir\\only-in-character.tga").label, "pak:packs/Character.pak")
+            self.assertIsNone(index.locate("Deep.TGA"))
+            self.assertIsNone(index.locate(""))
+            self.assertIsNone(index.locate("author.tga"))
+            self.assertEqual(index.locate("author.dds").label, "pak:packs/Character.pak")
+
+            absorbed: list[dict] = []
+            gate._absorb(
+                absorbed, [],
+                [{"name": "house.mod", "section": "GX_OBJECT"}],
+                "", index)
+            self.assertEqual(absorbed[0]["via"], "")
+            self.assertTrue(absorbed[0]["originalExists"])
+            self.assertEqual(absorbed[0]["originalHit"], "pak:packs/Character.pak")
+
+            with_pak_a = gate.derive(source, source / "Map.pak")
+            with_pak_b = gate.derive(source, source / "Map.pak")
+            self.assertEqual(manifest_text(with_pak_a), manifest_text(with_pak_b))
+            self.assertEqual(with_pak_a["derivation"]["pak"]["entriesReadToEof"], 1)
+            for ref in with_pak_a["references"]:
+                self.assertNotIn(str(source), ref["originalHit"])
+
+            empty = source / "empty-checkout"
+            empty.mkdir()
+            report = gate.check(first, empty)
+            empty_via = [row for row in report["referencedButNoOriginalFile"] if row["via"] == ""]
+            self.assertEqual(len(empty_via), len(gate.KNOWN_NO_ORIGINAL))
+            self.assertEqual({row["name"] for row in empty_via}, set(gate.KNOWN_NO_ORIGINAL))
+
+            hand = {
+                "schema": gate.MANIFEST_SCHEMA,
+                "derivation": {"status": "complete", "unparsed": []},
+                "references": [{
+                    "name": "only-in-character.tga",
+                    "via": "",
+                    "section": "hfl-used-texture",
+                    "originalExists": True,
+                }],
+                "knownReferencedNoOriginalFile": [],
+            }
+            present = gate.check(hand, source)
+            kept = [row for row in present["present"] if row["name"] == "only-in-character.tga"]
+            self.assertEqual(kept, [{"name": "only-in-character.tga", "via": ""}])
+
+    def test_mount_order_is_tier_then_filename(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "A.pak").write_bytes(pak_writer.build_pak_bytes([("shared.tga", b"A")]))
+            (source / "a.pak").write_bytes(pak_writer.build_pak_bytes([("shared.tga", b"a")]))
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nshared.tga\n", encoding="latin-1")
+            manifest = gate.derive(source, None)
+            shared = next(ref for ref in manifest["references"] if ref["name"] == "shared.tga")
+            self.assertEqual(shared["originalHit"], "pak:A.pak")
+            self.assertTrue(shared["originalExists"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / "a_original.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("tier.tga", b"96"),
+            ]))
+            (source / "z_playdh.pak").write_bytes(build_playdh_pak([("tier.tga", b"92")]))
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\ntier.tga\n", encoding="latin-1")
+            manifest = gate.derive(source, None)
+            tier = next(ref for ref in manifest["references"] if ref["name"] == "tier.tga")
+            self.assertEqual(tier["originalHit"], "pak:z_playdh.pak")
+            self.assertTrue(tier["originalExists"])
+
+    def test_client_root_relative_loose_and_outside_miss_and_maps_stay_put(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            server = root / "server"
+            (client / "Resource" / "Map").mkdir(parents=True)
+            server.mkdir()
+            (client / "0.map").write_text("\n".join([
+                "GX_MAP",
+                "GX_OBJECT",
+                "Resource/Map/wall.tga",
+                "only-server.tga",
+                "server/hero.mod",
+            ]), encoding="latin-1")
+            (client / "Resource" / "Map" / "wall.tga").write_bytes(b"wall")
+            (server / "hero.mod").write_bytes(b"mod")
+            (server / "Server.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("only-server.tga", b"nope"),
+                ("sneak.map", b"GX_MAP\nHEIGHT_FIELD\nsneak.hfl\n"),
+            ]))
+            (client / "Other.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("sneak.map", b"GX_MAP\nHEIGHT_FIELD\nsneak.hfl\n"),
+            ]))
+            manifest = gate.derive(root, None, client_root=client)
+            rows = {ref["name"]: ref for ref in manifest["references"]}
+            self.assertEqual(rows["Resource/Map/wall.tga"]["originalHit"], "loose:Resource/Map/wall.tga")
+            self.assertTrue(rows["Resource/Map/wall.tga"]["originalExists"])
+            self.assertFalse(rows["only-server.tga"]["originalExists"])
+            self.assertEqual(rows["only-server.tga"]["originalHit"], "")
+            self.assertFalse(rows["server/hero.mod"]["originalExists"])
+            self.assertEqual(manifest["derivation"]["parsedMapCount"], 1)
+            self.assertNotIn("sneak.hfl", rows)
+            self.assertNotIn("sneak.map", {item["name"] for item in manifest["derivation"]["unparsed"]})
+            parse_index, _info = gate._build_parse_index(root, None)
+            maps = {name for name in parse_index.by_base if name.endswith(".map")}
+            self.assertEqual(maps, {"0.map"})
+            exists = gate._build_exists_index(client)
+            self.assertEqual([pack.rel for pack in exists.packs], ["Other.pak"])
+            self.assertIsNone(exists.locate("only-server.tga"))
+
+    def _derive_cli(self, client: Path, output: Path):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            code = gate.main([
+                "derive",
+                "--source", str(client),
+                "--client-root", str(client),
+                "--output", str(output),
+            ])
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_derive_fails_when_known_dds_is_a_loose_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            client.mkdir()
+            (client / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            (client / "tile_17_mou_a_03.dds").write_bytes(b"synthetic-dds")
+            output = root / "out.json"
+            output.write_text("sentinel", encoding="utf-8")
+            code, stdout, stderr = self._derive_cli(client, output)
+            self.assertEqual(code, 1)
+            self.assertEqual(stdout, "")
+            self.assertEqual(output.read_text(encoding="utf-8"), "sentinel")
+            self.assertEqual(stderr.splitlines(), [
+                "ERROR: known-no-original name is present; manifest not written",
+                "tile_17_mou_a_03.dds -> loose:tile_17_mou_a_03.dds",
+            ])
+            self.assertNotIn(str(client), stderr)
+            with self.assertRaises(gate.KnownNoOriginalFound) as caught:
+                gate.derive(client, None, client_root=client)
+            self.assertEqual(
+                caught.exception.hits,
+                [("tile_17_mou_a_03.dds", "loose:tile_17_mou_a_03.dds")])
+
+    def test_derive_fails_when_known_tga_is_inside_a_synthetic_pak(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            client.mkdir()
+            (client / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            (client / "tiles.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("tile_17_mou_a_03.tga", b"synthetic-tga"),
+            ]))
+            output = root / "out.json"
+            output.write_text("sentinel", encoding="utf-8")
+            code, stdout, stderr = self._derive_cli(client, output)
+            self.assertEqual(code, 1)
+            self.assertEqual(stdout, "")
+            self.assertEqual(output.read_text(encoding="utf-8"), "sentinel")
+            self.assertEqual(stderr.splitlines(), [
+                "ERROR: known-no-original name is present; manifest not written",
+                "tile_17_mou_a_03.tga -> pak:tiles.pak",
+            ])
+            self.assertNotIn(str(client), stderr)
+
+    def _assert_client_root_argument_error(self, client: Path, output: Path, source: Path) -> None:
+        built: list[str] = []
+        real_parse = gate._build_parse_index
+        real_exists = gate._build_exists_index
+
+        def parse_index(*args, **kwargs):
+            built.append("parse")
+            return real_parse(*args, **kwargs)
+
+        def exists_index(*args, **kwargs):
+            built.append("exists")
+            return real_exists(*args, **kwargs)
+
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        gate._build_parse_index = parse_index
+        gate._build_exists_index = exists_index
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                with self.assertRaises(SystemExit) as caught:
+                    gate.main([
+                        "derive",
+                        "--source", str(source),
+                        "--client-root", str(client),
+                        "--output", str(output),
+                    ])
+        finally:
+            gate._build_parse_index = real_parse
+            gate._build_exists_index = real_exists
+        self.assertEqual(caught.exception.code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(built, [])
+        text = stderr.getvalue()
+        self.assertIn("--client-root", text)
+        self.assertIn(str(client), text)
+        self.assertIn("error:", text)
+
+    def test_missing_client_root_exits_2_and_does_not_create_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            missing = root / "no-such-client"
+            output = root / "out.json"
+            self._assert_client_root_argument_error(missing, output, source)
+            self.assertFalse(output.exists())
+
+    def test_file_client_root_exits_2_and_leaves_output_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            client = root / "not-a-directory"
+            client.write_bytes(b"regular-file")
+            absent = root / "not-written.json"
+            self._assert_client_root_argument_error(client, absent, source)
+            self.assertFalse(absent.exists())
+            output = root / "out.json"
+            sentinel = b"pre-existing-output-bytes\n"
+            output.write_bytes(sentinel)
+            self._assert_client_root_argument_error(client, output, source)
+            self.assertEqual(output.read_bytes(), sentinel)
+
+    def test_omitted_client_root_still_derives_from_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            expected = gate.derive(source, None)
+            output = root / "out.json"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = gate.main([
+                    "derive", "--source", str(source), "--output", str(output)])
+            self.assertEqual(code, 0, stderr.getvalue())
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(output.read_text(encoding="utf-8"), manifest_text(expected))
+
+
+class TrimAndCompareTests(unittest.TestCase):
+    def _pair(self, *, via="1.map", exists=True):
+        return {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {
+                "status": "complete",
+                "parsedMapCount": 1,
+                "decodedMapsIgnored": False,
+            },
+            "references": [
+                {
+                    "name": "a.tga",
+                    "via": via,
+                    "section": "GX_OBJECT",
+                    "originalExists": exists,
+                    "originalHit": "loose:a.tga" if exists else "",
+                },
+                {
+                    "name": "tile_17_mou_a_01.tga",
+                    "via": "17.map",
+                    "section": "hfl-used-texture",
+                    "originalExists": False,
+                    "originalHit": "",
+                },
+            ],
+            "knownReferencedNoOriginalFile": [],
+        }
+
+    def test_trim_keeps_local_decoder_and_drops_paths(self):
+        document = self._pair()
+        document["derivation"]["pak"] = {"path": r"D:\MX\client\Package\3DData\Map.pak"}
+        document["derivation"]["localDecoder"] = {
+            "version": "synthetic",
+            "sourcePakSha256": "ab" * 32,
+            "decodedMaps": [{"name": "1.map", "sha256": "cd" * 32, "keySource": "table-test"}],
+            "keySourceCounts": {"table-test": 1},
+            "loadedFrom": r"D:\secret\local_decoder.py",
+        }
+        document["derivation"]["decoderPath"] = "/opt/check153/decoder.py"
+        trimmed = gate.trim_manifest(document)
+        blob = json.dumps(trimmed)
+        self.assertIn("localDecoder", blob)
+        self.assertNotIn("local_decoder.py", blob)
+        self.assertNotIn("decoder.py", blob)
+        self.assertNotIn("secret", blob)
+        info = trimmed["derivation"]["localDecoder"]
+        self.assertEqual(set(info), {"version", "sourcePakSha256", "decodedMaps", "keySourceCounts"})
+        self.assertEqual(info["decodedMaps"], [
+            {"name": "1.map", "sha256": "cd" * 32, "keySource": "table-test"},
+        ])
+        self.assertEqual(trimmed["derivation"]["pak"]["path"], r"D:\MX\client\Package\3DData\Map.pak")
+        self.assertEqual(manifest_text(trimmed), manifest_text(gate.trim_manifest(trimmed)))
+
+    def test_trim_of_derive_matches_path_free_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pak = root / "Map.pak"
+            pak.write_bytes(build_original_pak([
+                ("1.map", synthetic_xor_map(FAKE_PLAIN_MAP)),
+            ]))
+            plugin = root / "outside" / "fake_decoder.py"
+            plugin.parent.mkdir()
+            plugin.write_text(SOURCED_PLUGIN_SOURCE, encoding="utf-8")
+            leaked = gate.derive(None, pak, local_decoder=gate.load_local_decoder(plugin))
+            info = leaked["derivation"]["localDecoder"]
+            self.assertEqual(set(info), {"version", "sourcePakSha256", "decodedMaps", "keySourceCounts"})
+            baseline = json.loads(json.dumps(leaked))
+            leaked["derivation"]["decoderPath"] = r"D:\secret\local_decoder.py"
+            leaked["derivation"]["localDecoder"]["loadedFrom"] = "/opt/check153/decoder.py"
+            leaked["pluginFile"] = r"C:\tools\plugin.py"
+            trimmed = gate.trim_manifest(leaked)
+            report = gate.compare_manifest_report(baseline, trimmed)
+            self.assertIn("OTHER_FIELD_DIFFS 0\n", report)
+            self.assertIn("DECODED_MAPS_EQUAL\n", report)
+            self.assertNotIn("FALSE_BY_HIT", report)
+            self.assertEqual(
+                trimmed["derivation"]["localDecoder"]["decodedMaps"],
+                baseline["derivation"]["localDecoder"]["decodedMaps"],
+            )
+            self.assertNotIn(".py", json.dumps(trimmed))
+
+    def test_compare_reports_hit_fields_separately_from_other_diffs(self):
+        old = self._pair(exists=True)
+        new = self._pair(exists=False)
+        new["references"][0]["originalHit"] = ""
+        text = gate.compare_manifest_report(old, new)
+        self.assertIn("OTHER_FIELD_DIFFS 0\n", text)
+        self.assertIn("PARSED_MAP_COUNT old=1 new=1\n", text)
+        self.assertIn("DECODED_MAPS_EQUAL\n", text)
+        self.assertIn("FALSE_BY_EXT tga 2\n", text)
+        self.assertNotIn("FALSE_BY_HIT", text)
+        self.assertIn("FALSE_BY_VIA 1.map 1\n", text)
+        self.assertIn("FALSE_BY_VIA 17.map 1\n", text)
+        self.assertIn("TILE tile_17_mou_a_01.tga false\n", text)
+        self.assertIn("TILE tile_17_mou_a_09.tga absent\n", text)
+        self.assertNotIn("sha256", text)
+        self.assertNotIn("payload", text)
+
+        changed = self._pair(via="other.map", exists=False)
+        diff = gate.compare_manifest_report(old, changed)
+        self.assertIn("OTHER_FIELD references[0].via\n", diff)
+        self.assertNotIn("OTHER_FIELD_DIFFS 0\n", diff)
+
+        old_maps = self._pair()
+        new_maps = self._pair()
+        old_maps["derivation"]["localDecoder"] = {"decodedMaps": [{"name": "1.map"}, {"name": "2.map"}]}
+        new_maps["derivation"]["localDecoder"] = {"decodedMaps": [{"name": "2.map"}, {"name": "3.map"}]}
+        listed = gate.compare_manifest_report(old_maps, new_maps)
+        self.assertIn("DECODED_MAPS_ONLY_OLD 1.map\n", listed)
+        self.assertIn("DECODED_MAPS_ONLY_NEW 3.map\n", listed)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_path = root / "old.json"
+            new_path = root / "new.json"
+            trimmed_path = root / "trimmed.json"
+            old_path.write_text(manifest_text(old), encoding="utf-8")
+            new_path.write_text(manifest_text(new), encoding="utf-8")
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                code = gate.main(["compare-manifests", str(old_path), str(new_path)])
+            self.assertEqual(code, 0)
+            self.assertIn("OTHER_FIELD_DIFFS 0\n", stdout.getvalue())
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(gate.main(["trim", "--input", str(new_path), "--output", str(trimmed_path)]), 0)
+            saved = json.loads(trimmed_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["references"][0]["name"], "a.tga")
 
 
 if __name__ == "__main__":
