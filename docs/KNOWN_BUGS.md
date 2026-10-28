@@ -92,3 +92,7 @@ TYJ-156 仍开放。Map17 这一半的结论：代码默认是 12（`modern/tool
 
 Map17 引用 9 张地表 `tile_17_mou_a_01..09.tga`，没有原始来源。对完整原版客户端（全部 pak 与散文件）直接查找这 9 个 `.tga` 和同名 `.dds`，18 个名字的命中数是 0。不制作替代美术。Map17 不进入 1:1 GUI 门禁。`derive` 会在存在性索引上查找这些名字；其中任何一个出现时 `derive` 失败且不写清单，这个问题重新打开。
 
+### 2026-10-28 LocalDB 孤儿服务端占住输出管道 Refs TYJ-163
+
+LocalDB 路径已去掉按映像名清理。`scripts/commercial-smoke.ps1:1046` 调用 `Invoke-CommercialSmokeOwnedExecutable`，只记录本次启动的 `mxh_client_e2e` 以及已经进入 owned 进程树的后代，并只停止这些 PID。触发条件：E2E 先退出，留下一个没有记入该进程树的孤儿服务端。影响：该孤儿继续占着输出管道，脚本一直等管道关闭而挂起。当前缓解：无；只做 owned PID 清理。ROG 没有 LocalDB，实机验证记在 TYJ-162，在装有 LocalDB 的干净机器上做。
+
