@@ -777,7 +777,10 @@ try {
         @{ Conn = 'backend=mssql_odbc;host=.\SQLEXPRESS;host=.\OTHER;database=MxE2E_Ok;'; Fragment = 'multiple host= values' },
         @{ Conn = 'backend=mssql_odbc;host=.\SQLEXPRESS;Server=localhost\SQLEXPRESS;database=MxE2E_Ok;'; Fragment = 'alternate server key server= is not allowed' },
         @{ Conn = 'backend=mssql_odbc;host=192.168.1.5\SQLEXPRESS;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' },
-        @{ Conn = 'backend=mssql_odbc;host=.;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' }
+        @{ Conn = 'backend=mssql_odbc;host=.;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' },
+        @{ Conn = 'backend=mssql_odbc;host=localhost;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' },
+        @{ Conn = 'backend=mssql_odbc;host=(local);database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' },
+        @{ Conn = 'backend=mssql_odbc;host=127.0.0.1;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' }
     )
     foreach ($hostCase in $hostCases) {
         $state = New-SqlCmdState -Root $script:Root -Names $baseNames
