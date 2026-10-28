@@ -56,7 +56,9 @@ struct Args {
     std::string   map_server_addr;  // empty = no MapServer (stub mode)
     std::uint16_t map_server_port   = 8001;
     std::uint16_t default_map_num   = 12;
-    std::uint16_t start_area        = mxh::server::kNewCharacterStartArea;
+    // Filled from --start-area, or from default_map_num when that flag is omitted.
+    std::uint16_t start_area        = 0;
+    bool          start_area_explicit = false;
     struct MapRouteSpec {
         std::uint16_t map_num = 0;
         std::string address;
@@ -121,8 +123,10 @@ Args parse_args(int argc, char** argv) {
         }
         else if (s == "--default-map" && i + 1 < argc)
             a.default_map_num = parse_default_map(argv[++i]);
-        else if (s == "--start-area" && i + 1 < argc)
+        else if (s == "--start-area" && i + 1 < argc) {
             a.start_area = parse_default_map(argv[++i]);
+            a.start_area_explicit = true;
+        }
         else if (s == "--map-server-map" && i + 1 < argc) {
             // Parse MAP=HOST:PORT. This is explicit so a production run
             // cannot silently infer a destination from the process name.
@@ -155,8 +159,9 @@ Args parse_args(int argc, char** argv) {
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
                       << "  --map-server-map M=H:P register an additional map route\n"
-                      << "  --default-map N       route used by --map-server\n"
-                      << "  --start-area N        new-character StartArea that must be registered (default 17)\n";
+                      << "  --default-map N       route used by --map-server (default 12)\n"
+                      << "  --start-area N        new-character StartArea that must be registered\n"
+                      << "                        (default: the --default-map value)\n";
             std::exit(0);
         }
         else {
@@ -165,6 +170,7 @@ Args parse_args(int argc, char** argv) {
             std::exit(2);
         }
     }
+    if (!a.start_area_explicit) a.start_area = a.default_map_num;
     return a;
 }
 

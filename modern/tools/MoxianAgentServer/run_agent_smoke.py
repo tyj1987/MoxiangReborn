@@ -50,8 +50,7 @@ def smoke_locale(locale: str) -> tuple[bool, str]:
         proc = subprocess.Popen(
             [str(exe), "--port", str(port),
              "--map-server", "127.0.0.1:28017",
-             "--default-map", "17",
-             "--start-area", "17"],
+             "--default-map", "12"],
             cwd=str(BUILD),
             stdout=out_f,
             stderr=subprocess.STDOUT,

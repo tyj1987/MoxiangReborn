@@ -12,10 +12,12 @@
   same as start_modern.ps1).
 
   ROG example (PowerShell 7.4+). Default ports are 26001/27001/28001.
-  Map17 uses base+2002, which is 28003. 28003 is an allowed smoke port.
+  Map17 uses base+2002, which is 28003, only when StartArea is 17.
+  28003 is an allowed smoke port.
   16001/17001/18001 and 36001/37001/38001 stay rejected.
   -MapNumber 10 enters a character pre-saved on Map10. -LiveCharacterBirth
-  creates a character and checks Map17 without Map10 thresholds.
+  creates a character on the configured StartArea. verify-map17-birth.py
+  runs only when that StartArea is 17.
     pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\gui-client-smoke.ps1 -EphemeralLocalServer -BuildDir modern\build
 
   mxh_client dials only --login-host/--login-port. With the switch on,
@@ -77,10 +79,13 @@ param(
     [switch]$NoEntities,
     # Loopback-only throwaway login/agent/map. Does not call start_modern.ps1.
     [switch]$EphemeralLocalServer,
-    # Live CharacterMake. Enters Map17 and skips Map10 monster/terrain thresholds
-    # and the nine missing tile_17_mou_a_01..09 ground textures. Cannot be
-    # combined with -MapNumber 10.
+    # Live CharacterMake. The saved map must equal the configured StartArea
+    # (-StartArea when passed, otherwise -MapNumber, which the agent receives
+    # as --default-map). Map17 and verify-map17-birth.py run only when that
+    # value is 17. Cannot be combined with -MapNumber 10.
     [switch]$LiveCharacterBirth,
+    [ValidateRange(0, 255)]
+    [int]$StartArea = 0,
     # login=base, agent=base+1000, map=base+2000. Ignored unless -EphemeralLocalServer.
     # Default avoids 16001/17001/18001, 36001/37001/38001 and 36101/37101/38101-38103.
     [ValidateRange(1, 65533)]
@@ -92,8 +97,13 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$startAreaExplicit = $PSBoundParameters.ContainsKey('StartArea')
+$configuredStartArea = if ($startAreaExplicit) { $StartArea } else { $MapNumber }
 if ($LiveCharacterBirth -and $MapNumber -eq 10) {
-    throw "-MapNumber 10 enters the pre-saved Map10 character. -LiveCharacterBirth is a separate Map17 path and cannot be combined with -MapNumber 10."
+    throw "-MapNumber 10 enters the pre-saved Map10 character. -LiveCharacterBirth checks the configured StartArea and cannot be combined with -MapNumber 10."
+}
+if ($LiveCharacterBirth -and $configuredStartArea -eq 17 -and $MapNumber -ne 17 -and -not $EphemeralLocalServer) {
+    throw "start_modern.ps1 does not register Map17. Pass -EphemeralLocalServer with -LiveCharacterBirth -StartArea 17."
 }
 if ($EphemeralLocalServer) {
     # Start-Process -Environment requires Windows PowerShell's successor 7.4.
@@ -163,6 +173,7 @@ $previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
 $previousGuiSmokeRotateAppearance = $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE
 $previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
 $previousGuiSmokeMovement = $env:MXH_GUI_SMOKE_MOVEMENT
+$previousGuiSmokeStartArea = $env:MXH_GUI_SMOKE_START_AREA
 
 try {
     $clientLoginPort = '16001'
@@ -208,6 +219,7 @@ try {
             throw "Missing database tool required for isolated GUI smoke: $dbTool"
         }
         $plannedDbDirectory = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+        $registerMap17 = $LiveCharacterBirth -and $configuredStartArea -eq 17
         $ephemeralSpec = New-EphemeralServerLaunchSpec `
             -MapExecutable $mapExe -AgentExecutable $agentExe -LoginExecutable $loginExe `
             -MapNumber $MapNumber `
@@ -215,6 +227,7 @@ try {
             -ResourceProfileId $layout.ResourceProfileId `
             -DatabaseDirectory $plannedDbDirectory `
             -LoginPort $ephemeralPortPlan.LoginPort -AgentPort $ephemeralPortPlan.AgentPort -MapPort $ephemeralPortPlan.MapPort `
+            -RegisterMap17:$registerMap17 `
             -ProcessEnvironment (Copy-EphemeralProcessEnvironment) `
             -ClientArguments $arguments
         # Before any server process. A listener on 0.0.0.0 would still accept 127.0.0.1.
@@ -343,6 +356,9 @@ try {
     if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
     if ($ExerciseCombat) { $env:MXH_GUI_SMOKE_COMBAT = '1' }
     if ($ExerciseMovement) { $env:MXH_GUI_SMOKE_MOVEMENT = '1' }
+    if ($LiveCharacterBirth) {
+        $env:MXH_GUI_SMOKE_START_AREA = [string]$configuredStartArea
+    }
     # EXIT=1 skips the entity list unless RENDER_ENTITIES=1. Default on
     # even without -FollowCamera; -NoEntities is the terrain-only opt-out.
     if ($NoEntities) {
@@ -468,8 +484,8 @@ try {
         if ($log -notmatch [regex]::Escape('sent CharacterMakeSyn')) {
             throw "LiveCharacterBirth did not create a character; log=$stderr"
         }
-        if ($savedMap -ne 17) {
-            throw "LiveCharacterBirth entered map $savedMap; expected Map17; log=$stderr"
+        if ($savedMap -ne $configuredStartArea) {
+            throw "LiveCharacterBirth entered map $savedMap; expected configured StartArea $configuredStartArea; log=$stderr"
         }
     } else {
         if ($log -match [regex]::Escape('sent CharacterMakeSyn')) {
@@ -570,7 +586,7 @@ try {
     if (-not (Test-Path -LiteralPath $stateFramesDir)) { throw "GUI smoke missing state-frames dir: $stateFramesDir" }
     & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir --permissive
     if ($LASTEXITCODE -ne 0) { throw "GUI state frames validation failed: $stateFramesDir" }
-    if ($LiveCharacterBirth) {
+    if ($LiveCharacterBirth -and $configuredStartArea -eq 17) {
         & python (Join-Path $repoRoot 'scripts\verify-map17-birth.py') $frame
         if ($LASTEXITCODE -ne 0) { throw "GUI Map17 birth frame validation failed: $frame" }
     } elseif (-not $FollowCamera) {
@@ -620,6 +636,9 @@ finally {
     if ($null -eq $previousGuiSmokeMovement) {
         Remove-Item Env:MXH_GUI_SMOKE_MOVEMENT -ErrorAction SilentlyContinue
     } else { $env:MXH_GUI_SMOKE_MOVEMENT = $previousGuiSmokeMovement }
+    if ($null -eq $previousGuiSmokeStartArea) {
+        Remove-Item Env:MXH_GUI_SMOKE_START_AREA -ErrorAction SilentlyContinue
+    } else { $env:MXH_GUI_SMOKE_START_AREA = $previousGuiSmokeStartArea }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }

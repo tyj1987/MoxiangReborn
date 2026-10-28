@@ -17,7 +17,7 @@
 
 ## PVE 服务与数据库
 
-下一次把当前 Agent 部署到 VM112 之前，stage 必须注册 Map17。未注册时 Agent 启动失败，错误包含地图号 17，建角也不会再静默落到 `default_map_num_`（stage 上通常是 Map10）。已经写在 Map10 的角色仍进入 Map10。TYJ-155 会把这条要求写进 `docs/CLEAN_MACHINE_DEPLOY.md`。本地冒烟的 ephemeral 启动脚本会自行拉起 Map17；`deploy/scripts/start_modern.ps1` 不在这次改动里。
+Map17 只在 StartArea 配成 17 时才要注册。默认 StartArea 不变：Agent 省略 `--start-area` 时跟随 `default_map_num`（当前是 12）。`deploy/scripts/start_modern.ps1` 用 `--default-map` 加上同一张图的 `--map-server`，所以默认启动注册检查可以通过；该脚本本次不修改。配成 17 却未注册时 Agent 启动失败，错误写出该地图号，建角也不会再静默落到 `default_map_num_`。已经写在 Map10 的角色仍进入 Map10。TYJ-155 仍负责 `docs/CLEAN_MACHINE_DEPLOY.md`。
 
 
 

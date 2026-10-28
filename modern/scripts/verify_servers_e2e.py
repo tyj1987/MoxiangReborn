@@ -71,7 +71,6 @@ LOGIN_PORT = 6001
 AGENT_PORT = 7001
 # MapServer defaults
 MAP_PORT = 8001
-MAP17_PORT = 8003
 TEST_CHARACTER_ID = 1001
 
 # Server readiness wait (seconds)
@@ -412,18 +411,10 @@ def main() -> int:
     db_map   = scratch / "map.db"
     seed_agent_character(db_agent)
 
-    probe = socket.socket()
-    try:
-        probe.bind(("127.0.0.1", MAP17_PORT))
-    except OSError:
-        print(f"  [FAIL] Map17 listen port {MAP17_PORT} is occupied; "
-              "refusing to fall back to another port", file=sys.stderr)
-        return 1
-    finally:
-        probe.close()
-
     # Spawn servers.  LoginServer uses --init-schema so the test user is
     # already in chr_log_info; the seed user is id="test" pw="test".
+    # The map process is map 12, which is the agent default StartArea.
+    # --map-server registers that map. This probe does not request Map17.
     servers = [
         ServerProc("login",
                     [str(login_exe),
@@ -439,24 +430,15 @@ def main() -> int:
                      "--db", str(db_agent),
                      "--legacy",
                      "--map-server", f"127.0.0.1:{MAP_PORT}",
-                     "--map-server-map", f"17=127.0.0.1:{MAP17_PORT}",
-                     "--start-area", "17"]),
+                     "--default-map", "12"]),
         ServerProc("map",
                     [str(map_exe),
                      "--port", str(MAP_PORT),
                      "--map", "12",  # default 12 = village map
                      "--db", str(db_map),
                      "--legacy"]),
-        ServerProc("map17",
-                    [str(map_exe),
-                     "--port", str(MAP17_PORT),
-                     "--map", "17",
-                     "--db", str(db_map),
-                     "--legacy"]),
     ]
-    print(f"  [boot] starting Map17, then login + agent before delayed MapServer ({cfg_dir_name}) ...")
-    servers[3].start(log_dir)
-    print(f"        started map17 (pid={servers[3].proc.pid})")
+    print(f"  [boot] starting login + agent before delayed MapServer ({cfg_dir_name}) ...")
     for server in servers[:2]:
         server.start(log_dir)
         print(f"        started {server.name} (pid={server.proc.pid})")
@@ -472,8 +454,7 @@ def main() -> int:
 
     try:
         # Wait for each port to come up.
-        port_for = {"login": LOGIN_PORT, "agent": AGENT_PORT, "map": MAP_PORT,
-                    "map17": MAP17_PORT}
+        port_for = {"login": LOGIN_PORT, "agent": AGENT_PORT, "map": MAP_PORT}
         for s in servers:
             if not wait_for_port("127.0.0.1", port_for[s.name], WAIT_FOR_PORT_TIMEOUT):
                 raise RuntimeError(

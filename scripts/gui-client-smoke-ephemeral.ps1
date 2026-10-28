@@ -361,7 +361,8 @@ function Resolve-EphemeralPortPlan {
         AgentPort = $agent
         MapPort = $map
         Map17Port = $map17
-        Ports = @($login, $agent, $map, $map17)
+        # Default listeners. Map17Port stays available for an explicit StartArea=17 run.
+        Ports = @($login, $agent, $map)
     }
 }
 
@@ -458,13 +459,15 @@ function New-EphemeralServerLaunchSpec {
         [int]$AgentPort = 27001,
         [int]$MapPort = 28001,
         [int]$Map17Port = 0,
+        # Extra Map17 listener on Map17Port, plus --start-area 17. Default off.
+        [switch]$RegisterMap17,
         [hashtable]$ProcessEnvironment = @{},
         [Parameter(Mandatory)][string[]]$ClientArguments
     )
     if ($Map17Port -eq 0) { $Map17Port = $MapPort + 2 }
     $reserved = Get-EphemeralReservedPorts
     $listenPorts = @($LoginPort, $AgentPort, $MapPort)
-    if ($MapNumber -ne 17) { $listenPorts += $Map17Port }
+    if ($RegisterMap17 -and $MapNumber -ne 17) { $listenPorts += $Map17Port }
     foreach ($port in @($listenPorts)) {
         if ($port -lt 1 -or $port -gt 65535) {
             throw "ephemeral safety: port-out-of-range $port"
@@ -501,11 +504,13 @@ function New-EphemeralServerLaunchSpec {
         '--port', "$AgentPort",
         '--bind-address', '127.0.0.1',
         '--map-server', "127.0.0.1:$MapPort",
-        '--default-map', "$MapNumber",
-        '--start-area', '17'
+        '--default-map', "$MapNumber"
     ) + $commonDb + $legacy
-    if ($MapNumber -ne 17) {
-        $agentArgs += @('--map-server-map', "17=127.0.0.1:$Map17Port")
+    if ($RegisterMap17) {
+        $agentArgs += @('--start-area', '17')
+        if ($MapNumber -ne 17) {
+            $agentArgs += @('--map-server-map', "17=127.0.0.1:$Map17Port")
+        }
     }
     $map17Args = @(
         '--port', "$Map17Port",
@@ -533,13 +538,14 @@ function New-EphemeralServerLaunchSpec {
     }
     $environment['MXH_DATABASE_CONFIG'] = $databaseConfig
 
-    # Map17 is the original new-character StartArea. The primary -MapNumber
-    # process stays in place for an existing character saved on that map.
-    # start_modern.ps1 is not the local smoke launcher and is left unchanged.
+    # The primary -MapNumber process is the default StartArea route
+    # (--default-map plus --map-server). Map17 is added only for an explicit
+    # StartArea of 17. start_modern.ps1 is not the local smoke launcher and
+    # is left unchanged.
     $processes = @(
         [pscustomobject]@{ Name = 'map'; Executable = $MapExecutable; Port = $MapPort; Arguments = $mapArgs }
     )
-    if ($MapNumber -ne 17) {
+    if ($RegisterMap17 -and $MapNumber -ne 17) {
         $processes += [pscustomobject]@{ Name = 'map17'; Executable = $MapExecutable; Port = $Map17Port; Arguments = $map17Args }
     }
     $processes += @(
@@ -548,7 +554,7 @@ function New-EphemeralServerLaunchSpec {
     )
     $listenAddresses = @($processes | ForEach-Object { '127.0.0.1' })
     $serverArguments = @($mapArgs) + @($agentArgs) + @($loginArgs)
-    if ($MapNumber -ne 17) { $serverArguments = @($mapArgs) + @($map17Args) + @($agentArgs) + @($loginArgs) }
+    if ($RegisterMap17 -and $MapNumber -ne 17) { $serverArguments = @($mapArgs) + @($map17Args) + @($agentArgs) + @($loginArgs) }
     $violation = Get-EphemeralSafetyViolation `
         -ListenAddresses $listenAddresses `
         -ClientConnectAddresses @('127.0.0.1', '127.0.0.1', '127.0.0.1') `

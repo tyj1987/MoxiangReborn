@@ -1,11 +1,12 @@
 #pragma once
 
-// New-character StartArea registration.
+// Configured new-character StartArea registration.
 //
-// Original CN character creation persists map 17 (see the PR note for the
-// evidence that is actually in this tree). The agent must not substitute
-// default_map_num_ when that map has no route. Startup fails when the
-// configured StartArea is absent from the configured map endpoints.
+// Omitting --start-area leaves the configured StartArea equal to
+// default_map_num (12 unless --default-map overrides it). Startup fails
+// when that map has no route. kNewCharacterStartArea is the explicit Map17
+// value for --start-area 17; it is not the omitted-flag default. The agent
+// must not substitute another map when the configured StartArea is absent.
 
 #include <cstddef>
 #include <cstdint>
@@ -15,6 +16,7 @@
 
 namespace mxh::server {
 
+// Explicit Map17 birth number. Not the agent default.
 inline constexpr std::uint16_t kNewCharacterStartArea = 17;
 
 inline std::string new_character_start_area_unregistered_message(

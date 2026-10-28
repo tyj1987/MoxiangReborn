@@ -171,10 +171,14 @@ struct CliArgs {
     bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
-    // Live birth persists StartArea 17 and uses the Map17 assertion set.
-    // Without this flag, --map-number is the smoke enter map (Map10 smoke
-    // sends StartArea 10 and must not follow the birth route).
+    // Live birth persists the configured StartArea. That value is --start-area
+    // when the flag is present, otherwise the same map as --default-map
+    // (--map-number). It is not hardcoded to 17. Without --live-birth,
+    // --map-number is the smoke enter map.
     bool live_birth = false;
+    bool start_area_explicit = false;
+    int start_area = 0;
+    int configured_start_area = 0;
     bool exercise_position = false; // opt-in movement/GameOut/relog position gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
@@ -270,6 +274,10 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
         else if (s == "--live-birth") a.live_birth = true;
+        else if (s == "--start-area" && i + 1 < argc) {
+            a.start_area = std::atoi(argv[++i]);
+            a.start_area_explicit = true;
+        }
         else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
@@ -306,6 +314,17 @@ CliArgs parse_cli(int argc, char** argv) {
     } catch (const std::runtime_error& error) {
         std::fprintf(stderr, "%s\n", error.what());
         std::exit(3);
+    }
+    if (a.start_area_explicit) {
+        if (a.start_area < 0 || a.start_area > 255) {
+            std::fprintf(stderr, "invalid --start-area (expected 0..255)\n");
+            std::exit(3);
+        }
+        a.configured_start_area = a.start_area;
+    } else {
+        // Agent omits --start-area and uses --default-map, which this tool
+        // sets from --map-number.
+        a.configured_start_area = a.map_number;
     }
     const auto rejected = mxh::test::e2e_ports_reject_reason(
         a.login_port, a.agent_port, a.map_port, a.map12_port);
@@ -677,12 +696,14 @@ int run_e2e(const CliArgs& cli) {
         if (cli.use_hsel) login_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", login_args);
 
-        // AgentServer
+        // AgentServer. Map17 (base+2002, 28003 at the default base) is started
+        // only when the configured StartArea is 17 and the primary map is not.
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
         const int map17_port = cli.map12_port + 1;
-        const bool spawn_map17 = cli.map_number != 17;
+        const bool spawn_map17 = cli.configured_start_area == 17 &&
+                                 cli.map_number != 17;
         if (spawn_map17) {
             if (map17_port < mxh::test::kE2eMinPort || map17_port > mxh::test::kE2eMaxPort ||
                 mxh::test::e2e_port_is_forbidden(map17_port) ||
@@ -699,8 +720,11 @@ int run_e2e(const CliArgs& cli) {
             "--db", agent_db,
             "--legacy",
             "--map-server", "127.0.0.1:" + std::to_string(cli.map_port),
-            "--default-map", std::to_string(cli.map_number),
-            "--start-area", "17"};
+            "--default-map", std::to_string(cli.map_number)};
+        if (cli.start_area_explicit) {
+            agent_args.emplace_back("--start-area");
+            agent_args.emplace_back(std::to_string(cli.configured_start_area));
+        }
         if (cli.exercise_mapchange) {
             agent_args.emplace_back("--map-server-map");
             agent_args.emplace_back("12=127.0.0.1:" + std::to_string(cli.map12_port));
@@ -972,11 +996,11 @@ int run_e2e(const CliArgs& cli) {
             params.hair_type  = 1;
             params.face_type  = 1;
             params.start_area = cli.live_birth
-                ? static_cast<std::uint8_t>(17)
+                ? static_cast<std::uint8_t>(cli.configured_start_area)
                 : static_cast<std::uint8_t>(cli.map_number);
             LOG("[3/5] CharMake start_area=%u (%s)",
                 static_cast<unsigned>(params.start_area),
-                cli.live_birth ? "live-birth Map17" : "smoke enter-map");
+                cli.live_birth ? "live-birth configured StartArea" : "smoke enter-map");
             params.height     = 1.0f;
             params.width      = 0.9f;
             // Match the canonical CHINA character-creation defaults from
@@ -1090,9 +1114,9 @@ int run_e2e(const CliArgs& cli) {
     const auto entered_map = chsel2.selected_map();
     LOG("[4/5] character saved map=%u", static_cast<unsigned>(entered_map));
     if (cli.live_birth) {
-        if (entered_map != 17) {
-            LOG("[4/5] FAIL: live birth saved map=%u, expected 17",
-                static_cast<unsigned>(entered_map));
+        if (static_cast<int>(entered_map) != cli.configured_start_area) {
+            LOG("[4/5] FAIL: live birth saved map=%u, expected configured StartArea %d",
+                static_cast<unsigned>(entered_map), cli.configured_start_area);
             return 2;
         }
     } else if (static_cast<int>(entered_map) != cli.map_number) {
@@ -1123,12 +1147,16 @@ int run_e2e(const CliArgs& cli) {
         // Map10 is the first vertical-slice gate.  Let the receive thread
         // drain the server's initial spawn burst, then require the complete
         // decoded AIGroup population rather than merely the first packet.
-        if (cli.live_birth) {
+        if (cli.live_birth && cli.configured_start_area == 17) {
             // Separate from Map10. Do not require 228 monsters, terrain
             // coverage, or color diversity. The nine missing Map17 ground
             // textures tile_17_mou_a_01..09 are not sampled.
             LOG("[5/5] OK: Map17 birth assertions map=%u; skipped "
                 "tile_17_mou_a_01..09; Map10 thresholds not applied",
+                static_cast<unsigned>(entered_map));
+        } else if (cli.live_birth) {
+            LOG("[5/5] OK: live birth map=%u matches configured StartArea; "
+                "Map10 thresholds not applied",
                 static_cast<unsigned>(entered_map));
         } else if (entered_map == 10) {
             const auto spawn_deadline = std::chrono::steady_clock::now() +

@@ -318,15 +318,9 @@ int main(int argc, char** argv) {
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
             const bool login_only = a.scenario == "login";
-            const int map17_port = a.modern_map_port + 2;
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port),
-                                                "--default-map", std::to_string(a.map_num),
-                                                "--start-area", "17"};
-            if (a.map_num != 17) {
-                ma_args.push_back("--map-server-map");
-                ma_args.push_back("17=127.0.0.1:" + std::to_string(map17_port));
-            }
+                                                "--default-map", std::to_string(a.map_num)};
 if (a.modern_legacy || a.modern_only) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             std::vector<std::string> mm_args = {
@@ -343,21 +337,8 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
                 mm_args.push_back(server_root.string());
             }
             ServerLaunch mm{mapPath, std::move(mm_args)};
-            ServerLaunch mm17{mapPath, {}};
-            if (a.map_num != 17) {
-                mm17.args = {"--port", std::to_string(map17_port), "--map", "17"};
-                if (a.modern_legacy || a.modern_only) mm17.args.push_back("--legacy");
-                if (!a.resource_root.empty()) {
-                    mm17.args.push_back("--resource-root");
-                    mm17.args.push_back(a.resource_root);
-                    mm17.args.push_back("--server-resource-root");
-                    mm17.args.push_back((std::filesystem::path(a.resource_root) /
-                                         "Resource" / "Server").string());
-                }
-            }
             modern_login = start_process(ml);
             if (!login_only) {
-                if (a.map_num != 17) modern_map17 = start_process(mm17);
                 modern_agent = start_process(ma);
                 modern_map   = start_process(mm);
             }
