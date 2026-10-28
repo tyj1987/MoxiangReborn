@@ -30,6 +30,7 @@ workflow:
         - scripts/gui-client-smoke.ps1
         - scripts/gui-client-smoke-ephemeral.ps1
         - scripts/tests/test-gui-client-smoke-ephemeral.ps1
+        - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
         - .gitignore
         - "**/*.[Pp][Aa][Kk]"
         - .gitlab-ci.yml
@@ -101,6 +102,8 @@ rog_gate_self_test:
       export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
       pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
       pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
+      pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
 
 original_lfs_integrity:
   extends: .linux_trusted

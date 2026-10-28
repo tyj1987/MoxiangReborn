@@ -173,6 +173,14 @@ struct CliArgs {
     bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
+    // Live birth persists the configured StartArea. That value is --start-area
+    // when the flag is present, otherwise the same map as --default-map
+    // (--map-number). It is not hardcoded to 17. Without --live-birth,
+    // --map-number is the smoke enter map.
+    bool live_birth = false;
+    bool start_area_explicit = false;
+    int start_area = 0;
+    int configured_start_area = 0;
     bool exercise_position = false; // opt-in movement/GameOut/relog position gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
@@ -267,6 +275,11 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--exercise-quest") a.exercise_quest = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
+        else if (s == "--live-birth") a.live_birth = true;
+        else if (s == "--start-area" && i + 1 < argc) {
+            a.start_area = std::atoi(argv[++i]);
+            a.start_area_explicit = true;
+        }
         else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
@@ -303,6 +316,17 @@ CliArgs parse_cli(int argc, char** argv) {
     } catch (const std::runtime_error& error) {
         std::fprintf(stderr, "%s\n", error.what());
         std::exit(3);
+    }
+    if (a.start_area_explicit) {
+        if (a.start_area < 0 || a.start_area > 255) {
+            std::fprintf(stderr, "invalid --start-area (expected 0..255)\n");
+            std::exit(3);
+        }
+        a.configured_start_area = a.start_area;
+    } else {
+        // Agent omits --start-area and uses --default-map, which this tool
+        // sets from --map-number.
+        a.configured_start_area = a.map_number;
     }
     const auto rejected = mxh::test::e2e_ports_reject_reason(
         a.login_port, a.agent_port, a.map_port, a.map12_port);
@@ -674,10 +698,24 @@ int run_e2e(const CliArgs& cli) {
         if (cli.use_hsel) login_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", login_args);
 
-        // AgentServer
+        // AgentServer. Map17 (base+2002, 28003 at the default base) is started
+        // only when the configured StartArea is 17 and the primary map is not.
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
+        const int map17_port = cli.map12_port + 1;
+        const bool spawn_map17 = cli.configured_start_area == 17 &&
+                                 cli.map_number != 17;
+        if (spawn_map17) {
+            if (map17_port < mxh::test::kE2eMinPort || map17_port > mxh::test::kE2eMaxPort ||
+                mxh::test::e2e_port_is_forbidden(map17_port) ||
+                map17_port == cli.login_port || map17_port == cli.agent_port ||
+                map17_port == cli.map_port || map17_port == cli.map12_port) {
+                LOG("Map17 port %d is outside the smoke range or collides with another listener",
+                    map17_port);
+                return 1;
+            }
+        }
         std::vector<std::string> agent_args{
             "--port", std::to_string(cli.agent_port),
             "--backend", backend_flag,
@@ -685,9 +723,17 @@ int run_e2e(const CliArgs& cli) {
             "--legacy",
             "--map-server", "127.0.0.1:" + std::to_string(cli.map_port),
             "--default-map", std::to_string(cli.map_number)};
+        if (cli.start_area_explicit) {
+            agent_args.emplace_back("--start-area");
+            agent_args.emplace_back(std::to_string(cli.configured_start_area));
+        }
         if (cli.exercise_mapchange) {
             agent_args.emplace_back("--map-server-map");
             agent_args.emplace_back("12=127.0.0.1:" + std::to_string(cli.map12_port));
+        }
+        if (spawn_map17) {
+            agent_args.emplace_back("--map-server-map");
+            agent_args.emplace_back("17=127.0.0.1:" + std::to_string(map17_port));
         }
         if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", agent_args);
@@ -710,6 +756,40 @@ int run_e2e(const CliArgs& cli) {
         }
         if (cli.use_hsel) map_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", map_args);
+
+        if (spawn_map17) {
+            SOCKET probe = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (probe == INVALID_SOCKET) {
+                LOG("Map17 listen port %d could not be probed; refusing to fall back to another port",
+                    map17_port);
+                return 1;
+            }
+            sockaddr_in probe_addr{};
+            probe_addr.sin_family = AF_INET;
+            probe_addr.sin_port = htons(static_cast<u_short>(map17_port));
+            probe_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            const int bind_rc = ::bind(probe, reinterpret_cast<sockaddr*>(&probe_addr),
+                                       sizeof(probe_addr));
+            ::closesocket(probe);
+            if (bind_rc != 0) {
+                LOG("Map17 listen port %d is occupied; refusing to fall back to another port",
+                    map17_port);
+                return 1;
+            }
+            procs.push_back(std::make_unique<ServerProc>());
+            procs.back()->name = "map17";
+            procs.back()->exe = cli.map_exe;
+            std::vector<std::string> map17_args{
+                "--port", std::to_string(map17_port),
+                "--backend", backend_flag,
+                "--map", "17",
+                "--db", map_db,
+                "--resource-root", e2e_playdh_root.string(),
+                "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+                "--resource-profile", "playdh-current"};
+            if (cli.use_hsel) map17_args.emplace_back("--use-hsel");
+            procs.back()->spawn_with_args("", map17_args);
+        }
 
         if (cli.exercise_mapchange) {
             procs.push_back(std::make_unique<ServerProc>());
@@ -742,6 +822,10 @@ int run_e2e(const CliArgs& cli) {
         }
         if (cli.exercise_mapchange && !wait_for_port(cli.map12_port, cli.timeout_s)) {
             LOG("MapServer[12] failed to listen on :%d within %ds", cli.map12_port, cli.timeout_s);
+            return 1;
+        }
+        if (spawn_map17 && !wait_for_port(map17_port, cli.timeout_s)) {
+            LOG("MapServer[17] failed to listen on :%d within %ds", map17_port, cli.timeout_s);
             return 1;
         }
         if (cli.exercise_mapchange) {
@@ -918,7 +1002,12 @@ int run_e2e(const CliArgs& cli) {
             params.body_type  = 0;
             params.hair_type  = 1;
             params.face_type  = 1;
-            params.start_area = 17;
+            params.start_area = cli.live_birth
+                ? static_cast<std::uint8_t>(cli.configured_start_area)
+                : static_cast<std::uint8_t>(cli.map_number);
+            LOG("[3/5] CharMake start_area=%u (%s)",
+                static_cast<unsigned>(params.start_area),
+                cli.live_birth ? "live-birth configured StartArea" : "smoke enter-map");
             params.height     = 1.0f;
             params.width      = 0.9f;
             // Match the canonical CHINA character-creation defaults from
@@ -1029,13 +1118,27 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
     }
+    const auto entered_map = chsel2.selected_map();
+    LOG("[4/5] character saved map=%u", static_cast<unsigned>(entered_map));
+    if (cli.live_birth) {
+        if (static_cast<int>(entered_map) != cli.configured_start_area) {
+            LOG("[4/5] FAIL: live birth saved map=%u, expected configured StartArea %d",
+                static_cast<unsigned>(entered_map), cli.configured_start_area);
+            return 2;
+        }
+    } else if (static_cast<int>(entered_map) != cli.map_number) {
+        LOG("[4/5] FAIL: smoke enter-map saved map=%u, expected %d",
+            static_cast<unsigned>(entered_map), cli.map_number);
+        return 2;
+    }
     chsel2.Release();
 
     // ---- Step 5: InGame ----
+    // Enter the map persisted on the character. A new character's StartArea
+    // is not the probe's --map-number, and an existing Map10 save stays on 10.
     LOG("[5/5] InGame: sending GameInSyn through persistent AgentSession ...");
     mxh::client::CInGameState game;
-    game.Start(&engine, created_chrid,
-               static_cast<std::uint16_t>(cli.map_number));
+    game.Start(&engine, created_chrid, entered_map);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
@@ -1051,7 +1154,18 @@ int run_e2e(const CliArgs& cli) {
         // Map10 is the first vertical-slice gate.  Let the receive thread
         // drain the server's initial spawn burst, then require the complete
         // decoded AIGroup population rather than merely the first packet.
-        if (cli.map_number == 10) {
+        if (cli.live_birth && cli.configured_start_area == 17) {
+            // Separate from Map10. Do not require 228 monsters, terrain
+            // coverage, or color diversity. The nine missing Map17 ground
+            // textures tile_17_mou_a_01..09 are not sampled.
+            LOG("[5/5] OK: Map17 birth assertions map=%u; skipped "
+                "tile_17_mou_a_01..09; Map10 thresholds not applied",
+                static_cast<unsigned>(entered_map));
+        } else if (cli.live_birth) {
+            LOG("[5/5] OK: live birth map=%u matches configured StartArea; "
+                "Map10 thresholds not applied",
+                static_cast<unsigned>(entered_map));
+        } else if (entered_map == 10) {
             const auto spawn_deadline = std::chrono::steady_clock::now() +
                                          std::chrono::seconds(2);
             while (game.monsters().size() < 228 &&
@@ -1633,8 +1747,7 @@ int run_e2e(const CliArgs& cli) {
             // in the old state's inventory is not persistence evidence.
             game.Release();
             mxh::client::CInGameState relog;
-            relog.Start(&engine, created_chrid,
-                        static_cast<std::uint16_t>(cli.map_number));
+            relog.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog.is_in_game() &&
@@ -1684,8 +1797,7 @@ int run_e2e(const CliArgs& cli) {
 
             game.Release();
             mxh::client::CInGameState relog;
-            relog.Start(&engine, created_chrid,
-                        static_cast<std::uint16_t>(cli.map_number));
+            relog.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog.is_in_game() &&
@@ -1832,8 +1944,7 @@ int run_e2e(const CliArgs& cli) {
             }
             game.Release();
             mxh::client::CInGameState relog_position;
-            relog_position.Start(&engine, created_chrid,
-                                 static_cast<std::uint16_t>(cli.map_number));
+            relog_position.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog_position.is_in_game() &&
