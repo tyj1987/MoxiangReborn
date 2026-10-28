@@ -230,29 +230,28 @@ class PakWriterTest(unittest.TestCase):
         entries = doc["entries"]
         self.assertEqual(len(entries), 194)
         self.assertTrue(all(set(e) == {"name", "sourcePak", "sha256", "ticket"} for e in entries))
-        # The manifest note keeps pakSha256 null while any entry sha256 is still pending.
-        self.assertIn("pakSha256", doc)
-        self.assertIsNone(doc["pakSha256"])
+        self.assertEqual(
+            doc["pakSha256"],
+            "1d7a87e00bcb54b7f9d39a719973ebc1efcf7c2505711e7d97d98b0157c5cbd5",
+        )
+        self.assertRegex(doc["pakSha256"], r"^[0-9a-f]{64}$")
         self.assertEqual(doc["buildPath"], "D:\\build-mxr\\supplement\\zz_supplement.pak")
         self.assertNotIn("(", doc["buildPath"])
         keys = [pak_writer._basename_key(e["name"]) for e in entries]
         self.assertEqual(len(keys), len(set(keys)))
-        filled, pending = entries[:73], entries[73:]
+        for entry in entries:
+            self.assertRegex(entry["sha256"], r"^[0-9a-f]{64}$")
+            self.assertIsInstance(entry["sourcePak"], str)
+            self.assertTrue(entry["sourcePak"])
+        filled, added = entries[:73], entries[73:]
         self.assertEqual(
             hashlib.sha256(
                 json.dumps(filled, ensure_ascii=False, separators=(",", ":")).encode()
             ).hexdigest(),
             "a0c615dd15a40f77fb12e17dbae18d088a8e941d939f199b6f79357971d61aa2",
         )
-        self.assertTrue(all(isinstance(e["sha256"], str) and len(e["sha256"]) == 64 for e in filled))
-        self.assertEqual(len(pending), 121)
-        self.assertTrue(all(
-            e["ticket"] == "TYJ-153" and e["sha256"] is None and e["sourcePak"] is None
-            for e in pending))
-        self.assertEqual([e["name"] for e in pending], sorted(e["name"] for e in pending))
-        with self.assertRaisesRegex(pak_writer.PakWriteError, "not filled"):
-            pak_writer.write_pak({"entries": pending}, self.src, self.tmp / "pending.pak")
-        self.assertFalse((self.tmp / "pending.pak").exists())
+        self.assertEqual(len(added), 121)
+        self.assertTrue(all(entry["ticket"] == "TYJ-153" for entry in added))
 
     def test_refuses_output_in_git_tree_and_tool_repo(self):
         work = self.tmp / "work"
