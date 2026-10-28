@@ -471,6 +471,16 @@ def decode_map(name, data):
     return bytes(b ^ _KEY[i % 8] for i, b in enumerate(body))
 """
 
+SOURCED_PLUGIN_SOURCE = PLUGIN_SOURCE + """
+def key_source(name):
+    return "table-test" if name == "1.map" else None
+"""
+
+BAD_SOURCE_PLUGIN_SOURCE = PLUGIN_SOURCE + """
+def key_source(name):
+    return "Not A Label!"
+"""
+
 NONE_PLUGIN_SOURCE = """
 DECODER_VERSION = "synthetic-none-1"
 
@@ -523,6 +533,26 @@ class LocalDecoderHookTests(unittest.TestCase):
         plain_run = json.dumps(FAKE_PLAIN_MAP.decode("latin-1"))[1:21]
         for leak in ("GX_MAP", plain_run, TEST_XOR_KEY.hex(), "header"):
             self.assertNotIn(leak, rendered.replace("headerEntries", ""))
+
+    def test_key_source_is_recorded_per_map_and_counted(self):
+        sourced = self.tmp / "plugin" / "sourced_decoder.py"
+        sourced.write_text(SOURCED_PLUGIN_SOURCE, encoding="utf-8")
+        manifest = gate.derive(None, self.pak, local_decoder=gate.load_local_decoder(sourced))
+        info = manifest["derivation"]["localDecoder"]
+        self.assertEqual(info["decodedMaps"], [
+            {"name": "1.map", "sha256": hashlib.sha256(self.obf).hexdigest(), "keySource": "table-test"}])
+        self.assertEqual(info["keySourceCounts"], {"table-test": 1})
+
+    def test_plugin_without_key_source_writes_no_key_source_fields(self):
+        info = self.derive_with_plugin()["derivation"]["localDecoder"]
+        self.assertNotIn("keySourceCounts", info)
+        self.assertTrue(all("keySource" not in entry for entry in info["decodedMaps"]))
+
+    def test_bad_key_source_label_is_refused(self):
+        bad = self.tmp / "plugin" / "bad_source_decoder.py"
+        bad.write_text(BAD_SOURCE_PLUGIN_SOURCE, encoding="utf-8")
+        with self.assertRaises(gate.LocalDecoderError):
+            gate.derive(None, self.pak, local_decoder=gate.load_local_decoder(bad))
 
     def test_plugin_returning_none_marks_key_unavailable(self):
         none_plugin = self.tmp / "plugin" / "none_decoder.py"
