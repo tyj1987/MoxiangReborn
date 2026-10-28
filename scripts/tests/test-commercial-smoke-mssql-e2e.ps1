@@ -202,15 +202,24 @@ exit "$code"
 }
 
 function New-BuildDir {
-    param([switch]$WithExe)
+    param(
+        [switch]$WithExe,
+        [ValidateSet('Debug', 'Single')]
+        [string]$Layout = 'Debug'
+    )
     $dir = Join-Path $script:Root ('build-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     [IO.File]::WriteAllText((Join-Path $dir 'CTestTestfile.cmake'), "# fixture`n")
-    $exe = Join-Path $dir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
+    $single = Join-Path $dir 'tools\MoxianClientE2E\mxh_client_e2e.exe'
+    $multi = Join-Path $dir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
+    $exe = $multi
+    if ($Layout -eq 'Single') { $exe = $single }
     if ($WithExe) { New-E2eStub -Exe $exe }
     return [pscustomobject]@{
         Build = $dir
         Exe = $exe
+        Single = $single
+        Multi = $multi
     }
 }
 
@@ -711,6 +720,7 @@ try {
         Assert-True (-not $smokeText.Contains($forbiddenPort)) "commercial-smoke must not mention port $forbiddenPort"
     }
     Assert-True ($smokeText.Contains('DROP DATABASE [')) 'drop statement must bracket the validated name'
+    Assert-True ($smokeText.Contains("'-C','Debug'")) 'ctest -C Debug must stay unchanged'
 
     $sqlTool = New-ToolDir
     [void](New-SqlCmdStub -Dir $sqlTool)
@@ -904,6 +914,39 @@ try {
     Assert-True ($conflictText -eq 'MSSQL_E2E REFUSED (-SkipMssql and -MssqlDb conflict)') "conflict line was [$conflictText]"
     Assert-True ((Read-SqlCmdLog -Path $conflictState.Log).Length -eq 0) 'conflict must not call sqlcmd'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $conflictBuild.Exe)) 'conflict must not invoke E2E'
+
+    $singleBuild = New-BuildDir -WithExe -Layout Single
+    $singleState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $singleRun = Invoke-Smoke -BuildDir $singleBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $singleState.Env
+    $singleText = Get-SmokeText $singleRun.Stdout
+    Assert-True ($singleRun.ExitCode -eq 0) "single-config exit was $($singleRun.ExitCode); stdout [$singleText] stderr [$($singleRun.Stderr)]"
+    Assert-True ($singleText.Contains('MSSQL_E2E EXE ' + $singleBuild.Single)) "single-config path was not logged in [$singleText]"
+    Assert-True ($null -ne (Read-InvokedArgs -Exe $singleBuild.Single)) 'single-config stub was not invoked'
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $singleBuild.Multi)) 'single-config run must not invoke the Debug stub'
+
+    $debugBuild = New-BuildDir -WithExe -Layout Debug
+    $debugState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $debugRun = Invoke-Smoke -BuildDir $debugBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $debugState.Env
+    $debugText = Get-SmokeText $debugRun.Stdout
+    Assert-True ($debugRun.ExitCode -eq 0) "Debug-layout exit was $($debugRun.ExitCode); stdout [$debugText] stderr [$($debugRun.Stderr)]"
+    Assert-True ($debugText.Contains('MSSQL_E2E EXE ' + $debugBuild.Multi)) "Debug path was not logged in [$debugText]"
+    Assert-True ($null -ne (Read-InvokedArgs -Exe $debugBuild.Multi)) 'Debug stub was not invoked'
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $debugBuild.Single)) 'Debug run must not invoke the single-config stub'
+
+    $absentBuild = New-BuildDir
+    $absentState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $absentRun = Invoke-Smoke -BuildDir $absentBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $absentState.Env
+    $absentText = Get-SmokeText $absentRun.Stdout
+    $absentLog = Read-SqlCmdLog -Path $absentState.Log
+    Assert-True ($absentRun.ExitCode -ne 0) "missing exe must be non-zero, exit $($absentRun.ExitCode); stdout [$absentText] stderr [$($absentRun.Stderr)]"
+    Assert-True ($absentText.Contains('MSSQL_E2E FAILED (mxh_client_e2e not built; database was absent and was not dropped)')) "not-built failure missing in [$absentText]"
+    Assert-True ($absentText.Contains('MSSQL_E2E EXE CANDIDATE ' + $absentBuild.Single)) "single-config candidate missing in [$absentText]"
+    Assert-True ($absentText.Contains('MSSQL_E2E EXE CANDIDATE ' + $absentBuild.Multi)) "Debug candidate missing in [$absentText]"
+    Assert-True (-not $absentText.Contains('MSSQL_E2E SKIPPED')) 'missing exe must not skip'
+    Assert-True (-not $absentText.Contains('MSSQL_E2E PASS')) 'missing exe must not pass'
+    Assert-True (-not $absentLog.Contains('DROP DATABASE')) "missing exe must not drop, log [$absentLog]"
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Single)) 'missing single-config exe must not be invoked'
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Multi)) 'missing Debug exe must not be invoked'
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
 }

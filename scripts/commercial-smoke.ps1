@@ -350,9 +350,35 @@ function Test-CommercialSmokeDatabaseListed {
     return $false
 }
 
+function Resolve-CommercialSmokeE2EExe {
+    param([string]$BuildDir)
+    # Same order as resolve_server_exe: single-config (NMake/Ninja) first,
+    # then the multi-config Debug directory. This script has no
+    # -Configuration parameter, so the multi-config directory stays Debug,
+    # which is also the ctest -C Debug config. Do not change that ctest flag.
+    $single = Join-Path $BuildDir 'tools\MoxianClientE2E\mxh_client_e2e.exe'
+    $multi = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
+    $candidates = @($single, $multi)
+    foreach ($path in $candidates) {
+        if (Test-Path -LiteralPath $path) {
+            return [pscustomobject]@{
+                Found = $true
+                Path = $path
+                Candidates = $candidates
+            }
+        }
+    }
+    return [pscustomobject]@{
+        Found = $false
+        Path = ''
+        Candidates = $candidates
+    }
+}
+
 function Invoke-CommercialSmokeExplicitMssqlE2E {
     param(
         [string]$E2eExe,
+        [string[]]$E2eCandidates = @(),
         [string]$ConnectionString,
         [string]$Server,
         [string]$DatabaseName
@@ -382,13 +408,22 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
             Invoked = $false
         }
     }
-    if (-not (Test-Path -LiteralPath $E2eExe)) {
+    $exeReady = -not [string]::IsNullOrWhiteSpace($E2eExe)
+    if ($exeReady) { $exeReady = Test-Path -LiteralPath $E2eExe }
+    if (-not $exeReady) {
+        # Not-built stays a failure. Do not skip, and do not drop a database
+        # this run has not created.
         Write-Host 'MSSQL_E2E FAILED (mxh_client_e2e not built; database was absent and was not dropped)' -ForegroundColor Red
+        foreach ($candidate in @($E2eCandidates)) {
+            if ([string]::IsNullOrWhiteSpace([string]$candidate)) { continue }
+            Write-Host ('MSSQL_E2E EXE CANDIDATE ' + $candidate)
+        }
         return [pscustomobject]@{
             ExitCode = 1
             Invoked = $false
         }
     }
+    Write-Host ('MSSQL_E2E EXE ' + $E2eExe)
     # Confirmed absent before E2E. The finally block is the only DROP,
     # and it runs for both a passing and a failing E2E process.
     $confirmedAbsent = $true
@@ -466,6 +501,7 @@ function Test-CommercialSmokeLocalDbAvailable {
 function Invoke-CommercialSmokeMssqlE2E {
     param(
         [string]$E2eExe,
+        [string[]]$E2eCandidates = @(),
         [switch]$SkipMssql,
         [scriptblock]$LocalDbProbe,
         [string]$MssqlDb = '',
@@ -480,7 +516,7 @@ function Invoke-CommercialSmokeMssqlE2E {
                 Invoked = $false
             }
         }
-        return Invoke-CommercialSmokeExplicitMssqlE2E -E2eExe $E2eExe -ConnectionString $MssqlDb -Server $MssqlServer -DatabaseName $MssqlDatabase
+        return Invoke-CommercialSmokeExplicitMssqlE2E -E2eExe $E2eExe -E2eCandidates $E2eCandidates -ConnectionString $MssqlDb -Server $MssqlServer -DatabaseName $MssqlDatabase
     }
     if ($SkipMssql) {
         Write-Host "MSSQL_E2E SKIPPED (explicit -SkipMssql; external prerequisite not satisfied)" -ForegroundColor Yellow
@@ -504,7 +540,8 @@ function Invoke-CommercialSmokeMssqlE2E {
             Invoked = $false
         }
     }
-    if (Test-Path -LiteralPath $E2eExe) {
+    if (-not [string]::IsNullOrWhiteSpace($E2eExe) -and (Test-Path -LiteralPath $E2eExe)) {
+        Write-Host ('MSSQL_E2E EXE ' + $E2eExe)
         & $E2eExe --login-host 127.0.0.1 --backend mssql_odbc --init-schema
         if ($LASTEXITCODE -ne 0) {
             throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
@@ -580,8 +617,10 @@ if ($LASTEXITCODE -ne 0) { throw "Commercial smoke failed with exit code $LASTEX
 # -MssqlDb skips that probe. The name is checked before sqlcmd runs, an
 # existing database is refused, and a database this run confirmed was
 # absent is dropped after E2E whether E2E passes or fails.
-$e2eExe = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
-$mssql = Invoke-CommercialSmokeMssqlE2E -E2eExe $e2eExe -SkipMssql:$SkipMssql -LocalDbProbe $LocalDbProbe -MssqlDb $MssqlDb -MssqlServer $explicitServer -MssqlDatabase $explicitDatabase
+$resolvedE2e = Resolve-CommercialSmokeE2EExe -BuildDir $BuildDir
+$e2eExe = [string]$resolvedE2e.Path
+$e2eCandidates = @($resolvedE2e.Candidates)
+$mssql = Invoke-CommercialSmokeMssqlE2E -E2eExe $e2eExe -E2eCandidates $e2eCandidates -SkipMssql:$SkipMssql -LocalDbProbe $LocalDbProbe -MssqlDb $MssqlDb -MssqlServer $explicitServer -MssqlDatabase $explicitDatabase
 if ($mssql.ExitCode -ne 0) { exit $mssql.ExitCode }
 
 if ($SkipGui) {
