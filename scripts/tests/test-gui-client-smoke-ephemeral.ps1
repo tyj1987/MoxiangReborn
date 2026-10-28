@@ -246,7 +246,23 @@ Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-addr') + 1] -e
 Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-port') + 1] -eq '27011') 'custom login agent port'
 Assert-True ($customLogin[[array]::IndexOf($customLogin, '--port') + 1] -eq '26011') 'custom login listen'
 
-foreach ($reservedBase in @(16001, 15001, 14001, 36001, 35001, 34001, 36101, 35101, 34101, 36102, 36103)) {
+# 15999 -> map17 18001, 35999 -> map17 38001. login/agent/map stay off the
+# forbidden listeners, so a reserved-port failure is the map17 port alone.
+$forbiddenListeners = @(16001, 17001, 18001, 36001, 37001, 38001)
+foreach ($map17OnlyBase in @(15999, 35999)) {
+    $derived = [ordered]@{
+        login = $map17OnlyBase
+        agent = $map17OnlyBase + 1000
+        map = $map17OnlyBase + 2000
+        map17 = $map17OnlyBase + 2002
+    }
+    foreach ($name in @('login', 'agent', 'map')) {
+        $port = [int]$derived[$name]
+        Assert-True ($forbiddenListeners -notcontains $port) "base $map17OnlyBase $name port $port is forbidden; this case no longer isolates map17"
+    }
+    Assert-True ($forbiddenListeners -contains [int]$derived.map17) "base $map17OnlyBase map17 port $($derived.map17) is not forbidden"
+}
+foreach ($reservedBase in @(16001, 15001, 14001, 36001, 35001, 34001, 36101, 35101, 34101, 36102, 36103, 15999, 35999)) {
     $reservedMessage = ''
     try {
         Resolve-EphemeralPortPlan -Base $reservedBase | Out-Null
