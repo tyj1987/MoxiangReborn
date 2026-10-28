@@ -2,7 +2,7 @@
 #
 # Replaces legacy AutoPatchToolWin32 with a modern C++ application.
 
-add_executable(MoxianAutoPatcher main.cpp)
+add_executable(MoxianAutoPatcher main.cpp patch_transaction.cpp)
 
 target_compile_features(MoxianAutoPatcher PRIVATE cxx_std_17)
 
