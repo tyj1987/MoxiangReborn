@@ -100,6 +100,71 @@ function Assert-True($condition, [string]$message) {
     if (-not $condition) { throw "FAIL: $message" }
 }
 
+function Test-PidStillRunning {
+    param([int]$ProcessId)
+    if ($ProcessId -le 0) { return $false }
+    try {
+        $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $live) { return $false }
+        try { $live.Refresh() } catch { }
+        return -not [bool]$live.HasExited
+    } catch {
+        return $false
+    }
+}
+
+function Stop-TestProcess {
+    param($Process)
+    if ($null -eq $Process) { return }
+    try {
+        $id = [int]$Process.Id
+        if (Test-PidStillRunning -ProcessId $id) {
+            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
+}
+
+function New-MxhServerNamedExe {
+    param([Parameter(Mandatory = $true)][string]$ProcessName)
+    $dir = Join-Path $script:Root ('named-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    if ($IsWindows) {
+        $exe = Join-Path $dir ($ProcessName + '.exe')
+        $cs = Join-Path $dir 'sleeper.cs'
+        @'
+using System;
+using System.Threading;
+class Sleeper {
+    static int Main(string[] args) {
+        int seconds = 30;
+        if (args.Length > 0) {
+            int parsed;
+            if (int.TryParse(args[0], out parsed)) seconds = parsed;
+        }
+        if (seconds < 0) seconds = 0;
+        Thread.Sleep(seconds * 1000);
+        return 0;
+    }
+}
+'@ | Set-Content -LiteralPath $cs -Encoding ascii
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        if (-not (Test-Path -LiteralPath $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+        }
+        if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows named sleeper needs csc.exe' }
+        & $csc /nologo /out:$exe $cs
+        if ($LASTEXITCODE -ne 0) { throw "FAIL: csc named sleeper exited $LASTEXITCODE" }
+        return $exe
+    }
+    $exe = Join-Path $dir $ProcessName
+    $source = '/bin/sleep'
+    if (-not (Test-Path -LiteralPath $source)) { throw 'FAIL: /bin/sleep is required for the process-stop fixture' }
+    [IO.File]::Copy($source, $exe, $true)
+    & /bin/chmod +x -- $exe
+    if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod named sleeper exited $LASTEXITCODE" }
+    return $exe
+}
+
 function Get-SmokeText([string]$Text) {
     if ($null -eq $Text) { return '' }
     $clean = [regex]::Replace($Text, ([char]27).ToString() + '\[[0-9;]*m', '')
@@ -142,7 +207,8 @@ function New-ToolDir {
 function New-E2eStub {
     param(
         [Parameter(Mandatory = $true)][string]$Exe,
-        [int]$ExitCode = 0
+        [int]$ExitCode = 0,
+        [switch]$SpawnChild
     )
     $parent = Split-Path -Parent $Exe
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
@@ -150,7 +216,7 @@ function New-E2eStub {
         [IO.File]::WriteAllText($Exe + '.exitcode', ([string]$ExitCode + "`n"))
     }
     if ($IsWindows) {
-        if ($ExitCode -eq 0) {
+        if ($ExitCode -eq 0 -and -not $SpawnChild) {
             [IO.File]::WriteAllBytes($Exe, $script:WindowsE2eStubBytes)
             return
         }
@@ -162,6 +228,18 @@ class E2eStub {
     static int Main(string[] args) {
         string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
         File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+        string childFlag = exe + ".spawnchild";
+        if (File.Exists(childFlag)) {
+            string shell = System.IO.Path.Combine(Environment.GetEnvironmentVariable("WINDIR"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+            var child = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                FileName = shell,
+                Arguments = "-NoProfile -NonInteractive -Command Start-Sleep -Seconds 60",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            File.WriteAllText(exe + ".children", child.Id.ToString());
+            System.Threading.Thread.Sleep(1000);
+        }
         string codeFile = exe + ".exitcode";
         if (File.Exists(codeFile)) {
             int code;
@@ -178,9 +256,31 @@ class E2eStub {
         if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows E2E failure stub needs csc.exe' }
         & $csc /nologo /out:$Exe $cs
         if ($LASTEXITCODE -ne 0) { throw "FAIL: csc e2e stub exited $LASTEXITCODE" }
+        if ($SpawnChild) {
+            [IO.File]::WriteAllText($Exe + '.spawnchild', "spawn`n")
+        }
         return
     }
-    $sh = @'
+    if ($SpawnChild) {
+        $sh = @'
+#!/bin/sh
+log="$0.invoked"
+printf '%s\n' "$@" > "$log"
+/bin/sleep 60 &
+echo $! > "$0.children"
+sleep 1
+code=0
+codefile="$0.exitcode"
+if [ -f "$codefile" ]; then
+    IFS= read -r code < "$codefile" || code=0
+fi
+case "$code" in
+    ''|*[!0-9]*) code=1 ;;
+esac
+exit "$code"
+'@
+    } else {
+        $sh = @'
 #!/bin/sh
 log="$0.invoked"
 printf '%s\n' "$@" > "$log"
@@ -194,6 +294,7 @@ case "$code" in
 esac
 exit "$code"
 '@
+    }
     $sh = $sh.Replace("`r`n", "`n")
     if (-not $sh.EndsWith("`n")) { $sh += "`n" }
     [IO.File]::WriteAllText($Exe, $sh)
@@ -205,7 +306,8 @@ function New-BuildDir {
     param(
         [switch]$WithExe,
         [ValidateSet('Debug', 'Single')]
-        [string]$Layout = 'Debug'
+        [string]$Layout = 'Debug',
+        [switch]$SpawnChild
     )
     $dir = Join-Path $script:Root ('build-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -214,7 +316,7 @@ function New-BuildDir {
     $multi = Join-Path $dir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
     $exe = $multi
     if ($Layout -eq 'Single') { $exe = $single }
-    if ($WithExe) { New-E2eStub -Exe $exe }
+    if ($WithExe) { New-E2eStub -Exe $exe -SpawnChild:$SpawnChild }
     return [pscustomobject]@{
         Build = $dir
         Exe = $exe
@@ -602,6 +704,16 @@ foreach ($fn in $functions) {
 }
 Assert-True ($functions.Name -contains 'Test-CommercialSmokeLocalDbAvailable') 'LocalDB probe function missing'
 Assert-True ($functions.Name -contains 'Invoke-CommercialSmokeMssqlE2E') 'MSSQL E2E function missing'
+Assert-True ($functions.Name -contains 'Stop-CommercialSmokeOwnedProcesses') 'owned-process cleanup missing'
+Assert-True ($functions.Name -contains 'Get-CommercialSmokeOwnedIdentity') 'owned-process identity helper missing'
+$explicitFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeExplicitMssqlE2E' })
+Assert-True ($explicitFn.Count -eq 1) 'explicit MSSQL function missing'
+$explicitBody = $explicitFn[0].Extent.Text
+Assert-True ($explicitBody.Contains('Start-Process')) 'explicit MSSQL path must start the E2E with Start-Process'
+Assert-True ($explicitBody.Contains('-PassThru')) 'explicit MSSQL path must keep the Start-Process process object'
+Assert-True ($explicitBody.Contains('Stop-CommercialSmokeOwnedProcesses')) 'explicit MSSQL finally must stop owned PIDs'
+Assert-True (-not $explicitBody.Contains('Get-Process -Name')) 'explicit MSSQL path must not stop processes by name'
+Assert-True (-not $explicitBody.Contains("Stop-Process -Force -ErrorAction SilentlyContinue`n")) 'explicit MSSQL path must not use an unnamed Stop-Process'
 
 $temp = [IO.Path]::GetTempPath()
 if ([string]::IsNullOrWhiteSpace($temp)) { $temp = [IO.Path]::GetFullPath('.') }
@@ -947,6 +1059,95 @@ try {
     Assert-True (-not $absentLog.Contains('DROP DATABASE')) "missing exe must not drop, log [$absentLog]"
     Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Single)) 'missing single-config exe must not be invoked'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Multi)) 'missing Debug exe must not be invoked'
+
+    # Cleanup identity: real processes, no SQL Server. Both executables use
+    # mxh_*_server names from the old name-based kill list. Only the PID
+    # passed to cleanup may exit.
+    $ownedExe = New-MxhServerNamedExe -ProcessName 'mxh_map_server_CHINA'
+    $decoyExe = New-MxhServerNamedExe -ProcessName 'mxh_login_server'
+    $ownedProc = $null
+    $decoyProc = $null
+    $quickProc = $null
+    try {
+        $ownedProc = Start-Process -FilePath $ownedExe -ArgumentList '60' -PassThru -NoNewWindow
+        $decoyProc = Start-Process -FilePath $decoyExe -ArgumentList '60' -PassThru -NoNewWindow
+        try { $null = $ownedProc.Handle } catch { }
+        try { $null = $decoyProc.Handle } catch { }
+        $ownedIdentity = $null
+        $decoyIdentity = $null
+        $deadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($deadline.ElapsedMilliseconds -lt 5000 -and ($null -eq $ownedIdentity -or $null -eq $decoyIdentity)) {
+            if ($null -eq $ownedIdentity) { $ownedIdentity = Get-CommercialSmokeOwnedIdentity -Process $ownedProc }
+            if ($null -eq $decoyIdentity) { $decoyIdentity = Get-CommercialSmokeOwnedIdentity -Process $decoyProc }
+            if ($null -eq $ownedIdentity -or $null -eq $decoyIdentity) { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($null -ne $ownedIdentity) 'owned sleeper identity was not recorded'
+        Assert-True ($null -ne $decoyIdentity) 'decoy sleeper identity was not recorded'
+        Assert-True ($ownedProc.ProcessName -eq 'mxh_map_server_CHINA') "owned process name was [$($ownedProc.ProcessName)]"
+        Assert-True ($decoyProc.ProcessName -eq 'mxh_login_server') "decoy process name was [$($decoyProc.ProcessName)]"
+        Stop-CommercialSmokeOwnedProcess -ProcessId $decoyIdentity.Id -StartTicks ([int64]1)
+        Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $ownedIdentity.Id; StartTicks = ([int64]1) })
+        Assert-True (Test-PidStillRunning -ProcessId $ownedIdentity.Id) 'wrong StartTime must not stop the owned PID'
+        Assert-True (Test-PidStillRunning -ProcessId $decoyIdentity.Id) 'wrong StartTime must not stop the decoy'
+        Stop-CommercialSmokeOwnedProcesses -Owned @($ownedIdentity)
+        $ownedProc.WaitForExit(5000) | Out-Null
+        Assert-True (-not (Test-PidStillRunning -ProcessId $ownedIdentity.Id)) 'cleanup did not stop the PID it was given'
+        Assert-True (Test-PidStillRunning -ProcessId $decoyIdentity.Id) 'cleanup stopped an unrelated mxh_login_server decoy'
+        Stop-CommercialSmokeOwnedProcesses -Owned @($ownedIdentity)
+        $quickProc = Start-Process -FilePath $ownedExe -ArgumentList '0' -PassThru -NoNewWindow
+        if (-not $quickProc.WaitForExit(5000)) { throw 'FAIL: already-exited fixture did not exit' }
+        Stop-CommercialSmokeOwnedProcess -ProcessId $quickProc.Id -StartTicks ([int64]1)
+        Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $quickProc.Id; StartTicks = ([int64]1) })
+        Stop-CommercialSmokeOwnedProcesses -Owned @()
+        Stop-CommercialSmokeOwnedProcesses -Owned $null
+        Stop-CommercialSmokeOwnedProcess -ProcessId 0 -StartTicks ([int64]1)
+    } finally {
+        Stop-TestProcess -Process $ownedProc
+        Stop-TestProcess -Process $decoyProc
+        Stop-TestProcess -Process $quickProc
+    }
+
+    $pathDecoy = $null
+    $pathChildPid = 0
+    $spawnBuild = $null
+    try {
+        $pathDecoyExe = New-MxhServerNamedExe -ProcessName 'mxh_login_server'
+        $pathDecoy = Start-Process -FilePath $pathDecoyExe -ArgumentList '120' -PassThru -NoNewWindow
+        try { $null = $pathDecoy.Handle } catch { }
+        $pathDecoyName = ''
+        $pathDeadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($pathDeadline.ElapsedMilliseconds -lt 5000 -and $pathDecoyName -ne 'mxh_login_server') {
+            try { $pathDecoy.Refresh() } catch { }
+            $pathDecoyName = [string]$pathDecoy.ProcessName
+            if ($pathDecoyName -ne 'mxh_login_server') { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($pathDecoyName -eq 'mxh_login_server') "path decoy process name was [$pathDecoyName]"
+        Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'path decoy exited before smoke'
+        $spawnBuild = New-BuildDir -WithExe -SpawnChild
+        $spawnState = New-SqlCmdState -Root $script:Root -Names $baseNames
+        $spawnRun = Invoke-Smoke -BuildDir $spawnBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $spawnState.Env
+        $spawnText = Get-SmokeText $spawnRun.Stdout
+        Assert-True ($spawnRun.ExitCode -eq 0) "scoped cleanup smoke exit was $($spawnRun.ExitCode); stdout [$spawnText] stderr [$($spawnRun.Stderr)]"
+        Assert-True ((Count-SmokeLine $spawnText 'MSSQL_E2E PASS (explicit -MssqlDb, one command)') -eq 1) "scoped cleanup pass line missing in [$spawnText]"
+        Assert-True ((Count-SmokeLine $spawnText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "scoped cleanup must still drop the database, got [$spawnText]"
+        $spawnArgs = @(Read-InvokedArgs -Exe $spawnBuild.Exe)
+        Assert-True ($null -ne $spawnArgs -and ($spawnArgs -join "`n") -eq ($expectedExplicit -join "`n")) "scoped cleanup E2E args were [$($spawnArgs -join '|')]"
+        $childLog = $spawnBuild.Exe + '.children'
+        Assert-True (Test-Path -LiteralPath $childLog) 'E2E stub did not record the child it started'
+        $childRaw = [IO.File]::ReadAllText($childLog).Trim()
+        Assert-True ([int]::TryParse($childRaw, [ref]$pathChildPid) -and $pathChildPid -gt 0) "child PID text was [$childRaw]"
+        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running"
+        Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
+    } finally {
+        Stop-TestProcess -Process $pathDecoy
+        if ($pathChildPid -gt 0) {
+            try {
+                if (Test-PidStillRunning -ProcessId $pathChildPid) {
+                    Stop-Process -Id $pathChildPid -Force -ErrorAction SilentlyContinue
+                }
+            } catch { }
+        }
+    }
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
 }

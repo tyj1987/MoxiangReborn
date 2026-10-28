@@ -36,6 +36,11 @@
     \ and an instance name [A-Za-z0-9_]+. A bare machine, a remote
     host, and a port suffix are rejected before connect.
     -SkipMssql together with -MssqlDb is refused.
+    The explicit -MssqlDb path starts mxh_client_e2e with Start-Process
+    -PassThru and remembers that process plus descendants it starts.
+    finally stops only those PIDs, and only while the process is still
+    running with the same StartTime. It does not stop other processes
+    by image name.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/commercial-smoke.ps1 -MssqlDb "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_RogSmoke;encrypt=no;trust_server_certificate=yes;"
@@ -375,6 +380,179 @@ function Resolve-CommercialSmokeE2EExe {
     }
 }
 
+function Test-CommercialSmokeWindowsHost {
+    # $IsWindows exists in PowerShell 6+. Windows PowerShell 5.1 is Desktop.
+    $variable = Get-Variable -Name 'IsWindows' -ErrorAction SilentlyContinue
+    if ($null -ne $variable) { return [bool]$variable.Value }
+    return $PSVersionTable.PSEdition -eq 'Desktop'
+}
+
+function Get-CommercialSmokeOwnedIdentity {
+    param($Process)
+    if ($null -eq $Process) { return $null }
+    $id = 0
+    try { $id = [int]$Process.Id } catch { return $null }
+    if ($id -le 0) { return $null }
+    try {
+        if ([bool]$Process.HasExited) { return $null }
+    } catch {
+        return $null
+    }
+    $started = $null
+    try { $started = $Process.StartTime } catch { return $null }
+    if ($null -eq $started) { return $null }
+    $ticks = [int64]0
+    try { $ticks = [int64]$started.ToUniversalTime().Ticks } catch { return $null }
+    if ($ticks -le 0) { return $null }
+    return [pscustomobject]@{
+        Id = $id
+        StartTicks = $ticks
+    }
+}
+
+function Add-CommercialSmokeOwnedProcess {
+    param(
+        $Owned,
+        $Seen,
+        $Process
+    )
+    if ($null -eq $Owned -or $null -eq $Seen) { return }
+    $identity = Get-CommercialSmokeOwnedIdentity -Process $Process
+    if ($null -eq $identity) { return }
+    $key = [string]$identity.Id
+    if ($Seen.ContainsKey($key)) { return }
+    $Seen[$key] = $true
+    $null = $Owned.Add($identity)
+}
+
+function Add-CommercialSmokeProcStatChildren {
+    param(
+        [int]$ParentId,
+        $Ids
+    )
+    $procRoot = '/proc'
+    if (-not (Test-Path -LiteralPath $procRoot)) { return }
+    foreach ($entry in @(Get-ChildItem -LiteralPath $procRoot -Directory -ErrorAction SilentlyContinue)) {
+        $childId = 0
+        if (-not [int]::TryParse($entry.Name, [ref]$childId)) { continue }
+        if ($childId -le 0) { continue }
+        $statPath = Join-Path $entry.FullName 'stat'
+        $stat = ''
+        try { $stat = [IO.File]::ReadAllText($statPath) } catch { continue }
+        $close = $stat.LastIndexOf(')')
+        if ($close -lt 0 -or ($close + 2) -ge $stat.Length) { continue }
+        $rest = $stat.Substring($close + 2).Trim()
+        $fields = @($rest -split '\s+')
+        if ($fields.Count -lt 2) { continue }
+        $ppid = 0
+        if (-not [int]::TryParse([string]$fields[1], [ref]$ppid)) { continue }
+        if ($ppid -eq $ParentId) { $null = $Ids.Add($childId) }
+    }
+}
+
+function Get-CommercialSmokeChildProcessIds {
+    param([int]$ParentId)
+    $ids = New-Object System.Collections.Generic.List[int]
+    if ($ParentId -le 0) { return @() }
+    try {
+        if (Test-CommercialSmokeWindowsHost) {
+            $filter = 'ParentProcessId = {0}' -f $ParentId
+            foreach ($row in @(Get-CimInstance -ClassName Win32_Process -Filter $filter -ErrorAction SilentlyContinue)) {
+                if ($null -eq $row) { continue }
+                $childId = 0
+                try { $childId = [int]$row.ProcessId } catch { $childId = 0 }
+                if ($childId -gt 0) { $null = $ids.Add($childId) }
+            }
+        } else {
+            $childFile = '/proc/' + $ParentId + '/task/' + $ParentId + '/children'
+            $parsed = $false
+            if (Test-Path -LiteralPath $childFile) {
+                $parsed = $true
+                $text = ''
+                try { $text = [IO.File]::ReadAllText($childFile) } catch { $text = '' }
+                foreach ($part in @($text -split '\s+')) {
+                    if ([string]::IsNullOrWhiteSpace([string]$part)) { continue }
+                    $childId = 0
+                    if ([int]::TryParse([string]$part, [ref]$childId) -and $childId -gt 0) {
+                        $null = $ids.Add($childId)
+                    }
+                }
+            }
+            if (-not $parsed) {
+                Add-CommercialSmokeProcStatChildren -ParentId $ParentId -Ids $ids
+            }
+        }
+    } catch { }
+    return @($ids.ToArray())
+}
+
+function Add-CommercialSmokeOwnedDescendants {
+    param(
+        $Owned,
+        $Seen,
+        [int]$RootId
+    )
+    if ($RootId -le 0 -or $null -eq $Owned -or $null -eq $Seen) { return }
+    $pending = New-Object System.Collections.Generic.Queue[int]
+    $pending.Enqueue($RootId)
+    $guard = 0
+    while ($pending.Count -gt 0 -and $guard -lt 1000) {
+        $guard++
+        $parentId = [int]$pending.Dequeue()
+        foreach ($childId in @(Get-CommercialSmokeChildProcessIds -ParentId $parentId)) {
+            if ($childId -le 0) { continue }
+            $key = [string]$childId
+            if ($Seen.ContainsKey($key)) { continue }
+            $child = $null
+            try { $child = Get-Process -Id $childId -ErrorAction SilentlyContinue } catch { $child = $null }
+            if ($null -eq $child) { continue }
+            Add-CommercialSmokeOwnedProcess -Owned $Owned -Seen $Seen -Process $child
+            if ($Seen.ContainsKey($key)) { $pending.Enqueue([int]$childId) }
+        }
+    }
+}
+
+function Stop-CommercialSmokeOwnedProcess {
+    param(
+        [int]$ProcessId,
+        [int64]$StartTicks
+    )
+    # PID reuse: a dead PID can be recycled. Stop only when StartTime
+    # still matches the process this run recorded. Never select by name.
+    if ($ProcessId -le 0 -or $StartTicks -le 0) { return }
+    try {
+        $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $live) { return }
+        try { $live.Refresh() } catch { return }
+        try {
+            if ([bool]$live.HasExited) { return }
+        } catch {
+            return
+        }
+        $liveTicks = [int64]0
+        try { $liveTicks = [int64]$live.StartTime.ToUniversalTime().Ticks } catch { return }
+        if ($liveTicks -ne $StartTicks) { return }
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    } catch {
+        # Already exited, or the PID was reused between the checks above.
+    }
+}
+
+function Stop-CommercialSmokeOwnedProcesses {
+    param($Owned)
+    if ($null -eq $Owned) { return }
+    $items = @($Owned)
+    for ($index = $items.Count - 1; $index -ge 0; $index--) {
+        $entry = $items[$index]
+        if ($null -eq $entry) { continue }
+        $id = 0
+        $ticks = [int64]0
+        try { $id = [int]$entry.Id } catch { continue }
+        try { $ticks = [int64]$entry.StartTicks } catch { continue }
+        Stop-CommercialSmokeOwnedProcess -ProcessId $id -StartTicks $ticks
+    }
+}
+
 function Invoke-CommercialSmokeExplicitMssqlE2E {
     param(
         [string]$E2eExe,
@@ -429,14 +607,33 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
     $confirmedAbsent = $true
     $e2eExit = 1
     $dropFailed = $false
+    # mxh_client_e2e is the process this run starts. Its descendants are
+    # the server processes it launches. Record PIDs from Start-Process
+    # -PassThru and from that process tree. finally stops only those
+    # PIDs, and only when StartTime still matches. No name-based fallback.
+    $owned = New-Object System.Collections.Generic.List[object]
+    $ownedSeen = @{}
     try {
-        & $E2eExe --login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema --db $ConnectionString
-        if ($null -ne $LASTEXITCODE) { $e2eExit = [int]$LASTEXITCODE } else { $e2eExit = 0 }
+        $e2eArgumentLine = '--login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema --db'
+        $e2eArguments = @($e2eArgumentLine.Split(' '))
+        $e2eArguments += $ConnectionString
+        $e2eProcess = Start-Process -FilePath $E2eExe -ArgumentList $e2eArguments -PassThru -NoNewWindow
+        try { $null = $e2eProcess.Handle } catch { }
+        Add-CommercialSmokeOwnedProcess -Owned $owned -Seen $ownedSeen -Process $e2eProcess
+        $rootId = 0
+        try { $rootId = [int]$e2eProcess.Id } catch { $rootId = 0 }
+        while ($true) {
+            Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+            $exited = $true
+            try { $exited = [bool]$e2eProcess.HasExited } catch { $exited = $true }
+            if ($exited) { break }
+            try { $null = $e2eProcess.WaitForExit(100) } catch { break }
+        }
+        Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+        try { $null = $e2eProcess.WaitForExit() } catch { }
+        try { $e2eExit = [int]$e2eProcess.ExitCode } catch { $e2eExit = 1 }
     } finally {
-        try {
-            Get-Process -Name 'mxh_login_server','mxh_agent_server_CHINA','mxh_agent_server_KOR','mxh_map_server_CHINA','mxh_map_server_KOR' -ErrorAction SilentlyContinue |
-                Stop-Process -Force -ErrorAction SilentlyContinue
-        } catch { }
+        try { Stop-CommercialSmokeOwnedProcesses -Owned $owned } catch { }
         if ($confirmedAbsent) {
             $dropQuery = 'DROP DATABASE [' + $DatabaseName + ']'
             $drop = Invoke-CommercialSmokeSqlCmd -SqlCmd $sqlcmd -Server $Server -Query $dropQuery
