@@ -157,7 +157,6 @@ add_executable(MHClient
     # [CC]Header/ — 7 cpp
     ${_cc_header}/CommonCalcFunc.cpp
     ${_cc_header}/CommonGameFunc.cpp
-    ${_cc_header}/GameResourceManager.cpp
     ${_cc_header}/TargetList/TargetData.cpp
     ${_cc_header}/TargetList/TargetList.cpp
     ${_cc_header}/TargetList/TargetListIterator.cpp
