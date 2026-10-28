@@ -1,22 +1,29 @@
 #include <gtest/gtest.h>
 
-#include <windows.h>
-#include <bcrypt.h>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 #include "../../support/playdh_env.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <bcrypt.h>
 #pragma comment(lib, "bcrypt.lib")
+#else
+#include "../../support/payload_sha256.hpp"
+#endif
 
 namespace fs = std::filesystem;
 
 namespace {
 std::string sha256(const fs::path& path) {
+#ifdef _WIN32
     std::ifstream in(path, std::ios::binary);
     if (!in) return {};
     BCRYPT_ALG_HANDLE algorithm = nullptr;
@@ -52,7 +59,70 @@ std::string sha256(const fs::path& path) {
     out << std::hex << std::setfill('0');
     for (const auto byte : digest) out << std::setw(2) << static_cast<unsigned>(byte);
     return out.str();
+#else
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return {};
+    in.seekg(0, std::ios::end);
+    const auto size = in.tellg();
+    if (size < 0) return {};
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+    in.seekg(0, std::ios::beg);
+    if (size > 0) {
+        in.read(reinterpret_cast<char*>(bytes.data()), size);
+        if (!in) return {};
+    }
+    return mxh::test::sha256_bytes(bytes);
+#endif
 }
+
+// Restores MXH_PLAYDH_ROOT on destruction. nullptr unsets it.
+// Windows removes a variable with _putenv_s(name, ""); POSIX uses unsetenv.
+class ScopedPlayDhRootEnv {
+public:
+    explicit ScopedPlayDhRootEnv(const char* value) {
+        if (const char* current = std::getenv(mxh::test::kPlayDhRootEnv))
+            original_ = current;
+        apply(value);
+    }
+    ~ScopedPlayDhRootEnv() {
+        apply(original_ ? original_->c_str() : nullptr);
+    }
+
+    ScopedPlayDhRootEnv(const ScopedPlayDhRootEnv&) = delete;
+    ScopedPlayDhRootEnv& operator=(const ScopedPlayDhRootEnv&) = delete;
+
+private:
+    static void apply(const char* value) {
+#ifdef _WIN32
+        _putenv_s(mxh::test::kPlayDhRootEnv, value ? value : "");
+#else
+        if (value) setenv(mxh::test::kPlayDhRootEnv, value, 1);
+        else unsetenv(mxh::test::kPlayDhRootEnv);
+#endif
+    }
+
+    std::optional<std::string> original_;
+};
+
+class OverrideRootDir {
+public:
+    OverrideRootDir()
+        : path_(fs::temp_directory_path() / "mxh-resource-reference-playdh-override") {
+        fs::remove_all(path_);
+        fs::create_directories(path_ / "Resource");
+    }
+    ~OverrideRootDir() {
+        std::error_code ec;
+        fs::remove_all(path_, ec);
+    }
+    const fs::path& path() const { return path_; }
+
+    OverrideRootDir(const OverrideRootDir&) = delete;
+    OverrideRootDir& operator=(const OverrideRootDir&) = delete;
+
+private:
+    fs::path path_;
+};
 
 fs::path resource_root(const fs::path& root) {
     if (const auto playdh_override = mxh::test::playdh_dir_override())
@@ -151,7 +221,34 @@ TEST(MxhResourceReference, RecoveredRuntimeServerFilesMatchReferenceManifest) {
 TEST(MxhResourceReference, CanonicalRootIsExplicitAndDoesNotDependOnTreeOrder) {
     const auto root = repo_root();
     ASSERT_FALSE(root.empty());
-    const auto expected = root / "modern" / "data" / "PlayDH" / "Resource";
-    EXPECT_EQ(fs::weakly_canonical(resource_root(root)), fs::weakly_canonical(expected));
-    EXPECT_TRUE(fs::exists(expected / "SkillList.bin"));
+    const char* ambient = std::getenv(mxh::test::kPlayDhRootEnv);
+    const std::optional<std::string> saved = ambient ? std::optional<std::string>(ambient)
+                                                      : std::nullopt;
+    {
+        const ScopedPlayDhRootEnv cleared(nullptr);
+        const auto expected = root / "modern" / "data" / "PlayDH" / "Resource";
+        EXPECT_EQ(fs::weakly_canonical(resource_root(root)), fs::weakly_canonical(expected));
+        EXPECT_TRUE(fs::exists(expected / "SkillList.bin"));
+    }
+    const char* restored = std::getenv(mxh::test::kPlayDhRootEnv);
+    if (saved) EXPECT_STREQ(restored, saved->c_str());
+    else EXPECT_EQ(restored, nullptr);
+}
+
+TEST(MxhResourceReference, CanonicalRootFollowsPlayDhRootOverride) {
+    const auto root = repo_root();
+    ASSERT_FALSE(root.empty());
+    const char* ambient = std::getenv(mxh::test::kPlayDhRootEnv);
+    const std::optional<std::string> saved = ambient ? std::optional<std::string>(ambient)
+                                                      : std::nullopt;
+    const OverrideRootDir override_root;
+    const std::string override_text = override_root.path().string();
+    {
+        const ScopedPlayDhRootEnv forced(override_text.c_str());
+        const auto expected = override_root.path() / "Resource";
+        EXPECT_EQ(fs::weakly_canonical(resource_root(root)), fs::weakly_canonical(expected));
+    }
+    const char* restored = std::getenv(mxh::test::kPlayDhRootEnv);
+    if (saved) EXPECT_STREQ(restored, saved->c_str());
+    else EXPECT_EQ(restored, nullptr);
 }
