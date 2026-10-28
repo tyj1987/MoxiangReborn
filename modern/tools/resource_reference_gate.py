@@ -11,6 +11,12 @@ Where each step runs
   ``.hfl`` files. It writes only names into
   ``reference/manifests/original-resource-references.json``. It does not copy
   game bytes into the repo.
+  ``originalExists`` looks only under ``--client-root`` (loose files keyed
+  relative to that root, and every regular ``.pak`` under it). ``--source``
+  and ``--pak`` still decide which maps are parsed, the same way as before.
+  Each reference records ``originalHit``. ``trim`` removes decoder
+  filesystem paths and ``.py`` paths. It leaves ``derivation.localDecoder``
+  (version, ``sourcePakSha256``, ``decodedMaps``, ``keySourceCounts``).
 * ``check`` runs in CI and on any checkout. It compares that manifest to the
   checkout. A derivation that has not been run is ``no conclusion``. A
   derivation whose status is ``partial`` is a partial conclusion. Neither
@@ -76,6 +82,7 @@ an unresolved conclusion into a failing exit.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -151,6 +158,31 @@ def _basename(name: str) -> str:
 
 def _casefold_name(name: str) -> str:
     return _basename(name).casefold()
+
+
+def _ascii_fold(text: str) -> str:
+    """Fold ASCII A-Z to a-z. Length-preserving, locale-independent.
+
+    ``PackFile::find`` (``modern/src/pack_file.cpp`` eq_ci) compares with
+    ``std::tolower`` per byte. ``pak_filename_less`` folds only A-Z. This
+    matches both for bytes 0-127 and leaves every other code unit alone,
+    so equality of folded strings is that ``eq_ci``.
+    """
+    return "".join(chr(ord(ch) + 32) if "A" <= ch <= "Z" else ch for ch in text)
+
+
+def _display_rel(path: Path, source: Path | None) -> str | None:
+    """Path relative to ``source`` with forward slashes, or the filename.
+
+    Never an absolute path. ``None`` when ``source`` is set and ``path``
+    is not inside it.
+    """
+    if source is not None:
+        try:
+            return path.resolve().relative_to(source.resolve()).as_posix()
+        except (OSError, ValueError):
+            return None
+    return path.name
 
 
 def is_lfs_pointer(path: Path) -> bool:
@@ -407,8 +439,8 @@ def _iter_files(root: Path):
             yield Path(directory) / filename
 
 
-def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
-    """Return the offset-4 field and the entries of the one valid layout.
+def _read_pak(pak_path: Path) -> tuple[str, int, list] | None:
+    """Return ``(kind, offset-4 field, entries)`` for the one valid layout.
 
     ``unpack_pak.read_entries`` walks both layouts and keeps the single walk
     that ends at EOF.  92-byte PlayDH: count is the uint32 at offset 4,
@@ -417,16 +449,26 @@ def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
     real count (11267) at offset 92.  Both layouts, or neither, prints one
     ERROR line naming the pak and the caller skips it.  The count passed to
     the walker is the layout's own field, never an inflated cap.
+    ``kind`` is ``92-byte`` or ``96-byte``.
     """
     try:
-        _kind, offset4, _declared, entries = unpack_pak.read_entries(str(pak_path))
+        kind, offset4, _declared, entries = unpack_pak.read_entries(str(pak_path))
     except (OSError, ValueError, struct.error) as exc:
         detail = str(exc)
         if str(pak_path) not in detail:
             detail = f"{pak_path}: {detail}"
         print(f"ERROR: {detail}", file=sys.stderr)
         return None
-    return int(offset4), entries
+    return str(kind), int(offset4), entries
+
+
+def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
+    """Offset-4 field and entries. See ``_read_pak``."""
+    read = _read_pak(pak_path)
+    if read is None:
+        return None
+    _kind, offset4, entries = read
+    return offset4, entries
 
 
 def _pak_bytes(pak_path: Path, entry) -> bytes:
@@ -443,7 +485,118 @@ def _suffix(name: str) -> str:
     return base.rsplit(".", 1)[-1].casefold() if "." in base else ""
 
 
+class _LooseFile:
+    __slots__ = ("rel", "path")
+
+    def __init__(self, rel: str, path: Path) -> None:
+        self.rel = rel
+        self.path = path
+
+
+class _MountedPak:
+    __slots__ = ("rel", "path", "tier", "by_name")
+
+    def __init__(self, rel: str, path: Path, tier: int, by_name: dict) -> None:
+        self.rel = rel
+        self.path = path
+        self.tier = tier
+        self.by_name = by_name
+
+
+class _Hit:
+    __slots__ = ("label", "path", "entry")
+
+    def __init__(self, label: str, path: Path, entry) -> None:
+        self.label = label
+        self.path = path
+        self.entry = entry
+
+
 class _BlobIndex:
+    """Existence lookup. This index does not choose which maps are parsed."""
+
+    def __init__(self) -> None:
+        self.loose: list[_LooseFile] = []
+        self.loose_by_fold: dict[str, _LooseFile] = {}
+        self.packs: list[_MountedPak] = []
+
+    def locate(self, name: str) -> _Hit | None:
+        """``FilesystemFileStorage::locate`` (filesystem_file_storage.cpp).
+
+        Loose file under the source root first (case-insensitive relative
+        path; not a basename search). Then mounted paks in mount order.
+        Inside a pak, ``PackFile::find`` eq_ci on the full name, and only
+        when the query itself has a directory, eq_ci of the query basename
+        against an entry's full name. Zero-length entries do not hit
+        (``has_payload``). No extension is rewritten.
+        """
+        if not name:
+            return None
+        loose = self.loose_by_fold.get(_ascii_fold(name.replace("\\", "/")))
+        if loose is not None:
+            return _Hit("loose:" + loose.rel, loose.path, None)
+        query = _ascii_fold(name.replace("/", "\\"))
+        base = query.rsplit("\\", 1)[-1]
+        for pack in self.packs:
+            entry = pack.by_name.get(query)
+            if (entry is None or entry.real_size <= 0) and base != query:
+                entry = pack.by_name.get(base)
+            if entry is not None and entry.real_size > 0:
+                return _Hit("pak:" + pack.rel, pack.path, entry)
+        return None
+
+
+def _entry_match_name(entry) -> str:
+    """On-disk entry name, byte-preserving, with ``/`` folded to ``\\``.
+
+    ``PackFile`` stores the raw name bytes and ``find`` compares those.
+    ``PakEntry.name`` for a 96-byte pak is a GBK display decode, so the
+    match uses ``name_bytes`` (latin-1, one code unit per byte).
+    """
+    raw = getattr(entry, "name_bytes", b"") or b""
+    text = raw.decode("latin-1") if raw else (entry.name or "")
+    return text.replace("/", "\\")
+
+
+def _pak_tier_rank(kind: str) -> int:
+    """Default ``pak_tier_order``: PlayDH 92-byte, then original 96-byte.
+
+    ``FilesystemFileStorageOptions`` in ``FilesystemFileStorage.hpp``.
+    """
+    if kind == "92-byte":
+        return 0
+    if kind == "96-byte":
+        return 1
+    return 2
+
+
+def _mount_sort_key(rel: str, tier: int) -> tuple:
+    """Tier, then ``pak_filename_less`` on the relative path.
+
+    The client sorts ``filename().u8string()`` because it only mounts the
+    top of its root (``directory_iterator`` in ``Initialize``). Existence
+    mounts every pak under ``--client-root``, so the same comparison runs
+    on the path relative to that root.
+    """
+    return (tier, _ascii_fold(rel), rel)
+
+
+def _can_read_file(path: Path) -> bool:
+    try:
+        with path.open("rb"):
+            return True
+    except OSError:
+        return False
+
+
+class _ParseIndex:
+    """Basename index used only to decide which maps are parsed and to load them.
+
+    This is the pre-TYJ-165 rule: loose files under ``--source`` (pak files
+    skipped) plus the single ``--pak``. Other archives never contribute
+    ``.map`` names. Keys are ``basename.casefold()``.
+    """
+
     def __init__(self) -> None:
         self.by_base: dict[str, list[tuple[str, bytes | None, Path | None]]] = {}
 
@@ -454,8 +607,9 @@ class _BlobIndex:
         return self.by_base.get(_casefold_name(name), [])
 
 
-def _build_source_index(source: Path | None, pak: Path | None) -> tuple[_BlobIndex, dict]:
-    index = _BlobIndex()
+def _build_parse_index(source: Path | None, pak: Path | None) -> tuple[_ParseIndex, dict]:
+    """Map-discovery index. Unchanged by the client-root existence walk."""
+    index = _ParseIndex()
     pak_info = {"path": str(pak) if pak else "", "headerEntries": None, "entriesReadToEof": None}
     if source and source.is_dir():
         for path in _iter_files(source):
@@ -479,14 +633,14 @@ def _build_source_index(source: Path | None, pak: Path | None) -> tuple[_BlobInd
             for entry in entries:
                 index.add(entry.canonical_name, None, None)
                 index.add(entry.name, None, None)
-            # Keep entry objects so referenced containers can be loaded once.
             pak_info["entries"] = entries
             pak_info["pakPath"] = pak
     return index, pak_info
 
 
-def _load_named(index: _BlobIndex, pak_info: dict, name: str) -> bytes | None:
-    for stored, data, path in index.find(name):
+def _load_named(index: _ParseIndex, pak_info: dict, name: str) -> bytes | None:
+    """Load map, hfl, or stm bytes the way derive did before the existence index."""
+    for _stored, data, path in index.find(name):
         if data is not None:
             return data
         if path is not None and path.is_file() and not is_lfs_pointer(path):
@@ -501,8 +655,73 @@ def _load_named(index: _BlobIndex, pak_info: dict, name: str) -> bytes | None:
     return None
 
 
-def _original_exists(index: _BlobIndex, name: str) -> bool:
-    return bool(index.find(name))
+def _build_exists_index(client_root: Path | None) -> _BlobIndex:
+    """Paks and loose files under ``client_root`` only.
+
+    Loose keys are the path relative to ``client_root`` (``Resource/Map/x.hfl``,
+    not ``client/Resource/Map/x.hfl``). A file under ``server/``, ``src/``, or
+    ``database/`` is not a hit. ``--pak`` is included only when it is inside
+    this root, because the walk finds it there.
+    """
+    index = _BlobIndex()
+    if client_root is None or not client_root.is_dir():
+        return index
+    loose_paths: list[Path] = []
+    pak_paths: list[Path] = []
+    for path in _iter_files(client_root):
+        if not path.is_file():
+            continue
+        if path.suffix.casefold() == ".pak":
+            pak_paths.append(path)
+        else:
+            loose_paths.append(path)
+    pak_paths.sort(key=lambda path: _mount_sort_key(_display_rel(path, client_root) or path.name, 0))
+    mounted: list[_MountedPak] = []
+    for path in pak_paths:
+        if is_lfs_pointer(path):
+            continue
+        rel = _display_rel(path, client_root)
+        if not rel or rel == ".":
+            continue
+        read = _read_pak(path)
+        if read is None:
+            continue
+        kind, _offset4, entries = read
+        by_name: dict = {}
+        for entry in entries:
+            # First entry in file order wins, including a zero-length one.
+            # find() returns that first eq_ci match; has_payload then rejects
+            # it and does not walk further entries of the same name.
+            match = _entry_match_name(entry)
+            by_name.setdefault(_ascii_fold(match), entry)
+        mounted.append(_MountedPak(rel, path, _pak_tier_rank(kind), by_name))
+    mounted.sort(key=lambda item: _mount_sort_key(item.rel, item.tier))
+    index.packs = mounted
+    loose_files: list[_LooseFile] = []
+    for path in loose_paths:
+        if is_lfs_pointer(path) or not _can_read_file(path):
+            continue
+        rel = _display_rel(path, client_root)
+        if not rel:
+            continue
+        loose_files.append(_LooseFile(rel, path))
+    loose_files.sort(key=lambda item: (_ascii_fold(item.rel), item.rel))
+    for item in loose_files:
+        index.loose_by_fold.setdefault(_ascii_fold(item.rel), item)
+    index.loose = loose_files
+    return index
+
+
+def _original_hit(index: _BlobIndex, name: str) -> str:
+    """``loose:<rel>`` or ``pak:<rel>``, or ``""`` when ``locate`` misses.
+
+    Relative to ``--client-root``, forward slashes, no absolute path. The v1
+    reference object had no field for the satisfying path; ``originalHit``
+    is that record and is documented on ``derive``. ``check`` does not read
+    it. ``originalExists`` is true exactly when this string is non-empty.
+    """
+    hit = index.locate(name)
+    return "" if hit is None else hit.label
 
 
 OBFUSCATED_MAP_REASON = "obfuscated-map"
@@ -627,7 +846,8 @@ def _unparsed_summary(unparsed: list[dict]) -> dict:
 def derive(source: Path | None, pak: Path | None = None,
            known_no_original: tuple[str, ...] = KNOWN_NO_ORIGINAL,
            local_header_stats: dict[int, int] | None = None,
-           local_decoder=None) -> dict:
+           local_decoder=None,
+           client_root: Path | None = None) -> dict:
     """Build a name-only manifest from original .map / .stm / .hfl bytes.
 
     ``local_header_stats``, when a dict is passed (local CLI flag only), is
@@ -638,13 +858,24 @@ def derive(source: Path | None, pak: Path | None = None,
     plaintext output is parsed like a plaintext map; only names, the decoder
     version, the --pak SHA-256 and each decoded original .map SHA-256 are
     recorded. References from decoded maps carry ``derivedBy:
-    "local-decoder"``.
+    "local-decoder"``. ``trim_manifest`` removes decoder filesystem paths
+    and ``.py`` paths. It keeps ``derivation.localDecoder``.
+
+    Map names come only from loose files under ``--source`` and from
+    ``--pak``, keyed by casefolded basename. Other paks do not add maps.
+
+    ``originalHit`` is relative to ``client_root`` (or ``source`` when
+    ``client_root`` is omitted). ``loose:<path>`` and ``pak:<path>`` use
+    forward slashes. ``""`` is a miss. The referenced extension is not
+    rewritten.
     """
     if local_decoder is not None and pak is None:
         raise LocalDecoderError(
             "--local-decoder requires --pak: local-decoder conclusions must record the "
             "source pak SHA-256 so check --pak can verify them")
-    index, pak_info = _build_source_index(source, pak)
+    parse_index, pak_info = _build_parse_index(source, pak)
+    exists_index = _build_exists_index(source if client_root is None else client_root)
+    index = exists_index
     references: list[dict] = []
     excluded: list[dict] = []
     unparsed: list[dict] = []
@@ -652,9 +883,8 @@ def derive(source: Path | None, pak: Path | None = None,
     consumed: set[str] = set()
     decoded_maps: list[dict] = []
 
-    map_names = [name for name in index.by_base if name.endswith(".map")]
-    for map_name in sorted(map_names):
-        data = _load_named(index, pak_info, map_name)
+    for map_name in sorted(name for name in parse_index.by_base if name.endswith(".map")):
+        data = _load_named(parse_index, pak_info, map_name)
         if data is None:
             unparsed.append({"name": map_name, "reason": "map bytes unavailable"})
             continue
@@ -707,7 +937,7 @@ def derive(source: Path | None, pak: Path | None = None,
             if key in consumed or excluded_resource(ref["name"]):
                 continue
             consumed.add(key)
-            payload = _load_named(index, pak_info, ref["name"])
+            payload = _load_named(parse_index, pak_info, ref["name"])
             if payload is None:
                 continue
             try:
@@ -776,11 +1006,13 @@ def _absorb(references: list[dict], excluded: list[dict], refs: list[dict],
     for ref in refs:
         key = _casefold_name(ref["name"])
         kind = excluded_resource(ref["name"])
+        hit = _original_hit(index, ref["name"])
         row = {
             "name": ref["name"],
             "via": via,
             "section": ref["section"],
-            "originalExists": _original_exists(index, ref["name"]),
+            "originalExists": hit != "",
+            "originalHit": hit,
         }
         if derived_by:
             row["derivedBy"] = derived_by
@@ -931,10 +1163,12 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
        ``caseMismatch`` (severity minor; Windows matching is case-insensitive);
     3. the basename itself is an LFS pointer file -> ``noConclusion``;
     4. one or more .pak files under root are LFS pointers -> ``pakLfsPointer``
-       (reason ``pak-lfs-pointer``). There is no reliable ref-to-pak mapping
-       (the manifest does not record the containing pak, and the same name
-       family is spread across Map/Character/Effect/monster), so ANY
-       unresolved reference is treated as possibly inside ANY pointer pak.
+       (reason ``pak-lfs-pointer``). ``originalHit`` records which original
+       archive satisfied the name at derive time. It is not a checkout
+       path, so there is still no reliable reference-to-checkout-pak
+       mapping (the same name family is spread across Map/Character/Effect/
+       monster). ANY unresolved reference is treated as possibly inside ANY
+       pointer pak.
        No conclusion: neither missing nor present. If unreadable paks also
        exist, the row stays in ``pakLfsPointer`` and lists both sets
        (``paks`` and ``unreadablePaks``) so neither is hidden;
@@ -1164,7 +1398,10 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
             "ttb": [f"{number}.ttb" for number in NOT_REFERENCED_TTB],
         },
         "where": {
-            "derive": "ROG, against the original .map/.stm/.hfl files and D:/MX/client/Package/3DData/Map.pak",
+            "derive": (
+                "ROG, --client-root D:/MX/client, --pak Map.pak; "
+                "write under D:/build-mxr/tyj165/"
+            ),
             "check": "CI and local checkouts, against the checked-in manifest only",
         },
     }
@@ -1323,6 +1560,196 @@ def emit_warnings(report: dict) -> None:
         print(f"::warning::{text}")
 
 
+TILE17_NAMES = tuple(f"tile_17_mou_a_{index:02d}.tga" for index in range(1, 10))
+_DECODER_PATH_KEYS = {"decoderpath", "localdecoderpath", "pluginpath"}
+
+
+def _is_py_path(value: str) -> bool:
+    return value.replace("\\", "/").strip().lower().endswith(".py")
+
+
+def _is_absolute_fs_path(value: str) -> bool:
+    """Drive, UNC, or rooted path. Resource names such as ``a/b.tga`` are not."""
+    text = value.strip()
+    if len(text) >= 3 and text[0].isalpha() and text[1] == ":" and text[2] in "\\/":
+        return True
+    if text.startswith("\\\\") or text.startswith("//"):
+        return True
+    return text.startswith("/")
+
+
+def _is_decoder_path(value: str) -> bool:
+    """A decoder filesystem path, including any ``.py`` path."""
+    if _is_py_path(value):
+        return True
+    text = value.replace("\\", "/").lower()
+    return _is_absolute_fs_path(value) and ("decoder" in text or "plugin" in text)
+
+
+def _strip_decoder_paths(node, *, keep_pak_path: bool = False) -> None:
+    """Drop decoder paths. ``derivation.localDecoder`` and ``pak.path`` stay."""
+    if isinstance(node, dict):
+        for key in list(node.keys()):
+            if key == "localDecoder" and isinstance(node[key], dict):
+                _strip_local_decoder(node[key])
+                continue
+            if key == "pak" and isinstance(node[key], dict):
+                _strip_decoder_paths(node[key], keep_pak_path=True)
+                continue
+            if keep_pak_path and key == "path":
+                continue
+            if key.casefold() in _DECODER_PATH_KEYS:
+                node.pop(key, None)
+                continue
+            value = node[key]
+            if isinstance(value, str) and _is_decoder_path(value):
+                node.pop(key, None)
+                continue
+            _strip_decoder_paths(value)
+    elif isinstance(node, list):
+        kept = []
+        for item in node:
+            if isinstance(item, str) and _is_decoder_path(item):
+                continue
+            _strip_decoder_paths(item)
+            kept.append(item)
+        node[:] = kept
+
+
+def _strip_local_decoder(node: dict) -> None:
+    """Keep version, sourcePakSha256, decodedMaps, and keySourceCounts."""
+    for key in list(node.keys()):
+        if key in {"version", "sourcePakSha256", "keySourceCounts"}:
+            continue
+        if key == "decodedMaps" and isinstance(node[key], list):
+            for row in node[key]:
+                if not isinstance(row, dict):
+                    continue
+                for field in list(row.keys()):
+                    if field in {"name", "sha256", "keySource"}:
+                        continue
+                    value = row[field]
+                    if field.casefold() in _DECODER_PATH_KEYS or (
+                        isinstance(value, str) and _is_decoder_path(value)
+                    ):
+                        row.pop(field, None)
+                    else:
+                        _strip_decoder_paths(value)
+            continue
+        value = node[key]
+        if key.casefold() in _DECODER_PATH_KEYS or (
+            isinstance(value, str) and _is_decoder_path(value)
+        ):
+            node.pop(key, None)
+        else:
+            _strip_decoder_paths(value)
+
+
+def trim_manifest(document: dict) -> dict:
+    """Copy with decoder filesystem paths and ``.py`` paths removed.
+
+    ``derivation.localDecoder`` stays, including ``version``,
+    ``sourcePakSha256``, ``decodedMaps`` (name and sha256), and
+    ``keySourceCounts``. ``check --pak`` reads that node. ``pak.path``
+    stays. Two derives of the same inputs trim to the same bytes.
+    """
+    trimmed = copy.deepcopy(document)
+    _strip_decoder_paths(trimmed)
+    return trimmed
+
+
+def _decoded_map_names(document: dict) -> list[str]:
+    info = (document.get("derivation") or {}).get("localDecoder") or {}
+    names: list[str] = []
+    for row in info.get("decodedMaps") or []:
+        if isinstance(row, dict) and isinstance(row.get("name"), str) and row["name"]:
+            names.append(row["name"])
+    return names
+
+
+def _strip_hit_fields(document: dict) -> dict:
+    out = copy.deepcopy(document)
+    for key in ("references", "excludedNotReferenced"):
+        rows = out.get(key)
+        if not isinstance(rows, list):
+            continue
+        for row in rows:
+            if isinstance(row, dict):
+                row.pop("originalExists", None)
+                row.pop("originalHit", None)
+    return out
+
+
+def _diff_paths(old, new, path: str, diffs: list[str]) -> None:
+    if isinstance(old, dict) and isinstance(new, dict):
+        for key in sorted(set(old) | set(new)):
+            child = f"{path}.{key}" if path else str(key)
+            if key not in old or key not in new:
+                diffs.append(child)
+            else:
+                _diff_paths(old[key], new[key], child, diffs)
+        return
+    if isinstance(old, list) and isinstance(new, list):
+        if len(old) != len(new):
+            diffs.append(f"{path}.length")
+        for index in range(min(len(old), len(new))):
+            _diff_paths(old[index], new[index], f"{path}[{index}]", diffs)
+        return
+    if old != new:
+        diffs.append(path or "$")
+
+
+def _count_lines(prefix: str, counts: dict[str, int]) -> list[str]:
+    return [f"{prefix} {key} {counts[key]}" for key in sorted(counts)]
+
+
+def compare_manifest_report(old: dict, new: dict) -> str:
+    """Names and counts only. No pak bytes, map text, or hashes.
+
+    ``originalExists`` and ``originalHit`` are the fields a client-root
+    re-derive is allowed to change. Every other field is counted.
+    """
+    diffs: list[str] = []
+    _diff_paths(_strip_hit_fields(old), _strip_hit_fields(new), "", diffs)
+    lines = [f"OTHER_FIELD_DIFFS {len(diffs)}"]
+    lines.extend(f"OTHER_FIELD {path}" for path in diffs)
+    old_count = (old.get("derivation") or {}).get("parsedMapCount")
+    new_count = (new.get("derivation") or {}).get("parsedMapCount")
+    lines.append(f"PARSED_MAP_COUNT old={old_count} new={new_count}")
+    old_maps = set(_decoded_map_names(old))
+    new_maps = set(_decoded_map_names(new))
+    if old_maps == new_maps:
+        lines.append("DECODED_MAPS_EQUAL")
+    else:
+        lines.extend(f"DECODED_MAPS_ONLY_OLD {name}" for name in sorted(old_maps - new_maps))
+        lines.extend(f"DECODED_MAPS_ONLY_NEW {name}" for name in sorted(new_maps - old_maps))
+    by_ext: dict[str, int] = {}
+    by_via: dict[str, int] = {}
+    for row in new.get("references") or []:
+        if not isinstance(row, dict) or row.get("originalExists") is not False:
+            continue
+        name = str(row.get("name") or "")
+        base = _basename(name)
+        ext = base.rsplit(".", 1)[-1].casefold() if "." in base else "(none)"
+        by_ext[ext] = by_ext.get(ext, 0) + 1
+        via = str(row.get("via") or "") or "(empty)"
+        by_via[via] = by_via.get(via, 0) + 1
+    lines.extend(_count_lines("FALSE_BY_EXT", by_ext))
+    lines.extend(_count_lines("FALSE_BY_VIA", by_via))
+    by_name: dict[str, dict] = {}
+    for row in new.get("references") or []:
+        if isinstance(row, dict) and row.get("name"):
+            by_name.setdefault(_casefold_name(str(row["name"])), row)
+    for name in TILE17_NAMES:
+        row = by_name.get(name.casefold())
+        if row is None or row.get("originalExists") not in (True, False):
+            state = "absent"
+        else:
+            state = "true" if row.get("originalExists") is True else "false"
+        lines.append(f"TILE {name} {state}")
+    return "\n".join(lines) + "\n"
+
+
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -1337,8 +1764,19 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     derive_parser = sub.add_parser("derive", help="run on ROG; write the name manifest")
-    derive_parser.add_argument("--source", type=Path, help="directory of original .map/.stm/.hfl files")
-    derive_parser.add_argument("--pak", type=Path, help="original Map.pak (read to EOF, not the 4192-entry worktree pak)")
+    derive_parser.add_argument(
+        "--source", type=Path,
+        help="loose files and the directory walk used to discover maps, together with --pak. "
+             "Other .pak files under here do not add maps. ROG: D:\\MX\\client\\Package\\3DData")
+    derive_parser.add_argument(
+        "--client-root", type=Path, default=None,
+        help="originalExists scope (ROG: D:\\MX\\client). Loose files are keyed relative to this "
+             "directory and only .pak files under it count. Defaults to --source.")
+    derive_parser.add_argument(
+        "--pak", type=Path,
+        help="original Map.pak (read to EOF, not the 4192-entry worktree pak). "
+             "Its entries supply map names. Header counts are recorded. "
+             "It counts for originalExists only when it is under --client-root.")
     derive_parser.add_argument("--output", type=Path, required=True)
     derive_parser.add_argument(
         "--local-decoder", type=Path, default=None,
@@ -1358,6 +1796,17 @@ def main(argv: list[str] | None = None) -> int:
                               help="optional original Map.pak, only hashed to verify local-decoder conclusions")
     check_parser.add_argument("--strict", action="store_true",
                               help=f"same switch as {STRICT_ENV}=1; fail on missing files or no conclusion")
+
+    trim_parser = sub.add_parser(
+        "trim", help="drop decoder filesystem paths; keep derivation.localDecoder")
+    trim_parser.add_argument("--input", type=Path, required=True)
+    trim_parser.add_argument("--output", type=Path, required=True)
+
+    compare_parser = sub.add_parser(
+        "compare-manifests",
+        help="compare two manifests; names and counts only, no file contents")
+    compare_parser.add_argument("old", type=Path)
+    compare_parser.add_argument("new", type=Path)
     args = parser.parse_args(argv)
 
     if args.command == "derive":
@@ -1374,7 +1823,9 @@ def main(argv: list[str] | None = None) -> int:
                 decoder = load_local_decoder(decoder_path)
             except LocalDecoderError as exc:
                 parser.error(str(exc))
-        document = derive(args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder)
+        document = derive(
+            args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder,
+            client_root=args.client_root)
         _write_json(args.output, document)
         print(
             f"wrote {args.output} status={document['derivation']['status']} "
@@ -1387,6 +1838,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  0x{value:02x} {count}")
         # derive always exits 0. check is warn-only by design unless the
         # strict switch is set.
+        return 0
+
+    if args.command == "trim":
+        trimmed = trim_manifest(_load_json(args.input))
+        _write_json(args.output, trimmed)
+        print(f"trimmed {args.output}")
+        return 0
+
+    if args.command == "compare-manifests":
+        print(compare_manifest_report(_load_json(args.old), _load_json(args.new)), end="")
         return 0
 
     strict = strict_enabled(args.strict)
