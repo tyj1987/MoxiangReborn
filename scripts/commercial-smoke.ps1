@@ -395,7 +395,7 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
     $e2eExit = 1
     $dropFailed = $false
     try {
-        & $E2eExe --login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --map12-port 28002 --backend mssql_odbc --init-schema --db $ConnectionString
+        & $E2eExe --login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema --db $ConnectionString
         if ($null -ne $LASTEXITCODE) { $e2eExit = [int]$LASTEXITCODE } else { $e2eExit = 0 }
     } finally {
         try {

@@ -705,7 +705,8 @@ try {
     $forcedArgs = @(Read-InvokedArgs -Exe $forcedOnBuild.Exe)
     Assert-True ($null -ne $forcedArgs -and ($forcedArgs -join "`n") -eq ($ExpectedArgs -join "`n")) "probe override true args were [$($forcedArgs -join '|')]"
 
-    Assert-True ($smokeText.Contains('--login-port 26001 --agent-port 27001 --map-port 28001 --map12-port 28002')) 'explicit E2E must pass ports 26001/27001/28001/28002'
+    Assert-True ($smokeText.Contains('--login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema')) 'explicit E2E must pass ports 26001/27001/28001'
+    Assert-True (-not $smokeText.Contains('--map12-port')) 'commercial-smoke must not pass --map12-port without --exercise-mapchange'
     foreach ($forbiddenPort in @('16001', '17001', '18001', '36001', '37001', '38001')) {
         Assert-True (-not $smokeText.Contains($forbiddenPort)) "commercial-smoke must not mention port $forbiddenPort"
     }
@@ -723,7 +724,6 @@ try {
         '--login-port', '26001',
         '--agent-port', '27001',
         '--map-port', '28001',
-        '--map12-port', '28002',
         '--backend', 'mssql_odbc',
         '--init-schema',
         '--db', $goodConn
