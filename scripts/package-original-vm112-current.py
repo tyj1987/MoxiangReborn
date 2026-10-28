@@ -1,0 +1,185 @@
+"""Create a reproducible VM112 original-server package from a chosen build.
+
+The package is intentionally separate from the live stage.  It records the
+exact source revision, build outputs, deployment scripts, and resource
+manifest, so a later transfer can verify every byte before stopping services.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import ipaddress
+import json
+import re
+import subprocess
+import zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+RESOURCE_ROOT = ROOT / "modern" / "data" / "PlayDH"
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def git(*args: str) -> str:
+    return subprocess.check_output(["git", *args], cwd=ROOT, text=True).strip()
+
+
+def resource_pointers() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for name in ("Character.pak", "Effect.pak", "Map.pak", "monster.pak"):
+        pointer = RESOURCE_ROOT / name
+        raw = git("show", f"HEAD:modern/data/PlayDH/{name}")
+        fields = dict(line.split(" ", 1) for line in raw.splitlines() if " " in line)
+        if fields.get("version") != "https://git-lfs.github.com/spec/v1":
+            raise RuntimeError(f"{name} is not an LFS pointer at HEAD")
+        expected = fields["oid"].removeprefix("sha256:")
+        expected_bytes = int(fields["size"])
+        if pointer.stat().st_size != expected_bytes or sha256(pointer) != expected:
+            raise RuntimeError(f"hydrated resource differs from pointer: {name}")
+        rows.append({"name": name, "bytes": expected_bytes, "sha256": expected})
+    return rows
+
+
+def build_artifact(build: Path, relative: str) -> Path:
+    """Resolve both the legacy flat layout and VS multi-config Release output."""
+    direct = build / relative
+    if direct.is_file():
+        return direct
+    parts = Path(relative).parts
+    if len(parts) >= 2:
+        configured = build.joinpath(*parts[:-1], "Release", parts[-1])
+        if configured.is_file():
+            return configured
+    raise FileNotFoundError(f"missing build artifact in flat or Release layout: {direct}")
+
+
+def server_ai_group_path(map_number: int) -> Path:
+    """Return the exact server AIGroup filename used by the map wrapper."""
+    suffix = f"{map_number:02d}" if map_number < 100 else str(map_number)
+    return RESOURCE_ROOT / "Resource" / "Server" / f"Monster_{suffix}.bin"
+
+
+def validate_server_ai_groups(map_number: int, enable_map17: bool) -> list[dict[str, object]]:
+    required = [map_number, 12, 2]
+    if enable_map17:
+        required.append(17)
+    rows: list[dict[str, object]] = []
+    missing: list[str] = []
+    for number in dict.fromkeys(required):
+        path = server_ai_group_path(number)
+        if not path.is_file():
+            missing.append(f"map {number}: {path}")
+            continue
+        rows.append({"map": number, "path": path.relative_to(ROOT).as_posix(), "bytes": path.stat().st_size, "sha256": sha256(path)})
+    if missing:
+        raise RuntimeError("missing exact server AIGroup resources: " + "; ".join(missing))
+    return rows
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--build-dir", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--stage-path", default=r"C:\Moxiang\original\stage-20261009")
+    parser.add_argument("--database", default="MoxiangOriginalTest_20261009")
+    parser.add_argument("--database-host", default="192.168.2.238",
+                        help="explicit IPv4 SQL endpoint for this isolated stage")
+    parser.add_argument("--database-certificate-name", default="",
+                        help="optional DNS SAN to validate when a clone retains its source certificate")
+    parser.add_argument("--login-port", type=int, default=16001)
+    parser.add_argument("--agent-port", type=int, default=17001)
+    parser.add_argument("--map-port", type=int, default=18001)
+    parser.add_argument("--map12-port", type=int, default=18002)
+    parser.add_argument("--map2-port", type=int, default=18003)
+    parser.add_argument("--map-number", type=int, default=10, help="primary map used by the stage")
+    parser.add_argument("--enable-map17", action="store_true", help="require the optional Map17 server AIGroup")
+    args = parser.parse_args()
+    database_ip = ipaddress.ip_address(args.database_host)
+    if database_ip.version != 4 or database_ip.is_loopback or database_ip.is_unspecified:
+        raise ValueError("database host must be an explicit, non-loopback IPv4 address")
+    if args.database_certificate_name and not re.fullmatch(r"[A-Za-z0-9.-]{1,253}", args.database_certificate_name):
+        raise ValueError("database certificate name must be a DNS SAN name")
+    ports = [args.login_port, args.agent_port, args.map_port, args.map12_port, args.map2_port]
+    if any(port < 1 or port > 65535 for port in ports) or len(set(ports)) != len(ports):
+        raise ValueError("all five stage ports must be distinct values in 1..65535")
+    build = (ROOT / args.build_dir).resolve() if not args.build_dir.is_absolute() else args.build_dir
+    output = (ROOT / args.output).resolve() if not args.output.is_absolute() else args.output
+    archive = output.with_suffix(".zip")
+    if output.exists() or archive.exists():
+        raise RuntimeError(f"refusing to overwrite existing package: {output}")
+
+    mappings = {
+        "modern/build/tools/MoxianLoginServer/mxh_login_server.exe": build_artifact(build, "tools/MoxianLoginServer/mxh_login_server.exe"),
+        "modern/build/tools/MoxianAgentServer/mxh_agent_server_CHINA.exe": build_artifact(build, "tools/MoxianAgentServer/mxh_agent_server_CHINA.exe"),
+        "modern/build/tools/MoxianMapServer/mxh_map_server_CHINA.exe": build_artifact(build, "tools/MoxianMapServer/mxh_map_server_CHINA.exe"),
+        "modern/build/tools/MoxianDbTool/mxh_db_tool.exe": build_artifact(build, "tools/MoxianDbTool/mxh_db_tool.exe"),
+        "modern/build/tests/unit/db/mxh_db_tests.exe": build_artifact(build, "tests/unit/db/mxh_db_tests.exe"),
+        "deploy/scripts/start_current_vm112.ps1": ROOT / "deploy/scripts/start_current_vm112.ps1",
+        "deploy/scripts/assert_original_writer_contract.ps1": ROOT / "deploy/scripts/assert_original_writer_contract.ps1",
+        "deploy/scripts/start_modern.ps1": ROOT / "deploy/scripts/start_modern.ps1",
+        "deploy/resource-profiles.json": ROOT / "deploy/resource-profiles.json",
+        "deploy/VM112_STAGE.md": ROOT / "deploy/VM112_STAGE.md",
+        "reference/manifests/playdh-current.sha256.json": ROOT / "reference/manifests/playdh-current.sha256.json",
+        # The current canonical tree contains this recovered Map17 heightfield
+        # outside the four LFS packs.  Include it explicitly so a PVE stage
+        # cloned from an older resource tree can be brought to the exact
+        # current resource manifest without silently borrowing a stale file.
+        "modern/data/PlayDH/Resource/Map/17.hfl": RESOURCE_ROOT / "Resource/Map/17.hfl",
+    }
+    missing = [str(src) for src in mappings.values() if not src.is_file()]
+    if missing:
+        raise FileNotFoundError("missing package inputs: " + ", ".join(missing))
+
+    resources = resource_pointers()
+    server_ai_groups = validate_server_ai_groups(args.map_number, args.enable_map17)
+    output.mkdir(parents=True)
+    entries: list[dict[str, object]] = []
+    for relative, source in mappings.items():
+        target = output / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
+        entries.append({"path": relative, "bytes": target.stat().st_size, "sha256": sha256(target)})
+
+    manifest = {
+        "schema": 2,
+        "stage": args.stage_path,
+        "generatedUtc": datetime.now(timezone.utc).isoformat(),
+        "sourceHead": git("rev-parse", "HEAD"),
+        "sourceDirty": bool(git("status", "--porcelain")),
+        "buildDirectory": str(build),
+        "resourcePaks": resources,
+        "writerContract": {
+            "id": "original-vm112-modern-mssql-v1",
+            "databaseHost": str(database_ip),
+            "databaseCertificateName": args.database_certificate_name,
+            "database": args.database,
+            "schemaVersion": 4,
+            "resourceProfile": "playdh-current",
+            "resourceManifestSha256": sha256(ROOT / "reference/manifests/playdh-current.sha256.json"),
+        },
+        "requiredMapNumbers": [row["map"] for row in server_ai_groups],
+        "serverAiGroupResources": server_ai_groups,
+        "listenerPorts": {"login": args.login_port, "agent": args.agent_port, "map10": args.map_port,
+                           "map12": args.map12_port, "map2": args.map2_port},
+        "files": entries,
+    }
+    (output / "stage-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as bundle:
+        for path in sorted(output.rglob("*")):
+            if path.is_file():
+                bundle.write(path, path.relative_to(output).as_posix())
+    print(json.dumps({"archive": str(archive), "sha256": sha256(archive), "sourceHead": manifest["sourceHead"], "files": len(entries), "resources": len(resources)}, indent=2))
+
+
+if __name__ == "__main__":
+    main()

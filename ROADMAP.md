@@ -1,162 +1,51 @@
-# Moxian-Reborn 路线图：1:1 完美复现
+# Moxiang 开发路线图
 
-> 状态日期：2026-08-12。完成历史与测试累计见 [docs/CHANGELOG.md](docs/CHANGELOG.md)，活动缺陷见 [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md)。本文件只记录目标、当前事实和下一里程碑，不追加 session 日志。
+更新于 2026-10-09。优先原版 modern DX11 可玩闭环；Unity 独立保留。[当前重整状态](docs/REORGANIZATION_STATUS.md) 记录本轮事实，[可玩状态](docs/PLAYABLE_STATUS.md) 和 [验收矩阵](docs/VERIFICATION_MATRIX.md) 记录玩法细项。旧通过记录必须重新绑定提交、资源摘要和运行证据。
 
-## 0. 不可破坏的约束
+| 阶段 | 工作 | 完成条件 |
+| --- | --- | --- |
+| A 保全校准 | WIP、分支、资产、数据库去向表；远端恢复验证；文档与绑定校准 | 独有成果可恢复，删除对象逐项可证 |
+| B 工程基线 | 分批吸收 runtime 与候选修复；头文件校准；移除 scratch 依赖 | 两线独立干净构建与相关测试通过 |
+| C PVE 环境 | CT105 原件保全及副本恢复；VM112 三服；独立数据库与契约 | 登录、三服交接、一致性与业务持久化实际通过 |
+| D 原版首个可玩版本 | 启动器→登录→建选角→Map10→移动/NPC/任务→战斗→自然掉落→点击拾取→装备→切图→重登 | GUI、权威事件与数据库结果一致 |
+| E 原版完整覆盖 | 全地图、动作、技能、物品、交易、聊天、公会、Boss、MurimNet、商城、异常流程 | 逐项闭合功能、资源字节、解析、数值、地图语义及视听对照 |
+| F Unity 完整可用 | 冷导入、画面、动作、拾取；原创及合格公开资源；同等玩法 | Editor、独立 Player 及重制美术验收通过 |
+| G 交付与最终清理 | 干净恢复、更新回滚、性能、双客户端、故障恢复、24 小时运行 | 两线可独立恢复启动；清理后重建；分支与删除清单闭合 |
 
-1. `.bin/.pak/.bmhm/.ttb/.chl/.chx/.chr/.mon/.bsad/.mhs` 必须保持二进制兼容。
-2. 原协议头继续作为行为与结构参考，不修改原文件；商业 RC 只要求 modern 客户端与 modern 服务端协议一致，不要求与旧客户端/服务端互通。
-3. 经验、伤害、爆率、Boss、商城和 MurimNet PvP 数值必须与原版一致。
-4. HSEL、HackShield、nProtect 的公开接口签名必须保持。
-5. 原始源码和配套资源只作基准；现代实现集中在 `modern/`。
+## 分线与环境
 
-## 1. 完成定义
+长期分支终态为 main（原版及共享服务）和 codex/unity-client-remaster（Unity）。main 先吸收 runtime；旧 main 的构建修复和三个原始源码取消跟踪变更单独核对。PR #1 分批吸收；共享修复带测试分别进入两线，Unity 专属修改只进入重制线。original-assets-foundation 四个独有提交及全部原创成果先保全。独有内容有去处、两线验收和远端恢复通过后才删除旧分支；历史提交不重写。
 
-| 目标 | 完成条件 |
-|---|---|
-| T1 资源字节一致 | 真实资源清单、解析结果和 SHA-256 基线全部稳定 |
-| T2 modern 协议闭环 | modern 客户端与 Login/Agent/Map 的登录、选角、建角、进图和玩法消息可重复互通；结构尺寸、边界与重放稳定 |
-| T3 行为一致 | 登录、进图、战斗/任务、商城/物品、PK 五段 side-by-side diff 为零，UI 状态与原版一致 |
-| **M3 进展 (2026-08-10)** | T3 五段 modern 5/5 diff=0；现代金色锁像锁定在 modern/tests/fixtures/sbs_captures_modern/ 与 SideBySideModernGolden.* 单测中；M2 C-Tier-3 服务接线 12/12 完成（超出原 9 项目标）；`scripts/commercial-smoke.ps1` PASS（MSSQL_E2E LocalDB + GUI_CLIENT_SMOKE 5/5 状态帧 + 30.1% terrain + 原版 BGM + 11863/11863 单元测试）；PlayDH 资源全量审计 433/433=100% OK；BuySyn 货币扣减 + 库存插入、StartSyn 任务接取 + quest_log 写入 已在 modern 单测中验证（含 dealitem/quest 加载路径）；modern caster data plane (`mxh::server::skill_caster` 纯函数模块) 已独立 + 15 单测覆盖全部 6 个 status 路径 + 1:1 damage 公式；BuySyn money 已落地持久化到 `modern_player_state` 表（SQLite + MSSQL 通用 UPSERT）+ 2 个真实 SqliteAdapter 单测验证 | 副作用顺序 / 数值 / DB 的跨实现 diff=0 仍需 legacy SWorking 对照环境 (MapHandler.calc_damage + handle_skill.heal 已接线 skill_caster @ 8612f203; 11863 ctest PASS 锁行为 + 5/5 attack capture diff=0 维持) | **M3 modern 闭环完成（含 caster + BuySyn/StartSyn DB 持久化） + M4 商业 RC 门禁 GREEN (modern 单侧)** |
+独立工作树、构建、输出、日志、配置和可写数据库。原版保持 playdh-current；Unity 派生资源不得回写。VM112 原版端口 16001/17001/18001，Unity 26101/27101/28101；VM100 暂作对照。数据库测试均在 PVE，失败不回退本机数据库。部署记录三服版本、资源摘要和 writer contract，不兼容拒绝启动；入口必须明确远端主机和模式。
 
-T1、T2、T3 全部通过并完成商业 RC 打包，才算当前目标完成。legacy 网络互通只作参考，不是发布门禁。
+不改原始协议参考头、CommonStruct.h、玩法公式及 HSEL/HackShield/nProtect 既有接口签名。
 
-## 2. 当前状态
+## 资源与清理
 
-| 领域 | modern 自测 | 1:1 内容/体验验收 | 结论 |
-|---|---|---|---|
-| T1 资源 | 303 条 SHA-256 锁定；268 个真实解析入口 | PlayDH 全量审计 433/433=100% OK | **完成** |
-| T2 协议 | 85 个 wire golden、96 类 dispatcher 覆盖、1001 包 replay 稳定；modern 客户端与三服务端五步 E2E 通过 | 不要求新旧互通；后续以真实玩法闭环覆盖 modern 消息路径 | **RC 基础闭环完成** |
-| 客户端/服务端运行时 | Login/Agent/Map 三进程和五步 E2E；GUI 资源/实体/BGM 可见；真实 ItemList/CharacterExpPoint；击杀经验升级和恢复；QuestScript 的 HUNT/HUNTALL、脚本奖励适配，怪物死亡推进任务，EndSyn 完成/奖励 ACK | 任务子进度完整序列化恢复、非击杀触发器、完整背包装备持久化和 HUD 仍需完成；跨实现对照仍需 legacy 运行环境 | **登录、进图、战斗、掉落、升级、击杀任务交付主循环已接通** |
-| UI | 165 个 legacy dialog 头均已有 modern port；198 个 UI 头、3314 个测试；C-Tier-3 业务 dialog 服务接线 12/12 完成（cQuestDialog / cQuestTotalDialog / cDealDialog / cItemShopDialog / cFriendDialog / cMoveDialog / cExchangeDialog / cGuildWarehouseDialog / cInventoryExDialog / cQuickDialog / cCharacterDialog / cMPGuageDialog / cMugongDialog） | 12/12 服务接线完成，截图验收仍需 legacy 客户端对照环境（外部依赖，非阻塞） | **接线完成，截图验收待 legacy** |
-| 玩法/数值 | D1-D6 数据面与 side-effect runtime 已形成广泛单测覆盖；五段核心玩法 modern 侧 capture 全部 byte-for-byte 匹配 modern golden（login/enter_game/attack/shop/quest）；BuySyn 货币扣减 + 库存插入 已在 `MapHandlerTest.BuySynOkArmDeductsMoneyAndInsertsInventory` 中端到端验证（dealitem catalog 命中 → money −qty·price、inventory += qty × ItemBase、回滚路径覆盖 inventory 满 / 资金不足）；StartSyn 任务接取 + quest_log 写入 已在 `MapHandlerTest.StartSynOkArmAddsQuestToPlayerLog` 中端到端验证（quest script 命中 → PlayerRuntime.quest_log 写入 QuestProgress）；modern caster data plane (`mxh::server::skill_caster`) 已独立模块化，15 个 `SkillCaster*` 单测覆盖 6 个 status 路径 + 1:1 damage 公式（dodge / phy / attr / crit×1.5） + heal 量；BuySyn money 已落地持久化到 `modern_player_state` 表（SQLite + MSSQL 通用 UPSERT `INSERT...ON CONFLICT DO UPDATE`），由 2 个真实 `SqliteAdapter(:memory:)` 集成测试 `BuySynOkArmPersistsMoneyToSqliteMemory` + `PersistPlayerMoneyForTestHitsDb` 端到端覆盖（SELECT 验证 row + money 字段）| 跨实现 side-by-side diff=0 尚未在 legacy 客户端对照环境复现；MapHandler 接线 skill_caster + legacy SWorking 对照 | **modern 闭环完成（含 caster + BuySyn/StartSyn DB 持久化），legacy 对照待外部环境** |
-| DX11 渲染 | headless 3 帧可自然退出；像素门禁锁定 grid、cube、checker 纹理与深度遮挡 | 仍需与原版登录/空场景截图对比 | **modern 闭环完成，legacy 视觉待验收** |
-| HSEL | 软件流、ABI、三进程加密 E2E 已通过 | 商业 RC 按用户决策忽略实体硬件狗，仅保留接口与 wire 兼容 | **RC 范围完成** |
-| MSSQL | ODBC 18/17 自动选择、LocalDB schema 初始化、客户端与三服务端五步 MSSQL E2E 已通过 | 尚需干净机部署和生产配置演练；legacy `.bak` 非强制 | **本机闭环完成，部署待验收** |
-| 账户注册与认证 | `MoxianDbTool register` 从标准输入创建账号；PBKDF2-HMAC-SHA256（随机 16B salt、210,000 次、常量时间校验）；SQLite 注册账号已完成登录→建角→选角→进图真实三服 E2E，错误密码拒绝 | 面向玩家的注册 Web/桌面入口、限流/封禁/审计与密码重置仍待实现 | **安全认证核心闭环完成，运营入口待建（M5 接管）** |
-| GM/运营工具 | GM API 强制认证；玩家、封禁、聊天、物品查询均接权威数据；活动持久化管理；幂等物品投递；MapServer 按 UTC 活动窗实时应用掉落倍率并在进图时发送公告，经验倍率快照已解析并钳制 | 在线领取后的完整角色物品 DB 快照仍需统一持久化；经验奖励实际调用点尚不完整，需随任务结束/击杀经验接线 | **运营控制面、可恢复物品投递、掉落活动与公告闭环完成** |
-| 多账号隔离 | 登录时为每个账号持久化唯一稳定 `user_idx`，角色按该 wire identity 隔离；双账号真实 E2E 各自仅看到自己的角色 | 旧库中此前错误归属为固定 userid=1 的角色需要独立迁移工具 | **新账号隔离闭环完成，旧错误数据待迁移** |
-| 自动补丁 | 已移除模拟版本/假下载；清单与每个文件均做 SHA-256/长度校验，拒绝路径穿越，暂存后原子替换，按清单精确备份并支持恢复新增/覆盖/删除文件 | 生产发布系统仍需生成并安全分发受信任清单摘要，远程 HTTPS 下载尚未接入 | **本地可信发布闭环完成，远程控制面待建** |
-| 数据备份恢复 | SQLite 支持在线一致性 `VACUUM INTO` 备份、SHA-256 清单、双重 integrity_check、暂存恢复；默认拒绝覆盖已有库 | MSSQL 商业备份/恢复脚本仍需重写并完成真实恢复演练 | **SQLite 灾备闭环完成，MSSQL 待建** |
-| **M-R3 渲染+UI 视觉 1:1 还原 (2026-08-18, 装载链段)** | M-R1 7 张 hard path 表 2089 records (M-R1 commit 02890ce7 38/38 PASS) + M-R2 image list 184 entries (M-R2 commit c753a59f 63/63 PASS) + M-R3 cDialogLoader 装载 132/157 InterfaceScript/*.bin 实际 157/157 ok, 0 fail, 153 有 #POINT, 224 dialog 装入 cWindowManager (M-R3 commit f341cbbb 45/45 PASS); MoxianClient main 启动装载链已替换 "wired in a later phase" 承认; 详见 `modern/docs/restoration-plan/00-goal-statement.md` §2 | 视觉 1:1 验证 (5 状态 + 165 dialog 截图 SSIM ≥ 0.95) 待 M-R4 (cImage 真画 + 老 .tif 跨表装载 + 165 dialog golden 截图); 老 client Win11 崩溃无法对照, 改用 modern + 老资源 + sprite SHA-256 byte-compare 替代 | **M-R0→M-R3 装载链完成, 视觉 1:1 待 M-R4** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, 跨表查装段)** | M-R4.1 cDialogLoader 加 LoadSpriteFn hook (commit 17b38498) — 装 root 时跨表查 cResourceManager + cSpriteAtlas 拿老 .tif → 调 hook 转 IDISpriteObject* → 创 cImage + SetSpriteObject + SetSource → cDialog basicImage. 单测 51/51 PASS, mock_sprite_calls=169 = cimages_loaded=169 1:1 跨表查命中. MoxianClient main 注册真 hook 用 renderer->CreateSpriteObject. cWindow::Render 已 cast m_basicImage 为 cImage* + 调 cImage::render 通过 renderAdapter | 视觉验证 (5 状态 + 165 dialog golden 截图 SSIM ≥ 0.95) 仍待 M-R4.2: GPU 截屏 (需显示器 + server 启) 或 software framebuffer + 老 .tif 解码 + SHA-256 比对 | **M-R4.1 跨表查装链完成, M-R4.2 视觉验证待推** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, 字节 1:1 baseline)** | M-R4.2 commit 65b55912 — 85 个老 .tif (覆盖 cSpriteAtlas 184 atlas) 像素 SHA-256 入库 (`modern/docs/restoration-plan/visual-sprite-baseline.md`) + 中心 32x32 crop SHA-256 验证 cImage::SetSource 同 rect 区域 1:1. `scripts/visual-sprite-compare.py` 头less 可跑, 不需要 ID3D11, 不需要显示器. 老 client Win11 崩溃 (SS3DGFunc.dll 0xC0000005) 替代方案 (goal statement §4.3 + visual-baseline.md 接受): modern + 老资源 + 老 .tif pixel SHA-256 byte-compare | 物理 GPU 截屏 SSIM ≥ 0.95 留给 M-R5 性能段 (需显示器启 MoxianClient + CaptureScreen); 老 .tif byte-compare 是字节 1:1 等价证据, 不等同 SSIM ≥ 0.95 视觉验证 | **M-R4.2 字节 1:1 baseline 完成, 物理 GPU 截屏 SSIM 待 M-R5** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, children 装载链)** | M-R4.3 commit a2cec9d8 — cDialogLoader 装 root 后遍历 children, 抽 loadImageForImageIdx helper (M-R4.1 + M-R4.3 共用). cButton children 跨表查装 3 类图 (basic + over + press). 跨表查命中 169 → 1375 (8.1x 增长, 402 cButton × 3 类图). 51/51 PASS. 1:1 with 老版 cScriptManager::GetInfoFromFile 递归 + GetImage | M-R4.4 仍待 cStatic + cEditBox + cListDialog + cIconDialog + cGuageBar 等其他 widget class children 装载 (头less 可推); M-R4 物理 GPU 截屏 SSIM ≥ 0.95 需显示器启 MoxianClient | **M-R4.3 children 装载链完成, M-R4.4 其他 widget class 装载待推** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, 4 widget class children 装载)** | M-R4.5 commit ed8a1f95 — cDialogLoader children 路由扩展到 cListDialog / cIconDialog / cGuageBar / cTabDialog 4 个 widget class. 每个 class 装 basicImage 跨表查 + 调各自 init (cListDialog::InitList / cGuageBar::InitGuageBar / cTabDialog::InitTab). 1:1 with 老版 cScriptManager::GetInfoFromFile eLISTDLG / eICONDLG / eGUAGEBAR / eTABDLG 路由. 56/56 PASS (新增 Test 8 验证 4 widget class 实际进 dialog 树). 实测命中: LISTDLG=31 / ICONDLG=24 / GUAGEBAR=8 / TABDLG=0 (无 #POINT 的 children 老版也不挂, 跟视觉 1:1 行为一致). `cWindowManager::dialogs()` 公开 accessor. `modern/tools/dialog_children_type_scan/` 一次性调试工具枚举 165 .bin children type 分布 (M-R4.6+ 候选: CHECKBOX 79 / ICONGRIDDLG 52 / TEXTAREA 65 / COMBOBOX 15 / GUAGENE 34 / GUAGEN 15 / LISTCTRL 8 / PUSHUPBTN 171, data-only PAGE 2760 / NPC 141). | M-R4.6+ 仍待其他 widget class children 路由 + data-only 类型决策; M-R4 物理 GPU 截屏 SSIM ≥ 0.95 需显示器 | **M-R4.5 4 widget class children 装载完成, M-R4.6+ 待推** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, 12 widget class children 装载累计)** | M-R4.6 commit 89f879e0 — cDialogLoader children 路由扩展到 8 个高频 widget class: cCheckBox (3 类图) / cPushupButton (3 类图) / cIconGridDialog (1 类图) / cListCtrl (1 类图) / cComboBox (1 类图) / cTextArea (1 类图) / cGuagen (1 类图) / cObjectGuagen (1 类图). 1:1 with 老版 cScriptManager::GetInfoFromFile eCHECKBOX / ePUSHUPBTN / eICONGRIDDLG / eLISTCTRL / eCOMBOBOX / eTEXTAREA / eGUAGEN / eGUAGENE 路由. 65/65 PASS (Test 8 扩展到 12 widget class 命中验证). 实测命中: M-R4.5 (4) 63 + M-R4.6 (8) 336 = 399 children (树总 566 中 70% 有 #POINT, 跟老版 cScriptManager 行为 1:1). | M-R4.7 待低频 widget class 路由 (LISTDLGEX 2 / WEAREDDLG 4 / DLG 20 / PRIVATEWAREHOUSEDLG 5 / LIST / ANI / GUAGE / ITEMSHOPGRIDDLG / JOURNALDLG / MUGONGDLG / MUNPAMARKDLG / QUESTDLG / SHOPITEMINVENGRID / SPIN / SURYUNDLG / WANTEDDLG) + PAGE (2760) / NPC (141) data-only 类型决策; M-R4 物理 GPU 截屏 SSIM 需显示器 | **M-R4.5 + M-R4.6 12 widget class children 装载完成, M-R4.7 待推** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-18, 26 widget class children 装载累计)** | M-R4.8 commit ca6b0ee3 — cDialogLoader children 路由扩展到 6 个低频 stub class: cWearedExDialog (派生 cIconDialog) / cPrivateWarehouseDialog (派生 cDialog, 不是 cIconGridDialog) / cMunpaMarkDialog (派生 cDialog) / cItemShopInven (派生 cIconGridDialog, new modern stub) / cAni (派生 cWindow, new modern stub) / cSuryunDialog (派生 cDialog, 不是 cTabDialog). 1:1 with 老版 cScriptManager::GetInfoFromFile eWEAREDDLG / ePRIVATEWAREHOUSEDLG / eMUNPAMARKDLG / eSHOPITEMINVENGRID / eANI / eSURYUNDLG 路由. 79/79 PASS (Test 8 加 6 个 EXPECT + 6 dynamic_cast case). 实测命中: WEAREDDLG=4 PWAREHOUSE=5 MUNPAMARK=1 ISI=1 ANI=1 SURYUNDLG=1 (跟 dialog_children_type_scan 165 .bin 扫描 4+5+1+1+0+1=12 完全对齐, ANI 0 命中但 1:1 化无实例). M-R4 累计 26 widget class + DLG 嵌套 = 444 children routed. M-R4.8 解锁方案: ① include/mxh/ui/ 删 junction 改真目录 (202 hpp 复制) 让 MSVC #pragma once 跨路径生效 (junction 让 #pragma once 把同一文件经两路径视为不同 TU 触发 C2011 redefinition); ② 4 个有 legacy .cpp 的 stub class 用 canonical 路径 mxh/ui/wearedexdialog.hpp 等拿 full def (声明, 不嵌入 ctor 实体, 避免 LNK2005 跟 legacy .cpp 双 ctor 实体冲突); ③ 2 个无 legacy .cpp 的 stub class (cAni/cItemShopInven) 写 new modern stub header in include/mxh/ui/, ctor = default inline. data-only 类型决策 (PAGE 2760 / NPC 141 / MOTION 1) 维持 — 跳过不挂 widget. | M-R4 物理 GPU 截屏 SSIM ≥ 0.95 需显示器 + ID3D11Device / M-R5 性能 5→30fps 需 GPU 物理测试 / M-R7 分辨率自适应 800x600/1920x1080/2560x1440 仍待推 | **M-R4.5 + M-R4.6 + M-R4.7 + M-R4.8 26 widget class children 装载 + DLG 嵌套 + data-only 决策完成** |
-| **M-R6 渲染+UI 视觉 1:1 还原 (2026-08-18, focus chain 段)** | M-R6.2 commit 804c325a — modern cWindowManager::SetFocus / TabFocusNext / TabFocusPrev 1:1 with legacy (单焦点指针, Tab 走 topmostActive dialog children 找 is_focusable_class [cEditBox + cButton], no-wrap, SetFocus on same window no-op). `mxh_window_manager_focus_tests` 独立 target 5 case × 16 assertion 16/16 PASS. 3 处测试 crash 修复: ①测试漏 dlg->SetActive(true) 致 topmostActive 返 nullptr 早 return; ②T4 在 AddDialog 之后调 dlg->childAt(1), dlg 已 move-from=nullptr 虚函数崩, 改为缓存 raw_eb2 在 AddDialog 之前; ③~cWindowManager 不 reset m_focused, dlg 析构 → m_focused dangling, 加先清 m_focused= nullptr. M-R6.1 cIME 1:1 验证 12 个 gtest 写好 + Win32 IMM reference adapter 1:1. M-R6.3 cMousePointer 1:1 done (老版 + modern 全部函数体 no-op). | M-R5 性能 5→30fps (需 GPU 物理测试) / M-R7 分辨率自适应 仍待推; M-R4.5 其他 widget class 装载 (cListDialog / cIconDialog / cGuageBar / cTabDialog children 跨表查装) 头less 可推 | **M-R6.1+M-R6.2+M-R6.3 完成, M-R5/M-R7 性能+分辨率段待推** |
-| **M-R4 渲染+UI 视觉 1:1 还原 (2026-08-19, cSpriteAtlas case fix)** | commit 5eb3831c — M-R4.1+.3+ 跨表查装老 sprite 时 132 .bin 跑完 0 cImages loaded. 根因: cSpriteAtlas::resolvePath 拼出 `image/2D/1.tif` (PakFile case-sensitive 索引小写) 但 PlayDH 实际资源目录是 `Image/2D/` 大写. Windows FS case-insensitive 让 `std::filesystem::exists` 返回 true, 4Dyuchi FileStorage case-sensitive miss 所有 .tif. Fix: cSpriteAtlas::Init `m_pathRoot = path_root / "Image"`, resolvePath strip 前导 `image/` 前缀 (大小写不敏感) 拼出实际大写路径. 79/79 + 16/16 + 63/63 = 158/0 PASS 不被破坏 | 0 cImages loaded 历史状态让 visual-smoke ca64d007 4 状态黑屏; 现在 cImage 装载链就位但 visual-smoke 仍 blocked 在 CLoginState ↔ modern login server 协议不匹配 (server 收 connect 立刻 disconnect, 4Dyuchi intro 渲染占位 90s) 跟 M-R4 装载链无关 | **M-R4.1+.3+ 跨表查装链 case fix, visual-smoke 走通待 CLoginState 协议层** |
-| **GPU-PV 物理 GPU 路径解锁 (2026-08-19)** | commit 5eb3831c — 3 件套就位. `scripts/vm-gpu-verify.ps1` (VM 端 GPU 自检 + JSON 报告 ASCII 兼容 PowerShell 5.1 ISE, console 纯 ASCII, JSON UTF-8 BOM 写). `scripts/host-gpu-pv-setup.md` (host 端操作 checklist Step 1-3: 卸 host 端 GPU 驱动 → Hyper-V Manager 配 GPU-PV → VM 重启 RDP 进). `modern/docs/restoration-plan/gpu-pv-guide.md` (综合指南). VM 当前 verdict = WARP_ONLY (Microsoft Hyper-V Video + RDP indirect, 无 PCI 物理 GPU, 无 nvidia-smi, DirectX 12.1 max feature level 49408); VM 借 host 物理 GPU 192.168.2.30 (ROG.52trz.local) 无任何凭据 (cmdkey / SSH / Kerberos 全空, workgroup 不通 NTLM pass-through) 必须用户在 host 端配 GPU-PV | M-R5 性能 5→30fps 物理 GPU 验证 / M-R7 分辨率自适应 800x600/1920x1080/2560x1440 / M-R4 物理 GPU 截屏 SSIM ≥ 0.95 仍待用户 host 端配 GPU-PV 后跑 visual-smoke + 视觉 baseline 标定 | **GPU-PV 工具链就位, 等用户 host 端配置** |
+资源顺序：已有原创成果 → 合适的免费商用公开资源 → 补充原生创作。保留武馆、刀剑枪、可编辑源文件及工具。优先筛选 Poly Haven、ambientCG、Kenney，逐包记录来源、作者、版本、许可证、哈希、修改及署名要求；商用许可和公开裸资源再分发许可分别核查。原游戏资源仍遵守 NOTICE。
 
+覆盖登记的 19 个项目和 C/D 兼容入口；Junction 只算入口。可再生或完全重复内容确认无占用后直接永久删除。闲置源码须验证提交、独有分支、LFS、子模块、二进制、忽略文件及必要配置可恢复；唯一资产、数据库、凭据、现用工具和 AI 环境保留。
 
+删除账本记录绝对路径、实际物理目标、大小、类型、独有内容去向、恢复证据和结果；执行前复核变化。以实际释放量报告，不以目录占用估算。清理后重新构建运行两线。
 
-当前 CMake 发现基线：**11,922 tests**；11,922 项 PASSED，全量 CTest 退出码为 0。该数字用于防止测试静默丢失，不代表 T3 已完成。
+自动测试、探针和截图不代替真实 GUI 全链操作；通过、失败、跳过、未运行分别记录。完整交付还须双客户端、断线重连、服务重启、数据库失败恢复和 24 小时稳定性证据。
 
-## 3. 当前里程碑
+## 2026-10-15 执行检查点
 
-### M1：R-9 legacy 视觉验收
+原版优先线已经从工程可运行推进到可复现的 PVE 战斗闭环：当前源码 stage `f264e8af` 在默认端口完成 Map10 GameIn、权威命中、自然掉落、点击拾取、背包移动和重登回读；证据绑定提交 `2c33c6ad` 与回执 `docs/evidence/original-pve-default-current-source-combat-20261015.json`。该闭环使用临时高等级和首发装备夹具，任务行在战斗事务期间暂时移除并已恢复，所以仍属于功能子门禁，不是 1 级新玩家商业验收。
 
-modern 渲染闭环已由 `RenderDemo.HeadlessFrameAcceptance` 固化：headless 自然退出并验证 grid、cube、checker 纹理与深度遮挡。当前仅剩外部对照：
+接下来按以下顺序推进，每项完成后才进入下一项：
 
-- 与原版登录界面和空场景截图对比，记录可接受差异。
+1. **原版首战可用性**：为新角色补齐合法首发装备授予、任务状态与战斗事务的兼容方案；以 level 1 Map10 真实 GUI 验证移动、目标选择、技能命中、死亡、掉落、拾取、装备和重登，保留 2–4 伤害负证据作为平衡基线。
+2. **Map10 资源语义**：恢复准确的 Map10 Dealer/商店资源；继续按原始版本核对 HFL/TTB/纹理、角色动作、特效和音频。缺少准确资源时保持阻塞，不能用 Map12 或重制资源替代 1:1。
+3. **原版功能覆盖**：按登录、任务完成/奖励、物品/装备、交易、聊天、公会、Boss、MurimNet、商城和异常流程建立逐项 PVE 收据；每个收据绑定提交、stage、资源 manifest、数据库 writer contract 和回滚结果。
+4. **Unity 分线**：不回写原资源，独立完成冷导入、角色/怪物可辨性、动作、掉落拾取、切图、数据库持久化和 Editor/Player 验收；免费商用资源先走许可证与哈希准入，原创资产保留源文件和授权凭证。
+5. **交付前清理**：仅在两线远端可恢复、干净构建、PVE 恢复演练和 24 小时稳定性通过后，执行分支收敛、旧副本删除和缓存清理；删除清单必须记录物理目标、唯一内容去向、恢复证据和实际释放空间。
 
-### M2：C-Tier-3 UI 集成 — 完成
+当前硬阻塞：原版精确资源门禁的旧合计仍写作 HFL 22、TTB 18、Map17 使用纹理 9，Map203 当前已无缺失纹理。2026-10-24 更正：HFL 0、4、23、24、32、33、34、94 与 TTB 0、3、4、23、24、32、33、34、94、198 未被原版引用，不是缺失需求，这里不把 22/18 改写成新的合计。Map17 九张纹理是 `tile_17_mou_a_01..09.tga`，与 `test4`、`Monster_203.bin` 同属“原版引用了但原文件不存在”，只作信息。本轮精确文件名扫描确认 8 个当时列入缺失的 HFL 只有已知生成占位、10 个当时列入缺失的 TTB 只有 UnityNative 派生覆盖，Map10 canonical Dealer 仍缺；Unity 的完整玩法与人工可辨性、PVE MSSQL 和商业发布验收仍未闭合；`game-dev` CLI 当前不可用，因此资产准入继续使用仓库内可审计脚本并明确记录该工具缺口。
 
-- 12/12 业务 dialog 服务接线完成（超出原 9 项目标），逐项行为测试 + 服务调用路径覆盖。
-- 截图验收仍需 legacy client 对照环境（外部依赖，非阻塞）。
+## 2026-10-15 quest 状态战斗修复复核
 
-### M3：T3 五段行为对照 — modern 闭环完成（含 Ok arm 副作用 + caster data plane + BuySyn/StartSyn DB 持久化）
+提交 `3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 移除了“只要玩家带有任务状态就拒绝 revisioned 技能”的过时门禁，并以单测证明击杀任务进度继续在权威事务中推进。VM112 受控 fixture 保留任务行，在 `16001/17001/18001` 完成登录、Map10 GameIn、两次权威击杀及对应角色/物品事件；测试后 CT930 数据库恢复到 level 1 基线，旧 Map10 服务重新启动并通过登录/选角/GameIn/228 怪物烟测。完整回执见 [`original-pve-questfix-combat-20261015.json`](docs/evidence/original-pve-questfix-combat-20261015.json)。
 
-- 固定登录进图、战斗/任务、商城/物品、PK 五个可重放场景。
-- 现代侧 5/5 modern capture byte-for-byte 匹配 modern golden；金色锁像在 `modern/tests/fixtures/sbs_captures_modern/` + `SideBySideModernGolden.*` 单测中。
-- BuySyn / StartSyn 的 Ok 路径已在 commit 229bde0d 落地（dealitem catalog 命中 → 扣 money + 插 inventory + BuyAck；quest script 命中 → accept_quest + StartAck）；新单测 `BuySynOkArmDeductsMoneyAndInsertsInventory` + `StartSynOkArmAddsQuestToPlayerLog` 锁定行为。
-- modern caster data plane (`mxh::server::skill_caster`) 已在 commit 4deb5529 独立模块化，6 个 status 路径 (Ok / UnknownSkill / DeadCaster / NotEnoughMp / OutOfRange / WrongKind) + 1:1 damage 公式 + heal 量的 15 个单测全部通过；MapHandler::calculate_damage 仍内联，5/5 attack capture 维持 diff=0。
-- BuySyn money DB 持久化在 commit 5b0c91d1 落地：`MapHandler::persist_player_money()` 私有方法 + BuySyn Ok 后调 + `INSERT INTO modern_player_state (...) ON CONFLICT (player_id) DO UPDATE` 通用 UPSERT (SQLite 3.24+ + MSSQL 2016+ 兼容)；`modern_player_state` 表加到 `deploy/database/mx_modern_schema_mssql.sql` + `MoxianDbTool moxian_schema_sql()`；2 个真实 `SqliteAdapter(:memory:)` 集成测试 `BuySynOkArmPersistsMoneyToSqliteMemory` + `PersistPlayerMoneyForTestHitsDb` 端到端覆盖 SELECT 验证。
-- StartSyn quest_log DB 持久化在 commit efe045fc 落地：MapHandler::persist_quest_log(player_id) 私有方法 + StartSyn Ok 后调 + INSERT INTO modern_player_quest_log (player_id, quest_id, state, accepted_time_ms, updated_at) ON CONFLICT (player_id, quest_id) DO UPDATE 通用 UPSERT；modern_player_quest_log 表（PK (player_id, quest_id)）加到 deploy/database/mx_modern_schema_mssql.sql + MoxianDbTool moxian_schema_sql() + 索引 idx_modern_player_quest_log_player；2 个真实 SqliteAdapter(:memory:) 集成测试 StartSynOkArmPersistsQuestLogToSqliteMemory + PersistQuestLogForTestHitsDb 端到端覆盖（SELECT 验证 quest_id + state 非 0；DELETE 后 persist_quest_log_for_test 重写）。wire shape 不变（StartAck 仍 2B quest_id echo），5/5 side-by-side capture 维持 diff=0。
-- 副作用顺序 / 数值 / DB 完整 diff=0 仍需 legacy SWorking 对照环境 (MapHandler.calc_damage + handle_skill.heal 已接线 skill_caster @ 8612f203; 11863 ctest PASS 锁行为 + 5/5 attack capture diff=0 维持)。
-
-### M4：部署与商业 RC 验收 — 门禁 GREEN (modern 单侧)
-
-- `scripts/commercial-smoke.ps1 -BuildDir modern/build` 全过：MSSQL_E2E LocalDB + GUI_CLIENT_SMOKE 5/5 状态帧 + 30.1% terrain + 原版 BGM + 11863/11863 单元测试（含 2 项 SKIPPED 真机资源 / E2E）。
-- PlayDH 资源审计 433/433=100% OK；DX11 渲染闭环；HSEL 实体设备忽略（用户决策）。
-- scripts/release-modern-rc.ps1 (commit ae189d80) 现 lock 住 "RC package verifiable" internal step：装配现代 (bin + captures) + SHA-256 manifest + RELEASE_NOTES.md + verify gate(11864 tests / 6819 bin / 2874 checksums)。
-- 干净机部署、生产配置演练、24h 长时间稳定性、RC 包在 legacy 侧 cross-impl 仍待外部环境（不阻塞本机 RC 声明）。
-
-### M5：玩家门户站点（Player Portal）— GREEN (modern 闭环)
-
-modern 侧 + 前端 + 单 ECS 部署,覆盖 注册 / 登录 / 商城（展示型）/ 下载 / 新闻 / 服务器状态。
-
-- 复用 `mxh::server::account_service` 做 PBKDF2 注册登录,零密码学重复
-- 引入 cpp-httplib + nlohmann/json + jwt-cpp（均 MIT）作为 portal HTTP 栈
-- 前端 Vue 3 + Vite + TailwindCSS 4 + vue-router + pinia（zh-CN / en-US）
-- 视觉：古风暗黑金（`#0a0807` 底 + `#c9a76a` 烫金 + `#a8324a` 朱红）
-- 单 ECS 部署 + Cloudflare tunnel 前置（路径 `/portal/*`）
-
-完整交付清单（12 个子里程碑全部 DONE）：
-- M5.1 portal 骨架（cpp-httplib + /api/healthz + /static/*）+ CMake ✓
-- M5.2 jwt_token + rate_limiter（10 单测）✓
-- M5.3 /api/auth（register/login/me/logout）— 复用 account_service,BCrypt 链接 MSVC,3 个 PBKDF2 happy-path 测试解 SKIP ✓
-- M5.4 /api/status + 后台 TCP ping 线程（Winsock2 / POSIX 5s 间隔）✓
-- M5.5 /api/news + content_loader 扫 markdown（含 front-matter + EN/ZH 分割）✓
-- M5.6 /api/shop/items + 24 件示例目录（3 hair + 5 weapon + 6 armor + 10 consumable）✓
-- M5.7 /download/*（client manifest + checksums）✓
-- M5.8 前端骨架：vite + Vue 3 + TS + Tailwind 4 + vue-router + pinia + axios ✓
-- M5.9 Home + News + NewsDetail + Status View 调真实 API ✓
-- M5.10 Register + Login + Account View,vee-validate/zod 风格前端校验,JWT 存 Pinia + localStorage ✓
-- M5.11 Shop + Download + About + NotFound View 商城卡片栅格 + SHA-256 展示 ✓
-- M5.12 HeroBanner + 3 PlayDH 占位（`modern/tools/extract_hero_images.py`）✓
-- M5.13 ECS 部署：`start_portal.ps1` + `install-cloudflared.ps1` + `smoke-ecs.ps1` ✓
-- M5.14 文档：`docs/PORTAL_API.md` + `docs/PORTAL_DEPLOY.md` + ROADMAP §3 M5 关闭 ✓
-
-门户安全门禁：
-- `PORTAL_JWT_SECRET` 启动时强制(空则 exit 6);`PORTAL_ALLOW_INSECURE_JWT=1` 仅本地 dev
-- `start_portal.ps1` 首次启动自动生成 64-byte secret + 落盘到 `deploy/runtime/portal/jwt.secret` + icacls 锁权限
-- 限流：register 5/min、login 10/min、general 60/min、strict 5/min
-- ban 检查：`mxh::server::is_account_login_blocked` 复用
-
-详细方案：`docs/PLAN_PORTAL.md`。完成判据见该文件 §7。
-
-## 4. 开发与验证门禁
-
-- 一个提交只包含一个 bug、工具或 dialog；所有 1:1 port 必须有行为测试。
-- 标准命令：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-modern.ps1 -Config Debug` 和 `ctest -C Debug --test-dir modern/build --output-on-failure`。包装器会消除桌面宿主注入的 `Path`/`PATH` 重复键。
-- 商业门禁：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/commercial-smoke.ps1 -BuildDir modern/build`；缺少兼容 LocalDB/ODBC 时可显式 `-SkipMssql`，但不得据此宣称 MSSQL 已验收。
-- 治理门禁：`python scripts/check-project-governance.py`。
-- 状态只能由可复现命令、测试或对照证据更新；详细完成记录写入 CHANGELOG，不写回本文件。
-
-## 5. 完成判据
-
-| 阶段 | 判据 |
-|---|---|
-| A/B | modern 客户端连接三进程服务并完整显示原版地图、角色、怪物、UI、音乐和音效 |
-| C | 165/165 dialog port、Tier-3 service 接线完成、逐项行为断言和截图验收 |
-| D | 五段玩法 side-by-side 的副作用、数值和数据库 diff=0 |
-| E | T1、T2、T3 全过，完整构建/测试/商业门禁、干净机部署、稳定性和 RC 包校验通过 |
-
-网络实现允许 modern-only；视觉资源、音频、地图、UI、玩法和数值仍必须以原版为 1:1 基准。未满足表中判据即保持未完成。
-
-### M6：1.0 商业发布就绪
-
-#### M6-A：干净机部署自动化 — 门禁 GREEN (本机) — 2026-08-18 验证
-
-- scripts/clean-deploy.ps1 退出码 0-5 全部分支已在本地验证。
-- 文档: docs/CLEAN_MACHINE_DEPLOY.md 含 DryRun + SkipSmoke + InstallPrereqs 路径 + portal smoke 步骤。
-- 外部环境 (干净机、生产配置演练) 仍待外部机器验证 — 不阻塞本机 RC 声明。
-
-#### M6-B: 24h stability harness — 1h SQLite canary PASSED, 4h/24h MSSQL PENDING
-
-- scripts/soak-24h.ps1 1h SQLite canary: 11,586 cycles, 0 crashes, handles bounded (Login 164→168, Agent 152→176, Map 150→161)。
-- 4h mssql_odbc canary: 文档 + 运行命令齐备 (docs/SOAK/soak-4h-mssql.md),执行待 24h 窗口。
-- 24h full canary: 文档齐备 (docs/SOAK/soak-24h-full.md),执行待 24h 窗口。
-- 1.0 RC tag 等待 4h/24h canary 落地。
-
-#### M6-C：本地端到端启动 + 数据库 + 客户端连接 — 门禁 GREEN
-
-
-- MSSQL 端：LocalDB Moxiang 库有真实数据 — chr_log_info (test/test) + character_info (chrid 240366, 412303, 945025, 953712, 1117800)，可经 ODBC 17 sqlcmd 查询。
-
-
-#### M6-B (second reference, now GREEN)
-
-See M6-B block above (line 103) for the canonical status. This duplicate is kept as a historical anchor only and will be removed in the next docs pass.
+本次 E2E 战斗循环未在有界窗口内完成最终拾取/重登断言，因此状态保持 PARTIAL；下一步优先复现客户端循环为何在击杀后选择刷新目标，再以 level 1 合法首发装备路线重跑。该修复不关闭 1 级首战、全地图资源、Unity 重制和商业发布门禁。

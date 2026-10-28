@@ -24,10 +24,15 @@
 //   - CharacterAdd/ObjectRemove forwarded to other players
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/original_vitals_store.hpp"
+#include "mxh/net/packet_trace.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <iostream>
 #include <random>
+#include <string_view>
 #include <vector>
 
 namespace mxh::server {
@@ -178,6 +183,7 @@ mxh::net::IEncryptor* AgentHandler::encryptor_for(
 
 bool AgentHandler::on_connect(mxh::net::ConnectionId id,
                               const std::string& remote_addr) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     std::cout << "[Agent] client connected from " << remote_addr << "\n";
 
     // Phase 7.6: In legacy mode, immediately send AGENT_CONNECTSUCCESS.
@@ -198,10 +204,43 @@ bool AgentHandler::on_connect(mxh::net::ConnectionId id,
 
 void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     std::cout << "[Agent] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << "\n";
     hsel_.on_disconnect(id);
-    // Clean up connection state.
+    const auto removed_char = get_char_id(id);
+    if (removed_char != 0) {
+        mxh::db::ResultSet rows;
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(removed_char))};
+        if (db_.query("SELECT player_id FROM modern_friend WHERE friend_id=?",
+                      params, rows).ok()) {
+            const auto player_col = rows.column_index("player_id");
+            for (std::size_t row = 0; row < rows.size() && player_col >= 0; ++row) {
+                const auto player_id = static_cast<std::uint32_t>(
+                    get_int(rows, row, "player_id"));
+                std::optional<mxh::net::ConnectionId> target;
+                {
+                    std::lock_guard<std::mutex> lock(map_route_mu_);
+                    const auto it = char_to_client_.find(player_id);
+                    if (it != char_to_client_.end()) target = mxh::net::make_connection_id(it->second);
+                }
+                if (!target.has_value()) continue;
+                mxh::net::Message notify;
+                notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+                notify.header.protocol = 21u; // FriendLogoutNotifyToClient
+                notify.header.object_id = removed_char;
+                reply_(*target, notify);
+            }
+        }
+    }
+    clear_session_routes(id);
+}
+
+void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
+    // Clear logical session state while retaining transport ownership in the
+    // TcpServer. DisconnectSyn uses this after its ACK has been emitted; the
+    // later physical socket close is therefore idempotent.
     std::uint32_t removed_char_id = 0;
     std::uint16_t removed_map_num = 0;
     bool had_map_num = false;
@@ -244,11 +283,8 @@ void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
     // We snapshot the TcpClient* under map_route_mu_ so a concurrent
     // set_map_server() doesn't race the send.
     if (removed_char_id != 0 && had_map_num) {
-        mxh::net::ITcpSender* mc = nullptr;
-        {
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            mc = map_client_;
-        }
+        const auto route = route_for_map(removed_map_num);
+        mxh::net::ITcpSender* mc = route.client;
         if (mc && mc->is_connected()) {
             mxh::net::Message fwd;
             fwd.header.category = static_cast<std::uint8_t>(
@@ -294,25 +330,30 @@ void AgentHandler::on_disconnect(mxh::net::ConnectionId id,
 
 void AgentHandler::on_message(mxh::net::ConnectionId id,
                               const mxh::net::Message& msg) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     if (cat == mxh::proto::Category::UserConn) {
         handle_userconn(id, msg);
+    } else if (cat == mxh::proto::Category::Friend) {
+        handle_friend(id, msg);
     } else if (cat == mxh::proto::Category::Move ||
+               cat == mxh::proto::Category::CharRevive ||
                cat == mxh::proto::Category::Chat ||
                cat == mxh::proto::Category::Item ||
                cat == mxh::proto::Category::Monster ||
                cat == mxh::proto::Category::Npc ||
                cat == mxh::proto::Category::Skill ||
-               cat == mxh::proto::Category::Battle) {
+               cat == mxh::proto::Category::Quest ||
+               cat == mxh::proto::Category::Battle ||
+               cat == mxh::proto::Category::Party ||
+               cat == mxh::proto::Category::Guild ||
+               cat == mxh::proto::Category::Friend) {
         std::cout << "[Agent] " << mxh::proto::category_name(cat)
                   << " proto=" << (int)msg.header.protocol
                   << " from conn=" << id.value << "\n";
         // Snapshot map_client_ under lock to avoid race with set_map_server().
-        mxh::net::ITcpSender* mc = nullptr;
-        {
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            mc = map_client_;
-        }
+        const auto route = route_for_connection(id);
+        mxh::net::ITcpSender* mc = route.client;
         if (mc && mc->is_connected()) {
             std::uint32_t char_id = get_char_id(id);
             if (char_id != 0) {
@@ -340,6 +381,205 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                   << " proto=" << (int)msg.header.protocol << "\n";
     }
 
+}
+
+void AgentHandler::handle_friend(mxh::net::ConnectionId id,
+                                  const mxh::net::Message& msg) {
+    constexpr std::uint8_t kAddSyn = 0;
+    constexpr std::uint8_t kAddAck = 1;
+    constexpr std::uint8_t kAddNack = 2;
+    constexpr std::uint8_t kAddInvite = 3;
+    constexpr std::uint8_t kAddAccept = 4;
+    constexpr std::uint8_t kAddAcceptAck = 5;
+    constexpr std::uint8_t kAddAcceptNack = 6;
+    constexpr std::uint8_t kAddDeny = 7;
+
+    const auto source = get_char_id(id);
+    if (source == 0 || msg.header.object_id == 0 || source == msg.header.object_id) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        nack.header.protocol = kAddNack;
+        nack.header.object_id = msg.header.object_id;
+        reply_(id, nack);
+        return;
+    }
+
+    std::optional<mxh::net::ConnectionId> target_connection;
+    {
+        std::lock_guard<std::mutex> lock(map_route_mu_);
+        const auto it = char_to_client_.find(msg.header.object_id);
+        if (it != char_to_client_.end()) {
+            target_connection = mxh::net::make_connection_id(it->second);
+        }
+    }
+
+    auto send_to_target = [&](std::uint8_t protocol, std::uint32_t object_id) {
+        if (!target_connection.has_value()) return false;
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        out.header.protocol = protocol;
+        out.header.object_id = object_id;
+        reply_(*target_connection, out);
+        return true;
+    };
+    auto send_to_source = [&](std::uint8_t protocol, std::uint32_t object_id) {
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        out.header.protocol = protocol;
+        out.header.object_id = object_id;
+        reply_(id, out);
+    };
+
+    if (msg.header.protocol == 26u) { // FriendListSyn
+        mxh::net::Message response;
+        response.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        response.header.protocol = 27u; // FriendListAck
+        response.header.object_id = source;
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(source))};
+        mxh::db::ResultSet rows;
+        const auto result = db_.query(
+            "SELECT f.friend_id,c.charname,f.status FROM modern_friend f "
+            "LEFT JOIN character_info c ON c.chrid=f.friend_id "
+            "WHERE f.player_id=? ORDER BY f.friend_id", params, rows);
+        if (!result.ok() || rows.size() > 255u) {
+            response.header.protocol = kAddNack;
+            reply_(id, response);
+            return;
+        }
+        response.payload.reserve(1u + rows.size() * 8u);
+        response.payload.push_back(static_cast<std::uint8_t>(rows.size()));
+        for (std::size_t row = 0; row < rows.size(); ++row) {
+            const auto id_col = rows.column_index("friend_id");
+            const auto name_col = rows.column_index("charname");
+            const auto status_col = rows.column_index("status");
+            const auto* friend_id = id_col >= 0
+                ? std::get_if<std::int64_t>(&rows.at(row, static_cast<std::size_t>(id_col))) : nullptr;
+            const auto* name = name_col >= 0
+                ? std::get_if<std::string>(&rows.at(row, static_cast<std::size_t>(name_col))) : nullptr;
+            const auto* status = status_col >= 0
+                ? std::get_if<std::int64_t>(&rows.at(row, static_cast<std::size_t>(status_col))) : nullptr;
+            if (!friend_id || !name || name->size() > 255u) continue;
+            const auto value = static_cast<std::uint32_t>(*friend_id);
+            response.payload.insert(response.payload.end(),
+                                    reinterpret_cast<const std::uint8_t*>(&value),
+                                    reinterpret_cast<const std::uint8_t*>(&value) + sizeof(value));
+            (void)status;
+            std::uint8_t presence = 0u;
+            {
+                std::lock_guard<std::mutex> lock(map_route_mu_);
+                if (char_to_client_.find(value) != char_to_client_.end()) presence = 1u;
+            }
+            response.payload.push_back(presence);
+            response.payload.push_back(static_cast<std::uint8_t>(name->size()));
+            response.payload.insert(response.payload.end(), name->begin(), name->end());
+        }
+        reply_(id, response);
+        return;
+    }
+
+    if (msg.header.protocol == 8u) { // FriendDelSyn
+        const std::array<mxh::db::Bind, 2> params = {
+            mxh::db::bind(static_cast<std::int64_t>(source)),
+            mxh::db::bind(static_cast<std::int64_t>(msg.header.object_id))};
+        bool removed = db_.begin_transaction().ok();
+        if (removed) removed = db_.execute(
+            "DELETE FROM modern_friend WHERE player_id=? AND friend_id=?", params).ok();
+        if (removed) {
+            const std::array<mxh::db::Bind, 2> reverse = {
+                mxh::db::bind(static_cast<std::int64_t>(msg.header.object_id)),
+                mxh::db::bind(static_cast<std::int64_t>(source))};
+            removed = db_.execute(
+                "DELETE FROM modern_friend WHERE player_id=? AND friend_id=?", reverse).ok();
+        }
+        if (!removed || !db_.commit().ok()) {
+            (void)db_.rollback();
+            send_to_source(kAddNack, msg.header.object_id);
+            return;
+        }
+        send_to_source(9u, msg.header.object_id); // FriendDelAck
+        return;
+    }
+
+    switch (msg.header.protocol) {
+    case kAddSyn:
+        if (!send_to_target(kAddInvite, source)) {
+            send_to_source(kAddNack, msg.header.object_id);
+            return;
+        }
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            pending_friend_invites_[msg.header.object_id] = source;
+        }
+        send_to_source(kAddAck, msg.header.object_id);
+        return;
+    case kAddAccept: {
+        std::uint32_t requester = 0;
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            const auto it = pending_friend_invites_.find(source);
+            if (it != pending_friend_invites_.end()) {
+                requester = it->second;
+                pending_friend_invites_.erase(it);
+            }
+        }
+        if (requester == 0) {
+            send_to_source(kAddAcceptNack, msg.header.object_id);
+            return;
+        }
+        std::optional<mxh::net::ConnectionId> requester_connection;
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            const auto it = char_to_client_.find(requester);
+            if (it != char_to_client_.end()) requester_connection = mxh::net::make_connection_id(it->second);
+        }
+        if (!requester_connection.has_value()) {
+            send_to_source(kAddAcceptNack, requester);
+            return;
+        }
+        const std::array<mxh::db::Bind, 2> relation_params = {
+            mxh::db::bind(static_cast<std::int64_t>(source)),
+            mxh::db::bind(static_cast<std::int64_t>(requester))};
+        bool persisted = db_.begin_transaction().ok();
+        if (persisted) {
+            persisted = db_.execute(
+                "INSERT INTO modern_friend (player_id,friend_id,status) VALUES (?,?,0)",
+                relation_params).ok();
+        }
+        if (persisted) {
+            const std::array<mxh::db::Bind, 2> reverse_params = {
+                mxh::db::bind(static_cast<std::int64_t>(requester)),
+                mxh::db::bind(static_cast<std::int64_t>(source))};
+            persisted = db_.execute(
+                "INSERT INTO modern_friend (player_id,friend_id,status) VALUES (?,?,0)",
+                reverse_params).ok();
+        }
+        if (!persisted || !db_.commit().ok()) {
+            (void)db_.rollback();
+            send_to_source(kAddAcceptNack, requester);
+            return;
+        }
+        mxh::net::Message ack;
+        ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+        ack.header.protocol = kAddAcceptAck;
+        ack.header.object_id = source;
+        reply_(*requester_connection, ack);
+        send_to_source(kAddAcceptAck, requester);
+        return;
+    }
+    case kAddDeny:
+        {
+            std::lock_guard<std::mutex> lock(map_route_mu_);
+            pending_friend_invites_.erase(source);
+        }
+        send_to_source(kAddNack, msg.header.object_id);
+        return;
+    default:
+        // Other friend protocols are still handled by the legacy Agent data
+        // plane when their database side-effect sink is installed.
+        send_to_source(kAddNack, msg.header.object_id);
+        return;
+    }
 }
 
 // ============================================================================
@@ -498,6 +738,11 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg) {
     auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
 
+    if (proto == mxh::proto::UserConnProtocol::DisconnectSyn) {
+        handle_legacy_disconnect(id);
+        return;
+    }
+
     if (use_legacy_framing_) {
         switch (proto) {
         case mxh::proto::UserConnProtocol::CharacterListSyn:
@@ -509,11 +754,40 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         case mxh::proto::UserConnProtocol::CharacterMakeSyn:
             handle_legacy_character_make(id, msg);
             break;
+        case mxh::proto::UserConnProtocol::CharacterRemoveSyn:
+            handle_legacy_character_remove(id, msg);
+            break;
         case mxh::proto::UserConnProtocol::CharacterSelectSyn:
             handle_legacy_character_select(id, msg);
             break;
         case mxh::proto::UserConnProtocol::GameInSyn:
             handle_legacy_gamein_syn(id, msg);
+            break;
+        case mxh::proto::UserConnProtocol::GameOutSyn: {
+            // GameOut is an explicit client lifecycle message, not only a
+            // socket-disconnect side effect. Forward it while the character
+            // route is still live so MapServer can flush the runtime and
+            // return GameOutAck before a subsequent GameIn.
+            const auto route = route_for_connection(id);
+            if (route.client && route.client->is_connected()) {
+                mxh::net::Message fwd = msg;
+                fwd.header.object_id = get_char_id(id);
+                if (fwd.payload.empty()) fwd.payload.resize(8, 0);
+                const auto err = route.client->send(fwd);
+                if (err != mxh::net::NetError::Ok) {
+                    std::cerr << "[Agent] failed to forward GAMEOUT_SYN: "
+                              << mxh::net::to_string(err) << "\n";
+                } else {
+                    std::cout << "[Agent] forwarded GAMEOUT_SYN charid="
+                              << fwd.header.object_id << "\n";
+                }
+            } else {
+                std::cout << "[Agent] no MapServer route for GAMEOUT_SYN\n";
+            }
+            break;
+        }
+        case mxh::proto::UserConnProtocol::ChangeMapSyn:
+            handle_legacy_change_map_syn(id, msg);
             break;
         default:
             std::cout << "[Agent] legacy: unhandled proto="
@@ -538,6 +812,21 @@ void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
         std::cout << "[Agent] unhandled userconn proto="
                   << static_cast<int>(msg.header.protocol) << "\n";
     }
+}
+
+void AgentHandler::handle_legacy_disconnect(mxh::net::ConnectionId id) {
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectAck);
+
+    // The ACK must be sent while the connection and its HSEL transport state
+    // are still alive. The client owns the subsequent physical disconnect.
+    reply_(id, ack);
+    clear_session_routes(id);
+    std::cout << "[Agent] DisconnectSyn acknowledged for conn="
+              << id.value << "\n";
 }
 
 // ============================================================================
@@ -567,6 +856,46 @@ void AgentHandler::set_map_server(mxh::net::ITcpSender* client,
     std::lock_guard<std::mutex> lk(map_route_mu_);
     map_client_ = client;
     map_conn_id_ = map_conn_id;
+    map_routes_[default_map_num_] = MapRoute{client, map_conn_id};
+}
+
+void AgentHandler::set_map_server_for_map(
+    std::uint16_t map_num, mxh::net::ITcpSender* client,
+    mxh::net::ConnectionId map_conn_id) {
+    if (map_num == 0u) return;
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    map_routes_[map_num] = MapRoute{client, map_conn_id};
+}
+
+AgentHandler::MapRoute AgentHandler::route_for_connection(
+    mxh::net::ConnectionId id) const {
+    std::uint16_t map_num = default_map_num_;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        if (const auto it = conn_map_nums_.find(id.value);
+            it != conn_map_nums_.end() && it->second != 0u) {
+            map_num = it->second;
+        }
+    }
+    return route_for_map(map_num);
+}
+
+AgentHandler::MapRoute AgentHandler::route_for_map(
+    std::uint16_t map_num) const {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
+        return it->second;
+    }
+    return MapRoute{map_client_, map_conn_id_};
+}
+
+AgentHandler::MapRoute AgentHandler::route_for_map_exact(
+    std::uint16_t map_num) const {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
+        return it->second;
+    }
+    return {};
 }
 
 mxh::net::ConnectionId AgentHandler::get_map_connection() const {
@@ -578,6 +907,7 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
                                     std::uint32_t char_id,
                                     std::uint16_t map_num,
                                     std::uint8_t user_level) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     // Phase 12.1 P2-13 follow-up: see header for rationale. This
     // populates the same four maps the legacy character list/select
     // handlers would fill through the binary protocol, so unit tests
@@ -600,20 +930,149 @@ void AgentHandler::register_session(mxh::net::ConnectionId id,
         std::lock_guard<std::mutex> lk(map_route_mu_);
         char_to_client_[char_id]   = id.value;
     }
+    if (char_id != 0) {
+        mxh::db::ResultSet rows;
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(char_id))};
+        if (db_.query("SELECT player_id FROM modern_friend WHERE friend_id=?",
+                      params, rows).ok()) {
+            for (std::size_t row = 0; row < rows.size(); ++row) {
+                const auto player_id = static_cast<std::uint32_t>(
+                    get_int(rows, row, "player_id"));
+                std::optional<mxh::net::ConnectionId> target;
+                {
+                    std::lock_guard<std::mutex> lk(map_route_mu_);
+                    const auto it = char_to_client_.find(player_id);
+                    if (it != char_to_client_.end()) target = mxh::net::make_connection_id(it->second);
+                }
+                if (!target.has_value()) continue;
+                mxh::net::Message notify;
+                notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
+                notify.header.protocol = 18u; // FriendLoginFriend
+                notify.header.object_id = char_id;
+                reply_(*target, notify);
+            }
+        }
+    }
 }
 
 
-void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
-                                    const mxh::net::Message& msg) {
+void AgentHandler::forward_from_map(mxh::net::ConnectionId map_id,
+                                    const mxh::net::Message& msg,
+                                    std::uint16_t ingress_map_num,
+                                    mxh::net::ITcpSender* ingress_client) {
+    std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
+
+    // MapServer multiplexes its players over one connection. A Map response
+    // may only reach sessions still bound to that exact MapClient and map.
+    const auto map_recipients = [&]() {
+        std::vector<std::pair<std::uint32_t, mxh::net::ConnectionId>> recipients;
+        std::lock_guard<std::mutex> users(user_mu_);
+        std::lock_guard<std::mutex> routes(map_route_mu_);
+        const auto route = map_routes_.find(ingress_map_num);
+        if (ingress_map_num == 0u || ingress_client == nullptr ||
+            route == map_routes_.end() || route->second.client != ingress_client ||
+            route->second.connection.value != map_id.value) return recipients;
+        for (const auto& [char_id, connection] : char_to_client_) {
+            const auto map = conn_map_nums_.find(connection);
+            const auto current_char = conn_char_ids_.find(connection);
+            if (map != conn_map_nums_.end() && current_char != conn_char_ids_.end() &&
+                map->second == ingress_map_num && current_char->second == char_id)
+                recipients.emplace_back(char_id, mxh::net::ConnectionId{connection});
+        }
+        return recipients;
+    };
+
+    const bool monster_move = cat == mxh::proto::Category::Move &&
+        msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MoveProtocol::MonsterMoveNotify);
+    if (cat == mxh::proto::Category::Monster || monster_move) {
+        if (msg.header.object_id == 0u) return;
+        for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
+        return;
+    }
+
+    if (cat == mxh::proto::Category::UserConn) {
+        const auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
+        if (proto == mxh::proto::UserConnProtocol::CharacterRevive) {
+            if (msg.payload.size() != 8u || msg.header.object_id == 0u) return;
+            std::uint32_t mover = 0;
+            std::memcpy(&mover, msg.payload.data(), sizeof(mover));
+            if (mover != msg.header.object_id) return;
+            for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
+            return;
+        }
+        if (proto == mxh::proto::UserConnProtocol::ReadyToRevive ||
+            proto == mxh::proto::UserConnProtocol::CharacterReviveNack) {
+            const std::size_t expected = proto == mxh::proto::UserConnProtocol::ReadyToRevive
+                ? 0u : 1u;
+            if (msg.header.object_id == 0u || msg.payload.size() != expected) return;
+            for (const auto& [char_id, connection] : map_recipients()) {
+                if (char_id == msg.header.object_id) {
+                    reply_(connection, msg);
+                    break;
+                }
+            }
+            return;
+        }
+        const bool monster_add = proto == mxh::proto::UserConnProtocol::MonsterAdd;
+        const bool npc_add = proto == mxh::proto::UserConnProtocol::NpcAdd;
+        const bool object_remove = proto == mxh::proto::UserConnProtocol::ObjectRemove;
+        if (monster_add || npc_add || object_remove) {
+            const std::size_t expected = object_remove ? 4u : 64u;
+            if (msg.header.object_id == 0u || msg.payload.size() != expected) return;
+            std::uint32_t entity_id = 0;
+            std::memcpy(&entity_id, msg.payload.data(), sizeof(entity_id));
+            if (entity_id == 0u) return;
+            if (!object_remove) {
+                std::uint32_t repeated = 0;
+                std::uint16_t payload_map = 0;
+                std::memcpy(&repeated, msg.payload.data() + 4, sizeof(repeated));
+                std::memcpy(&payload_map, msg.payload.data() + (monster_add ? 47u : 39u),
+                            sizeof(payload_map));
+                if (entity_id != repeated || payload_map != ingress_map_num) return;
+            }
+            for (const auto& [char_id, connection] : map_recipients()) {
+                if (char_id != msg.header.object_id) continue;
+                auto client_message = msg;
+                client_message.header.object_id = object_remove ? 0u : entity_id;
+                reply_(connection, client_message);
+                break;
+            }
+            return;
+        }
+        if (proto == mxh::proto::UserConnProtocol::CharacterDie) {
+            if (msg.payload.size() != 8u || msg.header.object_id == 0u) return;
+            std::uint32_t killer = 0, victim = 0;
+            std::memcpy(&killer, msg.payload.data(), sizeof(killer));
+            std::memcpy(&victim, msg.payload.data() + 4, sizeof(victim));
+            if (killer != msg.header.object_id || victim == 0u) return;
+            // The Map produced this event only after finding the victim in
+            // its authoritative player set. A second Agent on the same Map
+            // may not own that victim, but a locally known victim must still
+            // be bound to this ingress Map and current character session.
+            {
+                std::lock_guard<std::mutex> users(user_mu_);
+                std::lock_guard<std::mutex> routes(map_route_mu_);
+                const auto local = char_to_client_.find(victim);
+                if (local != char_to_client_.end()) {
+                    const auto map = conn_map_nums_.find(local->second);
+                    const auto current_char = conn_char_ids_.find(local->second);
+                    if (map == conn_map_nums_.end() || current_char == conn_char_ids_.end() ||
+                        map->second != ingress_map_num || current_char->second != victim) return;
+                }
+            }
+            const auto recipients = map_recipients();
+            for (const auto& [char_id, connection] : recipients) reply_(connection, msg);
+            return;
+        }
+    }
 
     // Phase 9.2: Move/Chat are broadcast messages — forward to ALL clients
     // except the sender (whose char_id matches msg.header.object_id).
-    // Phase 10c: Monster/Npc/UserConn(MonsterAdd/ObjectRemove) are also
-    // broadcast to all clients since they use monster object_id, not char_id.
+    // Object notifications above use validated map-scoped or targeted routes.
     if (cat == mxh::proto::Category::Move ||
         cat == mxh::proto::Category::Chat ||
-        cat == mxh::proto::Category::Monster ||
         cat == mxh::proto::Category::Npc ||
         cat == mxh::proto::Category::Skill) {
         std::uint32_t sender_char_id = msg.header.object_id;
@@ -626,40 +1085,79 @@ void AgentHandler::forward_from_map(mxh::net::ConnectionId /*map_id*/,
                 ++routed;
             }
         }
-        std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
-                  << " sender=" << sender_char_id
-                  << " routed=" << routed << "\n";
+        if (mxh::net::packet_trace_enabled()) {
+            std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
+                      << " sender=" << sender_char_id
+                      << " routed=" << routed << "\n";
+        }
         return;
     }
 
-    // Phase 10c: UserConn messages with MonsterAdd/ObjectRemove (when
-    // object_id >= 50000, i.e. a monster) need broadcast to all clients.
+    // Item responses (shop lists, buy/sell acknowledgements and inventory
+    // snapshots) are authoritative replies to the player on the ingress map.
+    // Route them through the validated map-scoped recipient set so a transfer
+    // cannot lose the response when the connection's char-id route changed.
+    if (cat == mxh::proto::Category::Item) {
+        for (const auto& [char_id, connection] : map_recipients()) {
+            if (char_id == msg.header.object_id) {
+                reply_(connection, msg);
+                break;
+            }
+        }
+        return;
+    }
+
+    // Other UserConn messages retain their established route.
     if (cat == mxh::proto::Category::UserConn) {
         auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
-        if (proto == mxh::proto::UserConnProtocol::MonsterAdd ||
-            proto == mxh::proto::UserConnProtocol::BossMonsterAdd ||
-            proto == mxh::proto::UserConnProtocol::NpcAdd) {
-            // Broadcast to ALL clients
-            std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
-                reply_(mxh::net::ConnectionId{conn_val}, msg);
-                ++routed;
+        if (proto == mxh::proto::UserConnProtocol::CharacterAdd) {
+            // Map->Agent header.object_id names the recipient. The original
+            // client wire header names the source entity; restore that only
+            // after validating the complete authoritative Map payload.
+            constexpr std::size_t kCharacterAddSize = 35u + 112u + 14u + 120u + 4u + 1u + 2u;
+            if (msg.payload.size() != kCharacterAddSize) return;
+            std::uint32_t source = 0, repeated_source = 0;
+            std::uint16_t map_num = 0, repeated_map = 0;
+            std::memcpy(&source, msg.payload.data(), sizeof(source));
+            std::memcpy(&repeated_source, msg.payload.data() + 4, sizeof(repeated_source));
+            std::memcpy(&map_num, msg.payload.data() + 77, sizeof(map_num));
+            std::memcpy(&repeated_map, msg.payload.data() + 79, sizeof(repeated_map));
+            const auto recipient = msg.header.object_id;
+            if (source == 0 || recipient == 0 || source != repeated_source ||
+                map_num == 0 || map_num != repeated_map) return;
+
+            std::optional<mxh::net::ConnectionId> target;
+            {
+                std::lock_guard<std::mutex> users(user_mu_);
+                std::lock_guard<std::mutex> routes(map_route_mu_);
+                const auto target_it = char_to_client_.find(recipient);
+                const auto source_it = char_to_client_.find(source);
+                const auto route_it = map_routes_.find(map_num);
+                if (ingress_map_num != map_num || ingress_client == nullptr ||
+                    route_it == map_routes_.end() ||
+                    route_it->second.client != ingress_client ||
+                    route_it->second.connection.value != map_id.value ||
+                    target_it == char_to_client_.end() ||
+                    source_it == char_to_client_.end()) return;
+                const auto target_map = conn_map_nums_.find(target_it->second);
+                const auto source_map = conn_map_nums_.find(source_it->second);
+                const auto target_char = conn_char_ids_.find(target_it->second);
+                const auto source_char = conn_char_ids_.find(source_it->second);
+                if (target_map == conn_map_nums_.end() ||
+                    source_map == conn_map_nums_.end() ||
+                    target_char == conn_char_ids_.end() ||
+                    source_char == conn_char_ids_.end() ||
+                    target_map->second != map_num || source_map->second != map_num ||
+                    target_char->second != recipient || source_char->second != source) return;
+                target = mxh::net::ConnectionId{target_it->second};
             }
-            std::cout << "[Agent] broadcast " << mxh::proto::category_name(cat)
-                      << " proto=" << static_cast<int>(proto)
-                      << " routed=" << routed << "\n";
+            auto client_message = msg;
+            client_message.header.object_id = source;
+            reply_(*target, client_message);
             return;
         }
-        if (proto == mxh::proto::UserConnProtocol::ObjectRemove) {
-            // ObjectRemove could be for a monster — broadcast to all
-            std::size_t routed = 0;
-            std::lock_guard<std::mutex> lk(map_route_mu_);
-            for (auto& [chrid, conn_val] : char_to_client_) {
-                reply_(mxh::net::ConnectionId{conn_val}, msg);
-                ++routed;
-            }
-            std::cout << "[Agent] broadcast ObjectRemove routed=" << routed << "\n";
+        if (proto == mxh::proto::UserConnProtocol::BossMonsterAdd) {
+            for (const auto& [char_id, connection] : map_recipients()) reply_(connection, msg);
             return;
         }
     }
@@ -754,9 +1252,16 @@ void AgentHandler::handle_legacy_character_list(
     std::vector<mxh::db::Bind> params = {mxh::db::bind(std::to_string(user_id))};
     auto result = db_.query(
         "SELECT chrid, charname, sex_type, hair_type, face_type, body_type, "
-        "start_area, height, width, level, map_num, standing_idx "
+        "start_area, height, width, level, map_num, position_x, position_z, standing_idx "
         "FROM character_info WHERE userid = ?",
         params, rs);
+    if (!result.ok()) {
+        result = db_.query(
+            "SELECT chrid, charname, sex_type, hair_type, face_type, body_type, "
+            "start_area, height, width, level, map_num, standing_idx "
+            "FROM character_info WHERE userid = ?",
+            params, rs);
+    }
 
     int char_count = 0;
     if (result.ok()) {
@@ -838,8 +1343,22 @@ void AgentHandler::handle_legacy_character_list(
             put_u8(payload, static_cast<std::uint8_t>(get_int(rs, i, "face_type")));
             put_u8(payload, static_cast<std::uint8_t>(get_int(rs, i, "hair_type")));
 
-            // WearedItemIdx[10] (WORD each = 20 bytes)
-            put_zeros(payload, 20);
+            // WearedItemIdx[10] (WORD each = 20 bytes), rehydrated from the
+            // character equipment table so the select preview matches the
+            // appearance submitted during creation.
+            std::array<std::uint16_t, 10> equipped{};
+            mxh::db::ResultSet eq;
+            const auto chrid = static_cast<std::int64_t>(get_int(rs, i, "chrid"));
+            if (db_.query("SELECT slot,item_idx FROM modern_character_equipment WHERE chrid=? AND slot BETWEEN 0 AND 9 ORDER BY slot",
+                          {mxh::db::bind(chrid)}, eq).ok()) {
+                for (const auto& row : eq.rows) {
+                    if (row.size() < 2 || !std::holds_alternative<std::int64_t>(row[0]) ||
+                        !std::holds_alternative<std::int64_t>(row[1])) continue;
+                    const auto slot = static_cast<std::size_t>(std::get<std::int64_t>(row[0]));
+                    if (slot < equipped.size()) equipped[slot] = static_cast<std::uint16_t>(std::get<std::int64_t>(row[1]));
+                }
+            }
+            for (const auto item : equipped) put_u16(payload, item);
 
             // Stage / Level / CurMapNum / LoginMapNum
             put_u8(payload, 0);    // Stage
@@ -888,6 +1407,113 @@ void AgentHandler::handle_legacy_character_list(
     std::cout << "[Agent] legacy: sending CHARACTERLIST_ACK payload="
               << payload.size() << "B (char_num=" << char_count << ")\n";
     reply_(id, m);
+}
+
+// ============================================================================
+// handle_legacy_character_remove - proto=45
+//
+// Legacy MSG_DWORD payload contains the selected character id. Ownership is
+// verified against the connection's authenticated user before a transaction
+// removes the character and all modern per-character state.
+// ============================================================================
+
+void AgentHandler::handle_legacy_character_remove(
+    mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+    const auto send_result = [&](mxh::proto::UserConnProtocol protocol,
+                                 std::uint32_t reason = 0) {
+        mxh::net::Message reply;
+        reply.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        reply.header.protocol = static_cast<std::uint8_t>(protocol);
+        if (protocol == mxh::proto::UserConnProtocol::CharacterRemoveNack) {
+            put_u32(reply.payload, reason);
+        }
+        reply_(id, reply);
+    };
+
+    std::uint32_t character_id = 0;
+    if (msg.payload.size() < sizeof(character_id)) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+    std::memcpy(&character_id, msg.payload.data(), sizeof(character_id));
+    const std::uint32_t user_id = get_user_id(id);
+    if (character_id == 0 || user_id == 0) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 2);
+        return;
+    }
+
+    mxh::db::ResultSet owned;
+    std::vector<mxh::db::Bind> ownership_params = {
+        mxh::db::bind(static_cast<std::int64_t>(character_id)),
+        mxh::db::bind(std::to_string(user_id)),
+    };
+    const auto ownership = db_.query(
+        "SELECT 1 FROM character_info WHERE chrid = ? AND userid = ?",
+        ownership_params, owned);
+    if (!ownership.ok()) {
+        std::cerr << "[Agent] character remove ownership query failed: "
+                  << ownership.error_message << "\n";
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+    if (owned.empty()) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 2);
+        return;
+    }
+
+    if (!db_.begin_transaction().ok()) {
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+    const std::array<std::string_view, 6> child_tables = {
+        "modern_player_quest_sub",
+        "modern_player_quest_log",
+        "modern_player_item",
+        "modern_player_vitals",
+        "modern_player_state",
+        "modern_item_grant",
+    };
+    bool failed = false;
+    for (const auto table : child_tables) {
+        const std::string key = table == "modern_item_grant"
+            ? "character_id" : "player_id";
+        const std::string sql = "DELETE FROM " + std::string(table) +
+                                " WHERE " + key + " = ?";
+        const std::array<mxh::db::Bind, 1> params = {
+            mxh::db::bind(static_cast<std::int64_t>(character_id))};
+        const auto result = db_.execute(sql, params);
+        if (!result.ok()) {
+            std::cerr << "[Agent] character remove failed for " << table
+                      << ": " << result.error_message << "\n";
+            failed = true;
+            break;
+        }
+    }
+
+    if (!failed) {
+        const auto result = db_.execute(
+            "DELETE FROM character_info WHERE chrid = ? AND userid = ?",
+            ownership_params);
+        failed = !result.ok() || result.rows_affected != 1;
+    }
+
+    if (failed || !db_.commit().ok()) {
+        (void)db_.rollback();
+        send_result(mxh::proto::UserConnProtocol::CharacterRemoveNack, 1);
+        return;
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(user_mu_);
+        const auto selected = conn_char_ids_.find(id.value);
+        if (selected != conn_char_ids_.end() &&
+            selected->second == character_id) {
+            conn_char_ids_.erase(selected);
+            conn_map_nums_.erase(id.value);
+        }
+    }
+    send_result(mxh::proto::UserConnProtocol::CharacterRemoveAck);
 }
 
 // ============================================================================
@@ -1017,6 +1643,9 @@ void AgentHandler::handle_legacy_character_make(
     // Width at offset 55 (float)
     float width = 0;
     std::memcpy(&width, data + 55, 4);
+    std::array<std::uint16_t, 10> weared_item_idx{};
+    std::memcpy(weared_item_idx.data(), data + 30,
+                weared_item_idx.size() * sizeof(std::uint16_t));
 
     std::cout << "[Agent] legacy: CHARACTERMAKE_SYN name='" << name
               << "' sex=" << (int)sex_type
@@ -1096,6 +1725,17 @@ void AgentHandler::handle_legacy_character_make(
         }
     }
 
+    // The legacy client submits its canonical birth area in StartArea.  Keep
+    // the configured default only as a test/deployment fallback: when the
+    // matching MapServer route is actually registered, persist that exact
+    // birth map so CharacterSelect/GameIn follow the original route instead
+    // of silently sending a new character to the default test map.
+    const auto birth_route = route_for_map_exact(start_area);
+    const bool birth_route_available = start_area != 0u &&
+        birth_route.client != nullptr && birth_route.connection.valid();
+    const auto initial_map_num = birth_route_available
+        ? static_cast<std::uint16_t>(start_area) : default_map_num_;
+
     // Insert into character_info.
     std::vector<mxh::db::Bind> ins_params = {
         mxh::db::bind(chrid),
@@ -1108,25 +1748,120 @@ void AgentHandler::handle_legacy_character_make(
         mxh::db::bind(static_cast<std::int64_t>(start_area)),
         mxh::db::bind(static_cast<double>(height)),
         mxh::db::bind(static_cast<double>(width)),
-        mxh::db::bind(static_cast<std::int64_t>(default_map_num_)),
+        mxh::db::bind(static_cast<std::int64_t>(initial_map_num)),
         mxh::db::bind(static_cast<std::int64_t>(standing_idx))
     };
-    auto result = db_.execute(
-        "INSERT INTO character_info "
-        "(chrid, charname, userid, sex_type, hair_type, face_type, "
-        "body_type, start_area, height, width, level, map_num, standing_idx) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)",
-        ins_params);
-
-    if (!result.ok()) {
-        std::cerr << "[Agent] CreateCharacter DB error: "
-                  << result.error_message << "\n";
+    if (!db_.begin_transaction().ok()) {
+        std::cerr << "[Agent] CreateCharacter DB transaction start failed\n";
         mxh::net::Message m;
         m.header.category = static_cast<std::uint8_t>(
             mxh::proto::Category::UserConn);
         m.header.protocol = static_cast<std::uint8_t>(
             mxh::proto::UserConnProtocol::CharacterMakeNack);
         reply_(id, m);
+        return;
+    }
+    const auto reject_confirmed_rollback = [&]() {
+        if (!db_.rollback().ok()) {
+            // The shared adapter may still own an open transaction. Retire it
+            // and leave the result unknown instead of inviting a retry.
+            db_.disconnect();
+            return;
+        }
+        mxh::net::Message m;
+        m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        m.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeNack);
+        reply_(id, m);
+    };
+
+    auto result = db_.execute(
+        "INSERT INTO character_info "
+        "(chrid, charname, userid, sex_type, hair_type, face_type, "
+        "body_type, start_area, height, width, level, map_num, standing_idx, "
+        "base_gengol, base_minchub, base_cheryuk, base_simmek) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, 12, 12, 12, 12)",
+        ins_params);
+
+    if (!result.ok() || result.rows_affected != 1) {
+        std::cerr << "[Agent] CreateCharacter DB error: "
+                  << result.error_message << "\n";
+        reject_confirmed_rollback();
+        return;
+    }
+
+    // A new character's progress must exist before Map can atomically award
+    // monster experience alongside its revisioned vitals. Never synthesize a
+    // missing progress row during GameIn or after a kill.
+    const auto progress_seed = db_.execute(
+        "INSERT INTO modern_player_state "
+        "(player_id,money,level,exp,max_level,exp_flag,level_up_point,hp_mp_flag,updated_at) "
+        "VALUES (?,0,1,0,1,0,0,0,CURRENT_TIMESTAMP)",
+        {mxh::db::bind(chrid)});
+    if (!progress_seed.ok() || progress_seed.rows_affected != 1) {
+        std::cerr << "[Agent] CreateCharacter progress insert failed\n";
+        reject_confirmed_rollback();
+        return;
+    }
+
+    // Character creation selections are full starter items, not cosmetic
+    // preview-only icons.  Persist them in the authoritative item table so
+    // MapServer can rebuild combat stats, durability and later logout/save
+    // state from the same records as every other equipped item.
+    mxh::db::ResultSet item_id_rows;
+    const auto item_id_result = db_.query(
+        "SELECT COALESCE(MAX(db_idx),699999) AS max_db_idx "
+        "FROM modern_player_item WHERE db_idx < 2147483648", {}, item_id_rows);
+    if (!item_id_result.ok() || item_id_rows.empty()) {
+        std::cerr << "[Agent] CreateCharacter starter item ID allocation failed\n";
+        reject_confirmed_rollback();
+        return;
+    }
+    auto next_item_id = get_int(item_id_rows, 0, "max_db_idx", 699999) + 1;
+    if (next_item_id <= 0 || next_item_id > UINT32_MAX) {
+        std::cerr << "[Agent] CreateCharacter starter item ID space exhausted\n";
+        reject_confirmed_rollback();
+        return;
+    }
+    for (std::size_t slot = 0; slot < weared_item_idx.size(); ++slot) {
+        if (weared_item_idx[slot] == 0) continue;
+        const auto equipment_result = db_.execute(
+            "INSERT INTO modern_character_equipment(chrid,slot,item_idx,updated_at) "
+            "VALUES(?,?,?,CURRENT_TIMESTAMP)",
+            {mxh::db::bind(chrid), mxh::db::bind(static_cast<std::int64_t>(slot)),
+             mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
+        if (!equipment_result.ok() || equipment_result.rows_affected != 1) {
+            std::cerr << "[Agent] CreateCharacter equipment DB error: "
+                      << equipment_result.error_message << "\n";
+            reject_confirmed_rollback();
+            return;
+        }
+        const auto item_result = db_.execute(
+            "INSERT INTO modern_player_item "
+            "(player_id,container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param) "
+            "VALUES(?,1,?,?,?,100,0,0,0)",
+            {mxh::db::bind(chrid),
+             mxh::db::bind(static_cast<std::int64_t>(slot)),
+             mxh::db::bind(next_item_id++) ,
+             mxh::db::bind(static_cast<std::int64_t>(weared_item_idx[slot]))});
+        if (!item_result.ok() || item_result.rows_affected != 1) {
+            std::cerr << "[Agent] CreateCharacter starter item DB error: "
+                      << item_result.error_message << "\n";
+            reject_confirmed_rollback();
+            return;
+        }
+    }
+    const auto pending_vitals = insert_pending_original_vitals(
+        db_, static_cast<std::uint32_t>(chrid));
+    if (!pending_vitals.ok() || pending_vitals.rows_affected != 1) {
+        std::cerr << "[Agent] CreateCharacter pending vitals insert failed\n";
+        reject_confirmed_rollback();
+        return;
+    }
+    if (!db_.commit().ok()) {
+        std::cerr << "[Agent] CreateCharacter DB commit outcome unknown; adapter retired\n";
+        (void)db_.rollback(); // best effort cleanup; not proof of non-commit
+        db_.disconnect();
         return;
     }
 
@@ -1210,8 +1945,21 @@ void AgentHandler::handle_legacy_character_select(
         return;
     }
 
-    std::uint16_t map_num = static_cast<std::uint16_t>(
-        get_int(rs, 0, "map_num", default_map_num_));
+    const auto map_value = get_int(rs, 0, "map_num", default_map_num_);
+    // CharacterSelectAck carries the destination map as MSG_BYTE.  Refuse a
+    // corrupt/out-of-range persisted value instead of truncating it and
+    // sending the player to an unrelated map.
+    if (map_value < 0 || map_value > 0xff) {
+        std::cout << "[Agent] CHARACTERSELECT_NACK invalid map number "
+                  << map_value << "\n";
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterSelectNack);
+        nack.header.object_id = character_id;
+        reply_(id, nack);
+        return;
+    }
+    const auto map_num = static_cast<std::uint16_t>(map_value);
 
     std::cout << "[Agent] CHARACTERSELECT_ACK chrid=" << character_id
               << " map=" << map_num << " name='"
@@ -1330,11 +2078,8 @@ void AgentHandler::handle_legacy_gamein_syn(
 
     // Phase 9: Forward GameInSyn to MapServer if connected.
     // Snapshot map_client_ under lock to avoid race with set_map_server().
-    mxh::net::ITcpSender* mc = nullptr;
-    {
-        std::lock_guard<std::mutex> lk(map_route_mu_);
-        mc = map_client_;
-    }
+    const auto route = route_for_connection(id);
+    mxh::net::ITcpSender* mc = route.client;
     if (mc && mc->is_connected()) {
         std::cout << "[Agent] forwarding GAMEIN_SYN to MapServer\n";
 
@@ -1356,12 +2101,33 @@ void AgentHandler::handle_legacy_gamein_syn(
         if (err != mxh::net::NetError::Ok) {
             std::cerr << "[Agent] failed to forward GAMEIN_SYN to MapServer: "
                       << mxh::net::to_string(err) << "\n";
+            // Do not leave the client waiting forever when the route drops
+            // between the connectivity check and send().
+            mxh::net::Message nack;
+            nack.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            nack.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInNack);
+            nack.header.object_id = char_id;
+            reply_(id, nack);
         }
         // Response will come back via forward_from_map() when MapServer replies.
         return;
     }
 
-    // Fallback: no MapServer connected, return stub GameInAck.
+    if (!allow_dev_gamein_fallback_) {
+        std::cerr << "[Agent] no MapServer connected; rejecting GAMEIN_SYN\n";
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
+
+    // Development-only fallback retained for offline protocol tests.
     std::cout << "[Agent] no MapServer, returning stub GameInAck\n";
     mxh::net::Message ack;
     ack.header.category = static_cast<std::uint8_t>(
@@ -1437,5 +2203,158 @@ void AgentHandler::handle_legacy_gamein_syn(
     reply_(id, ack);
 }
 
-}  // namespace mxh::server
+void AgentHandler::handle_legacy_change_map_syn(
+    mxh::net::ConnectionId id, const mxh::net::Message& msg) {
+    const auto char_id = get_char_id(id);
+    if (char_id == 0u || msg.payload.size() < 2u) return;
 
+    // Legacy MSG_DWORD4 carries the destination map in dwData1. Accept the
+    // low WORD so both the packed legacy form and the modern compact test
+    // form route to the same endpoint without changing the wire payload.
+    std::uint16_t target_map = 0;
+    std::memcpy(&target_map, msg.payload.data(), sizeof(target_map));
+    // A requested destination must be explicitly configured. Falling back to
+    // the default map would acknowledge a transfer while leaving the player
+    // on the wrong world server.
+    const auto target = route_for_map_exact(target_map);
+    if (!target.client || !target.client->is_connected()) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        nack.payload.resize(2, 0);
+        std::memcpy(nack.payload.data(), &target_map, sizeof(target_map));
+        reply_(id, nack);
+        return;
+    }
+
+    const auto current = route_for_connection(id);
+    if (current.client && current.client->is_connected() &&
+        current.client != target.client) {
+        mxh::net::Message out;
+        out.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        out.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::GameOutSyn);
+        out.header.object_id = char_id;
+        out.payload.resize(8, 0);
+        std::memcpy(out.payload.data(), &target_map, sizeof(target_map));
+        out.payload[2] = 0; // channel/map transfer, not a hard logout
+        (void)current.client->send(out);
+    }
+
+    // A target MapServer accepts the same authoritative GameInSyn entry
+    // contract as initial login. Rebuild that envelope here so the target
+    // map can create the player and emit a normal GameInAck; the original
+    // ChangeMapSyn remains an Agent-side routing command.
+    std::uint32_t user_id = get_user_id(id);
+    std::uint32_t user_level = 0;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        if (const auto it = conn_user_levels_.find(id.value);
+            it != conn_user_levels_.end()) user_level = it->second;
+    }
+    mxh::net::Message fwd;
+    fwd.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    fwd.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::GameInSyn);
+    fwd.header.object_id = char_id;
+    fwd.payload.resize(16, 0);
+    std::memcpy(fwd.payload.data() + 0, &user_id, sizeof(user_id));
+    std::memcpy(fwd.payload.data() + 8, &user_level, sizeof(user_level));
+    std::memcpy(fwd.payload.data() + 12, &target_map, sizeof(target_map));
+    // A Map reply can arrive from another thread before send() returns.
+    // Publish the target route first so its GameIn/CharacterAdd sees the
+    // correct map, but never hold user_mu_ across a reentrant send().
+    std::uint16_t previous_map = 0;
+    bool route_prepared = false;
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        const auto selected = conn_char_ids_.find(id.value);
+        const auto active_map = conn_map_nums_.find(id.value);
+        if (selected != conn_char_ids_.end() && selected->second == char_id &&
+            active_map != conn_map_nums_.end()) {
+            previous_map = active_map->second;
+            active_map->second = target_map;
+            route_prepared = true;
+        }
+    }
+    if (!route_prepared) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
+    // A map transfer is durable character state as well as an in-memory
+    // Agent route. Persist it before forwarding GameInSyn so a fresh login
+    // resumes on the destination map.
+    const std::array<mxh::db::Bind, 2> map_params = {
+        mxh::db::bind(static_cast<std::int64_t>(target_map)),
+        mxh::db::bind(static_cast<std::int64_t>(char_id))};
+    if (!db_.execute("UPDATE character_info SET map_num=?, position_x=NULL, position_z=NULL WHERE chrid=?",
+                     map_params).ok()) {
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            const auto active_map = conn_map_nums_.find(id.value);
+            if (active_map != conn_map_nums_.end() &&
+                active_map->second == target_map) active_map->second = previous_map;
+        }
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        nack.payload.resize(2, 0);
+        std::memcpy(nack.payload.data(), &target_map, sizeof(target_map));
+        reply_(id, nack);
+        return;
+    }
+    if (target.client->send(fwd) != mxh::net::NetError::Ok) {
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            const auto selected = conn_char_ids_.find(id.value);
+            const auto active_map = conn_map_nums_.find(id.value);
+            if (selected != conn_char_ids_.end() && selected->second == char_id &&
+                active_map != conn_map_nums_.end() &&
+                active_map->second == target_map) {
+                active_map->second = previous_map;
+            }
+        }
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::ChangeMapNack);
+        nack.header.object_id = char_id;
+        reply_(id, nack);
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        const auto selected = conn_char_ids_.find(id.value);
+        const auto active_map = conn_map_nums_.find(id.value);
+        if (selected == conn_char_ids_.end() || selected->second != char_id ||
+            active_map == conn_map_nums_.end() ||
+            active_map->second != target_map) return;
+    }
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ChangeMapAck);
+    ack.header.object_id = char_id;
+    ack.payload.resize(2, 0);
+    std::memcpy(ack.payload.data(), &target_map, sizeof(target_map));
+    reply_(id, ack);
+}
+
+}  // namespace mxh::server

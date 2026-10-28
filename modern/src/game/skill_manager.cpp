@@ -40,6 +40,11 @@ void SkillManager::init_from_bin(const std::string& path,
         // signals a malformed file, not normal flow.
         add(std::move(s));
     }
+    for (const auto& refs : result.effect_refs) {
+        m_effectNames.emplace(refs.skill_id, SkillEffectNames{
+            refs.effect_start, refs.effect_use, refs.effect_self,
+            refs.effect_map_object_create, refs.effect_mine_operate});
+    }
     if (out_errors) *out_errors = result.parse_errors;
 }
 
@@ -71,6 +76,13 @@ const SkillInfo& SkillManager::get(std::uint32_t skill_idx) const {
     return m_skills[it->second];
 }
 
+std::optional<SkillEffectNames> SkillManager::effect_names(
+    std::uint32_t skill_idx) const {
+    const auto it = m_effectNames.find(skill_idx);
+    if (it == m_effectNames.end()) return std::nullopt;
+    return it->second;
+}
+
 bool SkillManager::try_get(std::uint32_t skill_idx,
                             SkillInfo& out) const noexcept {
     auto it = m_idx.find(skill_idx);
@@ -86,6 +98,7 @@ bool SkillManager::exists(std::uint32_t skill_idx) const noexcept {
 void SkillManager::clear() noexcept {
     m_skills.clear();
     m_idx.clear();
+    m_effectNames.clear();
 }
 
 }  // namespace mxh::game

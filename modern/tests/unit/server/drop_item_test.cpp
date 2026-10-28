@@ -306,9 +306,9 @@ TEST(DropTableRegistryTest, DropItemEntryDefaultsAreOne) {
     EXPECT_EQ(e.count_max, 1u);
 }
 
-TEST(DropTableRegistryTest, MaxDropPerMonsterConstantIsLegacyTen) {
-    // 1:1 with legacy CItemDrop::MAX_DROP_PER_MONSTER = 10.
-    EXPECT_EQ(mxh::server::MAX_DROP_PER_MONSTER, 10);
+TEST(DropTableRegistryTest, MaxDropPerMonsterConstantIsLegacyTwenty) {
+    // Current legacy-compatible drop table rows contain 20 entries.
+    EXPECT_EQ(mxh::server::MAX_DROP_PER_MONSTER, 20);
 }
 
 TEST(DropTableRegistryTest, AddDoesNotDeduplicateAcrossKind) {

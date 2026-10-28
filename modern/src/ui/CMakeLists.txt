@@ -4,7 +4,9 @@
 # render path, control widgets, and integration with mxh_render land in 6.1+.
 # -----------------------------------------------------------------------------
 add_library(mxh_ui STATIC
+    TextRender.cpp
     cWindow.cpp
+    legacy_window_ids.cpp
     cButton.cpp
     cEditBox.cpp
     cDialog.cpp
@@ -35,6 +37,7 @@ add_library(mxh_ui STATIC
     cMsgBox.cpp
     cDivideBox.cpp
     cIconDialog.cpp
+    cIcon.cpp
     cIconGridDialog.cpp
     cStatic.cpp
     cPushupButton.cpp
@@ -45,7 +48,7 @@ add_library(mxh_ui STATIC
     cGuagen.cpp
     cGuageBar.cpp
     cListDialogEx.cpp
-    cMacroDialog.cpp
+    cmacrodialog.cpp
     cmakdial.cpp
     guildjoindialog.cpp
     charstatedialog.cpp
@@ -223,9 +226,6 @@ if(MSVC)
 endif()
 
 install(TARGETS mxh_ui ARCHIVE DESTINATION lib)
-
-
-
 
 
 

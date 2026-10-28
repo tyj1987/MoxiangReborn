@@ -23,6 +23,8 @@
 
 namespace mxh::client {
 
+class CMainGame;
+
 class CGameState {
 public:
     CGameState() = default;
@@ -40,6 +42,7 @@ public:
     // -------------------------------------------------------------------------
     virtual void Init(void* pInitParam) = 0;
     virtual void Release() = 0;
+    virtual void PrepareForProcessExit() noexcept {}
 
     // -------------------------------------------------------------------------
     // Per-frame steps.  Process() is the main tick (input, network
@@ -77,6 +80,7 @@ protected:
     }
 
 private:
+    friend class CMainGame;
     void*           m_pInitParam                = nullptr;
     bool            m_bStateInitialized         = false;
     std::uint32_t   m_dwDialogProcessTickCount  = 0;

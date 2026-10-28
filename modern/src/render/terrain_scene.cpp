@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -59,6 +60,24 @@ struct TerrainScene::Impl {
     float player_x = 0;
     float player_z = 0;
     float camera_yaw = 0;
+    float camera_distance = 6.0f;
+    MATRIX4 view_proj{};  // last view*projection from configureCamera
+    bool view_proj_valid = false;
+    // A legacy HFL palette entry named "1" is intentionally untextured;
+    // keep it separate from real missing-resource placeholders so release
+    // gates do not report a false visual fallback.
+    std::uint32_t palette_entries = 0;
+    std::uint32_t unresolved_textures = 0;
+    float terrain_min_height = 0.0f;
+    float terrain_max_height = 0.0f;
+    // Map-specific (X, Z) half-extent in scaled world units. Computed once
+    // in load() from `desc.width / desc.height` so the entity / static /
+    // effect scenes can re-centre their own X/Z coords by the same offset
+    // the terrain mesh builder subtracts. Replaces the hard-coded
+    // kEntityMapCenter = 25.6f constant that was only correct for maps
+    // whose half-width * kSceneScale == 25.6.
+    float map_center_x = 0.0f;
+    float map_center_z = 0.0f;
 
     ~Impl() {
         for (auto* chunk : chunks) if (chunk) chunk->Release();
@@ -73,35 +92,108 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
     if (!renderer || !storage || !hfl_name) return false;
     for (auto* chunk : impl_->chunks) if (chunk) chunk->Release();
     impl_->chunks.clear(); impl_->textures.clear(); impl_->renderer = renderer;
+    impl_->palette_entries = 0;
+    impl_->unresolved_textures = 0;
+    // Reset the cached map centre; the real value is set below from
+    // the parsed desc so a failed load leaves the centre at (0, 0)
+    // and downstream callers see "no map" via mapCenter().
+    impl_->map_center_x = 0.0f;
+    impl_->map_center_z = 0.0f;
     std::vector<std::uint8_t> hflBytes;
     if (!readStorageFile(storage, hfl_name, hflBytes) ||
         !mxh::compat::parse_hfl(hflBytes, impl_->terrain, error)) return false;
+    // Cache the (X, Z) half-extent in scaled world units. The terrain mesh
+    // builder subtracts `desc.width * kSceneScale * 0.5` from every X and
+    // `desc.height * kSceneScale * 0.5` from every Z (see configureCamera);
+    // downstream scenes (entity / static / effect) must apply the same
+    // offset so positions are world-aligned.
+    impl_->map_center_x = impl_->terrain.desc.width * kSceneScale * 0.5f;
+    impl_->map_center_z = impl_->terrain.desc.height * kSceneScale * 0.5f;
+    if (!impl_->terrain.heights.empty()) {
+        const auto [min_it, max_it] = std::minmax_element(
+            impl_->terrain.heights.begin(), impl_->terrain.heights.end());
+        impl_->terrain_min_height = *min_it * kSceneScale;
+        impl_->terrain_max_height = *max_it * kSceneScale;
+    } else {
+        impl_->terrain_min_height = impl_->terrain_max_height = 0.0f;
+    }
 
     ID3D11Device* device = nullptr;
     if (!renderer->GetD3DDevice(__uuidof(ID3D11Device), reinterpret_cast<void**>(&device)) || !device)
         return false;
     impl_->textures.resize(impl_->terrain.textures.size());
-    std::uint32_t placeholderTextures = 0;
+    std::uint32_t paletteEntries = 0;
+    // Per-t6 instrumentation: the "13/37" texture count from earlier
+    // sessions is the total palette / loaded ratio, not the
+    // visible-fragment ratio.  Distinguish them by collecting the
+    // `used` set (indices actually referenced by `tiles`) and the
+    // subset that successfully produced an SRV.  A non-zero
+    // `failed_among_used` would mean the runtime is missing a
+    // tile-fraction that the renderer actually wants to draw, which
+    // is the only failure mode that justifies a parser / pak fix per
+    // the project's hard constraints (STM / TTB / HFL authority must
+    // not be touched otherwise).  Palette entries named "1" (legacy
+    // intentionally untextured) are excluded from both counts.
+    std::uint32_t usedCount = 0;
+    std::uint32_t usedLoaded = 0;
+    std::uint32_t failed_among_used = 0;
+    std::vector<bool> usedTextures(impl_->terrain.textures.size(), false);
+    for (const auto integrated : impl_->terrain.tiles) {
+        const auto textureIndex = integrated & 0x3fffu;
+        if (textureIndex < usedTextures.size()) usedTextures[textureIndex] = true;
+    }
     for (std::size_t i = 0; i < impl_->terrain.textures.size(); ++i) {
+        if (!usedTextures[i]) continue;
+        ++usedCount;
         std::vector<std::uint8_t> encoded;
         std::string textureName = impl_->terrain.textures[i].name;
+        std::string attemptedForm;  // which file form we ended up reading
+        bool loadOk = false;
         if (!readStorageFile(storage, textureName.c_str(), encoded)) {
             // The shipped Map.pak contains the engine-converted DDS form while
             // old HFL descriptors retain their authoring-time .tga names.
             const auto dot = textureName.find_last_of('.');
             if (dot == std::string::npos) {
-                ++placeholderTextures;
+                // Legacy HFL uses numeric palette tokens (currently "1" and
+                // "2" in the original Map95 source) for intentionally
+                // untextured entries. They are not files and must not be
+                // replaced with a debug texture or counted as missing.
+                const bool numeric_token = !textureName.empty() &&
+                    std::all_of(textureName.begin(), textureName.end(),
+                                [](unsigned char c) { return std::isdigit(c) != 0; });
+                if (numeric_token) {
+                    ++paletteEntries;
+                    MLOG_INFO("[terrain] used[i=%u] name=%s status=palette-skip",
+                              static_cast<unsigned>(i), textureName.c_str());
+                    continue;
+                }
+                ++impl_->unresolved_textures;
+                ++failed_among_used;
+                MLOG_INFO("[terrain] used[i=%u] name=%s status=missing-no-dot",
+                          static_cast<unsigned>(i), textureName.c_str());
                 continue;
             }
             textureName.replace(dot, std::string::npos, ".dds");
             if (!readStorageFile(storage, textureName.c_str(), encoded)) {
                 MLOG_WARN("[terrain] texture missing: %s", textureName.c_str());
+                ++impl_->unresolved_textures;
+                ++failed_among_used;
+                MLOG_INFO("[terrain] used[i=%u] name=%s status=missing-dds",
+                          static_cast<unsigned>(i), textureName.c_str());
                 continue;
             }
+            attemptedForm = ".dds";
+        } else {
+            attemptedForm = ".tga";
         }
         const auto decoded = dx11::loadTextureFromMemory(encoded.data(), static_cast<std::uint32_t>(encoded.size()));
         if (decoded.pixels.empty()) {
             MLOG_WARN("[terrain] texture decode failed: %s", textureName.c_str());
+            ++impl_->unresolved_textures;
+            ++failed_among_used;
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=decode-fail",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
             continue;
         }
         D3D11_TEXTURE2D_DESC desc{};
@@ -113,6 +205,21 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
         ComPtr<ID3D11Texture2D> texture;
         if (SUCCEEDED(device->CreateTexture2D(&desc, &initial, &texture)))
             device->CreateShaderResourceView(texture.Get(), nullptr, &impl_->textures[i]);
+        if (!impl_->textures[i]) {
+            ++impl_->unresolved_textures;
+            ++failed_among_used;
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=srv-fail",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
+        } else {
+            ++usedLoaded;
+            loadOk = true;
+        }
+        if (loadOk) {
+            MLOG_INFO("[terrain] used[i=%u] name=%s form=%s status=loaded",
+                      static_cast<unsigned>(i), textureName.c_str(),
+                      attemptedForm.c_str());
+        }
     }
 
     const auto& terrain = impl_->terrain;
@@ -164,9 +271,10 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
                                 uvs.push_back(rotatedUv(u, v, rotation));
                             }
                             auto& indices = groups[textureIndex];
-                            // DX11 state uses FrontCounterClockwise=TRUE. In the
-                            // engine's left-handed X/Z ground plane this order
-                            // is front-facing when viewed from above.
+                            // Under the DX11 rasterizer's CCW-front state, the
+                            // follow camera sees this X/Z ordering. Reversing
+                            // it culls every Map 10 ground tile even though
+                            // all referenced DDS textures load successfully.
                             indices.insert(indices.end(), {base, static_cast<std::uint16_t>(base+1), static_cast<std::uint16_t>(base+2),
                                                            base, static_cast<std::uint16_t>(base+2), static_cast<std::uint16_t>(base+3)});
                         }
@@ -203,8 +311,20 @@ bool TerrainScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* stora
               static_cast<unsigned>(impl_->chunks.size()), loadedTextureCount(),
               static_cast<unsigned>(impl_->textures.size()), terrain.desc.height_count_x,
               terrain.desc.height_count_z, terrain.desc.tile_count_x, terrain.desc.tile_count_z);
-    if (placeholderTextures)
-        MLOG_INFO("[terrain] palette placeholders=%u (legacy name '1')", placeholderTextures);
+    // Per-t6 instrumentation summary. `usedCount` is the set of palette
+    // indices actually referenced by `tiles`; `usedLoaded` is the subset
+    // that produced an SRV.  Anything in `usedCount - usedLoaded` is a
+    // missing asset the runtime was asked to draw, which is the only
+    // failure mode the project's hard constraints allow us to fix.
+    MLOG_INFO("[terrain] per-used summary: used=%u loaded=%u failed_among_used=%u",
+              usedCount, usedLoaded, failed_among_used);
+    if (failed_among_used) {
+        MLOG_WARN("[terrain] used-set has %u missing entries; see [terrain] used[*] "
+                  "lines above for names", failed_among_used);
+    }
+    if (paletteEntries)
+        MLOG_INFO("[terrain] intentional empty palette entries=%u (legacy name '1')", paletteEntries);
+    impl_->palette_entries = paletteEntries;
     return !impl_->chunks.empty();
 }
 
@@ -212,32 +332,72 @@ void TerrainScene::configureCamera(float aspect) {
     if (!impl_->renderer || impl_->terrain.heights.empty()) return;
     CAMERA_DESC camera{};
     constexpr float kSceneScale = 0.001f;
-    constexpr float kMapCenter = 25.6f;
     const auto& d = impl_->terrain.desc;
-    const float cx = d.width * kSceneScale * 0.5f;
-    const float cz = d.height * kSceneScale * 0.5f;
+    // Terrain vertices are authored around the origin (the mesh builder
+    // subtracts half the map extent from every X/Z position).  Keep the
+    // camera in that same coordinate system instead of assuming the legacy
+    // 25.6-unit half-size used by one particular map.
+    const float half_width = d.width * kSceneScale * 0.5f;
+    const float half_height = d.height * kSceneScale * 0.5f;
     if (impl_->follow_player) {
         // Third-person player camera. Camera sits 6 units behind and 3
         // units above the player in scaled world coords, looking at the
         // player. The view clips everything beyond 200 units, which is
         // enough for the 512x512-unit world.
         const float yaw = impl_->camera_yaw;
-        const float px = impl_->player_x * kSceneScale - kMapCenter;
-        const float pz = impl_->player_z * kSceneScale - kMapCenter;
-        const float back = 6.0f, up = 3.0f;
-        camera.v3From = {px - back * std::sin(yaw), up,
+        const float px = impl_->player_x * kSceneScale - half_width;
+        const float pz = impl_->player_z * kSceneScale - half_height;
+        const float back = impl_->camera_distance;
+        const float up = impl_->camera_distance * 0.5f;
+        const float ground_y = heightAt(impl_->player_x, impl_->player_z) * kSceneScale;
+        const float look_y = ground_y + 1.0f;
+        const float camera_x = impl_->player_x - back * std::sin(yaw) / kSceneScale;
+        const float camera_z = impl_->player_z - back * std::cos(yaw) / kSceneScale;
+        // The legacy camera follows the player along the ground, but must not
+        // end up behind a nearby ridge.  Sample the actual HFL surface along
+        // the player-to-camera segment and lift the camera above the highest
+        // sampled point.  This keeps the character visible without disabling
+        // depth testing or inventing a map-independent elevation.
+        float path_max_ground = ground_y;
+        for (int sample = 1; sample <= 8; ++sample) {
+            const float t = static_cast<float>(sample) / 8.0f;
+            const float sample_x = impl_->player_x + (camera_x - impl_->player_x) * t;
+            const float sample_z = impl_->player_z + (camera_z - impl_->player_z) * t;
+            path_max_ground = std::max(path_max_ground,
+                                       heightAt(sample_x, sample_z) * kSceneScale);
+        }
+        const float camera_y = std::max(look_y + up, path_max_ground + 1.5f);
+        camera.v3From = {px - back * std::sin(yaw), camera_y,
                           pz - back * std::cos(yaw)};
-        camera.v3To   = {px, 0.0f, pz};
-        camera.v3Up   = {0, 0, 1};
+        camera.v3To   = {px, look_y, pz};
+        // Follow-camera space uses world Y as vertical.  Using the overview
+        // map-orientation up vector (Z) here rolls the view and can project
+        // the player/nearby monsters outside the deterministic entity crop.
+        camera.v3Up   = {0, 1, 0};
     } else {
         // Overview camera at the map centre, looking down. Deterministic
         // full-terrain screenshot view regardless of player position.
-        camera.v3From = {cx, 35.0f, cz};
-        camera.v3To   = {cx,  0.0f, cz};
+        // Some maps contain cliffs whose elevation is well above the old
+        // fixed 35-unit camera height.  Aim at the terrain's vertical centre
+        // and lift the camera above the highest sample so the overview never
+        // starts inside the mesh (which otherwise produces a mostly-black
+        // frame even though every texture loaded successfully).
+        const float terrain_mid = (impl_->terrain_min_height +
+                                   impl_->terrain_max_height) * 0.5f;
+        const float extent = std::max(d.width, d.height) * kSceneScale;
+        const float camera_height = std::max(35.0f,
+            impl_->terrain_max_height + std::max(12.0f, extent * 0.75f));
+        camera.v3From = {0.0f, camera_height, 0.0f};
+        camera.v3To   = {0.0f,  terrain_mid, 0.0f};
         camera.v3Up   = {0, 0, 1};
     }
     camera.fFovY  = 3.14159265f / 3.0f;
-    camera.fFar   = 200.0f;
+    // Map 10 spans roughly 50 000 world units per axis; the legacy 200-unit
+    // far-plane clipped every HFL corner and the surrounding sky/horizon
+    // rendered into the BeginRender clear colour (0xff000000).  Extending
+    // the far-plane to 800 units lets the entire 512-unit Map 10 terrain
+    // remain in view and the sky MOD fill the previously-black band.
+    camera.fFar   = 800.0f;
     camera.fAspect = aspect;
     camera.fNear = 0.1f;
     VECTOR3 forward{camera.v3To.x - camera.v3From.x,
@@ -266,6 +426,17 @@ void TerrainScene::configureCamera(float aspect) {
     MATRIX4 billboard = MatrixIdentity(); VIEW_VOLUME volume{};
     volume.From = camera.v3From; volume.fFar = camera.fFar;
     impl_->renderer->SetViewFrusturm(&volume, &camera, &view, &projection, &billboard);
+    // Cache view*projection for downstream consumers (e.g. EntityScene
+    // frustum culling). G5 M-R5: row-vector-times-matrix convention;
+    // Gribb-Hartmann column-based plane extraction handles the result.
+    MATRIX4 vp{};
+    MatrixMultiply2(&vp, &view, &projection);
+    impl_->view_proj = vp;
+    impl_->view_proj_valid = true;
+}
+
+const MATRIX4& TerrainScene::viewProj() const noexcept {
+    return impl_->view_proj;
 }
 
 void TerrainScene::followPlayer(float world_x, float world_z) {
@@ -284,12 +455,66 @@ float TerrainScene::cameraYaw() const noexcept {
     return impl_->camera_yaw;
 }
 
+void TerrainScene::setCameraDistance(float distance) noexcept {
+    impl_->camera_distance = std::clamp(distance, 3.0f, 12.0f);
+}
+
+float TerrainScene::cameraDistance() const noexcept {
+    return impl_->camera_distance;
+}
+
 float TerrainScene::heightAt(float world_x, float world_z) const noexcept {
     if (impl_->terrain.heights.empty()) return 0.0f;
     const auto& d = impl_->terrain.desc;
-    const auto sx = std::min(static_cast<std::uint32_t>(std::max(0.0f, world_x) / d.face_size), d.height_count_x - 1);
-    const auto sz = std::min(static_cast<std::uint32_t>(std::max(0.0f, world_z) / d.face_size), d.height_count_z - 1);
-    return impl_->terrain.heights[static_cast<std::size_t>(sz) * d.height_count_x + sx];
+    if (d.height_count_x == 0 || d.height_count_z == 0 ||
+        d.face_size <= 0.0f) return 0.0f;
+
+    // HFL stores samples on the face grid.  Sampling the lower-left sample
+    // (the previous behavior) made the player and every projected entity
+    // visibly pop at each face boundary.  Preserve the original world-space
+    // origin while interpolating the four surrounding samples exactly like
+    // the DX11 height-field path.
+    const float gx = std::max(0.0f, world_x) / d.face_size;
+    const float gz = std::max(0.0f, world_z) / d.face_size;
+    const float max_x = static_cast<float>(d.height_count_x - 1);
+    const float max_z = static_cast<float>(d.height_count_z - 1);
+    const float clamped_x = std::min(gx, max_x);
+    const float clamped_z = std::min(gz, max_z);
+    const auto x0 = static_cast<std::uint32_t>(std::floor(clamped_x));
+    const auto z0 = static_cast<std::uint32_t>(std::floor(clamped_z));
+    const auto x1 = std::min(x0 + 1, d.height_count_x - 1);
+    const auto z1 = std::min(z0 + 1, d.height_count_z - 1);
+    const float fx = clamped_x - static_cast<float>(x0);
+    const float fz = clamped_z - static_cast<float>(z0);
+    const auto& heights = impl_->terrain.heights;
+    const float h00 = heights[static_cast<std::size_t>(z0) * d.height_count_x + x0];
+    const float h10 = heights[static_cast<std::size_t>(z0) * d.height_count_x + x1];
+    const float h01 = heights[static_cast<std::size_t>(z1) * d.height_count_x + x0];
+    const float h11 = heights[static_cast<std::size_t>(z1) * d.height_count_x + x1];
+    return h00 * (1.0f - fx) * (1.0f - fz)
+         + h10 * fx * (1.0f - fz)
+         + h01 * (1.0f - fx) * fz
+         + h11 * fx * fz;
+}
+
+float TerrainScene::worldWidth() const noexcept {
+    return static_cast<float>(impl_->terrain.desc.width);
+}
+
+float TerrainScene::worldHeight() const noexcept {
+    return static_cast<float>(impl_->terrain.desc.height);
+}
+
+float TerrainScene::heightSampleSpacing() const noexcept {
+    return impl_->terrain.desc.face_size;
+}
+
+std::pair<float, float> TerrainScene::mapCenter() const noexcept {
+    // Returns the scaled world units that the terrain mesh builder subtracts
+    // from each X / Z vertex (so positions become centred around the origin).
+    // Defaults to (0, 0) before load() succeeds so callers can detect a
+    // not-yet-loaded terrain via the centre being the world origin.
+    return {impl_->map_center_x, impl_->map_center_z};
 }
 
 void TerrainScene::render() {
@@ -302,5 +527,16 @@ std::uint32_t TerrainScene::chunkCount() const noexcept { return static_cast<std
 std::uint32_t TerrainScene::loadedTextureCount() const noexcept {
     return static_cast<std::uint32_t>(std::count_if(impl_->textures.begin(), impl_->textures.end(),
         [](const auto& texture) { return texture != nullptr; }));
+}
+
+std::uint32_t TerrainScene::placeholderTextureCount() const noexcept {
+    // No synthetic terrain texture is ever generated. Report unresolved
+    // material bindings through the public placeholder gate so a non-zero
+    // value remains a hard visual failure.
+    return impl_ ? impl_->unresolved_textures : 0;
+}
+
+std::uint32_t TerrainScene::unresolvedTextureCount() const noexcept {
+    return impl_ ? impl_->unresolved_textures : 0;
 }
 } // namespace mxh::gx

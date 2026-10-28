@@ -1,0 +1,11 @@
+[e2e] --no-spawn: assuming servers are already up (login:16417, agent:17417, map:18420)
+[e2e] using explicit PlayDH root: E:\Workspaces\moxiang\worktrees\original-integration\modern\data\PlayDH
+[e2e] [1/5] Login: CLoginState connecting to 192.168.2.244:16417 ...
+[02:47:42.618] INFO  CLoginState.cpp:195  CLoginState connecting to 192.168.2.244:16417 as 'mxh_e2e'
+[02:47:42.619] INFO  CLoginState.cpp:255  CLoginState::on_connect id=1 from 192.168.2.244
+[02:47:42.741] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=0 obj=1000 payload=0
+[02:47:42.741] INFO  CLoginState.cpp:303  CLoginState: got DistConnectSuccess
+[02:47:42.741] INFO  CLoginState.cpp:320  CLoginState: sent RequestLogin (38B legacy payload)
+[02:47:42.866] DEBUG CLoginState.cpp:291  CLoginState::on_message id=1 cat=UserConn proto=3 obj=0 payload=0
+[02:47:42.866] ERROR CLoginState.cpp:445  CLoginState: LoginNack received (bad credentials?)
+[e2e] [1/5] FAIL: LoginNack received (bad credentials?)

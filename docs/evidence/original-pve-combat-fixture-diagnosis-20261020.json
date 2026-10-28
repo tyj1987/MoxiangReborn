@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-combat-fixture-diagnosis",
+  "capturedAt": "2026-10-20T13:39:33.9607930+08:00",
+  "sourceHead": "8fcbee7f3f52dc7a1a9e4ff92b7b5f87437fb582",
+  "clientBinary": {
+    "path": "modern/build/tools/MoxianClientE2E/mxh_client_e2e.exe",
+    "bytes": 4484096,
+    "sha256": "86DE2FD4EA02A84A4736CE09F4586A6952701006512C06FD80BC3C193DA89C55"
+  },
+  "endpoint": {
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "noSpawn": true,
+    "backend": "mssql_odbc",
+    "hsel": true
+  },
+  "combatAttempt": {
+    "account": "origpve15",
+    "logPath": "modern/out/runs/original-pve-current-combat-20261020/e2e.log",
+    "logSha256": "F18330DC2706CC26EFB6BB922A77E47ED081810C86AB8B978E6FE0BA7BEE0FDC",
+    "termination": "manual-stop-after-repeated-timeouts",
+    "gameIn": true,
+    "map": 10,
+    "playerId": 100017,
+    "level": 1,
+    "life": "125/125",
+    "equipmentWeaponIndex": 0,
+    "targetObjectId": 50143,
+    "targetInitialLife": 6150,
+    "observedDamage": 1,
+    "observedShield": "2293->2287",
+    "skillSingleResultCount": 10,
+    "combatResponse": "server returned SkillSingleResult for initial attacks, then client combat request timed out repeatedly",
+    "naturalDropObserved": false,
+    "pickupObserved": false
+  },
+  "fixtureCheck": {
+    "account": "origcombat15",
+    "logPath": "modern/out/runs/original-pve-combat-fixture-check-20261020/e2e.log",
+    "logSha256": "705F21FF54A822C0A3B04F36C7024578939002A919673DA9FDE1A7C339307DA2",
+    "exitCode": 2,
+    "result": "LoginNack bad credentials"
+  },
+  "conclusion": "Current PVE endpoint and protocol/GameIn are reachable, but the available origpve15 character is an unarmed level-1 fixture and cannot reach a natural kill/drop within the current combat gate. The historical high-level fixture account is not currently usable. No substitute success was recorded.",
+  "nextGate": "Provision or restore an isolated high-level combat fixture through the PVE database contract, then rerun with a fresh current binary; do not alter canonical PlayDH resources.",
+  "releaseReady": false
+}

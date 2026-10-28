@@ -4,6 +4,9 @@
 #include "mxh/ui/interface_script.hpp"
 
 #include <cctype>
+#include <algorithm>
+#include <charconv>
+#include <limits>
 #include <stdexcept>
 #include <unordered_map>
 #include <unordered_set>
@@ -93,6 +96,34 @@ bool parse_int(std::string_view payload, std::size_t& pos, std::int32_t& out) {
         out = static_cast<std::int32_t>(v);
     }
     return true;
+}
+
+// The legacy atoi-compatible parser above is retained for old fields (some
+// shipped scripts contain the letter O for zero). Newly applied text style
+// fields must keep a leading minus and reject malformed/out-of-range values.
+std::int32_t parse_style_int(std::string_view payload, std::size_t& pos,
+                             std::string_view prop, std::int32_t min_value,
+                             std::int32_t max_value) {
+    while (pos < payload.size() &&
+           std::isspace(static_cast<unsigned char>(payload[pos]))) ++pos;
+    const auto start = pos;
+    while (pos < payload.size() &&
+           !std::isspace(static_cast<unsigned char>(payload[pos])) &&
+           payload[pos] != '{' && payload[pos] != '}' &&
+           payload[pos] != '(' && payload[pos] != ')') ++pos;
+    auto token = payload.substr(start, pos - start);
+    if (!token.empty() && token.front() == '+') token.remove_prefix(1);
+    if (token.empty()) {
+        throw std::invalid_argument("invalid #" + std::string(prop) + " value");
+    }
+    std::int32_t value = 0;
+    const auto parsed = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (parsed.ec != std::errc{} ||
+        parsed.ptr != token.data() + token.size() ||
+        value < min_value || value > max_value) {
+        throw std::invalid_argument("invalid #" + std::string(prop) + " value");
+    }
+    return value;
 }
 
 // Read 5 ints — used by #BASICIMAGE: idx l t r b.
@@ -247,6 +278,49 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
         node.font_idx_set = true;
         return true;
     }
+    if (prop == "FGCOLOR" || prop == "SHADOWCOLOR") {
+        std::array<std::int32_t, 3> rgb{};
+        for (auto& channel : rgb) {
+            channel = parse_style_int(payload, pos, prop, 0, 255);
+        }
+        if (prop == "FGCOLOR") node.fg_color = rgb;
+        else node.shadow_color = rgb;
+        return true;
+    }
+    if (prop == "TEXTXY" || prop == "SHADOWTEXTXY") {
+        std::array<std::int32_t, 2> xy{};
+        for (auto& coordinate : xy) {
+            coordinate = parse_style_int(payload, pos, prop,
+                std::numeric_limits<std::int32_t>::min(),
+                std::numeric_limits<std::int32_t>::max());
+        }
+        if (prop == "TEXTXY") node.text_xy = xy;
+        else node.shadow_text_xy = xy;
+        return true;
+    }
+    if (prop == "TEXTALIGN" || prop == "SHADOW") {
+        const auto value = parse_style_int(payload, pos, prop, 0,
+                                           prop == "TEXTALIGN" ? 2 : 1);
+        if (prop == "TEXTALIGN") node.text_align = value;
+        else node.shadow = value != 0;
+        return true;
+    }
+    if (prop == "COLS" || prop == "ROWS") {
+        std::int32_t value;
+        if (!parse_int(payload, pos, value)) return false;
+        const auto clamped = static_cast<std::uint16_t>(std::clamp(value, 1, 255));
+        if (prop == "COLS") node.grid_cols = clamped;
+        else node.grid_rows = clamped;
+        return true;
+    }
+    if (prop == "INITGRID") {
+        std::int32_t values[6];
+        for (auto& value : values) if (!parse_int(payload, pos, value)) return false;
+        node.init_grid = WindowRect{values[0], values[1], values[2], values[3]};
+        node.grid_border_x = static_cast<std::uint16_t>(std::clamp(values[4], 0, 65535));
+        node.grid_border_y = static_cast<std::uint16_t>(std::clamp(values[5], 0, 65535));
+        return true;
+    }
     if (prop == "ID") {
         std::string tok;
         if (!next_token(payload, pos, tok)) return false;
@@ -259,26 +333,20 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
         node.func = tok;
         return true;
     }
-    // Properties below are recognized for 1:1 fidelity to the legacy
-    // format (so the parser doesn't accidentally skip the *next*
-    // property line). The values themselves are not surfaced in the
-    // modern InterfaceNode yet — only the parser skip semantics matter.
+    // Remaining properties are consumed to preserve legacy parsing even
+    // where the modern widget has no matching behavior yet.
     // Each consumes a fixed number of int arguments.
     struct IntArgs {
         std::int32_t count;
     };
     static const std::unordered_map<std::string, IntArgs> kIntProps = {
-        {"FGCOLOR",        {3}},
         {"TEXTCOLOR",      {6}},
-        {"SHADOWCOLOR",    {3}},
         {"EDITSIZE",       {2}},
         {"SPINSIZE",       {2}},
         {"TEXTRECT",       {4}},
         {"TEXTSHADOWRECT", {4}},
-        {"TEXTXY",         {2}},
         {"CAPTIONRECT",    {4}},
         {"LIMITBYTES",     {1}},
-        {"TEXTALIGN",      {1}},
         {"MAXLINE",        {1}},
         {"LISTMAXLINE",    {1}},
         {"LINEHEIGHT",     {1}},
@@ -298,7 +366,7 @@ bool apply_property(InterfaceNode& node, std::string_view prop,
     }
     // Single-bool properties.
     static const std::unordered_set<std::string> kBoolProps = {
-        "SHADOW", "AUTOSCROLL", "PASSIVE", "READONLY", "SECRET",
+        "AUTOSCROLL", "PASSIVE", "READONLY", "SECRET",
     };
     if (kBoolProps.count(std::string(prop))) {
         std::int32_t junk;
@@ -393,13 +461,33 @@ const InterfaceNode* find_root_by_type(const InterfaceScript& script,
 
 bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
                          void* basicImage) {
+    return apply_legacy_layout(dlg, node, basicImage, kDefaultResolutionMode);
+}
+
+bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
+                         void* basicImage, ResolutionMode mode) {
     if (!node.point.has_value()) return false;
-    const auto& r = *node.point;
+    // M-R7 (G3): #POINT_ low-res variant 1:1 选择. 老版 cScriptManager::
+    // GetDlgInfoFromFile 在 eDLG case 装载 #POINT 时, 如果 #POINT_ 存在且当前
+    // resolution_mode == Low, 用 #POINT_ 覆盖 #POINT 的 x/y/w/h. 头less 实现 —
+    // 不调 GPU/sprite, 单测可断言. 默认 mode (High1920x1080) 走 #POINT 不破坏
+    // 现有 224 dialog + 11863 ctest.
+    const WindowRect* use_rect = &(*node.point);
+    if (mode == ResolutionMode::Low800x600 && node.point_low.has_value()) {
+        use_rect = &(*node.point_low);
+    }
+    const auto& r = *use_rect;
     dlg.Init(static_cast<std::int32_t>(r.x),
              static_cast<std::int32_t>(r.y),
              static_cast<std::uint16_t>(r.w),
              static_cast<std::uint16_t>(r.h),
              basicImage);
+    // The legacy cScriptManager applies both values for every dialog after
+    // Init(), including their parser defaults.  Keeping the parsed values
+    // only in InterfaceNode made initially-hidden windows (inventory, quest,
+    // item shop, ...) visible as soon as a runtime activated its dialog tree.
+    dlg.SetMovable(node.movable);
+    dlg.SetActive(node.active);
     if (node.caption_rect) {
         const auto& c = *node.caption_rect;
         dlg.SetCaptionRect(c.x, c.y, c.x + c.w, c.y + c.h);

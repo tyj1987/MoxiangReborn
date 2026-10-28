@@ -3,11 +3,39 @@
 
 #include <gtest/gtest.h>
 
+#include <filesystem>
+#include "../../support/playdh_env.hpp"
+
 namespace {
 using mxh::server::AISystem;
 using mxh::server::AiRegenDelayKind;
 using mxh::server::load_ai_group_list_bin;
 using mxh::server::parse_ai_group_list;
+
+std::filesystem::path recovered_runtime_server_resource(const char* name) {
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto candidate = root / "reference" / "legacy-source" / "4dddd9a6" /
+                               "SWorking" /
+                               "Resource" / "Server" / name;
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return {};
+}
+
+std::filesystem::path playdh_server_resource(const char* name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Server" / name;
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto canonical = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / "Server" / name;
+        if (std::filesystem::exists(canonical)) return canonical;
+        const auto nested = root / "data" / "PlayDH" / "Resource" / "Server" / name;
+        if (std::filesystem::exists(nested)) return nested;
+    }
+    return {};
+}
 }
 
 TEST(AiGroupLoader, ParsesLegacyGroupFields) {
@@ -127,8 +155,9 @@ TEST(AiGroupLoader, RejectsUnknownCommands) {
 }
 
 TEST(AiGroupLoader, LoadsRealMonster10Bin) {
-    const auto list = load_ai_group_list_bin(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_10.bin");
+    const auto path = recovered_runtime_server_resource("Monster_10.bin");
+    if (path.empty()) GTEST_SKIP() << "required VHD-recovered Monster_10.bin missing";
+    const auto list = load_ai_group_list_bin(path);
     ASSERT_TRUE(list.has_value());
     EXPECT_EQ(list->groups.size(), 114u);
     EXPECT_EQ(list->spawn_count(), 228u);
@@ -141,9 +170,38 @@ TEST(AiGroupLoader, LoadsRealMonster10Bin) {
     EXPECT_EQ(group->spawns[0].monster_kind, 105u);
 }
 
+TEST(AiGroupLoader, PlayDhMonster10BinIsNonStub) {
+    const auto path = playdh_server_resource("Monster_10.bin");
+    ASSERT_FALSE(path.empty()) << "PlayDH Resource/Server/Monster_10.bin missing";
+    EXPECT_EQ(std::filesystem::file_size(path), 22766u);
+}
+
+TEST(AiGroupLoader, LoadsPlayDhMonster10Bin) {
+    const auto path = playdh_server_resource("Monster_10.bin");
+    ASSERT_FALSE(path.empty()) << "PlayDH Resource/Server/Monster_10.bin missing";
+    const auto list = load_ai_group_list_bin(path, "playdh-current");
+    ASSERT_TRUE(list.has_value());
+    EXPECT_EQ(list->groups.size(), 114u);
+    EXPECT_EQ(list->spawn_count(), 228u);
+    const auto* group = list->find_group(1u);
+    ASSERT_NE(group, nullptr);
+    ASSERT_FALSE(group->spawns.empty());
+    EXPECT_EQ(group->spawns[0].monster_kind, 105u);
+}
+
+TEST(AiGroupLoader, LoadsPlayDhEmptyMonster12Bin) {
+    const auto path = playdh_server_resource("Monster_12.bin");
+    ASSERT_FALSE(path.empty()) << "PlayDH Resource/Server/Monster_12.bin missing";
+    const auto list = load_ai_group_list_bin(path);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_TRUE(list->groups.empty());
+    EXPECT_EQ(list->spawn_count(), 0u);
+}
+
 TEST(AiGroupLoader, LoadsRealEmptyMonster12Bin) {
-    const auto list = load_ai_group_list_bin(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_12.bin");
+    const auto path = recovered_runtime_server_resource("Monster_12.bin");
+    if (path.empty()) GTEST_SKIP() << "required VHD-recovered Monster_12.bin missing";
+    const auto list = load_ai_group_list_bin(path);
     ASSERT_TRUE(list.has_value());
     EXPECT_TRUE(list->groups.empty());
     EXPECT_EQ(list->spawn_count(), 0u);
@@ -155,8 +213,9 @@ TEST(AiGroupLoader, MissingBinReturnsNullopt) {
 
 TEST(AISystemGroupLoader, ReplacesStateTransactionally) {
     AISystem system;
-    ASSERT_TRUE(system.load_ai_group_list(
-        "../../../deploy/server/Distribute/Resource/Server/Monster_10.bin"));
+    const auto path = recovered_runtime_server_resource("Monster_10.bin");
+    if (path.empty()) GTEST_SKIP() << "required VHD-recovered Monster_10.bin missing";
+    ASSERT_TRUE(system.load_ai_group_list(path));
     EXPECT_EQ(system.group_list().groups.size(), 114u);
     EXPECT_EQ(system.group_list().spawn_count(), 228u);
     EXPECT_FALSE(system.load_ai_group_list("missing-monster.bin"));

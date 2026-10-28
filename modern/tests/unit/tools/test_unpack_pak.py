@@ -1,0 +1,1916 @@
+#!/usr/bin/env python3
+"""
+test_unpack_pak.py - unit tests for modern/tools/unpack_pak.py
+(legacy {i:05d}_{real}.bin mode + pak_extract --named mode).
+
+The tests are self-contained: they synthesize a minimal .pak in a
+temp directory and exercise the parser end-to-end.  No real PlayDH
+data is required to run them, so the test is always green on a clean
+checkout.
+
+Run via ctest (registered as pak_extract_smoke in tests/unit/tools/CMakeLists.txt)
+or directly:
+
+    python -m unittest modern/tests/unit/tools/test_unpack_pak.py
+"""
+
+from __future__ import annotations
+
+import contextlib
+import hashlib
+import io
+import json
+import ntpath
+import os
+import shutil
+import struct
+import sys
+import tempfile
+import unittest
+import uuid
+from pathlib import Path
+
+# Make the tool importable regardless of cwd.
+_THIS_DIR = Path(__file__).resolve().parent
+_TOOLS_DIR = _THIS_DIR.parents[2] / "tools"
+if str(_TOOLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TOOLS_DIR))
+
+import unpack_pak  # noqa: E402  (sys.path modified above)
+
+
+def _make_pak(entries: list[tuple[str, bytes]], out_path: Path,
+              *, header_count: int | None = None) -> int:
+    """Build a worktree-style .pak: 92-byte header, entries from offset 92.
+
+    dwFileItemNum at offset 4 is the entry count and must be non-zero.
+    The original 96-byte header is built by _write_original_pak, not here.
+    """
+    count = len(entries) if header_count is None else header_count
+    if count == 0:
+        raise ValueError("worktree fixture requires a non-zero header count")
+    with out_path.open("wb") as f:
+        # 92-byte PACK_FILE_HEADER
+        f.write(struct.pack("<III", 1, count, 0))  # version, n_items, flag
+        f.write(b"\x00" * (92 - 12))
+        for name, data in entries:
+            name_b = name.encode("latin-1")
+            name_len = len(name_b)
+            real_size = len(data)
+            total_size = 32 + name_len + 1 + real_size
+            f.write(struct.pack("<IIIIIIII",
+                                total_size, real_size, name_len,
+                                0, 0, 0, 0, 0))  # 32 bytes
+            f.write(name_b)
+            f.write(b"\x00")
+            f.write(data)
+            # NOTE: the legacy 4DyuchiFileStorage writer does NOT
+            # insert a 4-byte pad between entries; the cursor advances
+            # by exactly 32 + name_len + 1 + real_size, with no
+            # trailing alignment.  Earlier fixtures added a pad here
+            # which self-consistently passed but did not match what
+            # real .pak files actually contain.
+    return count
+
+
+def _make_dummy_hfl(face_size: float = 512.0) -> bytes:
+    """Build a 32-byte HFL_DESC-shaped prefix that hfl_header_ok accepts.
+
+    Layout matches the Python hfl_header_ok() sniff (32 bytes total):
+      u32 version
+      f32 left, top, right, bottom
+      f32 face_size
+      u32 faces_per_object_axis
+      u32 object_count_x
+    """
+    return struct.pack(
+        "<IfffffII",
+        1,            # version
+        0.0, 0.0,     # left, top
+        5000.0, 5000.0,  # right, bottom
+        face_size,    # face_size
+        1,            # faces_per_object_axis
+        100,          # object_count_x
+    )
+
+
+class UnpackPakLegacyModeTests(unittest.TestCase):
+    """The original {i:05d}_{real}.bin convention must keep working."""
+
+    def test_legacy_writes_indexed_bins(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "tiny.pak")
+            _make_pak([
+                ("Map/Map0.bmhm", b"alpha"),
+                ("Map/Map1.bmhm", b"beta-beta"),
+            ], pak)
+            out = tdp / "out"
+            rc = unpack_pak.unpack_legacy(str(pak), str(out))
+            self.assertEqual(rc, 0)
+            written = sorted(p.name for p in out.iterdir())
+            self.assertEqual(written, ["00000_5.bin", "00001_9.bin"])
+            self.assertEqual((out / "00000_5.bin").read_bytes(), b"alpha")
+            self.assertEqual((out / "00001_9.bin").read_bytes(), b"beta-beta")
+
+
+class PakExtractNamedModeTests(unittest.TestCase):
+    """The new --named mode (pak_extract) must produce real names + manifest."""
+
+    def test_named_mode_writes_by_canonical_name(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "tiny.pak")
+            _make_pak([
+                ("Map\\Map0.bmhm", b"alpha"),
+                ("Character\\man.chx", b"beta-beta"),
+            ], pak)
+            out = tdp / "out"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out),
+                dry_run=False, write_manifest=True, verify=False)
+            self.assertEqual(stats.written, 2)
+            # Legacy '\\' separator must be normalized to '/'
+            self.assertTrue((out / "Map" / "Map0.bmhm").is_file())
+            self.assertTrue((out / "Character" / "man.chx").is_file())
+            self.assertEqual((out / "Map" / "Map0.bmhm").read_bytes(), b"alpha")
+            self.assertEqual((out / "Character" / "man.chx").read_bytes(),
+                             b"beta-beta")
+            # manifest.json must exist and contain both entries
+            manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["stats"]["written"], 2)
+            names = [e["name"] for e in manifest["entries"]]
+            self.assertIn("Map/Map0.bmhm", names)
+            self.assertIn("Character/man.chx", names)
+            sha = next(e for e in manifest["entries"]
+                       if e["name"] == "Map/Map0.bmhm")["sha256"]
+            self.assertEqual(sha, hashlib.sha256(b"alpha").hexdigest())
+
+    def test_dry_run_does_not_create_files(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "tiny.pak")
+            _make_pak([("a.bin", b"x")], pak)
+            out = tdp / "out"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out),
+                dry_run=True, write_manifest=False, verify=False)
+            self.assertEqual(stats.written, 1)
+            self.assertFalse(out.exists(),
+                             "dry-run must not create the output dir")
+
+    def test_filter_only_writes_matching(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "tiny.pak")
+            _make_pak([
+                ("Map/Map0.bmhm", b"a"),
+                ("Character/man.chx", b"b"),
+                ("Map/Map1.bmhm", b"c"),
+            ], pak)
+            out = tdp / "out"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out),
+                dry_run=False, write_manifest=False, verify=False,
+                filter_pattern=r"^Map/")
+            self.assertEqual(stats.written, 2)
+            self.assertEqual(stats.skipped_filter, 1)
+            self.assertTrue((out / "Map" / "Map0.bmhm").is_file())
+            self.assertTrue((out / "Map" / "Map1.bmhm").is_file())
+            self.assertFalse((out / "Character").exists())
+
+    def test_hfl_header_ok_accepts_valid_and_rejects_garbage(self):
+        valid = _make_dummy_hfl(face_size=512.0)
+        self.assertTrue(unpack_pak.hfl_header_ok(valid))
+        # face_size out of plausible range -> reject
+        bad_size = _make_dummy_hfl(face_size=1.0)
+        self.assertFalse(unpack_pak.hfl_header_ok(bad_size))
+        # too short -> reject
+        self.assertFalse(unpack_pak.hfl_header_ok(valid[:16]))
+        # all zeros -> reject
+        self.assertFalse(unpack_pak.hfl_header_ok(b"\x00" * 32))
+
+    def test_hfl_entries_with_bad_header_are_skipped(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "tiny.pak")
+            _make_pak([
+                ("Map/Map0.hfl", _make_dummy_hfl(512.0)),
+                ("Map/Map1.hfl", b"\x00" * 32),  # not a valid HFL
+                ("Map/Map2.hfl", _make_dummy_hfl(256.0)),
+            ], pak)
+            out = tdp / "out"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out),
+                dry_run=False, write_manifest=True, verify=True)
+            self.assertEqual(stats.written, 2)
+            self.assertEqual(stats.skipped_hfl_bad, 1)
+            self.assertTrue((out / "Map" / "Map0.hfl").is_file())
+            self.assertTrue((out / "Map" / "Map2.hfl").is_file())
+            self.assertFalse((out / "Map" / "Map1.hfl").exists())
+
+
+def _write_original_pak(out_path: Path, entries: list[tuple[str, bytes]],
+                        *, count: int | None = None, chop: int = 0,
+                        trailer: bytes = b"", offset4: int = 0) -> bytes:
+    """Write an original-style pak from the on-disk layout, not the parser.
+
+    96-byte header: version=1 at 0, ``offset4`` at offset 4 (0 unless a
+    caller is mimicking a nonzero field that is not the entry count),
+    entry count uint32 at offset 92.  Entries start at 96.  Each entry is
+    total, real, name_len, data_off (uint32) + 16 zero bytes, then the
+    GBK filename, a NUL, then the payload.  total = 32 + name_len + 1 +
+    len(payload).  The next entry is immediately cur + total; no pad.
+    """
+    body = bytearray()
+    cursor = 96
+    for name, data in entries:
+        name_b = name if isinstance(name, (bytes, bytearray)) else name.encode("gbk")
+        name_len = len(name_b)
+        real = len(data)
+        total = 32 + name_len + 1 + real
+        body += struct.pack("<IIII", total, real, name_len, cursor)
+        body += b"\x00" * 16
+        body += name_b
+        body += b"\x00"
+        body += data
+        cursor += total
+    declared = len(entries) if count is None else count
+    header = bytearray(96)
+    struct.pack_into("<III", header, 0, 1, offset4, 0)
+    struct.pack_into("<I", header, 92, declared)
+    blob = bytes(header) + bytes(body) + trailer
+    if chop:
+        if chop >= len(blob):
+            raise ValueError("chop removes the whole fixture")
+        blob = blob[:-chop]
+    out_path.write_bytes(blob)
+    return blob
+
+
+class PakHeaderVariantTests(unittest.TestCase):
+    """One synthetic pak for each header variant.  No original resources."""
+
+    def test_original_style_count_at_offset_92_reads_three_entries(self):
+        entries = [
+            ("water.tif", b"water-pixels:" + b"W" * 400),
+            ("水面.tif", b"surface:" + b"S" * 500),
+            ("Map/zone_c.bmhm", b"zone-c:" + b"Z" * 600),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "original.pak")
+            raw = _write_original_pak(pak, entries)
+            self.assertLess(len(raw), 16 * 1024)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 3)
+            gbk_name = "水面.tif".encode("gbk")
+            self.assertEqual(gbk_name, bytes.fromhex("cbaec3e62e746966"))
+            self.assertIn(gbk_name, raw)
+            self.assertNotIn("水面.tif".encode("utf-8"), raw)
+
+            totals = []
+            cursor = 96
+            for name, payload in entries:
+                total, real, name_len, data_off = struct.unpack_from("<IIII", raw, cursor)
+                name_b = name.encode("gbk")
+                self.assertEqual(total, 32 + len(name_b) + 1 + len(payload))
+                self.assertEqual(real, len(payload))
+                self.assertEqual(name_len, len(name_b))
+                self.assertEqual(data_off, cursor)
+                self.assertEqual(raw[cursor + 16:cursor + 32], b"\x00" * 16)
+                name_at = cursor + 32
+                self.assertEqual(raw[name_at:name_at + name_len], name_b)
+                self.assertEqual(raw[name_at + name_len], 0)
+                data_at = name_at + name_len + 1
+                self.assertEqual(raw[data_at:data_at + real], payload)
+                totals.append(total)
+                cursor += total
+            self.assertEqual(cursor, len(raw))
+            # Entry 1 begins on the byte after entry 0.  No alignment gap.
+            self.assertEqual(struct.unpack_from("<I", raw, 96 + totals[0])[0], totals[1])
+
+            _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
+            self.assertEqual(n_items, 0)
+            walked = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(walked), 3)
+            self.assertEqual([e.name for e in walked], [name for name, _ in entries])
+            self.assertEqual(walked[0].entry_offset, 96)
+            self.assertEqual(walked[1].entry_offset, 96 + totals[0])
+            self.assertEqual(walked[2].entry_offset, 96 + totals[0] + totals[1])
+            for entry, (_name, payload) in zip(walked, entries):
+                got = raw[entry.data_offset:entry.data_offset + entry.real_size]
+                self.assertEqual(got, payload)
+
+            named_out = tdp / "named"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(named_out),
+                dry_run=False, write_manifest=False, verify=False)
+            self.assertEqual(stats.file_item_num, 3)
+            self.assertEqual(stats.parsed, 3)
+            self.assertEqual(stats.written, 3)
+            for name, payload in entries:
+                self.assertEqual((named_out / name).read_bytes(), payload)
+
+            legacy_out = tdp / "legacy"
+            rc = unpack_pak.unpack_legacy(str(pak), str(legacy_out))
+            self.assertEqual(rc, 0)
+            for i, (_name, payload) in enumerate(entries):
+                blob = legacy_out / f"{i:05d}_{len(payload)}.bin"
+                self.assertEqual(blob.read_bytes(), payload)
+
+    def test_worktree_style_nonzero_count_starts_at_92(self):
+        entries = [
+            ("Map/one.bmhm", b"one-payload"),
+            ("Map/two.bmhm", b"two-payload-ok"),
+            ("Map/three.bmhm", b"three-must-stay-unread"),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "worktree.pak")
+            self.assertEqual(_make_pak(entries, pak, header_count=2), 2)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 0)[0], 1)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 2)
+            # Offset 92 is entry 0's total, not an original-style count.
+            name_b = b"Map/one.bmhm"
+            entry0_total = 32 + len(name_b) + 1 + len(b"one-payload")
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], entry0_total)
+            self.assertNotEqual(entry0_total, 2)
+            self.assertEqual(raw[92 + 32:92 + 32 + len(name_b)], name_b)
+
+            _header, _version, n_items, _flag = unpack_pak.parse_pak(str(pak))
+            self.assertEqual(n_items, 2)
+            walked = list(unpack_pak.walk_entries(str(pak), n_items))
+            self.assertEqual([e.name for e in walked],
+                             ["Map/one.bmhm", "Map/two.bmhm"])
+            self.assertEqual(walked[0].entry_offset, 92)
+            self.assertEqual(
+                raw[walked[0].data_offset:walked[0].data_offset + walked[0].real_size],
+                b"one-payload")
+            self.assertEqual(
+                raw[walked[1].data_offset:walked[1].data_offset + walked[1].real_size],
+                b"two-payload-ok")
+            # Two in-bounds entries do not consume the file, so neither
+            # layout is valid.  Unpack must not keep the short table.
+            with self.assertRaisesRegex(ValueError, "neither") as named_err:
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
+            self.assertIn(pak.name, str(named_err.exception))
+            self.assertFalse((tdp / "named").exists())
+            with self.assertRaisesRegex(ValueError, "neither") as legacy_err:
+                unpack_pak.unpack_legacy(str(pak), str(tdp / "legacy"))
+            self.assertIn(pak.name, str(legacy_err.exception))
+            self.assertFalse((tdp / "legacy").exists())
+
+    def test_original_style_early_eof_errors(self):
+        entries = [
+            ("Map/ok.bmhm", b"complete-entry"),
+            ("Map/cut.bmhm", b"X" * 64),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "early_eof.pak")
+            _write_original_pak(pak, entries, chop=20)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 2)
+
+            walked = unpack_pak.walk_entries(str(pak), 0)
+            first = next(walked)
+            self.assertEqual(first.name, "Map/ok.bmhm")
+            self.assertEqual(first.entry_offset, 96)
+            self.assertEqual(
+                raw[first.data_offset:first.data_offset + first.real_size],
+                b"complete-entry")
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
+                next(walked)
+
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
+            with self.assertRaisesRegex(ValueError, r"EOF arrived early"):
+                unpack_pak.unpack_legacy(str(pak), str(tdp / "legacy"))
+            self.assertFalse((tdp / "named").exists())
+            self.assertFalse((tdp / "legacy").exists())
+
+    def test_original_style_trailing_bytes_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "trailing.pak")
+            _write_original_pak(
+                pak,
+                [("water.tif", b"pixels")],
+                trailer=b"\x99\x99\x99",
+            )
+            with self.assertRaisesRegex(
+                    ValueError, r"byte\(s\) remain after the declared count"):
+                list(unpack_pak.walk_entries(str(pak), 0))
+            with self.assertRaisesRegex(ValueError, r"remain after the declared count"):
+                unpack_pak.pak_extract(
+                    str(pak), str(tdp / "named"),
+                    dry_run=False, write_manifest=False, verify=False)
+            self.assertFalse((tdp / "named").exists())
+
+
+def _src_pak(root: Path, name: str) -> Path:
+    """Put the pak in its own directory so a sibling out dir is legal."""
+    src = root / "src"
+    src.mkdir(exist_ok=True)
+    return src / name
+
+
+def _run_cli(argv: list[str]) -> tuple[int, str, str]:
+    """Invoke unpack_pak.main with argv.  Returns (rc, stdout, stderr)."""
+    out_buf = io.StringIO()
+    err_buf = io.StringIO()
+    old = sys.argv
+    try:
+        sys.argv = ["unpack_pak.py", *argv]
+        with contextlib.redirect_stdout(out_buf), contextlib.redirect_stderr(err_buf):
+            rc = unpack_pak.main()
+    finally:
+        sys.argv = old
+    return rc, out_buf.getvalue(), err_buf.getvalue()
+
+
+@contextlib.contextmanager
+def _temp_env(updates: dict[str, str | None]):
+    """Point TEMP/TMPDIR/HOME/LOCALAPPDATA at test dirs and restore them.
+
+    tempfile.gettempdir() caches the first answer, so the cache is cleared
+    for the duration of the test and put back afterwards.
+    """
+    saved_tempdir = tempfile.tempdir
+    saved = {key: os.environ.get(key) for key in updates}
+    try:
+        for key, value in updates.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        tempfile.tempdir = None
+        yield
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        tempfile.tempdir = saved_tempdir
+
+
+@contextlib.contextmanager
+def _set_env(name: str, value: str | None):
+    old = os.environ.get(name)
+    if value is None:
+        os.environ.pop(name, None)
+    else:
+        os.environ[name] = value
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop(name, None)
+        else:
+            os.environ[name] = old
+
+
+def _tree(root: Path) -> list[str]:
+    """Relative paths under root, including symlink targets."""
+    if not root.exists():
+        return []
+    items = []
+    for path in root.rglob("*"):
+        rel = path.relative_to(root).as_posix()
+        if path.is_symlink():
+            rel += " -> " + os.readlink(path)
+        items.append(rel)
+    return sorted(items)
+
+
+class DryRunTests(unittest.TestCase):
+    """--dry-run enumerates both modes and both headers, and writes nothing."""
+
+    def _assert_dry_run_creates_nothing(self, pak: Path, extra: list[str],
+                                        expect_in_stdout: str) -> None:
+        out = pak.parent.parent / "out"
+        before = sorted(p.name for p in pak.parent.iterdir())
+        rc, text, err = _run_cli([str(pak), "--dry-run", "--out", str(out), *extra])
+        self.assertEqual(rc, 0, text + err)
+        self.assertIn(expect_in_stdout, text)
+        self.assertIn("dry-run", text)
+        self.assertFalse(out.exists(), text + err)
+        self.assertEqual(sorted(p.name for p in pak.parent.iterdir()), before)
+        self.assertFalse(any(p.is_dir() and p != pak.parent
+                             for p in pak.parent.parent.iterdir()),
+                         "dry-run created a directory")
+
+    def test_legacy_worktree_92_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "worktree.pak")
+            _make_pak([
+                ("Map/one.bmhm", b"one-payload"),
+                ("Map/two.bmhm", b"two-payload"),
+            ], pak)
+            self._assert_dry_run_creates_nothing(pak, [], "Map/one.bmhm")
+
+    def test_legacy_original_96_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "original.pak")
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            self._assert_dry_run_creates_nothing(pak, [], "water.tif")
+
+    def test_named_worktree_92_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "worktree.pak")
+            _make_pak([
+                ("Map/one.bmhm", b"one-payload"),
+                ("Map/two.bmhm", b"two-payload"),
+            ], pak)
+            self._assert_dry_run_creates_nothing(
+                pak, ["--named", "--manifest"], "Map/one.bmhm")
+
+    def test_named_original_96_byte_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "original.pak")
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            self._assert_dry_run_creates_nothing(
+                pak, ["--named", "--manifest"], "水面.tif")
+
+
+class ReadOnlyOutputTests(unittest.TestCase):
+    """Original resource directories are read-only.
+
+    Resolved output may not be the pak directory or anything under it.
+    The default directory is the system temp dir (then the workspace).
+    """
+
+    def _worktree(self, root: Path, name: str = "tiny.pak") -> Path:
+        pak = _src_pak(root, name)
+        _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+        return pak
+
+    def _assert_cli_refuses(self, pak: Path, out: str, extra: list[str] | None = None) -> None:
+        before = _tree(pak.resolve().parent)
+        argv = [str(pak), "--out", out]
+        if extra:
+            argv.extend(extra)
+        rc, text, err = _run_cli(argv)
+        self.assertEqual(rc, 1, text + err)
+        self.assertIn("refusing", err)
+        self.assertIn("read-only", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("Traceback", text)
+        self.assertEqual(_tree(pak.resolve().parent), before)
+
+    def test_output_under_pak_dir_errors_and_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            pak_dir = pak.parent
+            cases = {
+                "directory itself": str(pak_dir),
+                "subdirectory": str(pak_dir / "extracted"),
+                "dotdot back into pak dir": str(pak_dir / "nested" / ".." / "unpacked"),
+                "positional-equivalent flag": str(pak_dir / "bins"),
+            }
+            for label, out in cases.items():
+                with self.subTest(label=label):
+                    self._assert_cli_refuses(pak, out)
+            with self.subTest(label="named"):
+                self._assert_cli_refuses(pak, str(pak_dir / "named"), ["--named", "--manifest"])
+            with self.subTest(label="dry-run does not bypass the guard"):
+                self._assert_cli_refuses(pak, str(pak_dir / "dry"), ["--dry-run"])
+            with self.subTest(label="positional out"):
+                before = _tree(pak_dir)
+                rc, text, err = _run_cli([str(pak), str(pak_dir / "positional")])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("read-only", err)
+                self.assertEqual(_tree(pak_dir), before)
+                self.assertFalse((pak_dir / "positional").exists())
+
+    def test_relative_and_dot_outputs_from_inside_pak_dir_are_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            old = os.getcwd()
+            try:
+                os.chdir(pak.parent)
+                before = _tree(pak.parent)
+                for out in ("extracted", ".", os.path.join("nested", "deeper")):
+                    rc, text, err = _run_cli([pak.name, "--out", out])
+                    self.assertEqual(rc, 1, text + err)
+                    self.assertIn("read-only", err)
+                    self.assertEqual(_tree(pak.parent), before)
+                os.chdir(tdp)
+                before = _tree(pak.parent)
+                rc, text, err = _run_cli([
+                    str(Path("src") / pak.name),
+                    "--out",
+                    str(Path("src") / "out"),
+                ])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("read-only", err)
+                self.assertEqual(_tree(pak.parent), before)
+                self.assertFalse((pak.parent / "out").exists())
+            finally:
+                os.chdir(old)
+
+    def test_api_refuses_before_creating_directories(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            nested = pak.parent / "nested"
+            before = _tree(pak.parent)
+            for dry_run in (False, True):
+                with self.assertRaises(unpack_pak.PakOutputError):
+                    unpack_pak.unpack_legacy(str(pak), str(nested), dry_run=dry_run)
+                with self.assertRaises(unpack_pak.PakOutputError):
+                    unpack_pak.pak_extract(
+                        str(pak), str(pak.parent / "named"),
+                        dry_run=dry_run, write_manifest=True, verify=False)
+            self.assertEqual(_tree(pak.parent), before)
+            self.assertFalse(nested.exists())
+
+    def test_resolved_symlink_into_pak_dir_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            real_dir = tdp / "resources"
+            real_dir.mkdir()
+            pak = real_dir / "Map.pak"
+            _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+            outside = tdp / "outside"
+            outside.mkdir()
+            trap = outside / "trap"
+            try:
+                trap.symlink_to(real_dir, target_is_directory=True)
+                alias = tdp / "alias"
+                alias.symlink_to(Path("resources"), target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlinks unavailable: {exc}")
+            before = _tree(real_dir)
+            self._assert_cli_refuses(pak, str(trap))
+            self._assert_cli_refuses(pak, str(trap / "child"))
+            self._assert_cli_refuses(alias / "Map.pak", str(real_dir / "unpacked"))
+            self.assertEqual(_tree(real_dir), before)
+            # The symlink's parent is not the real resource directory.
+            rc, text, err = _run_cli([str(alias / "Map.pak"), "--out", str(tdp / "safe")])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((tdp / "safe" / "00000_11.bin").read_bytes(), b"one-payload")
+            self.assertEqual(_tree(real_dir), before)
+
+    def test_output_elsewhere_writes(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            out = tdp / "elsewhere"
+            rc, text, err = _run_cli([str(pak), "--out", str(out)])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((out / "00000_11.bin").read_bytes(), b"one-payload")
+            self.assertEqual(_tree(pak.parent), [pak.name])
+
+            named = tdp / "named"
+            original = _src_pak(tdp, "original.pak")
+            _write_original_pak(original, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            rc, text, err = _run_cli([
+                str(original), "--named", "--manifest", "--out", str(named),
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((named / "water.tif").read_bytes(), b"pixels")
+            self.assertEqual((named / "水面.tif").read_bytes(), b"surface")
+            self.assertTrue((named / "manifest.json").is_file())
+            self.assertEqual(sorted(p.name for p in original.parent.iterdir()),
+                             sorted([pak.name, original.name]))
+
+    def test_parent_of_pak_dir_is_allowed(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            old = os.getcwd()
+            try:
+                os.chdir(pak.parent)
+                before = _tree(pak.parent)
+                rc, text, err = _run_cli([pak.name, "--out", ".."])
+                self.assertEqual(rc, 0, text + err)
+                self.assertEqual((tdp / "00000_11.bin").read_bytes(), b"one-payload")
+                self.assertEqual(_tree(pak.parent), before)
+            finally:
+                os.chdir(old)
+
+    def test_sibling_directory_prefix_is_not_inside(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak_dir = tdp / "client"
+            pak_dir.mkdir()
+            pak = pak_dir / "a.pak"
+            _make_pak([("a.bin", b"x")], pak)
+            out = tdp / "client2" / "out"
+            self.assertFalse(unpack_pak.output_is_inside_pak_dir(str(pak), str(out)))
+            self.assertFalse(unpack_pak.output_is_inside_pak_dir(
+                str(pak), str(out), case_insensitive=True))
+            rc, text, err = _run_cli([str(pak), "--out", str(out)])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((out / "00000_1.bin").read_bytes(), b"x")
+            self.assertEqual(_tree(pak_dir), [pak.name])
+
+    def test_dry_run_never_writes(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            out = tdp / "out"
+            before_root = _tree(tdp)
+            rc, text, err = _run_cli([str(pak), "--dry-run", "--out", str(out)])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("dry-run", text)
+            self.assertIn("no files written", text)
+            self.assertFalse(out.exists())
+            self.assertEqual(_tree(tdp), before_root)
+
+            original = _src_pak(tdp, "original.pak")
+            _write_original_pak(original, [("water.tif", b"pixels")])
+            named = tdp / "named"
+            before = _tree(tdp)
+            rc, text, err = _run_cli([
+                str(original), "--dry-run", "--named", "--manifest", "--out", str(named),
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("dry-run", text)
+            self.assertFalse(named.exists())
+            self.assertEqual(_tree(tdp), before)
+
+    def test_default_output_is_temp_not_beside_pak(self):
+        unique = uuid.uuid4().hex
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp, f"map-{unique}.pak")
+            dest = Path(tempfile.gettempdir()) / "moxiang-unpack" / pak.stem
+            beside = pak.parent / f"{pak.stem}_unpacked"
+            workspace = Path.cwd() / "moxiang-unpack" / pak.stem
+            old = os.getcwd()
+            try:
+                os.chdir(pak.parent)
+                before = _tree(pak.parent)
+                rc, text, err = _run_cli([pak.name])
+                self.assertEqual(rc, 0, text + err)
+                self.assertEqual((dest / "00000_11.bin").read_bytes(), b"one-payload")
+                self.assertIn(str(dest), text)
+                self.assertFalse(beside.exists())
+                self.assertFalse(workspace.exists())
+                self.assertEqual(_tree(pak.parent), before)
+            finally:
+                os.chdir(old)
+                shutil.rmtree(dest, ignore_errors=True)
+                parent = dest.parent
+                if parent.is_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+
+    def test_default_uses_workspace_when_temp_is_inside_pak_dir(self):
+        """Temp inside the pak dir is skipped for the platform fallback.
+
+        Windows uses %LOCALAPPDATA%.  POSIX uses ~/.cache.  Neither is a
+        hardcoded /workspace path; that string was only in the old fixture.
+        """
+        unique = uuid.uuid4().hex
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            temp_dir = tdp / "temp"
+            fallback = tdp / "fallback"
+            cwd_dir = tdp / "cwd"
+            temp_dir.mkdir()
+            fallback.mkdir()
+            cwd_dir.mkdir()
+            pak = temp_dir / f"mxh-ro-{unique}.pak"
+            _make_pak([("a.bin", b"zz")], pak)
+            if os.name == "nt":
+                expected = fallback / "moxiang-unpack" / pak.stem
+            else:
+                expected = fallback / ".cache" / "moxiang-unpack" / pak.stem
+            temp_candidate = temp_dir / "moxiang-unpack" / pak.stem
+            old = os.getcwd()
+            try:
+                os.chdir(cwd_dir)
+                with _temp_env({
+                    "TMPDIR": str(temp_dir),
+                    "TEMP": str(temp_dir),
+                    "TMP": str(temp_dir),
+                    "LOCALAPPDATA": str(fallback),
+                    "HOME": str(fallback),
+                }):
+                    chosen = unpack_pak.default_unpack_dir(str(pak))
+                    self.assertEqual(chosen, expected)
+                    self.assertTrue(unpack_pak.output_is_inside_pak_dir(
+                        str(pak), str(temp_candidate)))
+                    self.assertFalse(unpack_pak.output_is_inside_pak_dir(
+                        str(pak), str(expected)))
+                    rc, text, err = _run_cli([str(pak)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual((expected / "00000_2.bin").read_bytes(), b"zz")
+                    self.assertFalse(temp_candidate.exists())
+                    self.assertFalse((cwd_dir / "moxiang-unpack").exists())
+                    self.assertFalse((pak.parent / f"{pak.stem}_unpacked").exists())
+            finally:
+                os.chdir(old)
+
+    def test_default_errors_when_temp_and_workspace_are_inside_pak_dir(self):
+        unique = uuid.uuid4().hex
+        with tempfile.TemporaryDirectory() as td:
+            pak_dir = Path(td)
+            pak = pak_dir / f"mxh-ro-both-{unique}.pak"
+            _make_pak([("a.bin", b"zz")], pak)
+            old = os.getcwd()
+            try:
+                os.chdir(pak_dir)
+                with _temp_env({
+                    "TMPDIR": str(pak_dir),
+                    "TEMP": str(pak_dir),
+                    "TMP": str(pak_dir),
+                    "LOCALAPPDATA": str(pak_dir),
+                    "HOME": str(pak_dir),
+                }):
+                    with self.assertRaises(unpack_pak.PakOutputError) as raised:
+                        unpack_pak.default_unpack_dir(str(pak))
+                    self.assertIn("refusing", str(raised.exception))
+                    self.assertIn("read-only", str(raised.exception))
+                    rc, text, err = _run_cli([pak.name])
+                    self.assertEqual(rc, 1, text + err)
+                    self.assertIn("refusing", err)
+                    self.assertIn("read-only", err)
+                    self.assertFalse((pak_dir / "moxiang-unpack").exists())
+                    self.assertFalse((pak_dir / ".cache").exists())
+                    self.assertFalse((pak_dir / f"{pak.stem}_unpacked").exists())
+                    self.assertTrue(pak.is_file())
+            finally:
+                os.chdir(old)
+
+    def test_casefold_comparison_and_prefix(self):
+        sep = os.sep
+        parent = f"{sep}data{sep}client"
+        inside = f"{sep}data{sep}Client{sep}out"
+        same = f"{sep}data{sep}CLIENT"
+        sibling = f"{sep}data{sep}client2{sep}out"
+        self.assertTrue(unpack_pak._same_or_under(
+            parent, inside, case_insensitive=True))
+        self.assertTrue(unpack_pak._same_or_under(
+            parent, same, case_insensitive=True))
+        self.assertFalse(unpack_pak._same_or_under(
+            parent, inside, case_insensitive=False))
+        self.assertFalse(unpack_pak._same_or_under(
+            parent, same, case_insensitive=False))
+        self.assertFalse(unpack_pak._same_or_under(
+            parent, sibling, case_insensitive=True))
+        self.assertFalse(unpack_pak._same_or_under(
+            parent, sibling, case_insensitive=False))
+        self.assertFalse(unpack_pak._same_or_under(
+            parent, "client", case_insensitive=True))
+        # ntpath.commonpath lowercases, so case_insensitive=False must not
+        # go through it.  Client != client on every host, including Windows.
+        self.assertFalse(unpack_pak._same_or_under(
+            r"D:\data\client", r"D:\data\Client\out",
+            case_insensitive=False, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            r"D:\data\client", r"d:\data\Client\out",
+            case_insensitive=True, pathmod=ntpath))
+
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            resolved = str(pak.parent.resolve())
+            folded = resolved.swapcase()
+            self.assertNotEqual(folded, resolved)
+            nested = folded + f"{sep}Nested"
+            self.assertTrue(unpack_pak.output_is_inside_pak_dir(
+                str(pak), nested, case_insensitive=True))
+            self.assertTrue(unpack_pak.output_is_inside_pak_dir(
+                str(pak), folded, case_insensitive=True))
+            # Windows Path.resolve() returns the on-disk casing, so a
+            # case-only difference is gone before the flag is applied.
+            # Production still compares case-insensitively on Windows.
+            resolved_same = os.name == "nt"
+            self.assertEqual(
+                unpack_pak.output_is_inside_pak_dir(
+                    str(pak), nested, case_insensitive=False),
+                resolved_same)
+            self.assertFalse(unpack_pak.output_is_inside_pak_dir(
+                str(pak), str(pak.parent.resolve()) + "2",
+                case_insensitive=True))
+
+    @unittest.skipUnless(os.name == "nt", "case-insensitive CLI paths require Windows")
+    def test_windows_cli_refuses_different_case(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = self._worktree(tdp)
+            folded = str(pak.parent.resolve()).swapcase()
+            self._assert_cli_refuses(pak, folded + "\\out")
+
+
+class OriginalRootGuardTests(unittest.TestCase):
+    """Output inside the original root is refused, not only the pak dir."""
+
+    def _pak_outside(self, parent: Path, name: str = "tiny.pak") -> Path:
+        src = parent / "src"
+        src.mkdir(exist_ok=True)
+        pak = src / name
+        _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+        return pak
+
+    def test_windows_root_spelling_and_prefix_sibling(self):
+        root = r"D:\MX"
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"D:\MX\tools\x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"d:\mx\tools\x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, r"D:\MX\tmp_x", case_insensitive=True, pathmod=ntpath))
+        self.assertTrue(unpack_pak._same_or_under(
+            root, root, case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MX2", case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MX2\out", case_insensitive=True, pathmod=ntpath))
+        self.assertFalse(unpack_pak._same_or_under(
+            root, r"D:\MXtmp_x", case_insensitive=True, pathmod=ntpath))
+        self.assertEqual(
+            unpack_pak.resolve_original_root(environ={}, windows=True),
+            r"D:\MX")
+        self.assertIsNone(
+            unpack_pak.resolve_original_root(environ={}, windows=False))
+        self.assertEqual(
+            unpack_pak.resolve_original_root(
+                None, environ={"MXH_ORIGINAL_ROOT": r"E:\from-env"},
+                windows=True),
+            r"E:\from-env")
+        self.assertEqual(
+            unpack_pak.resolve_original_root(
+                r"E:\from-flag",
+                environ={"MXH_ORIGINAL_ROOT": r"E:\from-env"},
+                windows=True),
+            r"E:\from-flag")
+
+    def test_out_under_original_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            before_root = _tree(root)
+            before_pak = _tree(pak.parent)
+            cases = {
+                "tools/x": root / "tools" / "x",
+                "tmp_x": root / "tmp_x",
+                "root itself": root,
+                "dotdot back into root": root / "escape" / ".." / "tools" / "x",
+            }
+            for label, out in cases.items():
+                with self.subTest(label=label):
+                    rc, text, err = _run_cli([
+                        str(pak), "--original-root", str(root),
+                        "--out", str(out),
+                    ])
+                    self.assertEqual(rc, 1, text + err)
+                    self.assertIn("refusing", err)
+                    self.assertIn("read-only", err)
+                    self.assertIn("original root", err)
+                    self.assertNotIn("Traceback", err)
+                    if out != root:
+                        self.assertFalse(out.exists())
+                    self.assertEqual(_tree(root), before_root)
+                    self.assertEqual(_tree(pak.parent), before_pak)
+            with self.subTest(label="dry-run does not bypass"):
+                out = root / "tools" / "x"
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(root),
+                    "--dry-run", "--named", "--out", str(out),
+                ])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertEqual(_tree(root), before_root)
+                self.assertFalse((root / "tools").exists())
+
+    def test_sibling_root2_is_allowed(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            root2 = tdp / "MX2"
+            pak = self._pak_outside(tdp)
+            out = root2 / "out"
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root), "--out", str(out),
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertEqual((out / "00000_11.bin").read_bytes(), b"one-payload")
+            self.assertEqual(_tree(root), [])
+            self.assertEqual(_tree(pak.parent), [pak.name])
+
+    def test_override_flag_replaces_env(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            env_root = tdp / "MX"
+            flag_root = tdp / "OTHER"
+            env_root.mkdir()
+            flag_root.mkdir()
+            pak = self._pak_outside(tdp)
+            in_env = env_root / "tools" / "x"
+            in_flag = flag_root / "tmp_x"
+            with _set_env("MXH_ORIGINAL_ROOT", str(env_root)):
+                rc, text, err = _run_cli([str(pak), "--out", str(in_env)])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertFalse(in_env.exists())
+                self.assertEqual(_tree(env_root), [])
+
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(flag_root),
+                    "--out", str(in_env),
+                ])
+                self.assertEqual(rc, 0, text + err)
+                self.assertEqual((in_env / "00000_11.bin").read_bytes(),
+                                 b"one-payload")
+                self.assertEqual(_tree(flag_root), [])
+
+                rc, text, err = _run_cli([
+                    str(pak), "--original-root", str(flag_root),
+                    "--dry-run", "--out", str(in_flag),
+                ])
+                self.assertEqual(rc, 1, text + err)
+                self.assertIn("original root", err)
+                self.assertEqual(_tree(flag_root), [])
+                self.assertFalse(in_flag.exists())
+
+    def test_pak_dir_check_still_applies_outside_root(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            before = _tree(pak.parent)
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root),
+                "--out", str(pak.parent / "extracted"),
+            ])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("pak directory", err)
+            self.assertEqual(_tree(pak.parent), before)
+            self.assertEqual(_tree(root), [])
+
+    def test_symlink_into_original_root_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            root.mkdir()
+            pak = self._pak_outside(tdp)
+            outside = tdp / "outside"
+            outside.mkdir()
+            trap = outside / "trap"
+            try:
+                trap.symlink_to(root, target_is_directory=True)
+            except OSError as exc:
+                self.skipTest(f"symlinks unavailable: {exc}")
+            before = _tree(root)
+            rc, text, err = _run_cli([
+                str(pak), "--original-root", str(root),
+                "--out", str(trap / "tools" / "x"),
+            ])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("original root", err)
+            self.assertEqual(_tree(root), before)
+            self.assertFalse((root / "tools").exists())
+
+    def test_default_output_candidates_follow_the_platform(self):
+        stem = "Map"
+        windows = unpack_pak._default_output_candidates(
+            stem, windows=True,
+            environ={"LOCALAPPDATA": r"D:\Users\me\AppData\Local"},
+            temp_dir=r"D:\temp", cwd=r"D:\work")
+        self.assertEqual(windows, [
+            Path(r"D:\temp") / "moxiang-unpack" / stem,
+            Path(r"D:\Users\me\AppData\Local") / "moxiang-unpack" / stem,
+        ])
+        no_local = unpack_pak._default_output_candidates(
+            stem, windows=True, environ={}, temp_dir=r"D:\temp", cwd=r"D:\work")
+        self.assertEqual(no_local, [
+            Path(r"D:\temp") / "moxiang-unpack" / stem,
+            Path(r"D:\work") / "moxiang-unpack" / stem,
+        ])
+        posix = unpack_pak._default_output_candidates(
+            stem, windows=False, environ={}, temp_dir="/tmp",
+            cwd="/work", home="/home/me")
+        self.assertEqual(posix, [
+            Path("/tmp") / "moxiang-unpack" / stem,
+            Path("/home/me/.cache/moxiang-unpack") / stem,
+            Path("/work") / "moxiang-unpack" / stem,
+        ])
+
+    def test_temp_fallback_never_lands_in_original_root(self):
+        unique = uuid.uuid4().hex
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            root = tdp / "MX"
+            temp_dir = root / "temp"
+            outside = tdp / "outside"
+            cwd_dir = tdp / "cwd"
+            temp_dir.mkdir(parents=True)
+            outside.mkdir()
+            cwd_dir.mkdir()
+            pak = cwd_dir / "src" / f"map-{unique}.pak"
+            pak.parent.mkdir()
+            _make_pak([("Map/one.bmhm", b"one-payload")], pak)
+            if os.name == "nt":
+                expected = outside / "moxiang-unpack" / pak.stem
+            else:
+                expected = outside / ".cache" / "moxiang-unpack" / pak.stem
+            temp_candidate = temp_dir / "moxiang-unpack" / pak.stem
+            old = os.getcwd()
+            try:
+                os.chdir(cwd_dir)
+                with _temp_env({
+                    "TMPDIR": str(temp_dir),
+                    "TEMP": str(temp_dir),
+                    "TMP": str(temp_dir),
+                    "LOCALAPPDATA": str(outside),
+                    "HOME": str(outside),
+                    "MXH_ORIGINAL_ROOT": str(root),
+                }):
+                    chosen = unpack_pak.default_unpack_dir(str(pak))
+                    self.assertEqual(chosen, expected)
+                    self.assertTrue(unpack_pak.output_is_inside_original_root(
+                        str(temp_candidate), str(root)))
+                    self.assertFalse(unpack_pak.output_is_inside_original_root(
+                        str(chosen), str(root)))
+                    rc, text, err = _run_cli([str(pak)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(
+                        (expected / "00000_11.bin").read_bytes(), b"one-payload")
+                    self.assertFalse(temp_candidate.exists())
+                    self.assertFalse((root / "moxiang-unpack").exists())
+                    self.assertIn(str(expected), text)
+
+                    inside = root / "fallback"
+                    inside.mkdir()
+                    os.chdir(root)
+                    with _temp_env({
+                        "LOCALAPPDATA": str(inside),
+                        "HOME": str(inside),
+                    }):
+                        rc, text, err = _run_cli([str(pak)])
+                        self.assertEqual(rc, 1, text + err)
+                        self.assertIn("refusing", err)
+                        self.assertIn("read-only", err)
+                        self.assertFalse(temp_candidate.exists())
+                        self.assertFalse((root / "moxiang-unpack").exists())
+                        self.assertFalse(
+                            (inside / "moxiang-unpack").exists())
+                        self.assertFalse(
+                            (inside / ".cache" / "moxiang-unpack").exists())
+            finally:
+                os.chdir(old)
+
+
+class ParsePakHeaderTests(unittest.TestCase):
+    def test_rejects_truncated_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            bad = tdp / "bad.pak"
+            bad.write_bytes(b"short")
+            with self.assertRaises(ValueError):
+                unpack_pak.parse_pak(str(bad))
+
+    def test_rejects_unknown_version(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            bad = tdp / "bad.pak"
+            with bad.open("wb") as f:
+                f.write(struct.pack("<III", 0xdeadbeef, 0, 0))
+                f.write(b"\x00" * (92 - 12))
+            with self.assertRaises(ValueError):
+                unpack_pak.parse_pak(str(bad))
+
+
+class PakFailClosedTests(unittest.TestCase):
+    """A bad pak exits nonzero and does not leave a partial extract."""
+
+    def _assert_cli_rejects(self, pak: Path, pattern: str) -> str:
+        out = pak.parent.parent / "out"
+        rc, text, err = _run_cli([str(pak), "--out", str(out)])
+        self.assertEqual(rc, 1, text + err)
+        self.assertRegex(err, pattern)
+        self.assertIn("parsed", err)
+        self.assertIn("declared", err)
+        self.assertNotIn("Traceback", err)
+        self.assertNotIn("Traceback", text)
+        self.assertFalse(out.exists(), text + err)
+        self.assertFalse(any(p.suffix == ".bin" for p in pak.parent.rglob("*.bin")))
+        return err
+
+    def test_map_geometry_water_tif_offsets(self):
+        """Entry 0 uses the measured original Map.pak sizes.
+
+        water.tif therefore starts at 0x2ABB1 and its data at 0x2ABDB.
+        The payload is not the original file.
+        """
+        tile_name = "刨飘.dds"
+        tile_bytes = tile_name.encode("gbk")
+        self.assertEqual(len(tile_bytes), 8)
+        tile = bytearray(b"\xA5" * 174888)
+        tile[0] = ord("T")
+        tile[-1] = ord("Z")
+        water = b"WATER"
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "map.pak")
+            raw = _write_original_pak(pak, [(tile_name, bytes(tile)), ("water.tif", water)])
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            total0, real0, name_len0, data_off0 = struct.unpack_from("<IIII", raw, 96)
+            self.assertEqual((total0, real0, name_len0, data_off0), (174929, 174888, 8, 96))
+            self.assertEqual(96 + 32 + 8 + 1, 137)
+            self.assertEqual(raw[137], ord("T"))
+            self.assertEqual(raw[137 + 174888 - 1], ord("Z"))
+            water_at = 96 + 174929
+            self.assertEqual(water_at, 0x2ABB1)
+            self.assertEqual(water_at + 32 + 9 + 1, 0x2ABDB)
+            self.assertEqual(raw[water_at + 32:water_at + 32 + 9], b"water.tif")
+            self.assertEqual(raw[0x2ABDB:0x2ABDB + 5], water)
+
+            walked = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(walked), 2)
+            self.assertEqual(walked[0].name_bytes, tile_bytes)
+            self.assertEqual(walked[0].name, tile_name)
+            self.assertEqual(walked[0].entry_offset, 96)
+            self.assertEqual(walked[0].data_offset, 137)
+            self.assertEqual(walked[0].name_len, 8)
+            self.assertEqual(walked[0].real_size, 174888)
+            self.assertEqual(walked[0].total_size, 174929)
+            self.assertEqual(walked[1].name, "water.tif")
+            self.assertEqual(walked[1].name_bytes, b"water.tif")
+            self.assertEqual(walked[1].entry_offset, 0x2ABB1)
+            self.assertEqual(walked[1].data_offset, 0x2ABDB)
+            got = raw[walked[0].data_offset:walked[0].data_offset + 1]
+            self.assertEqual(got, b"T")
+
+    def test_data_off_is_not_the_payload_position(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "off.pak")
+            _write_original_pak(pak, [("water.tif", b"pixels")])
+            blob = bytearray(pak.read_bytes())
+            struct.pack_into("<I", blob, 96 + 12, 0xDEADBEEF)
+            pak.write_bytes(blob)
+            walked = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(walked), 1)
+            self.assertEqual(walked[0].data_offset, 96 + 32 + len(b"water.tif") + 1)
+            self.assertNotEqual(walked[0].data_offset, 0xDEADBEEF)
+            self.assertEqual(
+                blob[walked[0].data_offset:walked[0].data_offset + 6],
+                b"pixels",
+            )
+
+    def test_invalid_gbk_keeps_raw_bytes(self):
+        raw_name = b"\xff.bin"
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "gbk.pak")
+            _write_original_pak(pak, [("ok.tif", b"AAAA"), (raw_name, b"BBBB")])
+            walked = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(walked), 2)
+            self.assertEqual(walked[1].name_bytes, raw_name)
+            self.assertNotEqual(walked[1].name_bytes.decode("latin-1"), walked[0].name)
+            self.assertIn("\ufffd", walked[1].name)
+            out = tdp / "out"
+            rc = unpack_pak.unpack_legacy(str(pak), str(out))
+            self.assertEqual(rc, 0)
+            self.assertEqual((out / "00000_4.bin").read_bytes(), b"AAAA")
+            self.assertEqual((out / "00001_4.bin").read_bytes(), b"BBBB")
+            named = tdp / "named"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(named),
+                dry_run=False, write_manifest=False, verify=False)
+            self.assertEqual(stats.written, 2)
+            self.assertEqual((named / "ok.tif").read_bytes(), b"AAAA")
+            written = list(named.rglob("*"))
+            payloads = {p.read_bytes() for p in written if p.is_file()}
+            self.assertIn(b"BBBB", payloads)
+
+    def test_truncated_96_header(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "short.pak")
+            pak.write_bytes(struct.pack("<III", 1, 0, 0) + b"\x00" * (95 - 12))
+            self.assertEqual(pak.stat().st_size, 95)
+            err = self._assert_cli_rejects(pak, r"truncated pak header")
+            self.assertIn("parsed 0", err)
+
+    def test_count_larger_than_file(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            header_only = _src_pak(tdp, "count.pak")
+            _write_original_pak(header_only, [], count=11267)
+            self.assertEqual(header_only.stat().st_size, 96)
+            err = self._assert_cli_rejects(header_only, r"larger than the file allows")
+            self.assertIn("11267", err)
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 11267", err)
+
+            tiny = _src_pak(tdp, "tiny-count.pak")
+            _write_original_pak(tiny, [("a", b"Z")], count=3)
+            err = self._assert_cli_rejects(tiny, r"entry count 3")
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 3", err)
+            self.assertFalse((tdp / "out").exists())
+
+    def test_total_mismatch_and_missing_nul_write_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            mismatch = _src_pak(tdp, "bad-total.pak")
+            _write_original_pak(mismatch, [("ok.tif", b"AAAA"), ("bad.tif", b"BBBB")])
+            blob = bytearray(mismatch.read_bytes())
+            total0 = struct.unpack_from("<I", blob, 96)[0]
+            struct.pack_into("<I", blob, 96 + total0, 1)
+            mismatch.write_bytes(blob)
+            err = self._assert_cli_rejects(mismatch, r"does not equal 32\+name_len\+1\+real")
+            self.assertIn("parsed 1", err)
+            self.assertIn("declared 2", err)
+
+            missing_nul = _src_pak(tdp, "no-nul.pak")
+            _write_original_pak(missing_nul, [("water.tif", b"pixels")])
+            blob = bytearray(missing_nul.read_bytes())
+            nul_at = 96 + 32 + len(b"water.tif")
+            blob[nul_at] = 0x20
+            missing_nul.write_bytes(blob)
+            err = self._assert_cli_rejects(missing_nul, r"NUL")
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 1", err)
+
+    def test_zero_count_at_offset_92_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "zero.pak")
+            pak.write_bytes(b"\x01\x00\x00\x00" + b"\x00" * 92)
+            self.assertEqual(pak.stat().st_size, 96)
+            err = self._assert_cli_rejects(pak, r"entry count at offset 92 is 0")
+            self.assertIn("parsed 0", err)
+
+    def test_92_byte_truncated_does_not_write_partial(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "short92.pak")
+            _make_pak([("a.bin", b"Y" * 40)], pak, header_count=2)
+            err = self._assert_cli_rejects(pak, r"EOF arrived early")
+            self.assertIn("parsed 1", err)
+            self.assertIn("declared 2", err)
+            self.assertIn("92-byte", err)
+
+    def test_92_byte_ignores_corrupt_total_and_reads_minimum_tail(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "layout.pak")
+            _make_pak([
+                ("A.bin", b"\x01\x02"),
+                ("", b""),
+            ], pak)
+            blob = bytearray(pak.read_bytes())
+            struct.pack_into("<I", blob, 92, 0x00FFFFF0)
+            pak.write_bytes(blob)
+            walked = list(unpack_pak.walk_entries(str(pak), 2))
+            self.assertEqual([e.name for e in walked], ["A.bin", ""])
+            self.assertEqual(walked[0].real_size, 2)
+            self.assertEqual(walked[1].real_size, 0)
+            self.assertEqual(walked[1].name_len, 0)
+            self.assertEqual(
+                walked[1].entry_offset,
+                walked[0].entry_offset + 32 + len(b"A.bin") + 1 + 2,
+            )
+            out = tdp / "out"
+            rc = unpack_pak.unpack_legacy(str(pak), str(out))
+            self.assertEqual(rc, 0)
+            self.assertEqual((out / "00000_2.bin").read_bytes(), b"\x01\x02")
+            self.assertEqual((out / "00001_0.bin").read_bytes(), b"")
+
+
+class PakListTests(unittest.TestCase):
+    """--list prints the header and offsets and creates nothing."""
+
+    def test_list_96_byte_offsets(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, f"list96-{uuid.uuid4().hex}.pak")
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("水面.tif", b"surface"),
+            ])
+            dest = Path(tempfile.gettempdir()) / "moxiang-unpack" / pak.stem
+            before = _tree(tdp)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 96-byte", text)
+            self.assertIn("offset4: 0", text)
+            self.assertIn("declared: 2", text)
+            self.assertIn("parsed: 2", text)
+            self.assertIn("start=0x60", text)
+            self.assertRegex(text, r"entry 1 start=0x[0-9A-F]+ data=0x[0-9A-F]+")
+            self.assertIn("name=water.tif", text)
+            self.assertIn("name=水面.tif", text)
+            self.assertIn("no files written", text)
+            self.assertNotIn("Traceback", err)
+            self.assertEqual(_tree(tdp), before)
+            self.assertFalse(dest.exists())
+
+    def test_list_92_byte_and_rejects_without_a_partial_list(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "list92.pak")
+            _make_pak([
+                ("Map/one.bmhm", b"one-payload"),
+                ("Map/two.bmhm", b"two-payload"),
+            ], pak)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 92-byte", text)
+            self.assertIn("offset4: 2", text)
+            self.assertIn("declared: 2", text)
+            self.assertIn("parsed: 2", text)
+            self.assertIn("start=0x5C", text)
+            self.assertIn("name=Map/one.bmhm", text)
+            self.assertFalse((tdp / "out").exists())
+
+            bad = _src_pak(tdp, "badlist.pak")
+            _write_original_pak(bad, [], count=11267)
+            rc, text, err = _run_cli([str(bad), "--list", "--out", str(tdp / "out")])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 11267", err)
+            self.assertNotIn("entry 0", text)
+            self.assertNotIn("header: 96-byte", text)
+            self.assertFalse((tdp / "out").exists())
+            self.assertNotIn("Traceback", err)
+
+
+# Zero-filled 96-byte entries whose misaligned 92-byte walk of the decoy
+# count stays in bounds and stops short of EOF.  name_len=4, real=21.
+# Counts mimic original Titan / farm / pet (99→294, 181→244, 63→1547)
+# without those files.
+_DECOY_NAME = b"\x00" * 4
+_DECOY_PAYLOAD = b"\x00" * 21
+
+
+def _assert_cli_extracts_nothing(test: unittest.TestCase, pak: Path,
+                                 extra: list[str]) -> tuple[str, str]:
+    """Unpack / --dry-run must exit 1 and create no output."""
+    out = pak.parent.parent / "refused"
+    rc, text, err = _run_cli([str(pak), "--out", str(out), *extra])
+    test.assertEqual(rc, 1, text + err)
+    test.assertIn(pak.name, err)
+    test.assertNotIn("Traceback", err)
+    test.assertNotIn("Traceback", text)
+    test.assertFalse(out.exists(), text + err)
+    test.assertFalse(any(p.suffix == ".bin" for p in pak.parent.rglob("*.bin")))
+    return text, err
+
+
+def _assert_list_names_pak(test: unittest.TestCase, pak: Path,
+                           text: str, err: str) -> None:
+    test.assertIn(pak.name, err)
+    test.assertNotIn("entry 0", text)
+    test.assertNotIn("header: 92-byte", text)
+    test.assertNotIn("header: 96-byte", text)
+    test.assertNotIn("Traceback", err)
+    test.assertNotIn("Traceback", text)
+
+
+class PakListLayoutTests(unittest.TestCase):
+    """--list picks the one layout that ends on the last byte."""
+
+    def test_list_playdh92_normal(self):
+        entries = [
+            ("Map/a.bin", b"aaa"),
+            ("Map/b.bin", b"bbbb"),
+            ("Map/c.bin", b"ccccc"),
+        ]
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "playdh92.pak")
+            _make_pak(entries, pak)
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 3)
+            walked = list(unpack_pak.walk_entries(str(pak), 3))
+            self.assertEqual(len(walked), 3)
+            self.assertEqual(
+                walked[-1].data_offset + walked[-1].real_size, len(raw))
+            before = _tree(tdp)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 92-byte", text)
+            self.assertIn("offset4: 3", text)
+            self.assertIn("declared: 3", text)
+            self.assertIn("parsed: 3", text)
+            self.assertIn("entry 0 start=0x5C ", text)
+            self.assertIn("name=Map/c.bin", text)
+            self.assertEqual(
+                sum(1 for line in text.splitlines() if line.startswith("entry ")),
+                3)
+            self.assertIn("list: parsed 3 of declared 3", text)
+            self.assertNotIn("header: 96-byte", text)
+            self.assertEqual(_tree(tdp), before)
+            self.assertFalse((tdp / "out").exists())
+
+    def test_list_original96_nonzero_offset4_lists_full_count(self):
+        # Decoy field at offset 4, real count at offset 92.
+        cases = ((99, 294), (181, 244), (63, 1547))
+        for offset4, count in cases:
+            with self.subTest(offset4=offset4, count=count):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak = _src_pak(tdp, f"orig96-{offset4}.pak")
+                    _write_original_pak(
+                        pak,
+                        [(_DECOY_NAME, _DECOY_PAYLOAD)] * count,
+                        offset4=offset4,
+                    )
+                    raw = pak.read_bytes()
+                    self.assertEqual(struct.unpack_from("<I", raw, 4)[0], offset4)
+                    self.assertEqual(struct.unpack_from("<I", raw, 92)[0], count)
+                    # The old rule walks `offset4` entries from 92 and exits 0.
+                    # Those entries fit, and they do not consume the file.
+                    short = list(unpack_pak.walk_entries(str(pak), offset4))
+                    self.assertEqual(len(short), offset4)
+                    short_end = short[-1].data_offset + short[-1].real_size
+                    self.assertLess(short_end, len(raw))
+                    full = list(unpack_pak.walk_entries(str(pak), 0))
+                    self.assertEqual(len(full), count)
+                    self.assertEqual(
+                        full[-1].data_offset + full[-1].real_size, len(raw))
+                    self.assertEqual(full[0].entry_offset, 96)
+
+                    rc, text, err = _run_cli([str(pak), "--list"])
+                    self.assertEqual(rc, 0, err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"offset4: {offset4}", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertNotIn(f"declared: {offset4}", text)
+                    self.assertNotIn(
+                        f"list: parsed {offset4} of declared {offset4}", text)
+                    self.assertIn("entry 0 start=0x60 ", text)
+                    self.assertIn(f"entry {count - 1} ", text)
+                    self.assertEqual(
+                        sum(1 for line in text.splitlines()
+                            if line.startswith("entry ")),
+                        count)
+                    self.assertIn(
+                        f"list: parsed {count} of declared {count}", text)
+                    self.assertNotIn("Traceback", err)
+                    self.assertFalse((tdp / "out").exists())
+
+    def test_list_original96_offset4_zero(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "orig96-zero.pak")
+            _write_original_pak(pak, [
+                ("water.tif", b"pixels"),
+                ("tile.dds", b"tile-bytes"),
+                ("Map/zone.bin", b"zone"),
+            ])
+            raw = pak.read_bytes()
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 0)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 3)
+            rc, text, err = _run_cli([str(pak), "--list"])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("header: 96-byte", text)
+            self.assertIn("offset4: 0", text)
+            self.assertIn("declared: 3", text)
+            self.assertIn("parsed: 3", text)
+            self.assertIn("entry 0 start=0x60 ", text)
+            self.assertIn("name=water.tif", text)
+            self.assertEqual(
+                sum(1 for line in text.splitlines() if line.startswith("entry ")),
+                3)
+            self.assertNotIn("header: 92-byte", text)
+
+    def test_list_neither_layout_exits_nonzero(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            trailed = _src_pak(tdp, "trail92.pak")
+            _make_pak([
+                ("a.bin", b"aa"),
+                ("b.bin", b"bbb"),
+            ], trailed)
+            trailed.write_bytes(trailed.read_bytes() + b"\x01")
+            raw = trailed.read_bytes()
+            short = list(unpack_pak.walk_entries(str(trailed), 2))
+            self.assertEqual(len(short), 2)
+            self.assertLess(
+                short[-1].data_offset + short[-1].real_size, len(raw))
+            rc, text, err = _run_cli([str(trailed), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("remain", err)
+            _assert_list_names_pak(self, trailed, text, err)
+
+            counted = _src_pak(tdp, "count4.pak")
+            _make_pak([("only.bin", b"xyz")], counted, header_count=4)
+            rc, text, err = _run_cli([str(counted), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("parsed 0", err)
+            self.assertIn("declared 4", err)
+            self.assertIn("larger than the file allows", err)
+            _assert_list_names_pak(self, counted, text, err)
+
+            chopped = _src_pak(tdp, "chopped.pak")
+            _make_pak([
+                ("a.bin", b"Y" * 40),
+                ("b.bin", b"Z" * 40),
+            ], chopped)
+            chopped.write_bytes(chopped.read_bytes()[:-10])
+            rc, text, err = _run_cli([str(chopped), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("parsed 1", err)
+            self.assertIn("declared 2", err)
+            self.assertIn("EOF arrived early", err)
+            _assert_list_names_pak(self, chopped, text, err)
+
+            trailed96 = _src_pak(tdp, "trail96.pak")
+            _write_original_pak(
+                trailed96, [("water.tif", b"pixels")], trailer=b"\xAB")
+            rc, text, err = _run_cli([str(trailed96), "--list"])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("neither", err)
+            self.assertIn("remain", err)
+            _assert_list_names_pak(self, trailed96, text, err)
+
+    def test_list_both_layouts_ambiguous_exits_nonzero(self):
+        # Two minimum-looking layouts share one byte string.
+        # 96-byte: count 2 at offset 92, two entries of name_len 29 and
+        # real 0.  92-byte: count 2 at offset 4.  Its second entry starts
+        # 29 bytes into the second 96-byte entry, reads real=0 and
+        # name_len=0 out of the zero padding and the zero name, and the
+        # 33-byte minimum entry consumes the file exactly.
+        name = b"\x00" * 29
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = _src_pak(tdp, "ambiguous.pak")
+            _write_original_pak(
+                pak, [(name, b""), (name, b"")], offset4=2)
+            raw = pak.read_bytes()
+            self.assertEqual(len(raw), 220)
+            self.assertEqual(struct.unpack_from("<I", raw, 4)[0], 2)
+            self.assertEqual(struct.unpack_from("<I", raw, 92)[0], 2)
+            as_92 = list(unpack_pak.walk_entries(str(pak), 2))
+            self.assertEqual(len(as_92), 2)
+            self.assertEqual(
+                as_92[-1].data_offset + as_92[-1].real_size, len(raw))
+            as_96 = list(unpack_pak.walk_entries(str(pak), 0))
+            self.assertEqual(len(as_96), 2)
+            self.assertEqual(as_96[0].entry_offset, 96)
+            self.assertEqual(
+                as_96[-1].data_offset + as_96[-1].real_size, len(raw))
+
+            rc, text, err = _run_cli([str(pak), "--list", "--out", str(tdp / "out")])
+            self.assertEqual(rc, 1, text + err)
+            self.assertIn("ambiguous", err)
+            self.assertIn("parsed 2 of declared 2", err)
+            self.assertIn(str(len(raw)), err)
+            _assert_list_names_pak(self, pak, text, err)
+            self.assertFalse((tdp / "out").exists())
+
+
+class PakUnpackLayoutTests(unittest.TestCase):
+    """Unpack and --dry-run use the same detector as --list."""
+
+    def test_unpack_and_dry_run_original96_nonzero_offset4(self):
+        cases = ((99, 294), (181, 244), (63, 1547))
+        for offset4, count in cases:
+            with self.subTest(offset4=offset4, count=count):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak = _src_pak(tdp, f"unpack96-{offset4}.pak")
+                    _write_original_pak(
+                        pak,
+                        [(_DECOY_NAME, _DECOY_PAYLOAD)] * count,
+                        offset4=offset4,
+                    )
+                    kind, got4, declared, entries = unpack_pak.read_entries(str(pak))
+                    self.assertEqual(kind, "96-byte")
+                    self.assertEqual(got4, offset4)
+                    self.assertEqual(declared, count)
+                    self.assertEqual(len(entries), count)
+                    self.assertEqual(entries[0].entry_offset, 96)
+
+                    out = tdp / "out"
+                    rc, text, err = _run_cli(
+                        [str(pak), "--dry-run", "--out", str(out)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"offset4: {offset4}", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertIn(f"dry-run: {count} entries", text)
+                    self.assertNotIn(f"declared: {offset4}", text)
+                    self.assertFalse(out.exists(), text + err)
+
+                    rc, text, err = _run_cli([str(pak), "--out", str(out)])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"wrote {count} entries", text)
+                    bins = sorted(p.name for p in out.iterdir())
+                    payload_len = len(_DECOY_PAYLOAD)
+                    self.assertEqual(len(bins), count)
+                    self.assertEqual(bins[0], f"00000_{payload_len}.bin")
+                    self.assertEqual(
+                        bins[-1], f"{count - 1:05d}_{payload_len}.bin")
+                    self.assertEqual((out / bins[0]).read_bytes(), _DECOY_PAYLOAD)
+                    self.assertEqual((out / bins[-1]).read_bytes(), _DECOY_PAYLOAD)
+
+                    named = tdp / "named"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--dry-run", "--out", str(named),
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertIn("header: 96-byte", text)
+                    self.assertIn(f"declared: {count}", text)
+                    self.assertIn(f"parsed: {count}", text)
+                    self.assertIn("dry-run", text)
+                    self.assertFalse(named.exists(), text + err)
+
+    def test_unpack_and_dry_run_neither_and_both_extract_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            neither = _src_pak(tdp, "neither-unpack.pak")
+            _make_pak([("a.bin", b"aa"), ("b.bin", b"bbb")], neither)
+            neither.write_bytes(neither.read_bytes() + b"\x01")
+            both = _src_pak(tdp, "both-unpack.pak")
+            name = b"\x00" * 29
+            _write_original_pak(both, [(name, b""), (name, b"")], offset4=2)
+
+            modes = ([], ["--dry-run"], ["--named"], ["--named", "--dry-run"])
+            for pak, needle in ((neither, "neither"), (both, "ambiguous")):
+                for extra in modes:
+                    with self.subTest(pak=pak.name, extra=tuple(extra)):
+                        _text, err = _assert_cli_extracts_nothing(self, pak, extra)
+                        self.assertIn(needle, err)
+
+
+class NameFilterTests(unittest.TestCase):
+    """--filter writes only matching entries for both pak layouts.
+
+    Patterns are case-insensitive regexes on the canonical path and on
+    the basename.  ``^10\\.stm$`` matches ``Map\\\\10.STM`` and does not
+    match ``110.stm``.  No original game bytes.
+    """
+
+    _ENTRIES = [
+        ("Map\\10.STM", b"stm-10"),
+        ("water.tif", b"water"),
+        ("Map\\10.VCL", b"vcl-10"),
+        ("11.stm", b"stm-11"),
+        ("110.stm", b"stm-110"),
+    ]
+
+    def _pak(self, root: Path, layout: str) -> tuple[Path, int]:
+        pak = _src_pak(root, f"{layout}.pak")
+        entries = list(self._ENTRIES)
+        if layout == "96":
+            entries.append(("水面.tif", b"surface"))
+            _write_original_pak(pak, entries)
+        else:
+            _make_pak(entries, pak)
+        return pak, len(entries)
+
+    def test_predicate_is_case_insensitive_basename_and_keeps_path_regex(self):
+        entry = unpack_pak.PakEntry(
+            index=0, name="Map\\10.STM", real_size=1,
+            data_offset=0, entry_offset=0)
+        accept = unpack_pak.make_filter([r"^10\.stm$", r"^10\.vcl$"])
+        self.assertTrue(accept(entry))
+        for name in ("11.stm", "110.stm", "water.tif", "Map\\110.stm"):
+            other = unpack_pak.PakEntry(
+                index=1, name=name, real_size=1,
+                data_offset=0, entry_offset=0)
+            self.assertFalse(accept(other), name)
+        self.assertTrue(unpack_pak.make_filter(r"^Map/")(entry))
+        character = unpack_pak.PakEntry(
+            index=2, name="Character\\man.chx", real_size=1,
+            data_offset=0, entry_offset=0)
+        self.assertFalse(unpack_pak.make_filter(r"^Map/")(character))
+        self.assertTrue(unpack_pak.make_filter(None)(entry))
+        self.assertTrue(unpack_pak.make_filter([])(entry))
+
+    def test_both_layouts_write_only_filtered_entries(self):
+        for layout, kind in (("92", "92-byte"), ("96", "96-byte")):
+            with self.subTest(layout=layout):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    pak, count = self._pak(tdp, layout)
+                    got_kind, _offset4, declared, entries = unpack_pak.read_entries(
+                        str(pak))
+                    self.assertEqual(got_kind, kind)
+                    self.assertEqual(declared, count)
+                    self.assertEqual(len(entries), count)
+                    self.assertIn("water.tif", [e.name for e in entries])
+
+                    named = tdp / "named"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--manifest", "--out", str(named),
+                        "--filter", r"^10\.stm$",
+                        "--filter", r"^10\.vcl$",
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(err, "")
+                    self.assertEqual(_tree(named), [
+                        "Map",
+                        "Map/10.STM",
+                        "Map/10.VCL",
+                        "manifest.json",
+                    ])
+                    self.assertEqual((named / "Map" / "10.STM").read_bytes(), b"stm-10")
+                    self.assertEqual((named / "Map" / "10.VCL").read_bytes(), b"vcl-10")
+                    manifest = json.loads(
+                        (named / "manifest.json").read_text(encoding="utf-8"))
+                    self.assertEqual(
+                        [item["name"] for item in manifest["entries"]],
+                        ["Map/10.STM", "Map/10.VCL"])
+                    self.assertEqual(manifest["stats"]["written"], 2)
+                    self.assertEqual(manifest["stats"]["skipped_filter"], count - 2)
+                    self.assertNotIn("water.tif", _tree(named))
+                    self.assertNotIn("11.stm", _tree(named))
+                    self.assertNotIn("110.stm", _tree(named))
+                    self.assertNotIn("水面.tif", _tree(named))
+
+                    legacy = tdp / "legacy"
+                    rc, text, err = _run_cli([
+                        str(pak), "--out", str(legacy),
+                        "--filter", r"^10\.stm$",
+                        "--filter", r"^10\.vcl$",
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    self.assertEqual(
+                        sorted(p.name for p in legacy.iterdir()),
+                        ["00000_6.bin", "00002_6.bin"])
+                    self.assertEqual((legacy / "00000_6.bin").read_bytes(), b"stm-10")
+                    self.assertEqual((legacy / "00002_6.bin").read_bytes(), b"vcl-10")
+
+                    untouched = tdp / "all"
+                    rc, text, err = _run_cli([
+                        str(pak), "--named", "--out", str(untouched),
+                    ])
+                    self.assertEqual(rc, 0, text + err)
+                    files = {p.name for p in untouched.rglob("*") if p.is_file()}
+                    self.assertEqual(files, {
+                        "10.STM", "water.tif", "10.VCL", "11.stm", "110.stm",
+                        *({"水面.tif"} if layout == "96" else set()),
+                    })
+
+    def test_filter_miss_writes_nothing_and_exits_nonzero(self):
+        for layout in ("92", "96"):
+            for extra in ([], ["--named", "--manifest"]):
+                with self.subTest(layout=layout, extra=tuple(extra)):
+                    with tempfile.TemporaryDirectory() as td:
+                        tdp = Path(td)
+                        pak, _count = self._pak(tdp, layout)
+                        out = tdp / "none"
+                        before = _tree(pak.parent)
+                        rc, text, err = _run_cli([
+                            str(pak), "--out", str(out),
+                            "--filter", r"^missing\.bin$",
+                            *extra,
+                        ])
+                        self.assertEqual(rc, 2, text + err)
+                        self.assertIn("matched no entries", err)
+                        self.assertIn(str(pak), err)
+                        self.assertIn("Nothing was written", err)
+                        self.assertFalse(out.exists(), _tree(tdp))
+                        self.assertEqual(_tree(pak.parent), before)
+                        self.assertNotIn("Traceback", err)
+
+    def test_list_still_prints_every_entry_when_filter_is_set(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak, count = self._pak(tdp, "96")
+            rc, text, err = _run_cli([
+                str(pak), "--list", "--filter", r"^10\.stm$",
+            ])
+            self.assertEqual(rc, 0, text + err)
+            self.assertIn("name=water.tif", text)
+            self.assertIn("10.STM", text)
+            self.assertIn(f"parsed: {count}", text)
+            self.assertFalse((tdp / "out").exists())
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

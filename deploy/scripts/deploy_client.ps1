@@ -5,13 +5,90 @@
 # ============================================================================
 
 param(
-    [string]$SourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\cworking",
-    [string]$DeployDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\deploy\client",
-    [string]$ResourceDir = "d:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码配套资源】\PlayDH",
-    [string]$ServerIP = "127.0.0.1"
+    [string]$SourceDir = "",
+    [string]$DeployDir = "",
+    [string]$ResourceDir = "",
+    [string]$ServerIP = "127.0.0.1",
+    [ValidateSet('playdh-current', 'sworking-2008-reference')]
+    [string]$ResourceProfileId = 'playdh-current',
+    [switch]$Help,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+if ($Help) {
+    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-DryRun]'
+    Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，-DryRun 只校验资源，不创建或修改任何文件。'
+    exit 0
+}
+$repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
+$profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
+$profileProperty = $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]
+if ($null -eq $profileProperty) { throw "Unknown resource profile: $ResourceProfileId" }
+$profile = $profileProperty.Value
+if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+    $SourceDir = Join-Path $repoRoot 'modern\build\tools\MoxianClient'
+}
+if ([string]::IsNullOrWhiteSpace($DeployDir)) {
+    $DeployDir = Join-Path $repoRoot 'deploy\client'
+}
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
+}
+$ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+$hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
+if (-not (Test-Path -LiteralPath $hashManifestPath -PathType Leaf)) {
+    throw "Profile hash manifest missing: $hashManifestPath"
+}
+$hashManifest = Get-Content -LiteralPath $hashManifestPath -Raw | ConvertFrom-Json
+if ([string]$hashManifest.profileId -ne $ResourceProfileId) {
+    throw "Profile hash manifest mismatch: expected $ResourceProfileId"
+}
+if ([int64]$hashManifest.fileCount -ne [int64]$profile.inventory.fileCount -or
+    [int64]$hashManifest.byteCount -ne [int64]$profile.inventory.byteCount) {
+    throw "Profile inventory does not match its hash manifest"
+}
+$expected = @{}
+foreach ($entry in @($hashManifest.files)) {
+    $relative = ([string]$entry.path).Replace('/', '\')
+    if ([string]::IsNullOrWhiteSpace($relative) -or [IO.Path]::IsPathRooted($relative) -or $relative.Split('\') -contains '..') {
+        throw "Unsafe profile manifest path: $relative"
+    }
+    $key = $relative.Replace('\', '/').ToLowerInvariant()
+    if ($expected.ContainsKey($key)) { throw "Duplicate profile manifest path: $relative" }
+    $expected[$key] = [pscustomobject]@{ bytes = [int64]$entry.bytes; sha256 = ([string]$entry.sha256).ToLowerInvariant() }
+}
+$actualFiles = @(Get-ChildItem -LiteralPath $ResourceDir -File -Recurse)
+if ($actualFiles.Count -ne [int64]$hashManifest.fileCount) { throw "Profile file count mismatch: expected $($hashManifest.fileCount), found $($actualFiles.Count)" }
+$actualBytes = [int64](($actualFiles | Measure-Object -Property Length -Sum).Sum)
+if ($actualBytes -ne [int64]$hashManifest.byteCount) { throw "Profile byte count mismatch: expected $($hashManifest.byteCount), found $actualBytes" }
+foreach ($file in $actualFiles) {
+    $relative = $file.FullName.Substring($ResourceDir.Length + 1).Replace('\', '/')
+    $key = $relative.ToLowerInvariant()
+    if (-not $expected.ContainsKey($key)) { throw "Unregistered profile resource: $relative" }
+    $entry = $expected[$key]
+    if ([int64]$file.Length -ne $entry.bytes) { throw "Profile size mismatch: $relative" }
+    if ((Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant() -ne $entry.sha256) { throw "Profile hash mismatch: $relative" }
+    $expected.Remove($key)
+}
+if ($expected.Count -ne 0) { throw "Profile manifest contains missing files: $($expected.Keys -join ', ')" }
+foreach ($entry in @($profile.required)) {
+    $requiredPath = Join-Path $ResourceDir ([string]$entry.path)
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Profile resource missing: $requiredPath"
+    }
+    $actualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $requiredPath).Hash.ToLowerInvariant()
+    if ($actualHash -ne ([string]$entry.sha256).ToLowerInvariant()) {
+        throw "Profile resource hash mismatch: $requiredPath"
+    }
+}
+if ($DryRun) {
+    Write-Host "Dry-run passed: profile '$ResourceProfileId' is complete and hash-verified."
+    Write-Host "No deployment files were created or modified."
+    exit 0
+}
+$profileDataRoot = Join-Path $DeployDir 'data\PlayDH'
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "  墨香Reborn - 客户端部署脚本" -ForegroundColor Cyan
@@ -31,7 +108,8 @@ $dirs = @(
     "$DeployDir\Sound",
     "$DeployDir\Data",
     "$DeployDir\Ini",
-    "$DeployDir\Log"
+    "$DeployDir\Log",
+    $profileDataRoot
 )
 
 foreach ($dir in $dirs) {
@@ -43,10 +121,10 @@ Write-Host "  目录结构创建完成" -ForegroundColor Green
 
 # 复制客户端可执行文件
 Write-Host "[2/5] 复制客户端可执行文件..." -ForegroundColor Yellow
-$clientExe = Join-Path $SourceDir "MHClient-Connect.exe"
+$clientExe = Join-Path $SourceDir "mxh_client.exe"
 if (Test-Path $clientExe) {
-    Copy-Item -Path $clientExe -Destination "$DeployDir\MoxianReborn.exe" -Force
-    Write-Host "  复制: MHClient-Connect.exe -> MoxianReborn.exe" -ForegroundColor Gray
+    Copy-Item -Path $clientExe -Destination "$DeployDir\MoxianClient.exe" -Force
+    Write-Host "  复制: mxh_client.exe -> MoxianClient.exe" -ForegroundColor Gray
 } else {
     Write-Host "  [错误] 未找到客户端可执行文件" -ForegroundColor Red
     exit 1
@@ -78,6 +156,17 @@ foreach ($res in $resourceDirs) {
     }
 }
 
+# The launcher and client use the profile root as one atomic tree.  Keep the
+# legacy top-level copies above for tools that still expect them, but always
+# stage the complete verified profile under data\PlayDH so no resource class
+# is silently omitted from a clean deployment.
+Write-Host "  复制完整资源 profile: $ResourceProfileId" -ForegroundColor Gray
+Get-ChildItem -LiteralPath $ResourceDir -Force | Copy-Item -Destination $profileDataRoot -Recurse -Force
+
+# 保留运行时 profile 清单，供启动器/客户端做一致性诊断
+Copy-Item -LiteralPath $profileManifestPath -Destination (Join-Path $DeployDir 'resource-profiles.json') -Force
+Write-Host "  复制: resource-profiles.json ($ResourceProfileId)" -ForegroundColor Gray
+
 # 生成客户端配置文件
 Write-Host "[4/5] 生成客户端配置文件..." -ForegroundColor Yellow
 
@@ -88,7 +177,7 @@ Write-Host "  生成: MHVerInfo.ver" -ForegroundColor Gray
 
 # MHVerInfo.bin - 服务器列表（二进制格式，这里用文本模拟）
 $serverList = @"
-[MoxianReborn]
+[MoxianClient]
 IP=$ServerIP
 Port=9000
 "@
@@ -169,7 +258,7 @@ if errorlevel 1 (
 )
 
 :: 启动游戏
-start "" "%~dp0MoxianReborn.exe"
+    start "" "%~dp0MoxianClient.exe"
 
 echo 游戏已启动
 echo.
@@ -186,7 +275,7 @@ Write-Host ""
 Write-Host "部署目录: $DeployDir" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "文件结构：" -ForegroundColor Yellow
-Write-Host "  MoxianReborn.exe    - 游戏主程序" -ForegroundColor White
+Write-Host "  MoxianClient.exe    - 游戏主程序" -ForegroundColor White
 Write-Host "  启动游戏.bat        - 游戏启动器" -ForegroundColor White
 Write-Host "  MHVerInfo.ver       - 版本信息" -ForegroundColor White
 Write-Host "  Resource\           - 游戏资源" -ForegroundColor White
@@ -199,4 +288,4 @@ Write-Host "服务器地址: $ServerIP:9000" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "下一步：" -ForegroundColor Yellow
 Write-Host "  1. 确保服务器已启动" -ForegroundColor White
-Write-Host "  2. 双击 启动游戏.bat 或运行 MoxianReborn.exe" -ForegroundColor White
+Write-Host "  2. 双击 启动游戏.bat 或运行 MoxianClient.exe" -ForegroundColor White

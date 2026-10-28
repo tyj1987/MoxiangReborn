@@ -1,0 +1,187 @@
+# scripts/capture-state-frames.ps1
+#
+# Phase 3 of human-acceptance: launch mxh_client.exe against the running
+# modern server, drive it through the state machine, and capture TGA frames
+# for each state. Mirrors gui-client-smoke.ps1 but:
+#   - exits on first state frame OR after --TimeoutSeconds, whichever first
+#   - writes frames to a caller-supplied -FramesDir
+#   - does NOT enforce release-gate markers; verification is a separate step
+#
+# Usage (typical human-acceptance run):
+#   pwsh -File scripts\capture-state-frames.ps1 `
+#        -AccountName ha_user01 -Password 'Test1234' `
+#        -FramesDir modern\scratch\2026-08-31-acceptance\frames `
+#        -MapNumber 10 -TimeoutSeconds 60
+#
+# Requires: server already running (start_modern.ps1 -Mode start) AND
+#           the account already registered (register-test-account.ps1).
+
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$AccountName,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Password,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FramesDir,
+
+    [int]$MapNumber = 10,
+
+    [int]$LoginPort = 16001,
+
+    [int]$MapPort = 18001,
+
+    # Human/PVE acceptance must use the running VM112 services.  Local
+    # SQLite smoke remains available through gui-client-smoke.ps1.
+    [string]$LoginHost = '192.168.2.244',
+
+    [int]$Width = 800,
+
+    [int]$Height = 600,
+
+    [int]$TimeoutSeconds = 60,
+
+    [switch]$FollowCamera,
+
+    # Opt out of MXH_GUI_SMOKE_RENDER_ENTITIES. This script always sets
+    # MXH_GUI_SMOKE_EXIT=1, so -NoEntities leaves monsters, NPCs and the
+    # player out of the Map frame.
+    [switch]$NoEntities,
+
+    [string]$CharacterName = '',
+
+    [string]$CharacterNamePrefix = 'HA',
+
+    [string]$ClientExe = ''
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+
+if ($LoginHost -ieq 'localhost' -or $LoginHost -ieq 'localhost.localdomain') {
+    throw 'Remote state-frame acceptance refuses loopback; use gui-client-smoke.ps1 for local SQLite smoke.'
+}
+$parsedAddress = $null
+if ([System.Net.IPAddress]::TryParse($LoginHost, [ref]$parsedAddress) -and
+    ([System.Net.IPAddress]::IsLoopback($parsedAddress) -or
+     $parsedAddress.Equals([System.Net.IPAddress]::Any) -or
+     $parsedAddress.Equals([System.Net.IPAddress]::IPv6Any))) {
+    throw 'Remote state-frame acceptance refuses loopback or wildcard login hosts.'
+}
+
+if ([string]::IsNullOrWhiteSpace($ClientExe)) {
+    $ClientExe = Join-Path $repoRoot 'modern\build\tools\MoxianClient\mxh_client.exe'
+}
+if (-not (Test-Path -LiteralPath $ClientExe -PathType Leaf)) {
+    throw "Missing mxh_client.exe: $ClientExe  (rebuild: scripts\build-modern.bat Debug mxh_client)"
+}
+
+if (-not (Test-Path -LiteralPath $FramesDir)) {
+    New-Item -ItemType Directory -Force -Path $FramesDir | Out-Null
+}
+# The client runs with its own binary directory as the working directory.  A
+# relative frames path would therefore be created below the client checkout,
+# while this harness later validates the caller's relative path.  Resolve it
+# once so capture, validation and the evidence manifest use the same location.
+$FramesDir = [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $FramesDir).Path)
+
+if ([string]::IsNullOrWhiteSpace($CharacterName)) {
+    $CharacterName = $CharacterNamePrefix + '_' + (Get-Date -Format 'MMdd_HHmmss')
+}
+
+# Stash any prior env so we can restore in finally.
+$prevPassword = $env:MXH_GUI_SMOKE_PASSWORD
+$prevExit      = $env:MXH_GUI_SMOKE_EXIT
+$prevFramesDir = $env:MXH_STATE_FRAMES_DIR
+$prevRenderEntities = $env:MXH_GUI_SMOKE_RENDER_ENTITIES
+
+# The client reads the password from the env var named by --password-env.
+$env:MXH_GUI_SMOKE_PASSWORD = $Password
+$env:MXH_GUI_SMOKE_EXIT = '1'
+$env:MXH_STATE_FRAMES_DIR = $FramesDir
+# EXIT=1 skips the entity list unless RENDER_ENTITIES=1. Default on so
+# Map frames are not empty of monsters, NPCs and the player.
+if ($NoEntities) {
+    Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue
+} else {
+    $env:MXH_GUI_SMOKE_RENDER_ENTITIES = '1'
+}
+$entitiesEnabled = -not $NoEntities
+if ($NoEntities) {
+    Write-Warning "Entity rendering disabled (-NoEntities). Map screenshots omit monsters, NPCs and the player."
+}
+$captureMeta = [ordered]@{
+    in_game_map = $true
+    map_number = $MapNumber
+    frame = "map$MapNumber.tga"
+    entities_enabled = [bool]$entitiesEnabled
+    entities_opt_out_requested = [bool]$NoEntities
+    mxh_gui_smoke_exit = '1'
+    mxh_gui_smoke_render_entities = $(if ($entitiesEnabled) { '1' } else { '' })
+}
+$captureMeta | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $FramesDir 'capture-metadata.json') -Encoding utf8
+Write-Host "entities_enabled=$entitiesEnabled"
+
+$clientOutLog = Join-Path $FramesDir 'client.out.log'
+$clientErrLog = Join-Path $FramesDir 'client.err.log'
+$terrainFrame = Join-Path $FramesDir ("map${MapNumber}.tga")
+
+$arguments = @(
+    '--login-host', $LoginHost,
+    '--login-port', "$LoginPort",
+    '--map-port', "$MapPort",
+    '--username', $AccountName,
+    '--password-env', 'MXH_GUI_SMOKE_PASSWORD',
+    '--auto-login',
+    '--auto-create',
+    '--character-name', $CharacterName,
+    '--save-frame', $terrainFrame,
+    '--state-frames-dir', $FramesDir,
+    '--smoke-settle-frames', '20',
+    '--exit-after-gamein',
+    '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH'),
+    '--width', "$Width",
+    '--height', "$Height"
+)
+if ($FollowCamera) {
+    $arguments += '--follow-camera'
+}
+
+$client = $null
+try {
+    $client = Start-Process -FilePath $ClientExe -ArgumentList $arguments `
+        -RedirectStandardOutput $clientOutLog `
+        -RedirectStandardError $clientErrLog `
+        -PassThru `
+        -WorkingDirectory (Split-Path -Parent $ClientExe)
+
+    if (-not $client.WaitForExit($TimeoutSeconds * 1000)) {
+        Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
+        throw "Client did not reach GameIn within ${TimeoutSeconds}s.  err=$clientErrLog"
+    }
+    $client.WaitForExit()
+    $client.Refresh()
+    $exitCode = $client.ExitCode
+
+    $frames = @(Get-ChildItem -LiteralPath $FramesDir -Filter 'state-*.tga' -ErrorAction SilentlyContinue)
+    $terrainOk = Test-Path -LiteralPath $terrainFrame
+
+    if (($null -ne $exitCode -and $exitCode -ne 0) -or $frames.Count -eq 0 -or -not $terrainOk) {
+        $summary = "exit=$exitCode state_frames=$($frames.Count) terrain_frame=$terrainOk"
+        throw "Capture incomplete: $summary  err=$clientErrLog"
+    }
+
+    $frameNames = ($frames | ForEach-Object { $_.Name }) -join ','
+    Write-Host "capture OK: $frameNames | map${MapNumber}.tga" -ForegroundColor Green
+}
+finally {
+    if ($null -eq $prevPassword) { Remove-Item Env:MXH_GUI_SMOKE_PASSWORD -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_PASSWORD = $prevPassword }
+    if ($null -eq $prevExit)      { Remove-Item Env:MXH_GUI_SMOKE_EXIT      -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_EXIT      = $prevExit }
+    if ($null -eq $prevFramesDir) { Remove-Item Env:MXH_STATE_FRAMES_DIR    -ErrorAction SilentlyContinue } else { $env:MXH_STATE_FRAMES_DIR    = $prevFramesDir }
+    if ($null -eq $prevRenderEntities) { Remove-Item Env:MXH_GUI_SMOKE_RENDER_ENTITIES -ErrorAction SilentlyContinue } else { $env:MXH_GUI_SMOKE_RENDER_ENTITIES = $prevRenderEntities }
+    if ($client -and -not $client.HasExited) {
+        Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
+    }
+}

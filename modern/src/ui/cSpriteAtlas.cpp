@@ -98,8 +98,10 @@ bool cSpriteAtlas::Init(const std::filesystem::path& path_root) {
         m_entries.push_back(e);
     }
 
-    if (total >= 0 && static_cast<int>(m_entries.size()) != total) {
-        MLOG_WARN("[cSpriteAtlas] header said %d entries, parsed %zu", total, m_entries.size());
+    if (total < 1 || static_cast<int>(m_entries.size()) != total) {
+        MLOG_ERROR("[cSpriteAtlas] incomplete image list: header=%d parsed=%zu",
+                   total, m_entries.size());
+        return false;
     }
     m_loaded = true;
     MLOG_INFO("[cSpriteAtlas] Init done: %zu entries loaded from %s",

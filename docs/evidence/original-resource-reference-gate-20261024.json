@@ -1,0 +1,32 @@
+{
+  "schema": "moxiang.original-resource-reference-gate.v1",
+  "capturedAt": "2026-10-24",
+  "sourceHead": "b5a0b91d75e946be81e30ae39b56b974dcf3b504",
+  "branch": "codex/reorg-original-20261009",
+  "command": "ctest --test-dir modern/build/gameplay-client-isolated -R ^(MxhResourceReference\\.|MxhResourceByteLevel\\.|Map10InGameSmoke\\.|MoxianLoginSbsE2E\\.) --output-on-failure -j1",
+  "summary": {
+    "testsDiscovered": 23,
+    "passed": 21,
+    "failed": 0,
+    "skipped": 2,
+    "exitCode": 0
+  },
+  "skipped": [
+    {
+      "test": "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+      "reason": "requires the complete runtime fixture for the Release smoke path"
+    },
+    {
+      "test": "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+      "reason": "recovered runtime server archive is not present in this isolated checkout"
+    }
+  ],
+  "log": {
+    "path": "modern/out/runs/original-resource-reference-gate-20261024.log",
+    "sha256": "1f2ea97c1edcc8f3e11e7ba0707de78fd95e3ae898d4bbad4dacc917fb3e3cbe"
+  },
+  "limitations": [
+    "The PR #1 resource audit confirms no exact missing HFL, TTB, Map17 texture, or Monster_203 source was present in the candidate tree.",
+    "This local gate does not close PVE MSSQL, full GUI, exact missing resources, or commercial release acceptance."
+  ]
+}\n

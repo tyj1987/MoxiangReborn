@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-full-ctest-current-head",
+  "capturedAt": "2026-10-24",
+  "sourceHead": "41b4022be5813e0ddf5f329d25e185f9aaa5b97f",
+  "previousTestHead": "f694685e63fe064c4f1ab0bfadec96207050901f",
+  "sourceComparison": {
+    "cxxSourceHeadersTestsAndBuildConfigurationChanged": false,
+    "changesBetweenTestCommits": [
+      "docs/PLAYABLE_STATUS.md",
+      "docs/evidence/original-resource-coverage-20261024.json"
+    ]
+  },
+  "toolchain": {
+    "compiler": "MSVC 19.44.35228.0",
+    "compilerToolset": "14.44.35207",
+    "hostArchitecture": "x64",
+    "targetArchitecture": "x86",
+    "languageStandard": "C++20",
+    "configuration": "Debug",
+    "developerEnvironment": "Visual Studio 2022 Developer PowerShell 17.14.35"
+  },
+  "build": {
+    "command": "cmake --build modern/out/ctest-current-20261015 --config Debug --parallel 8",
+    "exitCode": 0,
+    "completedTargets": 325
+  },
+  "ctest": {
+    "command": "ctest --test-dir modern/out/ctest-current-20261015 --output-on-failure -j 8",
+    "exitCode": 0,
+    "total": 12579,
+    "passed": 12565,
+    "failed": 0,
+    "skipped": 14,
+    "totalTimeSeconds": 87.46,
+    "log": {
+      "path": "modern/out/ctest-current-20261015/Testing/Temporary/LastTest.log",
+      "sha256": "973500CD201A9D69909021BAB9CD4FC13275057646B11A9EFE59851DB6DDC23F",
+      "scope": "local ignored build output"
+    },
+    "skippedTests": [
+      "MhFileExUtf8.LegacyEucKrTitanServerBinDecodesToEucKr",
+      "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+      "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+      "MxhResourcePayloadSha256.VerifyManifest_Deploy",
+      "MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds",
+      "MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip",
+      "MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip",
+      "MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState",
+      "DropItemLoaderTest.ParsesReadOnlySworkingReference",
+      "AiGroupLoader.LoadsRealMonster10Bin",
+      "AiGroupLoader.LoadsRealEmptyMonster12Bin",
+      "AISystemGroupLoader.ReplacesStateTransactionally",
+      "HselMapFixture.HselEncryptedGameInRoundTrip",
+      "PlayerMonsterPoint.LoadsRecoveredRuntimeBinary"
+    ]
+  },
+  "interpretation": "The complete rebuilt original-line CTest suite passes on the current source commit. Explicit skips remain database, protected resource, or runtime acceptance gates; this does not prove PVE MSSQL, full GUI gameplay, exact missing-resource recovery, or commercial release readiness."
+}

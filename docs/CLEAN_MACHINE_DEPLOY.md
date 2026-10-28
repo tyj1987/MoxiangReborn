@@ -1,12 +1,13 @@
 ﻿# Clean-Machine Deployment
 
-> Status: 2026-08-18. ROADMAP M6-A GREEN. 1.0 release-readiness gate.
+> Status: executable deployment runbook. It is not evidence that the current
+> client is RC-ready; use `docs/VERIFICATION_MATRIX.md` for the current gates.
 
 ## Purpose
 
 `scripts/clean-deploy.ps1` takes a blank Windows box (Windows Server 2022 or
 Windows 10/11) with only PowerShell and Git installed, and bootstraps it into a
-fully built + smoke-verified modern server in one command.
+configured modern build environment and disposable server run in one command.
 
 This is the §5.E "clean machine deployment" gate from ROADMAP.
 
@@ -16,11 +17,10 @@ This is the §5.E "clean machine deployment" gate from ROADMAP.
 PS> powershell -ExecutionPolicy Bypass -File C:\moxiang\scripts\clean-deploy.ps1 -InstallPrereqs
 ```
 
-After ~15 minutes (depending on VS Build Tools download size), the machine will have:
-- Modern stack built into `C:\moxiang\modern\build\`
-- 11,922 / 11,922 unit tests passing (M3/M4 + M5 portal)
-- PlayDH junction pointing at `墨香【源码配套资源】\PlayDH`
-- commercial-smoke verified (Login/Agent/Map + GUI client + BGM + portal)
+The resulting machine can configure and build the repository using its own
+checkout-relative paths. Test, resource-profile, GUI and clean-machine results
+must be recorded separately with commit and evidence identifiers; this runbook
+does not manufacture or imply those results.
 
 ## Steps Performed
 
@@ -133,4 +133,3 @@ Verifying:
 
 If `PORTAL_JWT_SECRET` is unset, the portal exits with code 6 — see
 `docs/PORTAL_DEPLOY.md` for the secret bootstrap procedure.
-

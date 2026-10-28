@@ -13,6 +13,7 @@
 // borrowed sprite — matching the modern port's design).
 #include "cWindow.hpp"
 #include "cImage.hpp"
+#include <cstdio>
 
 namespace mxh::ui {
 
@@ -62,12 +63,10 @@ void cWindow::SetWH(std::int32_t w, std::int32_t h) noexcept {
 void cWindow::Add(std::unique_ptr<cWindow> child) {
     if (!child) return;
     child->setParent(this);
-    // Convert the child's absolute coords to be relative to *this* if the
-    // caller has been using SetAbsXY; the legacy engine's default behavior
-    // is "parent's abs + child's rel" = child's abs. We preserve the
-    // child's absX/absY verbatim and just record the parent link — the
-    // rendering layer is responsible for combining absX + parent.absX
-    // when computing screen positions in 6.1.2.
+    // Exact legacy cDialog::Add contract: InterfaceScript child #POINT is
+    // relative to its parent, while hit testing/rendering consume absolute
+    // coordinates. Compose the parent origin exactly once when attaching.
+    child->SetAbsXY(m_absX + child->relX(), m_absY + child->relY());
     m_children.push_back(std::move(child));
 }
 
@@ -125,11 +124,18 @@ void cWindow::Render() {
         // legacy API and the modern framework.  See Phase 6.0 notes on
         // cWindow.hpp for the contract.
         auto* img = static_cast<cImage*>(m_basicImage);
-        img->render(m_absX, m_absY,
-                    static_cast<std::int32_t>(m_w),
-                    static_cast<std::int32_t>(m_h),
-                    0xFFFFFFFFu,
-                    /*zOrder=*/0);
+        // In the original cWindow::Render, the window bounds are for input
+        // and layout; cImage::RenderSprite draws its source rectangle at its
+        // natural size (times the image scale).  Stretching the sprite to
+        // the window bounds turns 15.bin's 14x42 main-bar end cap into a
+        // 602x42 striped panel.
+        const auto& source = img->srcImageRect();
+        const auto image_width = source.isEmpty()
+            ? static_cast<std::int32_t>(m_w) : source.right - source.left;
+        const auto image_height = source.isEmpty()
+            ? static_cast<std::int32_t>(m_h) : source.bottom - source.top;
+        img->render(m_absX, m_absY, image_width, image_height,
+                    0xFFFFFFFFu, /*zOrder=*/0);
     }
 
     // Recurse into children.  The legacy engine drew children in the

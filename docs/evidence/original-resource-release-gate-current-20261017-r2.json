@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-17",
+  "sourceHead": "cc83b66a49de1710292ad32a2616f983d7ca3cd6",
+  "originalRepo": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "originalExactResources": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 0
+  },
+  "resolvedThisRun": {
+    "map203MissingTextures": {
+      "count": 161,
+      "receipt": "docs/evidence/original-map203-texture-admission-20261017.json",
+      "provenance": "reference/manifests/original-map203-textures.provenance.json"
+    }
+  },
+  "releaseReady": false,
+  "remainingResourceBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9
+  },
+  "blockers": [
+    {
+      "code": "original-exact-resource",
+      "detail": "HFL 22; TTB 18; Map17 used textures 9"
+    },
+    {
+      "code": "original-commercial-acceptance",
+      "detail": "GUI, full map visual/audio, MSSQL fault recovery and long-stability remain open"
+    }
+  ]
+}

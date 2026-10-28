@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-vm112-dual-line-service-db-smoke",
+  "capturedAt": "2026-10-17",
+  "vmId": 112,
+  "guest": "MOXIANG-SERVER / 192.168.2.244",
+  "qga": "qm guest exec/status succeeded",
+  "original": {
+    "ports": [
+      16001,
+      17001,
+      18001
+    ],
+    "processes": [
+      "mxh_login_server.exe",
+      "mxh_agent_server_CHINA.exe",
+      "mxh_map_server_CHINA.exe"
+    ],
+    "launchContract": "--backend mssql_odbc --db-env MXH_DATABASE_CONFIG",
+    "databaseReadOnlySmoke": {
+      "result": "passed",
+      "database": "MoxiangOriginalTest_20261009",
+      "tableCount": 21,
+      "query": "SELECT DB_NAME(), (SELECT COUNT(*) FROM sys.tables)",
+      "credentials": "not recorded"
+    }
+  },
+  "unity": {
+    "ports": [
+      26101,
+      27101,
+      28101
+    ],
+    "processes": [
+      "mxh_login_server.exe",
+      "mxh_agent_server_CHINA.exe",
+      "mxh_map_server_CHINA.exe"
+    ],
+    "launchContract": "--backend mssql_odbc --db-env MXH_UNITY_DATABASE_CONFIG --use-hsel",
+    "database": "MoxiangUnityTest_20261009 (CT930)",
+    "databaseReadOnlySmoke": {
+      "result": "not-run-in-this-shell",
+      "reason": "MXH_UNITY_DATABASE_CONFIG is process-scoped and is not exported to the QGA shell",
+      "existingEvidence": "Unity PVE gameplay and persistence receipts in docs/evidence/unity-pve-current-player-*.json"
+    }
+  },
+  "portProbe": {
+    "allSixPortsListening": true,
+    "sqlPort1433FromVm112": true,
+    "sqlPort1434FromVm112": false
+  },
+  "result": "dual-line-services-live; original-db-read-only-handshake-passed; unity-db-process-scoped",
+  "releaseReady": false,
+  "note": "This is infrastructure evidence only. It does not replace GUI, full gameplay, human acceptance, or exact resource gates."
+}

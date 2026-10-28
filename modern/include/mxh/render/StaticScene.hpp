@@ -20,9 +20,43 @@ public:
                             I4DyuchiFileStorage* storage,
                             const char* stm_name,
                             std::string* error = nullptr);
+    // Preferred: bake STM vertices/collision with the terrain's centre
+    // (TerrainScene::mapCenter()). Map 10 / 21 = 25.0, Map 12 = 25.6.
+    [[nodiscard]] bool load(I4DyuchiGXRenderer* renderer,
+                            I4DyuchiFileStorage* storage,
+                            const char* stm_name,
+                            float map_center_x, float map_center_z,
+                            std::string* error = nullptr);
     void render();
     [[nodiscard]] std::uint32_t meshCount() const noexcept;
     [[nodiscard]] std::uint32_t loadedTextureCount() const noexcept;
+    [[nodiscard]] std::uint32_t unresolvedTextureCount() const noexcept;
+    // Legacy <map>.vcl vertex-colour state of the last load():
+    // true when the .vcl existed but its size did not match the STM
+    // vertex total (colours were NOT applied; release smoke must fail).
+    [[nodiscard]] bool vertexColorMismatch() const noexcept;
+    // True when the original-look path was active but <map>.vcl was absent
+    // (drawn white; release smoke must fail).
+    [[nodiscard]] bool vertexColorMissing() const noexcept;
+    // True when STM meshes were built with the original .vcl vertex-colour
+    // path (default). False with MXH_STM_LIGHTING=fixed (non-original).
+    [[nodiscard]] bool vertexColorPathEnabled() const noexcept;
+    // Conservative XZ collision query over loaded STM mesh bounds.  It is
+    // intentionally separate from rendering so movement can fail closed when
+    // a map has no static geometry.
+    [[nodiscard]] bool blocksPoint(float world_x, float world_z,
+                                   float radius = 0.0f) const noexcept;
+    // Push the (X, Z) half-extent in scaled world units that the terrain mesh
+    // builder subtracts from each vertex, so the STM mesh re-centres by the
+    // same offset. Must be called after every successful `TerrainScene::load()`
+    // because the centre is map-specific. The legacy constant `25.6f` was
+    // only correct for maps whose half-width * kSceneScale == 25.6 (Map 12
+    // d.width = 51 200); Map 10 (d.width = 50 000) and Map 21 (d.width =
+    // 50 000) drifted by 0.6 units until this setter existed.
+    // NOTE: vertices are baked at load(); calling this after a successful
+    // load with a different centre is ignored (and logged). Use the
+    // load(..., map_center_x, map_center_z) overload instead.
+    void setMapCenter(float world_x, float world_z) noexcept;
 
 private:
     struct Impl;

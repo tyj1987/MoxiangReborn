@@ -13,12 +13,18 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <span>
+#include <thread>
+
+#include "mxh/proto/protocol.hpp"
 
 using mxh::client::CharacterSlot;
 using mxh::client::legacy_character_list_syn_payload;
 using mxh::client::legacy_character_select_syn_payload;
+using mxh::client::legacy_character_remove_syn_payload;
+using mxh::client::legacy_character_disconnect_syn_message;
 using mxh::client::parse_legacy_character_list_ack;
 using mxh::client::parse_legacy_character_select_ack;
 
@@ -26,6 +32,11 @@ using mxh::client::parse_legacy_character_select_ack;
 // legacy_character_list_syn_payload — 1:1 with agent_handler.cpp:526-538
 //   [user_id: u32 LE] [dist_auth_key: u32 LE] = 8 bytes
 // -------------------------------------------------------------------------
+
+TEST(CharSelectState, AutoSelectDisabledByDefault) {
+    mxh::client::CCharSelectState state;
+    EXPECT_FALSE(state.auto_select_for_test());
+}
 
 TEST(CharSelectWire, ListSynPayloadShape) {
     const auto pl = legacy_character_list_syn_payload(0x01020304u, 0xDEADBEEFu);
@@ -66,6 +77,25 @@ TEST(CharSelectWire, SelectSynPayloadNonzeroChannel) {
     EXPECT_EQ(pl[1], 0x01u);
 }
 
+TEST(CharSelectWire, RemoveSynPayloadIsLegacyMsgDword) {
+    const auto pl = legacy_character_remove_syn_payload(0x78563412u);
+    ASSERT_EQ(pl.size(), 4u);
+    EXPECT_EQ(pl[0], 0x12u);
+    EXPECT_EQ(pl[1], 0x34u);
+    EXPECT_EQ(pl[2], 0x56u);
+    EXPECT_EQ(pl[3], 0x78u);
+}
+
+TEST(CharSelectWire, DisconnectSynIsEmptyLegacyMessage) {
+    const auto message = legacy_character_disconnect_syn_message();
+    EXPECT_EQ(message.header.category, static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn));
+    EXPECT_EQ(message.header.protocol, static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn));
+    EXPECT_EQ(message.header.object_id, 0u);
+    EXPECT_TRUE(message.payload.empty());
+}
+
 // -------------------------------------------------------------------------
 // parse_legacy_character_list_ack — 1:1 with agent_handler.cpp lines
 // 593-684 (no _CRYPTCHECK_ in CHINA locale, kMaxCharSlots=5).
@@ -96,16 +126,85 @@ TEST(CharSelectWire, ListAckSingleChar) {
     buf[0] = 0x01u; buf[1] = 0x00u; buf[2] = 0x00u; buf[3] = 0x00u;
     // BaseObjectInfo[0].chrid = 42 LE (offset 14 + 0 = 14).
     buf[14] = 0x2Au; buf[15] = 0x00u; buf[16] = 0x00u; buf[17] = 0x00u;
+    constexpr char kName[] = "InkHero";
+    std::memcpy(buf.data() + 22, kName, sizeof(kName));
 
     auto list = parse_legacy_character_list_ack(
         std::span<const std::uint8_t>(buf.data(), buf.size()));
     ASSERT_TRUE(list.has_value());
     EXPECT_TRUE((*list)[0].valid);
     EXPECT_EQ((*list)[0].chrid, 42u);
+    EXPECT_EQ((*list)[0].name, "InkHero");
     for (std::size_t i = 1; i < 5; ++i) {
         EXPECT_FALSE((*list)[i].valid);
         EXPECT_EQ((*list)[i].chrid, 0u);
     }
+}
+
+TEST(CharSelectWire, ListAckCarriesAppearanceAndMapData) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1;
+    buf[14] = 0x2A;
+    buf[189 + 16] = 1; // female
+    buf[189 + 17] = 3; // face
+    buf[189 + 18] = 4; // hair
+    buf[189 + 19] = 0x34; buf[189 + 20] = 0x12;
+    buf[189 + 40] = 12; // level
+    buf[189 + 42] = 10; // map
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_EQ((*list)[0].gender, 1);
+    EXPECT_EQ((*list)[0].face_type, 3);
+    EXPECT_EQ((*list)[0].hair_type, 4);
+    EXPECT_EQ((*list)[0].weared_item_idx[0], 0x1234);
+    EXPECT_EQ((*list)[0].level, 12);
+    EXPECT_EQ((*list)[0].map_num, 10);
+}
+
+TEST(CharSelectWire, CharacterPreviewUsesServerAppearance) {
+    mxh::client::CharacterSlot slot;
+    slot.valid = true;
+    slot.chrid = 99;
+    slot.gender = 1;
+    slot.face_type = 2;
+    slot.hair_type = 4;
+    slot.weared_item_idx[3] = 777;
+    const auto preview = mxh::client::make_character_preview(slot, 1.0f, 2.0f, 3.0f);
+    ASSERT_TRUE(preview.has_value());
+    EXPECT_EQ(preview->object_id, 99u);
+    EXPECT_EQ(preview->gender, 1);
+    EXPECT_EQ(preview->face_type, 2);
+    EXPECT_EQ(preview->hair_type, 4);
+    EXPECT_EQ(preview->weared_item_idx[3], 777);
+    EXPECT_FLOAT_EQ(preview->world_x, 1.0f);
+    EXPECT_FALSE(mxh::client::make_character_preview({}));
+}
+
+TEST(CharSelectWire, CharacterPreviewRejectsMalformedAppearance) {
+    mxh::client::CharacterSlot slot;
+    slot.valid = true;
+    slot.chrid = 100;
+    slot.gender = 2;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+    slot.gender = 0;
+    slot.face_type = 5;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+    slot.face_type = 0;
+    slot.hair_type = 5;
+    EXPECT_FALSE(mxh::client::make_character_preview(slot));
+}
+
+TEST(CharSelectWire, ListAckNameUsesAllSeventeenBytesWithoutTerminator) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1;
+    buf[14] = 1;
+    constexpr char kName[] = "12345678901234567";
+    static_assert(sizeof(kName) - 1 == 17);
+    std::memcpy(buf.data() + 22, kName, 17);
+
+    auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_EQ((*list)[0].name, kName);
 }
 
 TEST(CharSelectWire, ListAckThreeChars) {
@@ -131,6 +230,29 @@ TEST(CharSelectWire, ListAckThreeChars) {
     EXPECT_TRUE((*list)[2].valid);  EXPECT_EQ((*list)[2].chrid, 300u);
     EXPECT_FALSE((*list)[3].valid);
     EXPECT_FALSE((*list)[4].valid);
+}
+
+TEST(CharSelectWire, ListAckHonorsAdvertisedCharacterCount) {
+    std::array<std::uint8_t, 889> buf{};
+    buf[0] = 1; // only slot zero is occupied according to the legacy header
+    const std::uint32_t second_id = 99;
+    std::memcpy(buf.data() + 14 + 35, &second_id, sizeof(second_id));
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    ASSERT_EQ(list->size(), 5u);
+    EXPECT_FALSE((*list)[1].valid);
+    EXPECT_EQ((*list)[1].chrid, 0u);
+}
+
+TEST(CharSelectWire, ListAckRejectsNegativeAdvertisedCount) {
+    std::array<std::uint8_t, 889> buf{};
+    const std::int32_t invalid_count = -1;
+    const std::uint32_t stale_id = 77;
+    std::memcpy(buf.data(), &invalid_count, sizeof(invalid_count));
+    std::memcpy(buf.data() + 14, &stale_id, sizeof(stale_id));
+    const auto list = parse_legacy_character_list_ack(buf);
+    ASSERT_TRUE(list.has_value());
+    EXPECT_FALSE((*list)[0].valid);
 }
 
 TEST(CharSelectWire, ListAckTooShort) {
@@ -175,6 +297,17 @@ TEST(CharSelectWire, SelectAckEmptyPayload) {
     EXPECT_FALSE(map.has_value());
 }
 
+TEST(CharSelectSelection, RequiresLiveListedCharacter) {
+    std::array<mxh::client::CharacterSlot, 2> slots{};
+    slots[0].valid = true;
+    slots[0].chrid = 42;
+    slots[1].valid = false;
+    slots[1].chrid = 99;
+    EXPECT_TRUE(mxh::client::is_listed_character(slots, 42));
+    EXPECT_FALSE(mxh::client::is_listed_character(slots, 99));
+    EXPECT_FALSE(mxh::client::is_listed_character(slots, 0));
+}
+
 // -------------------------------------------------------------------------
 // CCharSelectState default state — no Start, no list, no selection.
 // -------------------------------------------------------------------------
@@ -182,7 +315,212 @@ TEST(CharSelectWire, SelectAckEmptyPayload) {
 TEST(CCharSelectStateDefaults, AllFieldsZero) {
     mxh::client::CCharSelectState s;
     EXPECT_FALSE(s.is_connected());
+    EXPECT_FALSE(s.is_failed());
+    EXPECT_TRUE(s.failure_reason().empty());
     EXPECT_EQ(s.selected_chrid(), 0u);
     EXPECT_EQ(s.selected_map(),  0u);
     EXPECT_TRUE(s.character_list().empty());
+    EXPECT_FALSE(s.logout_pending());
+    EXPECT_FALSE(s.RequestLogout());
+}
+
+TEST(CCharSelectState, CharacterListNackExposesRecoverableFailure) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListNack);
+    state.on_message({}, message);
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_EQ(state.failure_reason(), "CharacterListNack received");
+}
+
+TEST(CharSelectUiCommand, ResolvesLegacyIdsAndFunctions) {
+    using Kind = mxh::client::CharSelectUiCommandKind;
+    mxh::client::ClientUiActivation activation;
+    activation.legacy_id = "MT_THIRDCHOSEBTN";
+    auto command = mxh::client::resolve_char_select_ui_command(activation);
+    EXPECT_EQ(command.kind, Kind::SelectSlot);
+    EXPECT_EQ(command.slot_index, 2u);
+
+    activation = {};
+    activation.legacy_func = "CS_BtnFuncCreateChar";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Create);
+    activation.legacy_func = "CS_BtnFuncDeleteChar";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Delete);
+    activation.legacy_func = "CS_BtnFuncLogOut";
+    EXPECT_EQ(mxh::client::resolve_char_select_ui_command(activation).kind,
+              Kind::Logout);
+}
+
+TEST(CCharSelectState, CharacterListDoesNotPreselectWithoutTestFlag) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    message.payload.resize(889);
+    message.payload[0] = 1;
+    message.payload[14] = 42;
+    state.on_message({}, message);
+    ASSERT_TRUE(state.has_character_list());
+    EXPECT_EQ(state.selected_chrid(), 0u);
+    ASSERT_TRUE(state.SelectSlot(0));
+    EXPECT_EQ(state.selected_chrid(), 42u);
+}
+
+TEST(CCharSelectState, CharacterRemoveAckClearsSelectedSlot) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.on_message({}, list);
+    ASSERT_TRUE(state.SelectSlot(0));
+
+    mxh::net::Message ack;
+    ack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    ack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveAck);
+    state.on_message({}, ack);
+
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_FALSE(state.character_list()[0].valid);
+    EXPECT_EQ(state.selected_chrid(), 0u);
+    EXPECT_FALSE(state.deletion_pending());
+}
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.3 删除确认与取消 — test hook for the dispatch path.
+//
+// The legacy CCharSelectState.CharacterRemoveAckClearsSelectedSlot test
+// above drives on_message() directly, but the dispatch path also
+// needs the new SetDispatchForTest gate so a future MoxianClientE2E
+// harness can opt into the same dispatch mode the other states
+// (CInGameState, CLoginState, CCharMake) use.  This test locks:
+//   * hook defaults to OFF (no silent dispatch)
+//   * handle_message_for_test is a no-op when hook is OFF
+//   * handle_message_for_test when ON goes through the same on_message
+//     path (and is therefore no different from calling on_message
+//     directly in a state where m_started is false).
+// -------------------------------------------------------------------------
+
+TEST(CCharSelectDispatch, HandleMessageForTestIsNoopWhenDispatchDisabled) {
+    mxh::client::CCharSelectState state;
+    // Send a CharacterListAck with 1 character; the on_message path
+    // would normally populate character_list() but the hook is OFF.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(false);
+    state.HandleMessageForTest(list);
+    EXPECT_TRUE(state.character_list().empty());
+}
+
+TEST(CCharSelectDispatch, HandleMessageForTestPopulatesListWhenEnabled) {
+    mxh::client::CCharSelectState state;
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(true);
+    state.HandleMessageForTest(list);
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_TRUE(state.character_list()[0].valid);
+    EXPECT_EQ(state.character_list()[0].chrid, 42u);
+}
+
+TEST(CCharSelectRemove, CharacterRemoveNackClearsPendingState) {
+    // §7.3 删除确认与取消: if the server rejects the delete (e.g.
+    // character is in a battle / being renamed / currently logged in),
+    // it sends CharacterRemoveNack with a u32 reason.  The state must
+    // clear deletion_pending() so the host can re-enable the delete
+    // button and the user is not stuck in a phantom-pending state.
+    mxh::client::CCharSelectState state;
+    // Drive a successful list + selection + remove syn so deletion_pending()
+    // becomes true without needing a real connection.  We directly
+    // manipulate the private member via the test hook equivalent: set
+    // the remove-sent flag and the selected chrid through the public
+    // SelectSlot, then drive the Nack.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.SetDispatchForTest(true);
+    state.HandleMessageForTest(list);
+    ASSERT_TRUE(state.SelectSlot(0));
+
+    // Drive CharacterRemoveNack with reason=0 (generic failure).
+    mxh::net::Message nack;
+    nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    nack.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveNack);
+    nack.payload.assign(4, 0);
+    state.HandleMessageForTest(nack);
+
+    // Selected chrid should not be cleared (the character still exists).
+    EXPECT_EQ(state.selected_chrid(), 42u);
+    // The slot must still be valid (delete was rejected).
+    ASSERT_EQ(state.character_list().size(), 5u);
+    EXPECT_TRUE(state.character_list()[0].valid);
+    EXPECT_FALSE(state.deletion_pending());
+}
+
+// Phase 1 §7.3: when the AgentServer stops responding to
+// CharacterListSyn, the application-level deadline must fire and
+// surface a fail_with() instead of hanging the user at the
+// character-select screen.  Mirrors the CLoginState login-timeout
+// pattern (commit fa74305e).
+TEST(CharSelectAckTimeout, ListAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CCharSelectState state;
+    state.SetAckTimeoutForTest(std::chrono::milliseconds(50));
+    state.ArmListAckDeadlineForTest();
+    EXPECT_FALSE(state.is_failed());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    state.Process();
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << state.failure_reason();
+}
+
+// Phase 1 §7.3: same pattern for the CharacterSelectAck round-trip
+// (after the user picks a slot).  The state must surface a recoverable
+// failure within the budget so the user can retry from the
+// character-select screen rather than the client hanging.
+TEST(CharSelectAckTimeout, SelectAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CCharSelectState state;
+    state.SetDispatchForTest(true);
+    // First feed a real ListAck so the state has a valid slot to pick.
+    mxh::net::Message list;
+    list.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    list.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterListAck);
+    list.payload.resize(889);
+    list.payload[0] = 1;
+    list.payload[14] = 42;
+    state.HandleMessageForTest(list);
+    ASSERT_TRUE(state.SelectSlot(0));
+    // Arm the SelectAck deadline AFTER the select was sent.
+    state.SetAckTimeoutForTest(std::chrono::milliseconds(50));
+    state.ArmSelectAckDeadlineForTest();
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    state.Process();
+    EXPECT_TRUE(state.is_failed());
+    EXPECT_NE(state.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << state.failure_reason();
 }

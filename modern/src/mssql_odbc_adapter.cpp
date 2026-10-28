@@ -71,7 +71,10 @@ std::string build_conn_string(const ConnectionConfig& cfg,
                     auth +
                     "Encrypt=" + std::string(cfg.encrypt ? "Yes" : "No") + ";" +
                     "TrustServerCertificate=" +
-                    std::string(cfg.trust_server_certificate ? "Yes" : "No") + ";";
+                    std::string(cfg.trust_server_certificate ? "Yes" : "No") + ";" +
+                    (cfg.hostname_in_certificate.empty()
+                         ? std::string{}
+                         : "HostnameInCertificate=" + cfg.hostname_in_certificate + ";");
     return s;
 }
 

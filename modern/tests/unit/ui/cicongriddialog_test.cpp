@@ -5,6 +5,7 @@
 // separately by the 6.6 cImage seam follow-up.
 
 #include "cIconGridDialog.hpp"
+#include "cIcon.hpp"
 
 #include <gtest/gtest.h>
 
@@ -42,6 +43,33 @@ TEST(CIconGridDialog, InitAllocatesEmptyGrid) {
         EXPECT_EQ(d.GetIconForIdx(i), nullptr);
         EXPECT_TRUE(d.IsAddable(i));
     }
+}
+
+TEST(CIconGridDialog, EnsureGridDimensionsReallocatesRuntimeGrid) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(10, 20, 216, 171, nullptr, 1, 1, 42);
+    d.setLegacyId("IN_TABDLG1");
+    d.EnsureGridDimensions(5, 4);
+    EXPECT_EQ(d.GetCellNum(), 20u);
+    EXPECT_EQ(d.col(), 5u);
+    EXPECT_EQ(d.row(), 4u);
+    EXPECT_EQ(d.id(), 42);
+    EXPECT_EQ(d.legacyId(), "IN_TABDLG1");
+    EXPECT_TRUE(d.IsAddable(19));
+}
+
+TEST(CIconGridDialog, ClearIconsDetachesAllCells) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 2, 1);
+    auto* first = MakeIcon(reinterpret_cast<void*>(0xA1));
+    auto* second = MakeIcon(reinterpret_cast<void*>(0xA2));
+    ASSERT_TRUE(d.AddIcon(0, first));
+    ASSERT_TRUE(d.AddIcon(1, second));
+    d.ClearIcons();
+    EXPECT_EQ(d.GetIconForIdx(0), nullptr);
+    EXPECT_EQ(d.GetIconForIdx(1), nullptr);
+    EXPECT_TRUE(d.IsAddable(0));
+    EXPECT_TRUE(d.IsAddable(1));
 }
 
 TEST(CIconGridDialog, InitGridComputesCellRect) {
@@ -200,6 +228,26 @@ TEST(CIconGridDialog, GetPositionForXYRefLinearises) {
     EXPECT_FALSE(d.GetPositionForXYRef(500, 500, pos));
 }
 
+TEST(CIconGridDialog, GetCellPositionUsesHalfOpenCellRectangles) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 2, 2);
+    d.InitGrid(0, 0, 40, 40, 0, 0);
+
+    std::uint16_t x = 99;
+    std::uint16_t y = 99;
+    EXPECT_TRUE(d.GetCellPosition(0, 0, x, y));
+    EXPECT_EQ(x, 0u);
+    EXPECT_EQ(y, 0u);
+    EXPECT_TRUE(d.GetCellPosition(40, 0, x, y));
+    EXPECT_EQ(x, 1u); // shared edge belongs to the next column
+    EXPECT_EQ(y, 0u);
+    EXPECT_TRUE(d.GetCellPosition(0, 40, x, y));
+    EXPECT_EQ(x, 0u);
+    EXPECT_EQ(y, 1u); // shared edge belongs to the next row
+    EXPECT_FALSE(d.GetCellPosition(80, 0, x, y)); // outer right edge
+    EXPECT_FALSE(d.GetCellPosition(0, 80, x, y)); // outer bottom edge
+}
+
 TEST(CIconGridDialog, GetCellAbsPos) {
     mxh::ui::cIconGridDialog d;
     d.Init(50, 100, 200, 200, nullptr, 4, 3);
@@ -239,6 +287,18 @@ TEST(CIconGridDialog, SelectionSetterGetter) {
     EXPECT_EQ(d.GetCurSelCellPos(), 5);
     d.SetCurSelCellPos(-1);
     EXPECT_EQ(d.GetCurSelCellPos(), -1);
+}
+
+TEST(CIconGridDialog, ActionEventSelectsCellAndReportsClick) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 200, 200, nullptr, 4, 3);
+    d.InitGrid(0, 0, 40, 40, 4, 4);
+    EXPECT_EQ(d.ActionEvent(20, 20, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonDown));
+    EXPECT_EQ(d.GetCurSelCellPos(), 0);
+    EXPECT_EQ(d.ActionEvent(20, 20, 0),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonClick));
+    EXPECT_EQ(d.GetCurSelCellPos(), 0);
 }
 
 TEST(CIconGridDialog, ShowGridFlag) {
@@ -289,13 +349,14 @@ TEST(CIconGridDialog, RenderIsNoop) {
 }
 
 TEST(CIconGridDialog, SetAbsXYMovesDialog) {
-    // 1:1 with legacy SetAbsXY. Modern cIcon is opaque, so the icon
-    // cascade is a no-op stub. The dialog's own abs position
-    // updates and PtInCell re-anchors to the new position.
+    // 1:1 with legacy SetAbsXY. The concrete icon follows the dialog while
+    // PtInCell re-anchors to the new position.
     mxh::ui::cIconGridDialog d;
     d.Init(0, 0, 200, 200, nullptr, 4, 3);
     d.InitGrid(0, 0, 40, 40, 4, 4);
-    ASSERT_TRUE(d.AddIcon(0, MakeIcon(reinterpret_cast<void*>(0x11))));
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
     d.SetAbsXY(100, 200);
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
@@ -303,4 +364,33 @@ TEST(CIconGridDialog, SetAbsXYMovesDialog) {
     // PtInCell uses cellWid-based hit range.
     EXPECT_TRUE(d.PtInCell(120, 220));
     EXPECT_FALSE(d.PtInCell(20, 30));
+}
+
+TEST(CIconGridDialog, SetAbsXYMovesDependentIconBySameDelta) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1, 1);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 115);
+    EXPECT_EQ(icon.absY(), 225);
+}
+
+TEST(CIconGridDialog, ActiveAndDisableStateCascadesToIcons) {
+    mxh::ui::cIconGridDialog d;
+    d.Init(0, 0, 100, 100, nullptr, 1, 1);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetActive(false);
+    EXPECT_FALSE(icon.isActive());
+    d.SetActive(true);
+    EXPECT_TRUE(icon.isActive());
+    d.SetDisable(true);
+    EXPECT_FALSE(icon.isEnabled());
+    d.SetDisable(false);
+    EXPECT_TRUE(icon.isEnabled());
 }

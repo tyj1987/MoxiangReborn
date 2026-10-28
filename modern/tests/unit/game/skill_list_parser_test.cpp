@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -29,6 +30,7 @@
 #include <system_error>
 #include <typeinfo>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 using mxh::game::SkillInfo;
 using mxh::game::SkillListParseResult;
@@ -45,8 +47,16 @@ namespace {
 // name; the conversion would otherwise throw system_error(1113,
 // "No mapping for the Unicode character exists in the target
 // multi-byte code page") on the test fixture's first access.
-const std::filesystem::path kRealSkillList =
-    LR"(C:\moxiang\墨香【源码】\SWorking\Resource\SkillList.bin)";
+const std::filesystem::path kRealSkillList = [] {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "SkillList.bin";
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth, root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" / "Resource" / "SkillList.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
+    }
+    return std::filesystem::path{};
+}();
 
 // MSVC's narrow-stream constructors run a MultiByteToWideChar on
 // the path's narrow form, which throws system_error(1113) for the
@@ -54,8 +64,12 @@ const std::filesystem::path kRealSkillList =
 // ASCII-only temp path once per process, then using a narrow
 // std::ifstream on the temp copy.  The temp file is reused across
 // tests; the OS reclaims it on process exit.
-const std::string kTempSkillList =
-    "C:/Users/User/AppData/Local/Temp/mxh_skill_list_test.bin";
+const std::filesystem::path kTempSkillList = [] {
+    // Keep the copied fixture ASCII-named while honoring the active user's
+    // temp directory; the source profile path may contain CJK characters.
+    return std::filesystem::temp_directory_path() /
+           "mxh_skill_list_test.bin";
+}();
 
 bool ensure_temp_skill_list() {
     if (std::filesystem::exists(kTempSkillList)
@@ -311,6 +325,12 @@ TEST(SkillListParser, LoadRealSkillListFirstEntry) {
             EXPECT_EQ(s.NeedNaeRyuk[i], 0u);
         }
         EXPECT_EQ(s.LinkSkillIdx, 10001u);
+        const auto parsed = load_skill_list(kTempSkillList.string());
+        ASSERT_FALSE(parsed.skills.empty());
+        ASSERT_FALSE(parsed.effect_refs.empty());
+        EXPECT_EQ(parsed.effect_refs.front().skill_id, 1u);
+        EXPECT_TRUE(parsed.effect_refs.front().effect_start.empty());
+        EXPECT_EQ(parsed.effect_refs.front().effect_use, "m_combo_gum01.beff");
     } catch (const std::system_error& e) {
         GTEST_FAIL() << "system_error code=" << e.code().value();
     } catch (const std::exception& e) {
@@ -330,7 +350,7 @@ TEST(SkillListParser, LoadRealSkillListManagerInit) {
     try {
         SkillManager mgr;
         std::uint32_t errs = 0;
-        mgr.init_from_bin(kTempSkillList, &errs);
+        mgr.init_from_bin(kTempSkillList.string(), &errs);
         EXPECT_EQ(errs, 0u);
         EXPECT_TRUE(mgr.exists(1u));
         EXPECT_TRUE(mgr.exists(2u));

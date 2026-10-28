@@ -2,6 +2,8 @@
 
 #include "mxh/ui/cButton.hpp"
 
+#include <algorithm>
+
 namespace mxh::ui {
 
 cGuageBar::cGuageBar() {
@@ -142,6 +144,34 @@ std::uint32_t cGuageBar::ActionEvent() noexcept {
     // consumer reading the parent class sees the latest rate.
     cGuagen::SetValue(GetCurRate());
     return 0;
+}
+
+std::uint32_t cGuageBar::ActionEvent(std::int32_t mouseX,
+                                     std::int32_t mouseY,
+                                     std::uint32_t mouseFlags) {
+    if (!isActive() || !isEnabled() || m_bLock) {
+        m_fBarDrag = false;
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool inside = PtInWindow(mouseX, mouseY);
+    if (!(mouseFlags & MouseFlagLButton)) {
+        m_fBarDrag = false;
+        return static_cast<std::uint32_t>(WindowEvent::MouseMove);
+    }
+    if (!inside && !m_fBarDrag) return static_cast<std::uint32_t>(WindowEvent::Null);
+    const float offset = m_fVertical
+        ? static_cast<float>(mouseY - absY() - m_startPos)
+        : static_cast<float>(mouseX - absX() - m_startPos);
+    const float rate = m_interval > 0
+        ? std::clamp(offset / static_cast<float>(m_interval), 0.0f, 1.0f)
+        : 0.0f;
+    m_fBarDrag = true;
+    SetCurRate(rate);
+    if (m_maxValue > m_minValue) {
+        m_curValue = m_minValue + static_cast<std::int32_t>(
+            (m_maxValue - m_minValue) * rate);
+    }
+    return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
 }
 
 void cGuageBar::Render() {

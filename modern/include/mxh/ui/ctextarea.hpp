@@ -74,6 +74,11 @@ public:
 
     void SetFocusEdit(bool val) noexcept;
     void SetFocus(bool val) noexcept            { SetFocusEdit(val); }
+    bool IsCaretVisible() const noexcept        { return m_bCaret; }
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
+    std::uint32_t ActionKeyboardEvent(std::int32_t key,
+                                      std::int32_t ch) override;
 
     // ----- 1:1 with legacy cTextArea::GetScriptText / SetScriptText -----
 
@@ -83,6 +88,7 @@ public:
     // available via GetScriptTextCString.
     void SetScriptText(const char* inText);
     const std::string& GetScriptText() const noexcept { return m_scriptText; }
+    std::size_t GetCaretPos() const noexcept { return m_caretPos; }
     void GetScriptTextCString(char* outText, int bufSize) const;
 
     // ----- 1:1 with legacy cTextArea::SetReadOnly -----
@@ -112,6 +118,9 @@ public:
     // 12.x + 6.13: full caret / IME render path is deferred).
     void SetCaretMoveFirst(bool val) noexcept     { m_bCaretMoveFirst = val; }
     bool IsCaretMoveFirst() const noexcept       { return m_bCaretMoveFirst; }
+    int GetTopLineIdx() const noexcept           { return m_nTopLineIdx; }
+    void OnUpwardItem() noexcept;
+    void OnDownwardItem() noexcept;
 
     // ----- 1:1 with legacy cTextArea::SetTextColor -----
 
@@ -127,12 +136,11 @@ public:
     // cDialog::Add).
     void Add(cWindow* window);
 
-    // ----- 1:1 with legacy cTextArea::Render (placeholder) -----
+    // ----- 1:1 with legacy cTextArea::Render -----
 
-    // 1:1 quirk: legacy cTextArea::Render draws the
-    // 3-row chrome + text + scrollbar. Modern port
-    // is a no-op (render path lands in Phase 6.13+).
-    void Render() override {}
+    // Draws optional chrome, visible text lines and the caret through the
+    // shared cImage/TextRender adapters.
+    void Render() override;
 
 private:
     // Legacy fields (data model only — actual scroll /
@@ -162,6 +170,7 @@ private:
     std::uint32_t  m_dwTextColor  = 0xFF000000;
 
     std::string    m_scriptText;
+    std::size_t    m_caretPos = 0;
 };
 
 }  // namespace mxh::ui

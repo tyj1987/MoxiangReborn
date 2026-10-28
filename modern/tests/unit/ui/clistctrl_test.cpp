@@ -2,6 +2,7 @@
 // Phase 6.5 unit tests for the modern mxh::ui::cListCtrl widget.
 #include <gtest/gtest.h>
 
+#include <string>
 #include <vector>
 
 #include "cListCtrl.hpp"
@@ -194,6 +195,32 @@ TEST(CListCtrl, ActionEventClickOutsideClearsSelection) {
     EXPECT_EQ(l.selectedRowIdx(), -1);
 }
 
+TEST(CListCtrl, ActionEventUsesTopItemOffsetForScrolledRows) {
+    cListCtrl l;
+    l.Init(10, 20, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    l.AddRow({{"a"}}); l.AddRow({{"b"}}); l.AddRow({{"c"}});
+    l.SetTopItemIdx(1);
+    l.ActionEvent(50, 50, cWindow::MouseFlagLButton);
+    EXPECT_EQ(l.overRowIdx(), 1);
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+}
+
+TEST(CListCtrl, ActionEventEmptyListDoesNotSelectPhantomRow) {
+    cListCtrl l;
+    l.Init(10, 20, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    l.SetSelectedRowIdx(-1);
+    int clickCount = 0;
+    l.SetClickFunc([&](cListCtrl&, std::int32_t, void*) { ++clickCount; });
+    l.ActionEvent(50, 50, cWindow::MouseFlagLButton);
+    EXPECT_EQ(l.selectedRowIdx(), -1);
+    EXPECT_EQ(clickCount, 0);
+    EXPECT_EQ(l.overRowIdx(), -1);
+}
+
 TEST(CListCtrl, SetSelectOptionSwitchesHighlightMode) {
     cListCtrl l;
     l.Init(0, 0, 200, 300, &g_basicImg);
@@ -221,6 +248,49 @@ TEST(CListCtrl, ActionEventDisabledReturnsNull) {
     l.SetDisable(true);
     EXPECT_EQ(l.ActionEvent(50, 50, cWindow::MouseFlagLButton),
               static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
+}
+
+TEST(CListCtrl, KeyboardNavigationSelectsAndScrollsRows) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    for (int i = 0; i < 6; ++i) l.AddRow({{std::to_string(i)}});
+    l.SetFocus(true);
+    EXPECT_EQ(l.ActionKeyboardEvent(40, 0),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::KeyDown));
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+    l.ActionKeyboardEvent(34, 0);
+    EXPECT_EQ(l.selectedRowIdx(), 3);
+    EXPECT_EQ(l.topItemIdx(), 2);
+    l.ActionKeyboardEvent(33, 0);
+    EXPECT_EQ(l.selectedRowIdx(), 1);
+}
+
+TEST(CListCtrl, MouseWheelScrollsAndClamps) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 300, &g_basicImg);
+    l.InitListCtrlImage(nullptr, 25, nullptr, 20, nullptr);
+    l.InitListCtrl(1, 2);
+    for (int i = 0; i < 5; ++i) l.AddRow({{std::to_string(i)}});
+    EXPECT_FALSE(l.OnMouseWheel(120));
+    EXPECT_TRUE(l.OnMouseWheel(-120));
+    EXPECT_EQ(l.topItemIdx(), 1);
+    for (int i = 0; i < 8; ++i) l.OnMouseWheel(-120);
+    EXPECT_EQ(l.topItemIdx(), 3);
+    EXPECT_FALSE(l.OnMouseWheel(-120));
+}
+
+TEST(CListCtrl, MouseWheelHonorsCoalescedDetents) {
+    cListCtrl l;
+    l.Init(0, 0, 200, 100, nullptr, 1);
+    l.InitListCtrl(1, 1);
+    for (int i = 0; i < 6; ++i) l.AddRow({{std::to_string(i)}});
+
+    EXPECT_TRUE(l.OnMouseWheel(-240));
+    EXPECT_EQ(l.topItemIdx(), 2);
+    EXPECT_TRUE(l.OnMouseWheel(240));
+    EXPECT_EQ(l.topItemIdx(), 0);
 }
 
 TEST(CListCtrl, SetColumnsCapsRowVectors) {

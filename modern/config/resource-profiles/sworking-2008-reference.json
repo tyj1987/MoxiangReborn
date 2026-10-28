@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "sworking-2008-reference",
+  "displayName": "Recovered SWorking 2008 reference",
+  "root": "reference/legacy-source/4dddd9a6/SWorking",
+  "serverRoot": "reference/legacy-source/4dddd9a6/SWorking/Resource/Server",
+  "runtimeAllowed": false,
+  "referenceOnly": true,
+  "encoding": "EUC-KR",
+  "source": "VHD recovery at 4dddd9a6f609f2c0d4c961ea0a159aff4fd449b9",
+  "hashManifest": "reference/manifests/sworking-2008-reference.sha256.json"
+}

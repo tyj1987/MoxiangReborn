@@ -22,6 +22,9 @@ Loose Python tools (audit/repack) live here directly.
 | `gen_protocol_doc.py` | Python | protocol doc fallback (used when C++ tool crashes) |
 | `repack_titan_bin.py` | Python | repack MHFile payload utility |
 | `audit_resource_coverage.py` | Python | PlayDH resource coverage audit |
+| `audit_map_dependencies.py` | Python | HFL used-texture to Map.pak dependency closure audit |
+| `resource_reference_gate.py` | Python | Original `.map`/`.stm`/`.hfl` reference check; warn-only until `MXH_RESOURCE_REF_STRICT=1` |
+| `MoxianResourceExplorer npc-chx` | C++ command | NpcChxList kind-to-CHX catalog inspection |
 
 ## Resource Coverage Audit
 
@@ -44,9 +47,46 @@ python modern/tools/audit_resource_coverage.py \
 ### Notes
 
 - The script auto-creates an ASCII-named junction for the PlayDH root
-  (under `modern/scratch/<date>-resource-coverage/playdh_link_for_audit`)
+  (under the ignored run-output directory `modern/out/runs/resource-coverage/`)
   because the explorer mangles non-ASCII path bytes in argv.
 - Large files (>50 MB) get a 120s timeout; default 30s.
 - Exit code is always 0; check the manifest for actual coverage.
 - Per-file status uses the explorer subcommands: `info` (`.bin`),
   `list` (`.pak`), `map` (`.bmhm`), `bsad` (`.bsad`).
+
+For a runtime map gate, audit the HFL texture closure without modifying the
+pack:
+
+```bash
+python modern/tools/audit_map_dependencies.py 10 modern/data/PlayDH \
+    --build-dir modern/build
+```
+
+The command exits non-zero and lists every missing converted DDS for a map
+whose HFL references assets absent from `Map.pak`. That rewrite from `.tga`
+to `.dds` is this audit's own behavior. It is not the original-reference gate.
+
+## Original resource reference gate
+
+`resource_reference_gate.py` extends the MxhResourceReference gate. It keeps
+the extension stored in the original file (Map17's used rows stay `.tga`).
+
+`derive` runs on ROG, the machine that has the original client files. It
+reads filenames from original `.map`, `.stm`, and referenced `.hfl` files,
+and writes only names to
+`reference/manifests/original-resource-references.json`. CI does not have
+those originals and must not invent `N.hfl` / `N.ttb` from map numbers.
+
+```bash
+python3 modern/tools/resource_reference_gate.py derive \
+    --source <original 3DData directory> \
+    --pak D:/MX/client/Package/3DData/Map.pak \
+    --output reference/manifests/original-resource-references.json
+```
+
+`check` runs in CI against that manifest. It exits 0 and prints warnings.
+The single switch that later makes a non-clean conclusion fail the process
+is `MXH_RESOURCE_REF_STRICT=1` (or `--strict`). A derivation that has not
+been run is `no conclusion`, never a pass. Height fields 0, 4, 23, 24, 32,
+33, 34, 94 and tile tables 0, 3, 4, 23, 24, 32, 33, 34, 94, 198 are not
+referenced and are not reported as missing.

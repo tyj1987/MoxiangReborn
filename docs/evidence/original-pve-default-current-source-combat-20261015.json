@@ -1,0 +1,66 @@
+{
+  "kind": "original-pve-default-current-source-combat",
+  "date": "2026-10-15",
+  "status": "passed_with_required_equipment_and_empty_quest_fixture",
+  "commit": "2c33c6adb895853fa676856f22f433f13031354a",
+  "stage": "C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "package_sha256": "972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5",
+  "resource_profile": "playdh-current",
+  "ports": {
+    "login": 16001,
+    "agent": 17001,
+    "map": 18001
+  },
+  "database": {
+    "host": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "fixture_player_id": 100017,
+    "fixture_character_id": 100017,
+    "fixture_equipment": [11000, 23000, 27000],
+    "fixture_level": 53,
+    "fixture_attributes": {
+      "gengol": 2000,
+      "minchub": 12,
+      "cheryuk": 2000,
+      "simmek": 12
+    },
+    "quest_rows_temporarily_removed": true,
+    "restored_after_test": true,
+    "restore_verification": {
+      "level": 1,
+      "map_num": 10,
+      "attributes": [12, 12, 12, 12],
+      "hp": 125,
+      "shield": 245,
+      "mp": 125,
+      "equipment_count": 0,
+      "item_count": 0,
+      "quest_log_count": 1,
+      "quest_sub_count": 8
+    }
+  },
+  "result": {
+    "login_charselect_gamein": "passed",
+    "map10_monsters": "228",
+    "combat_target": 50143,
+    "combat_life": "6150_to_0",
+    "combat_hit_effect": "passed",
+    "natural_drop_item": 8008,
+    "click_pickup": "passed",
+    "inventory_move": "passed_source_0_target_1",
+    "relog_persistence": "passed_item_8008",
+    "e2e_exit_code": 0
+  },
+  "success_log": {
+    "path": "docs/evidence/original-pve-default-current-source-combat-equipped-20261015.log",
+    "sha256": "66d334df07e0c370bccfcb9019c3f504dd318b34947e70290be3efb025885474",
+    "bytes": 303698
+  },
+  "negative_control": {
+    "status": "failed_as_expected_without_equipment",
+    "path": "docs/evidence/original-pve-default-current-source-combat-20261015.log",
+    "sha256": "00173b2112a786490637d590986a44e34648cd88a7ba9edc8af984383d6c1a38",
+    "bytes": 157948,
+    "observation": "Skill.StartSyn and visual broadcasts arrived, but no authoritative damage/life/drop event occurred."
+  }
+}

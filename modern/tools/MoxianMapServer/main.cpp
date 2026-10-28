@@ -19,22 +19,28 @@
 #include "mxh/server/server.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "mxh/server/ai_group_loader.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 
 #include <filesystem>
+#include <fstream>
 #include "mxh/db/db_adapter.hpp"
-#include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <iomanip>
+#include <sstream>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -43,24 +49,63 @@ struct Args {
     std::uint16_t map_num = 0;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path = "modern/build/runtime/moxian_map.db";
+    std::string   db_env;
+    std::string   bind_address = "0.0.0.0";
     std::string   resource_root;
+    std::string   server_resource_root;
+    std::string   resource_profile = "playdh-current";
     bool          use_legacy = true;  // always legacy for MapServer
     bool          use_hsel   = false;
     bool          dev_stub_caster = false;  // M3 side-by-side only
+    bool          allow_dev_fallbacks = false;
+    std::uint32_t dev_initial_money = 0;
 };
+
+std::uint16_t parse_u16_option(std::string_view token, const char* option,
+                               std::uint16_t minimum = 1) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffu || value < minimum) {
+        std::cerr << "invalid " << option << " (expected " << minimum
+                  << "..65535): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
+std::uint32_t parse_u32_option(std::string_view token, const char* option) {
+    unsigned long long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffffffull) {
+        std::cerr << "invalid " << option << " (expected 0..4294967295): "
+                  << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint32_t>(value);
+}
 
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_u16_option(argv[++i], "--port");
         else if (s == "--map" && i + 1 < argc)
-            a.map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.map_num = parse_u16_option(argv[++i], "--map", 0);
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--resource-root" && i + 1 < argc)
             a.resource_root = argv[++i];
+        else if (s == "--server-resource-root" && i + 1 < argc)
+            a.server_resource_root = argv[++i];
+        else if (s == "--resource-profile" && i + 1 < argc)
+            a.resource_profile = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
         else if (s == "--no-legacy")
@@ -69,15 +114,30 @@ Args parse_args(int argc, char** argv) {
             a.use_hsel = true;
         else if (s == "--dev-stub-caster")
             a.dev_stub_caster = true;  // M3 side-by-side only
+        else if (s == "--allow-dev-fallbacks")
+            a.allow_dev_fallbacks = true;
+        else if (s == "--dev-initial-money" && i + 1 < argc)
+            a.dev_initial_money = parse_u32_option(argv[++i], "--dev-initial-money");
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
                       << "  --map N       map number (default 0)\n"
                       << "  --db PATH     db path (SQLite file or MSSQL DSN/conn string)\n"
+                      << "  --db-env NAME read database path/DSN from an environment variable\n"
+                      << "  --bind-address IP  listen interface (default 0.0.0.0)\n"
                       << "  --resource-root DIR  PlayDH root (loads real SkillList/DealItem/QuestScript/AIGroup)\n"
+                      << "  --server-resource-root DIR  legacy Server resource directory\n"
+                      << "  --resource-profile ID  playdh-current or sworking-2008-reference\n"
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
+                      << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
+                      << "  --dev-initial-money N  test-only starting money fixture\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
+        }
+        else {
+            std::cerr << "unknown option: " << s << "\n"
+                      << "use --help for valid options\n";
+            std::exit(2);
         }
     }
     return a;
@@ -138,6 +198,16 @@ struct ReplyQueue {
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
 
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
+
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
@@ -147,7 +217,9 @@ int main(int argc, char** argv) {
               << "  locale   = " << locale_name() << "\n"
               << "  port     = " << args.port << "\n"
               << "  map      = " << args.map_num << "\n"
-              << "  db       = " << args.db_path << "\n"
+              << "  db.bk    = " << args.db_backend << "\n"
+              << "  db.source= " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind     = " << args.bind_address << "\n"
               << "  legacy   = " << (args.use_legacy ? "YES" : "no") << "\n";
 
     // 1. Connect to database.
@@ -166,11 +238,47 @@ int main(int argc, char** argv) {
     std::filesystem::path resource_base = args.resource_root.empty()
         ? std::filesystem::path("Resource")
         : (std::filesystem::path(args.resource_root) / "Resource");
-    std::filesystem::path ai_groups_path = resource_base / "Server" /
-        (std::string("Monster_") + std::to_string(args.map_num) + ".bin");
-    if (!mxh::server::AISystem::instance().load_ai_group_list(ai_groups_path)) {
+    const auto server_resource_base = args.server_resource_root.empty()
+        ? (resource_base / "Server")
+        : std::filesystem::path(args.server_resource_root);
+    // The legacy server formats ordinary map numbers with two digits
+    // (Monster_02.bin), while special maps use their full number
+    // (Monster_101.bin).  Keep this spelling exact so a real profile is
+    // never mistaken for a missing AIGroup resource.
+    std::ostringstream monster_name;
+    monster_name << "Monster_";
+    if (args.map_num < 100) monster_name << std::setw(2) << std::setfill('0');
+    monster_name << args.map_num << ".bin";
+    const std::filesystem::path ai_groups_path = server_resource_base / monster_name.str();
+    if (!mxh::server::AISystem::instance().load_ai_group_list(
+            ai_groups_path, args.resource_profile)) {
+        if (!args.allow_dev_fallbacks) {
+            std::ifstream resource_file(ai_groups_path, std::ios::binary | std::ios::ate);
+            bool opaque_server_profile = false;
+            if (resource_file) {
+                const auto size = resource_file.tellg();
+                if (size > 0) {
+                    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+                    resource_file.seekg(0);
+                    if (resource_file.read(reinterpret_cast<char*>(bytes.data()), size)) {
+                        opaque_server_profile =
+                            mxh::compat::is_size_prefixed_opaque_server_profile(bytes);
+                    }
+                }
+            }
+            if (opaque_server_profile) {
+                std::cerr << "FATAL: unsupported resource encoding "
+                          << "server-size-prefixed-opaque-v1 at "
+                          << ai_groups_path.string()
+                          << "; refusing positional MHFileEx decode\n";
+            } else {
+                std::cerr << "FATAL: missing or invalid AIGroup data at "
+                          << ai_groups_path.string() << "\n";
+            }
+            return 1;
+        }
         std::cerr << "[WARN] no AIGroup data at " << ai_groups_path.string()
-                  << "; using default spawn points\n";
+                  << "; development fallback explicitly enabled\n";
     } else {
         std::cout << "[main] AIGroup data loaded for map " << args.map_num
                   << " (groups="
@@ -182,41 +290,8 @@ int main(int argc, char** argv) {
 
     if (!cr) { std::cerr << "FATAL: db connect: " << cr.error_message << "\n"; return 1; }
 
-    // Phase 9.1: Ensure character_info table exists with all needed columns.
-    // Same schema as AgentServer - MapServer queries it for GameIn data.
-    // SQLite-only DDL: skip for non-SQLite backends (MSSQL schema is
-    // created out-of-band, e.g. deploy/database/mx_modern_schema_mssql.sql
-    // or mxh_client_e2e --backend mssql_odbc --init-schema).
-    if (db->backend_name() == "sqlite") {
-        static const char* kSchemaInit =
-            "CREATE TABLE IF NOT EXISTS character_info ("
-            "    charname     TEXT PRIMARY KEY,"
-            "    chrid        INTEGER NOT NULL UNIQUE,"
-            "    userid       TEXT NOT NULL,"
-            "    sex_type     INTEGER DEFAULT 0,"
-            "    hair_type    INTEGER DEFAULT 0,"
-            "    face_type    INTEGER DEFAULT 0,"
-            "    body_type    INTEGER DEFAULT 0,"
-            "    start_area   INTEGER DEFAULT 12,"
-            "    height       REAL DEFAULT 1.0,"
-            "    width        REAL DEFAULT 1.0,"
-            "    level        INTEGER DEFAULT 1,"
-            "    map_num      INTEGER DEFAULT 12,"
-            "    standing_idx INTEGER DEFAULT 0,"
-            "    character_data BLOB"
-            ");";
-        auto schema_result = db->execute(kSchemaInit);
-        if (!schema_result.ok()) {
-            std::cerr << "[main] schema init warning: "
-                      << schema_result.error_message << "\n";
-        }
-    } else {
-        std::cout << "[main] schema for backend '"
-                  << db->backend_name()
-                  << "' is managed out-of-band; skipping SQLite DDL\n";
-    }
-
-    // 2. Build reply queue + handler + server.
+    // 2. Build reply queue + handler + server. Schema migrations are a
+    // deployment precondition and are never performed by service processes.
     auto queue = std::make_shared<ReplyQueue>();
 
     mxh::net::TcpServer* server_ptr = nullptr;
@@ -226,7 +301,7 @@ int main(int argc, char** argv) {
         },
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
-            if (server_ptr) server_ptr->send(id, m);
+            if (server_ptr) (void)server_ptr->send(id, m);
         });
 
     // Load the real game data tables when a PlayDH root is supplied.
@@ -234,25 +309,74 @@ int main(int argc, char** argv) {
     // existing e2e and side-by-side paths keep their deterministic traces.
     if (!args.resource_root.empty()) {
         const auto root = std::filesystem::path(args.resource_root);
+        handler.load_map_kind_info((root / "Resource" / "MapKindInfo.bin").string());
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
+        if (!handler.has_loaded_skill_list()) {
+            std::cerr << "FATAL: required SkillList.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
+        handler.load_monster_list((root / "Resource" / "MonsterList.bin").string());
+        if (!handler.has_loaded_monster_list() ||
+            !handler.has_ai_group_monster_templates(mxh::server::AISystem::instance().group_list())) {
+            std::cerr << "FATAL: MonsterList.bin is missing, invalid, or lacks a map AI kind\n";
+            return 1;
+        }
+        const auto drop_path = args.resource_profile == "playdh-current"
+            ? (root / "Resource" / "MonsterDropItemList.bin")
+            : (root / "Resource" / "Server" / "MonsterDropItemList.bin");
+        handler.load_drop_item_list(drop_path.string(), args.resource_profile);
+        if (!handler.has_loaded_drop_tables()) {
+            std::cerr << "FATAL: required MonsterDropItemList.bin could not be loaded from "
+                      << drop_path.string() << "\n";
+            return 1;
+        }
         handler.load_dealitem((root / "Resource" / "Dealitem.bin").string());
+        if (!handler.has_loaded_dealitem_catalog()) {
+            std::cerr << "FATAL: required Dealitem.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_item_prices((root / "Resource" / "ItemList.bin").string());
         handler.load_item_list((root / "Resource" / "ItemList.bin").string());
+        if (!handler.has_loaded_item_list()) {
+            std::cerr << "FATAL: required ItemList.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_experience_curve((root / "Resource" / "CharacterExpPoint.bin").string());
+        if (!handler.has_loaded_experience_curve()) {
+            std::cerr << "FATAL: required CharacterExpPoint.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_quest_script(
             (root / "Resource" / "QuestScript" / "QuestScript.bin").string());
+        if (!handler.has_loaded_quest_script()) {
+            std::cerr << "FATAL: required QuestScript.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
         handler.load_quest_npcs(
             (root / "Resource" / "QuestScript" / "questnpclist.bin").string());
+        if (!handler.has_loaded_quest_npcs()) {
+            std::cerr << "FATAL: required questnpclist.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
     }
 
     // M3 dev-stub-caster (side-by-side harness only).
     handler.set_dev_stub_caster(args.dev_stub_caster);
+    handler.set_allow_dev_monster_fallback(args.allow_dev_fallbacks);
+    handler.set_allow_dev_skill_fallback(args.allow_dev_fallbacks);
+    handler.set_dev_initial_money(args.dev_initial_money);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
@@ -260,7 +384,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::cout << "[main] MapServer[" << locale_name() << "] map=" << args.map_num
-              << " listening on 0.0.0.0:" << args.port << "\n";
+              << " listening on " << args.bind_address << ":" << args.port << "\n";
 
     // 3. Main loop: drain reply queue + sleep.
     auto last_ai_tick = std::chrono::steady_clock::now();

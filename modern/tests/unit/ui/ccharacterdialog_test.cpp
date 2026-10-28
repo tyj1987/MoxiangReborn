@@ -9,7 +9,7 @@
 //   * ATTRDEFENCE struct has the 4 stat-static + 4 stat-guage
 //   * Default construction zeroed (nocori=0, minus=0, no point-leveling)
 //   * Init stores dialog coords
-//   * Linking is a no-op (WINDOW_ID walk deferred)
+//   * Linking binds the InterfaceScript control IDs to live cStatic/cGuagen
 //   * SetActive notifies the main-bar icon callback
 //   * SetLevel/SetLife/SetShield/SetNaeRyuk/SetFame/SetBadFame
 //     format their values into the matching static
@@ -39,6 +39,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -59,6 +60,10 @@ struct CharacterStats final : mxh::services::IPlayerStatsService {
     std::uint16_t getInt() const noexcept override { return 0; }
     std::uint16_t getWis() const noexcept override { return 0; }
     std::uint16_t getDex() const noexcept override { return 0; }
+    std::uint16_t getGenGol() const noexcept override { return 11; }
+    std::uint16_t getMinChub() const noexcept override { return 22; }
+    std::uint16_t getCheRyuk() const noexcept override { return 33; }
+    std::uint16_t getSimMek() const noexcept override { return 44; }
     std::uint16_t getLevel() const noexcept override { return level; }
     std::uint32_t getLevelExp() const noexcept override { return 0; }
     std::uint32_t getExpForNextLevel() const noexcept override { return 0; }
@@ -149,6 +154,26 @@ TEST(CCharacterDialog, InitStoresPosition) {
     d.Init(100, 200, 300, 400, nullptr, 1);
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
+}
+
+TEST(CCharacterDialog, LinkingBindsRealStaticControls) {
+    cCharacterDialog d;
+    d.Init(0, 0, 252, 413, nullptr, 0);
+    auto level = std::make_unique<cStatic>();
+    level->Init(0, 0, 20, 12, nullptr, 0);
+    level->setLegacyId("CI_CHARLEVEL");
+    auto life = std::make_unique<cStatic>();
+    life->Init(0, 0, 20, 12, nullptr, 0);
+    life->setLegacyId("CI_CHARLIFE");
+    auto* level_ptr = level.get();
+    auto* life_ptr = life.get();
+    d.Add(std::move(level));
+    d.Add(std::move(life));
+    d.Linking();
+    d.SetLevel(17);
+    d.SetLife(1234);
+    EXPECT_EQ(level_ptr->GetStaticText(), "17");
+    EXPECT_EQ(life_ptr->GetStaticText(), "1234");
 }
 
 TEST(CCharacterDialog, SetActiveNotifiesMainBar) {
@@ -357,13 +382,21 @@ TEST(CCharacterDialog, RefreshFromPlayerStatsWritesMappedLiveFields) {
     d.SetSetStaticTextCallbackForTest(&test_chardlg::faSetText, nullptr);
     d.SetPlayerStatsService(&stats);
     d.RefreshFromPlayerStats();
-    ASSERT_EQ(test_chardlg::g_setCalls.size(), 3u);
+    ASSERT_EQ(test_chardlg::g_setCalls.size(), 7u);
     EXPECT_EQ(test_chardlg::g_setCalls[0].field, "level");
     EXPECT_EQ(test_chardlg::g_setCalls[0].text, "33");
     EXPECT_EQ(test_chardlg::g_setCalls[1].field, "life");
     EXPECT_EQ(test_chardlg::g_setCalls[1].text, "1200");
     EXPECT_EQ(test_chardlg::g_setCalls[2].field, "naeryuk");
     EXPECT_EQ(test_chardlg::g_setCalls[2].text, "450");
+    EXPECT_EQ(test_chardlg::g_setCalls[3].field, "genGoal");
+    EXPECT_EQ(test_chardlg::g_setCalls[3].text, "11");
+    EXPECT_EQ(test_chardlg::g_setCalls[4].field, "minchub");
+    EXPECT_EQ(test_chardlg::g_setCalls[4].text, "22");
+    EXPECT_EQ(test_chardlg::g_setCalls[5].field, "cheryuk");
+    EXPECT_EQ(test_chardlg::g_setCalls[5].text, "33");
+    EXPECT_EQ(test_chardlg::g_setCalls[6].field, "simmak");
+    EXPECT_EQ(test_chardlg::g_setCalls[6].text, "44");
 }
 
 TEST(CCharacterDialog, RefreshGuildInfoRoutesThroughCallback) {

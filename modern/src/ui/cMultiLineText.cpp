@@ -1,6 +1,7 @@
 // cMultiLineText.cpp — modern implementation of 墨香 cMultiLineText.
 
 #include "cMultiLineText.hpp"
+#include "TextRender.hpp"
 
 #include <cstring>
 
@@ -90,6 +91,25 @@ void cMultiLineText::AddNamePannel(std::uint32_t dwLength) noexcept {
     ln.color = m_fgColor;
     m_lines.push_back(std::move(ln));
     m_hasNamePannel = true;
+}
+
+void cMultiLineText::Render() {
+    if (!m_valid && m_lines.empty()) return;
+    constexpr std::int32_t kLineHeight = 16;
+    std::int32_t row = 0;
+    for (const auto& line : m_lines) {
+        TextRenderRequest request;
+        request.text = line.text;
+        request.x = m_x;
+        request.y = m_y + row * kLineHeight;
+        request.width = 0;
+        request.height = kLineHeight;
+        request.color = line.color;
+        request.font_index = m_fontIdx;
+        request.align = TextRenderAlign::Left;
+        renderText(request);
+        ++row;
+    }
 }
 
 const cMultiLineText::Line& cMultiLineText::GetLine(std::size_t i) const {

@@ -181,6 +181,10 @@ try {
             # --no-spawn every client cycle creates another three processes,
             # so samples target arbitrary PIDs and do not measure server soak.
             $clientArgs += '--no-spawn'
+            # start_modern.ps1 owns the local chain in this harness; make the
+            # endpoint explicit because the client defaults to PVE.
+            $clientArgs += '--login-host'
+            $clientArgs += '127.0.0.1'
             $clientArgs += '--character-name'
             $clientArgs += $charName
             if (-not [string]::IsNullOrWhiteSpace($PassThruExtraArgs)) {

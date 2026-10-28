@@ -1,6 +1,7 @@
 // cicondialog_test.cpp — Phase 6.11 coverage for cIconDialog (icon grid).
 
 #include "cIconDialog.hpp"
+#include "cIcon.hpp"
 
 #include <gtest/gtest.h>
 
@@ -122,7 +123,9 @@ TEST(CIconDialog, AddIconCellRespectsDialogAbsXAbsY) {
     d.AddIconCell(0, 0, 50, 50);
     // Cell should be at dialog absX+0..absX+50, absY+0..absY+50.
     EXPECT_TRUE (d.PtInCell(120, 230));
-    EXPECT_TRUE (d.PtInCell(150, 250));
+    EXPECT_TRUE (d.PtInCell(149, 249));
+    EXPECT_FALSE(d.PtInCell(150, 230));  // right edge is exclusive
+    EXPECT_FALSE(d.PtInCell(130, 250));  // bottom edge is exclusive
     EXPECT_FALSE(d.PtInCell(99, 230));
     EXPECT_FALSE(d.PtInCell(151, 230));
 }
@@ -144,6 +147,11 @@ TEST(CIconDialog, GetPositionForXYRefReturnsIndex) {
 
     EXPECT_TRUE (d.GetPositionForXYRef(80, 80, pos));
     EXPECT_EQ   (pos, 3u);
+
+    EXPECT_TRUE (d.GetPositionForXYRef(50, 20, pos)); // shared edge belongs to cell 1
+    EXPECT_EQ   (pos, 1u);
+    EXPECT_FALSE(d.GetPositionForXYRef(100, 20, pos)); // outer right edge
+    EXPECT_FALSE(d.GetPositionForXYRef(20, 100, pos)); // outer bottom edge
 
     EXPECT_FALSE(d.GetPositionForXYRef(200, 200, pos));
     // pos unchanged when not found (we leave it untouched as the input).
@@ -184,4 +192,51 @@ TEST(CIconDialog, SetAbsXYMovesDialogAbsPosition) {
     EXPECT_FALSE(d.PtInCell(20, 30));
     EXPECT_EQ(d.absX(), 100);
     EXPECT_EQ(d.absY(), 200);
+}
+
+TEST(CIconDialog, SetAbsXYMovesDependentIconsBySameDelta) {
+    mxh::ui::cIconDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 115);
+    EXPECT_EQ(icon.absY(), 225);
+}
+
+TEST(CIconDialog, SetAbsXYKeepsOnlyLinkedIconAnchored) {
+    mxh::ui::cIconDialog d;
+    d.Init(10, 20, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(15, 25, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon, true));
+
+    d.SetAbsXY(110, 220);
+    EXPECT_EQ(icon.absX(), 15);
+    EXPECT_EQ(icon.absY(), 25);
+}
+
+TEST(CIconDialog, ActiveAndDisableStateCascadesToIcons) {
+    mxh::ui::cIconDialog d;
+    d.Init(0, 0, 100, 100, nullptr, 1);
+    d.SetCellNum(1);
+    d.AddIconCell(0, 0, 40, 40);
+    mxh::ui::cIcon icon;
+    icon.InitIcon(0, 0, 40, 40, nullptr);
+    ASSERT_TRUE(d.AddIcon(0, &icon));
+
+    d.SetActive(false);
+    EXPECT_FALSE(icon.isActive());
+    d.SetActive(true);
+    EXPECT_TRUE(icon.isActive());
+    d.SetDisable(true);
+    EXPECT_FALSE(icon.isEnabled());
+    d.SetDisable(false);
+    EXPECT_TRUE(icon.isEnabled());
 }

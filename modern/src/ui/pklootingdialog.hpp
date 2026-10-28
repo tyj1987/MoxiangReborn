@@ -60,6 +60,7 @@
 #pragma once
 
 #include "cDialog.hpp"
+#include "cIcon.hpp"
 
 #include <cstdint>
 
@@ -203,6 +204,7 @@ private:
     cStatic*         m_pStcEnd     = nullptr;
     cStatic*         m_pStcNone    = nullptr;
     cIconGridDialog* m_pIGDItem    = nullptr;
+    std::vector<std::unique_ptr<cIcon>> m_lootIcons;
 
     // State.
     std::uint32_t m_dwDiePlayerIdx = 0;

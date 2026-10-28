@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "capturedUtc": "2026-10-15T02:08:00+08:00",
+  "sourceCommit": "30598d9f2e99a9d1042a7b94e0d80726e013a8c6",
+  "buildDirectory": "modern/out/ctest-current-20261015",
+  "resourceManifest": {"fileCount": 5135, "byteCount": 1688281785},
+  "command": "ctest --test-dir modern/out/ctest-current-20261015 -C Release --output-on-failure -j 4",
+  "total": 12574,
+  "passed": 12574,
+  "failed": 0,
+  "skipped": 14,
+  "exitCode": 0,
+  "log": "modern/out/runs/original-ctest-resource-admission-20261015.log",
+  "logSha256": "EF6DAA49810CF3FAD751E0865170D40FB8EC18B52BF8FB8EE36A5D94B162E2F1",
+  "interpretation": "The current original resource manifest, including verified Map3/Map198/Map203 height fields, passes the complete existing Release CTest. Skipped tests remain explicit external MSSQL/PVE/legacy-resource gates and are not counted as passes.",
+  "releaseReady": false
+}

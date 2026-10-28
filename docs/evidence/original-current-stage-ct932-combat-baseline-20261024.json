@@ -1,0 +1,85 @@
+{
+  "state": {
+    "exp": 0,
+    "max_level": 1,
+    "level_up_point": 0,
+    "exp_flag": 16,
+    "level": 1,
+    "hp_mp_flag": 0,
+    "money": 0
+  },
+  "emptyCounts": {
+    "itemGrants": 0,
+    "questSub": 0,
+    "questLog": 0,
+    "skills": 0
+  },
+  "equipment": [
+    {
+      "slot": 1,
+      "item_idx": 11000
+    },
+    {
+      "slot": 2,
+      "item_idx": 23000
+    },
+    {
+      "slot": 3,
+      "item_idx": 27000
+    }
+  ],
+  "database": "MoxiangOriginalRestoreAudit_20261024",
+  "items": [
+    {
+      "slot": 1,
+      "db_idx": 700000,
+      "item_param": 0,
+      "durability": 100,
+      "container": 1,
+      "item_idx": 11000,
+      "rare_idx": 0,
+      "quick_position": 0
+    },
+    {
+      "slot": 2,
+      "db_idx": 700001,
+      "item_param": 0,
+      "durability": 100,
+      "container": 1,
+      "item_idx": 23000,
+      "rare_idx": 0,
+      "quick_position": 0
+    },
+    {
+      "slot": 3,
+      "db_idx": 700002,
+      "item_param": 0,
+      "durability": 100,
+      "container": 1,
+      "item_idx": 27000,
+      "rare_idx": 0,
+      "quick_position": 0
+    }
+  ],
+  "character": {
+    "userid": 2,
+    "level": 1,
+    "base_cheryuk": 12,
+    "charname": "E2Ect932b",
+    "map_num": 10,
+    "base_simmek": 12,
+    "base_gengol": 12,
+    "base_minchub": 12,
+    "chrid": 100004
+  },
+  "clone": "CT932",
+  "capturedAt": "2026-10-24",
+  "vitals": {
+    "initialized": 1,
+    "dead": 0,
+    "mp": 128,
+    "hp": 131,
+    "revision": 1,
+    "shield": 251
+  }
+}

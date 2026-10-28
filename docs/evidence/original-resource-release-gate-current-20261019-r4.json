@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-19",
+  "capturedAtUtc": "2026-10-19T00:00:00+00:00",
+  "sourceHead": "9d587c3213b7bc0b686a2672f71346b64b0c1bac",
+  "originalRepo": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "originalExactResources": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 0,
+    "map203ServerAiGroupMissing": 1
+  },
+  "resolvedThisRun": {
+    "map203MissingTextures": {
+      "count": 161,
+      "receipt": "docs/evidence/original-map203-texture-admission-20261017.json",
+      "provenance": "reference/manifests/original-map203-textures.provenance.json"
+    }
+  },
+  "runtimeEvidence": {
+    "map203ServerAiGroup": {
+      "resource": "Resource/Server/Monster_203.bin",
+      "missing": true,
+      "receipt": "docs/evidence/original-map203-runtime-resource-gate-20261019-r2.json",
+      "sourceScan": "docs/evidence/original-monster203-source-scan-20261019.json",
+      "audit": "modern/tools/audit_map_server_resources.py 203"
+    }
+  },
+  "deploymentIntegrity": {
+    "packageGate": "docs/evidence/original-package-ai-group-gate-20261019.json",
+    "vm112Mirror": "docs/evidence/original-vm112-resource-mirror-gate-20261019.json",
+    "requiredMapNumbers": [
+      10,
+      12,
+      2
+    ],
+    "mirrorTransfer": "PASS"
+  },
+  "releaseReady": false,
+  "remainingResourceBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203ServerAiGroupMissing": 1
+  },
+  "blockers": [
+    {
+      "code": "original-exact-resource",
+      "detail": "HFL 22; TTB 18; Map17 used textures 9; Map203 server AIGroup Monster_203.bin missing"
+    },
+    {
+      "code": "original-commercial-acceptance",
+      "detail": "GUI, full map visual/audio, MSSQL fault recovery and long-stability remain open"
+    }
+  ]
+}

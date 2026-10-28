@@ -1,0 +1,51 @@
+{
+  "schema": "moxiang-original-pve-receipt/v1",
+  "kind": "original-pve-fresh-starter-combat",
+  "capturedAt": "2026-10-15",
+  "status": "failed_level1_map10_balance",
+  "pve": {
+    "vm": "VM112",
+    "host": "192.168.2.244",
+    "databaseHost": "CT930",
+    "database": "MoxiangOriginalTest_20261009",
+    "ports": [16001, 17001, 18001]
+  },
+  "freshAccountCreated": true,
+  "freshCharacterCreated": true,
+  "temporaryFixture": {
+    "account": "freshstarter16",
+    "characterId": 100018,
+    "characterName": "E2E64186800",
+    "starterEquipment": [11000, 23000, 27000],
+    "initialLevel": 1,
+    "initialMap": 10,
+    "gameInLife": "131/131",
+    "mapMonsterCount": 228
+  },
+  "combat": {
+    "targetId": 50143,
+    "targetInitialLife": 6150,
+    "observedDamageRange": "2-4",
+    "targetLifeAfterAttacks": 6150,
+    "shieldDecreased": true,
+    "dropObserved": false,
+    "pickupObserved": false,
+    "relogObserved": false,
+    "clientStoppedAfterControlledNegative": true
+  },
+  "cleanup": {
+    "accountRowsDeleted": 1,
+    "characterRowsDeleted": 1,
+    "equipmentRowsDeleted": 3,
+    "itemRowsDeleted": 3,
+    "stateRowsDeleted": 1,
+    "vitalsRowsDeleted": 1,
+    "postCheck": "freshstarter16, chrid 100018 and modern identity rows all zero"
+  },
+  "evidence": {
+    "log": "docs/evidence/original-pve-fresh-starter-combat-20261015.log",
+    "logSha256": "F24C9BF548B724694C4AD0F1C769FF23B43490CB9E1409DB142EF9509622D3E9",
+    "codeCommit": "d4b0cb868ca5f2563d9d0442536a43e3ed966675"
+  },
+  "interpretation": "Character creation and canonical starter equipment persistence work. The current test default sends a new level-1 character to Map10, where the original target's defense leaves only shield damage and no life change. Do not lower defense or synthesize damage; verify the canonical original starting map/progression before changing gameplay semantics."
+}

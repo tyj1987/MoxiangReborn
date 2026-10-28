@@ -6,10 +6,25 @@
 #include "../../../tools/MoxianSideBySide/diff/packet_diff.hpp"
 
 #include <filesystem>
+#include <stdexcept>
 
 using namespace mxh::tools::sidebyside;
 
 namespace {
+// Repo captures. MXH_SOURCE_DIR is the modern/ source root from CMake.
+// Do not walk the working directory, and do not read MXH_PLAYDH_ROOT.
+std::filesystem::path fixture_path(const char* name) {
+    const std::filesystem::path root =
+        std::filesystem::path(MXH_SOURCE_DIR) / "tests" / "fixtures" /
+        "sbs_captures_modern";
+    std::error_code ec;
+    if (!std::filesystem::is_directory(root, ec)) {
+        throw std::runtime_error(
+            "Cannot locate fixture directory \"" + root.string() + "\"");
+    }
+    return root / name;
+}
+
 Packet make_packet(std::uint32_t objectId = 0x11223344u) {
     Packet p;
     p.checksum = 0xA1;
@@ -240,7 +255,7 @@ TEST(SideBySideModernGolden, ItemScenarioNameIsItem) {
 
 TEST(SideBySideModernGolden, MoveTraceIsMoveInitEcho) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_move.cap");
+        fixture_path("modern_move.cap").string());
     ASSERT_EQ(trace.size(), 1u);
     EXPECT_EQ(trace[0].category, 8u);   // Move
     EXPECT_EQ(trace[0].protocol, 0u);   // Init
@@ -257,7 +272,7 @@ TEST(SideBySideModernGolden, MoveTraceIsMoveInitEcho) {
 
 TEST(SideBySideModernGolden, ItemTraceIsItemDiscardNack) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_item.cap");
+        fixture_path("modern_item.cap").string());
     ASSERT_EQ(trace.size(), 1u);
     EXPECT_EQ(trace[0].category, 5u);   // Item
     EXPECT_EQ(trace[0].protocol, 14u);  // DiscardNack (no player context)
@@ -270,7 +285,7 @@ TEST(SideBySideModernGolden, ItemTraceIsItemDiscardNack) {
 
 TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_chat.cap");
+        fixture_path("modern_chat.cap").string());
     ASSERT_EQ(trace.size(), 1u);
     EXPECT_EQ(trace[0].category, 6u);   // Chat
     EXPECT_EQ(trace[0].protocol, 0u);   // All
@@ -286,8 +301,7 @@ TEST(SideBySideModernGolden, ChatTraceIsChatAllEcho) {
 }
 
 TEST(SideBySideModernGolden, AllEightScenariosHaveFixtures) {
-    const std::filesystem::path dir =
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern";
+    const std::filesystem::path dir = fixture_path("").parent_path();
     for (const char* name : {"modern_login.cap", "modern_enter_game.cap",
                              "modern_attack.cap", "modern_shop.cap",
                              "modern_quest.cap",
@@ -303,7 +317,7 @@ TEST(SideBySideModernGolden, AllEightScenariosHaveFixtures) {
 
 TEST(SideBySideModernGolden, LoginTraceIsDistSuccessThenAck) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_login.cap");
+        fixture_path("modern_login.cap").string());
     ASSERT_EQ(trace.size(), 2u);
     EXPECT_EQ(trace[0].category, 7u);   // UserConn
     EXPECT_EQ(trace[0].protocol, 0u);   // DistConnectSuccess
@@ -314,7 +328,7 @@ TEST(SideBySideModernGolden, LoginTraceIsDistSuccessThenAck) {
 
 TEST(SideBySideModernGolden, EnterGameTraceIsAgentConnectThenNack) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_enter_game.cap");
+        fixture_path("modern_enter_game.cap").string());
     ASSERT_EQ(trace.size(), 2u);
     EXPECT_EQ(trace[0].category, 7u);   // UserConn
     EXPECT_EQ(trace[0].protocol, 8u);   // AgentConnectSuccess
@@ -330,7 +344,7 @@ TEST(SideBySideModernGolden, EnterGameTraceIsAgentConnectThenNack) {
 // 1 Nack.  See docs/SIDE_BY_SIDE_T3.md for the M3 D-stage rationale.
 TEST(SideBySideModernGolden, AttackTraceIsSkillStartAck) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_attack.cap");
+        fixture_path("modern_attack.cap").string());
     ASSERT_EQ(trace.size(), 3u);
     // Frame 0: Skill.StartAck (cat=22, proto=1) for caster_id=1001.
     EXPECT_EQ(trace[0].category, 22u);
@@ -350,7 +364,7 @@ TEST(SideBySideModernGolden, AttackTraceIsSkillStartAck) {
 
 TEST(SideBySideModernGolden, ShopTraceIsItemBuyNack) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_shop.cap");
+        fixture_path("modern_shop.cap").string());
     ASSERT_EQ(trace.size(), 1u);
     EXPECT_EQ(trace[0].category, 5u);   // Item
     EXPECT_EQ(trace[0].protocol, 24u);  // BuyNack
@@ -360,7 +374,7 @@ TEST(SideBySideModernGolden, ShopTraceIsItemBuyNack) {
 
 TEST(SideBySideModernGolden, QuestTraceIsQuestStartNack) {
     const auto trace = load_capture(
-        "C:/moxiang/modern/tests/fixtures/sbs_captures_modern/modern_quest.cap");
+        fixture_path("modern_quest.cap").string());
     ASSERT_EQ(trace.size(), 1u);
     EXPECT_EQ(trace[0].category, 39u);  // Quest
     EXPECT_EQ(trace[0].protocol, 11u);  // StartNack
@@ -369,4 +383,3 @@ TEST(SideBySideModernGolden, QuestTraceIsQuestStartNack) {
 }
 
 }
-

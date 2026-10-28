@@ -64,8 +64,9 @@ public:
               ClickCallback onClick = {}, void* userdata = nullptr,
               std::int32_t id = 0);
 
-    // Render placeholder — real GPU draw lives in 6.3.
-    void Render() override {}
+    // Draw the current state image and legacy text label through the shared
+    // host adapters.
+    void Render() override;
 
     // ActionEvent intercepts the click state machine before delegating to
     // cWindow::ActionEvent for the default no-op path. The returned WE_*
@@ -95,6 +96,8 @@ public:
     void SetShadow(bool v) noexcept              { m_bShadow    = v; }
     void SetTextAlign(TextAlign a) noexcept     { m_align      = a; }
     TextAlign textAlign() const noexcept         { return m_align; }
+    void SetFontIdx(std::uint16_t idx) noexcept  { m_fontIdx = idx; }
+    std::uint16_t fontIdx() const noexcept       { return m_fontIdx; }
 
     // -------------------------------------------------------------------------
     // State introspection. The state machine is the source of truth for
@@ -138,6 +141,7 @@ private:
     ColorRGBA   m_fgOverColor  = 0;
     ColorRGBA   m_fgPressColor = 0;
     ColorRGBA   m_fgCurColor   = ColorDefault;
+    std::uint16_t m_fontIdx = 0;
     std::int32_t m_textX = 0;
     std::int32_t m_textY = 0;
 

@@ -26,7 +26,7 @@ import sys
 import time
 from pathlib import Path
 
-BUILD = Path(r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\modern\build\tools\MoxianAgentServer\Debug")
+BUILD = Path(__file__).resolve().parents[3] / "modern" / "build" / "tools" / "MoxianAgentServer"
 LOCALES = ["KOR", "CHINA", "JAPAN", "HK", "TL"]
 
 

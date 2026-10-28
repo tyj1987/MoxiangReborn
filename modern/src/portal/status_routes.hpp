@@ -41,12 +41,11 @@ public:
 
 private:
     void run_loop();
-    bool ping_once(const std::string& host, std::uint16_t port, std::int64_t timeout_ms);
 
     const Config& cfg_;
     std::thread worker_;
     std::atomic<bool> running_{false};
-    std::mutex mu_;
+    mutable std::mutex mu_;
     StatusSnapshot snap_;
 };
 

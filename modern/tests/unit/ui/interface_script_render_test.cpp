@@ -18,6 +18,7 @@
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/interface_script.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -112,14 +113,16 @@ bool testDrawFn(void* ctx, void* /*sprite*/,
 }
 
 fs::path locate_playdh() {
-    const char* candidates[] = {
-        "modern/data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto* c : candidates) {
-        std::error_code ec;
-        if (fs::exists(fs::path(c) / "Image" / "InterfaceScript", ec)) return c;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate / "Image" / "InterfaceScript", candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
     return {};
 }
@@ -189,6 +192,35 @@ TEST(InterfaceScriptRender, MainDlgRendersAtLegacyPixelPosition) {
         << "Main bar should occupy the full legacy rectangle "
         << "(" << dlg.absX() << "," << dlg.absY() << " "
         << dlg.width() << "x" << dlg.height() << ")";
+}
+
+TEST(InterfaceScriptRender, DialogRenderDrawsChromeAndChildTree) {
+    RenderState state;
+    state.fb.resize(64, 64);
+    mxh::ui::bindRenderer(&testDrawFn, &state);
+
+    int rootSprite = 1;
+    int childSprite = 2;
+    mxh::ui::cImage rootImage;
+    rootImage.SetSpriteObject(&rootSprite);
+    mxh::ui::cImage childImage;
+    childImage.SetSpriteObject(&childSprite);
+
+    mxh::ui::cDialog dialog;
+    dialog.Init(2, 3, 20, 10, &rootImage, 1);
+    auto child = std::make_unique<mxh::ui::cWindow>();
+    child->Init(5, 7, 4, 6, &childImage, 2);
+    dialog.Add(std::move(child));
+
+    dialog.Render();
+
+    EXPECT_EQ(state.drawCount, 2u)
+        << "cDialog must not suppress cWindow chrome/child rendering";
+    ASSERT_EQ(state.rects.size(), 2u);
+    EXPECT_EQ(std::get<0>(state.rects[0]), 2);
+    EXPECT_EQ(std::get<1>(state.rects[0]), 3);
+    EXPECT_EQ(std::get<0>(state.rects[1]), 7);
+    EXPECT_EQ(std::get<1>(state.rects[1]), 10);
 }
 
 TEST(InterfaceScriptRender, QuickDialogRendersAtLegacyPixelPosition) {

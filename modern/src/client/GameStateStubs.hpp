@@ -1,19 +1,16 @@
 // mxh/client/GameStateStubs.hpp
-// Phase A.1.7 — 1:1 port of the 9 eGAMESTATE concrete states from
-// 墨香【源码】\[Client]MH\MainGame.h, in the same order.
-//
-// Each state ships as a thin CGameState subclass for A.1.7 so
-// CMainGame's state table is fully populated at boot and the legacy
-// state ID values continue to map to the same objects.  The bodies
-// are intentionally empty — A.1.8+ replaces them with the real Init /
-// Release / Process / network parse logic from the corresponding
-// legacy CMainTitle.cpp / CGameIn.cpp / etc.
+// Concrete state declarations retained for the legacy eGAMESTATE table.
+// Login, character select/create, GameIn, loading and map change expose their
+// real modern lifecycle here; only IntroReplay and MurimNet remain lightweight
+// compatibility states.
 //
 // The class names match the legacy naming (CMainTitle, CGameIn, ...)
 // 1:1 so a search-and-replace across the legacy source translates
 // directly into modern C++.
 
 #pragma once
+
+#include <string>
 
 #include "CGameState.hpp"
 #include "CMainTitle.hpp"
@@ -23,8 +20,18 @@
 
 namespace mxh::client {
 
+struct LoadStateContext {
+    std::uint16_t map_num = 0;
+    std::uint32_t character_id = 0;
+    std::uint32_t completed_steps = 0;
+    std::uint32_t total_steps = 10;
+    bool cancelled = false;
+    bool failed = false;
+    const char* error = nullptr;
+};
+
 // -------------------------------------------------------------------------
-// CIntroReplay (legacy: CIntroReplayDlg) — Phase A.1.7 stub
+// CIntroReplay (legacy: CIntroReplayDlg) — compatibility state
 // -------------------------------------------------------------------------
 class CIntroReplay : public CGameState {
 public:
@@ -50,14 +57,32 @@ public:
 // -------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------
-// CGameLoading — "Loading map..." screen with progress bar.  Lands in
-// B.3 (map load).
+// CGameLoading — real map loading screen with progress and cancellation.
 // -------------------------------------------------------------------------
 class CGameLoading : public CGameState {
 public:
     void Init(void* p) override;
     void Release() override;
     void Process() override;
+    void Start(CEngine* engine);
+    float progress() const noexcept { return m_progress; }
+    bool failed() const noexcept { return m_failed; }
+    bool cancelled() const noexcept { return m_cancelled; }
+    bool completed() const noexcept { return !m_failed && !m_cancelled && m_progress >= 1.0f; }
+    const std::string& error() const noexcept { return m_error; }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
+    void set_context(const LoadStateContext* context) noexcept {
+        SetInitParam(const_cast<LoadStateContext*>(context));
+    }
+private:
+    float m_progress = 0.0f;
+    bool m_failed = false;
+    bool m_cancelled = false;
+    std::string m_error;
+    ClientUiRuntime m_uiRuntime;
 };
 
 // -------------------------------------------------------------------------
@@ -68,13 +93,32 @@ public:
 // -------------------------------------------------------------------------
 
 // -------------------------------------------------------------------------
-// CMapChange — between-map transition state.  Lands in B.3.
+// CMapChange — between-map transition state sharing the load pipeline.
 // -------------------------------------------------------------------------
 class CMapChange : public CGameState {
 public:
     void Init(void* p) override;
     void Release() override;
     void Process() override;
+    float progress() const noexcept { return m_progress; }
+    bool failed() const noexcept { return m_failed; }
+    bool cancelled() const noexcept { return m_cancelled; }
+    bool completed() const noexcept { return !m_failed && !m_cancelled && m_progress >= 1.0f; }
+    const std::string& error() const noexcept { return m_error; }
+    void Start(CEngine* engine);
+    void set_context(const LoadStateContext* context) noexcept {
+        SetInitParam(const_cast<LoadStateContext*>(context));
+    }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
+private:
+    float m_progress = 0.0f;
+    bool m_failed = false;
+    bool m_cancelled = false;
+    std::string m_error;
+    ClientUiRuntime m_uiRuntime;
 };
 
 // -------------------------------------------------------------------------

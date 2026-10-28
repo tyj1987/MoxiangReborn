@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-vm112-current-process-state-readonly",
+  "capturedAtUtc": "2026-10-23T18:05:44.4350221Z",
+  "vmId": 112,
+  "guestAddress": "192.168.2.244",
+  "qga": {
+    "runId": "moxiang-vm112-readonly-20261024-dfc54b4fccab425aae37b29f6307859f",
+    "pid": 4536,
+    "readOnly": true,
+    "pidAndNonceCorrelated": true,
+    "receipt": "pve-vm112-current-process-state-20261024.jsonl",
+    "receiptSha256": "2455F38319BAA93A8FF12F55089A1AE77D55D0BAE0E483B3DE02E116CB4DB419",
+    "probeScriptSha256Utf16le": "3674c136a95fa07cc35a05ceef32f8733876b4c5e61038e8af9a5d5734511844"
+  },
+  "testedCodeHead": "41b4022be5813e0ddf5f329d25e185f9aaa5b97f",
+  "gitlabOriginalCandidateHead": "559add4ee11eb7639a45ca1f4956364ef886a60a",
+  "originalCodeMatchesCurrentTestedHead": false,
+  "original": {
+    "stage": "C:\\Moxiang\\original\\stage-3f355242-20261015",
+    "sourceHead": "3f355242bb337c467f15692598514fa5f4ada591",
+    "stageManifestSha256": "f6d07d2df0cc526c39f55b90afd39dbbe5fd4f4cd7430a2b5288dca6ed9b5151",
+    "writerContractId": "original-vm112-modern-mssql-v1",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "schemaVersion": 1,
+    "resourceProfile": "playdh-current",
+    "processCount": 5,
+    "processes": [
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\build\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 4528,
+        "sha256": "bb133ece7b51d9f16dfaaff05c7d36eac85c02c1dcefeba001de158538efccc9",
+        "startUtcTicks": 639276400611194796
+      },
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\build\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 4672,
+        "sha256": "bb133ece7b51d9f16dfaaff05c7d36eac85c02c1dcefeba001de158538efccc9",
+        "startUtcTicks": 639276400616983272
+      },
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\build\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 3652,
+        "sha256": "bb133ece7b51d9f16dfaaff05c7d36eac85c02c1dcefeba001de158538efccc9",
+        "startUtcTicks": 639276400622365434
+      },
+      {
+        "name": "mxh_agent_server_CHINA.exe",
+        "path": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\build\\tools\\MoxianAgentServer\\mxh_agent_server_CHINA.exe",
+        "pid": 1068,
+        "sha256": "92d137979689e7923f4e1bc23dee5afc003cdd4d416af21f8e10f018ed200b17",
+        "startUtcTicks": 639276400628732676
+      },
+      {
+        "name": "mxh_login_server.exe",
+        "path": "C:\\Moxiang\\original\\stage-3f355242-20261015\\modern\\build\\tools\\MoxianLoginServer\\mxh_login_server.exe",
+        "pid": 4668,
+        "sha256": "59f974723cb7e2ab9c19da6dea4d2a06e94350190e364e71312359e8eda0f4c7",
+        "startUtcTicks": 639276400633957913
+      }
+    ],
+    "listenerPorts": {
+      "agent": 17001,
+      "login": 16001,
+      "map10": 18001,
+      "map12": 18002,
+      "map2": 18003
+    }
+  },
+  "unity": {
+    "stage": "C:\\Moxiang\\unity\\stage-20261009",
+    "sourceHead": "699d1ddf91fd7749cdcf45f5a5398e17e2a709e5",
+    "stageManifestSha256": "3409a9f0cc1691275f51668539b32363cc573fdadb5b42673c79ccb9fc318dd9",
+    "processCount": 6,
+    "processes": [
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 1968,
+        "sha256": "ba3a9430eec93f977f117a824d6778a056d66c22b28b478f233d3eb8d6611c7a",
+        "startUtcTicks": 639283310465659041
+      },
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 1636,
+        "sha256": "ba3a9430eec93f977f117a824d6778a056d66c22b28b478f233d3eb8d6611c7a",
+        "startUtcTicks": 639283310471172092
+      },
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 2168,
+        "sha256": "ba3a9430eec93f977f117a824d6778a056d66c22b28b478f233d3eb8d6611c7a",
+        "startUtcTicks": 639283310476448725
+      },
+      {
+        "name": "mxh_map_server_CHINA.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianMapServer\\mxh_map_server_CHINA.exe",
+        "pid": 4172,
+        "sha256": "ba3a9430eec93f977f117a824d6778a056d66c22b28b478f233d3eb8d6611c7a",
+        "startUtcTicks": 639283310481677678
+      },
+      {
+        "name": "mxh_agent_server_CHINA.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianAgentServer\\mxh_agent_server_CHINA.exe",
+        "pid": 3396,
+        "sha256": "a3dcf1c2de4be19084b00419bfb5e9b16a0e8a16a06510e3d3463c073f5f9c15",
+        "startUtcTicks": 639283310488162786
+      },
+      {
+        "name": "mxh_login_server.exe",
+        "path": "C:\\Moxiang\\unity\\stage-20261009\\modern\\out\\unity-server-x64\\tools\\MoxianLoginServer\\mxh_login_server.exe",
+        "pid": 2292,
+        "sha256": "f9edbb5ef3ed52d3498dd3cae736748e9c557f4851ce6fc3e3d6312c0f8536d5",
+        "startUtcTicks": 639283310494684918
+      }
+    ],
+    "listenerPorts": [
+      26101,
+      27101,
+      28101,
+      28202,
+      28303,
+      28417
+    ]
+  },
+  "listeners": [
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 16001,
+      "owningProcess": 4668
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 17001,
+      "owningProcess": 1068
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 18001,
+      "owningProcess": 4528
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 18002,
+      "owningProcess": 4672
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 18003,
+      "owningProcess": 3652
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 26101,
+      "owningProcess": 2292
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 27101,
+      "owningProcess": 3396
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 28101,
+      "owningProcess": 1968
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 28202,
+      "owningProcess": 1636
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 28303,
+      "owningProcess": 2168
+    },
+    {
+      "localAddress": "192.168.2.244",
+      "localPort": 28417,
+      "owningProcess": 4172
+    }
+  ],
+  "ct105": {
+    "status": "running",
+    "mssqlService": "active",
+    "mssqlEnabled": true,
+    "readOnlyDatabaseQueryThisRun": "not-confirmed"
+  },
+  "databaseProbe": {
+    "result": "blocked_before_connection",
+    "queryExecuted": false,
+    "reason": "The candidate config path under the original stage was absent; no ODBC connection or SQL query was attempted.",
+    "receipt": "pve-vm112-sql-readonly-probe-20261024.jsonl",
+    "receiptSha256": "5BD62EA4D675CB8F13DEA21B8E98E4E3CC056D363EBE7D9FCEC320C7E3B6FB29"
+  },
+  "mutationsPerformed": false,
+  "interpretation": "PVE service identity and port separation are confirmed. The active original stage is older than the source used for the latest local build/CTest; no current database health or persistence pass is claimed."
+}

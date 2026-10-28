@@ -3,6 +3,7 @@
 #include "cMsgBox.hpp"
 
 #include "cButton.hpp"
+#include "TextRender.hpp"
 
 namespace mxh::ui {
 
@@ -16,7 +17,7 @@ struct MsgBoxStatic {
     // Per-button labels (legacy: MB_BTN_OK, MB_BTN_YES, MB_BTN_NO,
     // MB_BTN_CANCEL — 4 entries).
     const char* labels[4] = {"OK", "Yes", "No", "Cancel"};
-    std::uint32_t colors[3] = {0xFF000000, 0xFF000000, 0xFF000000};
+    std::uint32_t colors[3] = {0xFFFFFFFFu, 0xFFFFFF00u, 0xFFFFFF00u};
 };
 MsgBoxStatic& staticState() {
     static MsgBoxStatic s;
@@ -31,6 +32,43 @@ void cMsgBox::InitMsgBox() {
 
 bool cMsgBox::IsInitialized() noexcept {
     return staticState().initialized;
+}
+
+void cMsgBox::SetButtonImages(void* basic, void* over, void* press) noexcept {
+    m_btnBasicImage = basic;
+    m_btnOverImage = over;
+    m_btnPressImage = press;
+}
+
+void cMsgBox::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+
+    TextRenderRequest title;
+    title.text = "Notice";
+    title.x = absX() + 13;
+    title.y = absY() + 2;
+    title.width = width() - 26;
+    title.height = 20;
+    title.color = 0xFFFFFFFFu;
+    title.font_index = 2;
+    title.align = TextRenderAlign::Left;
+    auto title_shadow = title;
+    title_shadow.x += 1;
+    title_shadow.y += 1;
+    title_shadow.color = 0xFF000000u;
+    renderText(title_shadow);
+    renderText(title);
+
+    TextRenderRequest body;
+    body.text = m_message;
+    body.x = absX() + 15;
+    body.y = absY() + 50;
+    body.width = width() - 30;
+    body.height = 90;
+    body.color = 0xFFFFFFFFu;
+    body.multiline = true;
+    renderText(body);
 }
 
 void cMsgBox::MsgBox(std::int32_t lId, MBType nMBType,
@@ -66,20 +104,28 @@ void cMsgBox::layoutButtons() {
     // The box itself is sized to fit by the caller (cDialog::Init was
     // already called before MsgBox).
     const std::int32_t w = static_cast<std::int32_t>(width());
-    const std::int32_t h = static_cast<std::int32_t>(height());
-    const std::int32_t btnW = 70;
-    const std::int32_t btnH = 24;
-    const std::int32_t gap  = 8;
+    const std::int32_t btnW = 56;
+    const std::int32_t btnH = 19;
+    const std::int32_t gap  = 6;
+    const std::size_t button_count = m_type == MBType::YesNo ? 2u
+        : (m_type == MBType::NoBtn ? 0u : 1u);
+    const std::int32_t totalW = static_cast<std::int32_t>(button_count) * btnW +
+        static_cast<std::int32_t>(button_count == 0 ? 0 : button_count - 1) * gap;
+    std::int32_t nextX = (w - totalW) / 2;
     auto makeBtn = [&](std::int32_t btnId, const char* text) {
         auto b = std::make_unique<cButton>();
         // No per-button callback: cMsgBox::ActionEvent routes the click
         // to fireCallback() based on the button's id, so the button's
         // own onClick is a no-op (we still pass an empty std::function
         // to satisfy the cButton Init signature).
-        b->Init(0, h - btnH - 8, btnW, btnH, nullptr, nullptr, nullptr,
+        b->Init(nextX, 110, static_cast<std::uint16_t>(btnW),
+                static_cast<std::uint16_t>(btnH), m_btnBasicImage,
+                m_btnOverImage, m_btnPressImage,
                 cButton::ClickCallback{}, nullptr, btnId);
-        b->SetText(text, 0xFF000000u);
+        b->SetText(text, staticState().colors[0], staticState().colors[1],
+                   staticState().colors[2]);
         this->Add(std::move(b));
+        nextX += btnW + gap;
     };
     switch (m_type) {
         case MBType::Ok: {
@@ -98,23 +144,6 @@ void cMsgBox::layoutButtons() {
         case MBType::NoBtn:
         default:
             break;
-    }
-    // Re-layout: center the button row along the bottom.
-    std::size_t btnCount = 0;
-    std::int32_t totalW = 0;
-    for (std::size_t i = 0; i < childCount(); ++i) {
-        if (childAt(i)) { ++btnCount; totalW += btnW; }
-    }
-    if (btnCount == 0) return;
-    totalW += static_cast<std::int32_t>(btnCount - 1) * gap;
-    std::int32_t startX = (w - totalW) / 2;
-    std::size_t placed = 0;
-    for (std::size_t i = 0; i < childCount(); ++i) {
-        cWindow* c = childAt(i);
-        if (!c) continue;
-        c->SetAbsXY(absX() + startX + static_cast<std::int32_t>(placed) * (btnW + gap),
-                    absY() + h - btnH - 8);
-        ++placed;
     }
 }
 

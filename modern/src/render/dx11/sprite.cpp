@@ -7,6 +7,9 @@
 
 #include "mxh/log/mlog.hpp"
 
+#include <algorithm>
+#include <string_view>
+
 namespace mxh::gx::dx11 {
 
 SpriteObject::~SpriteObject() {
@@ -121,11 +124,27 @@ SpriteObject* SpriteObject::createFromFile(Device* dev, I4DyuchiFileStorage* sto
         return nullptr;
     }
     LoadedTexture t = loadTextureFromMemory(buf.data(), read);
+    // PlayDH Image/2D/login.dds is stored with sky in the last rows.
+    // DX11 samples V downward, so the title screen was shown upside-down.
+    std::string_view name(szFileName);
+    const auto slash = name.find_last_of("/\\");
+    const auto stem = slash == std::string_view::npos ? name : name.substr(slash + 1);
+    if (stem.size() >= 9) {
+        char lower[16]{};
+        const auto n = std::min<std::size_t>(stem.size(), 15);
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto c = static_cast<unsigned char>(stem[i]);
+            lower[i] = static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c);
+        }
+        if (std::string_view(lower) == "login.dds") flipVertical(t);
+    }
     fprintf(stderr,
             "[sprite] loaded %s %ux%u px=%zu first_px rgba=(%u,%u,%u,%u)",
             szFileName, t.width, t.height, t.pixels.size() / 4,
-            static_cast<unsigned>(t.pixels[0]), static_cast<unsigned>(t.pixels[1]),
-            static_cast<unsigned>(t.pixels[2]), static_cast<unsigned>(t.pixels[3]));
+            static_cast<unsigned>(t.pixels.empty() ? 0 : t.pixels[0]),
+            static_cast<unsigned>(t.pixels.size() < 2 ? 0 : t.pixels[1]),
+            static_cast<unsigned>(t.pixels.size() < 3 ? 0 : t.pixels[2]),
+            static_cast<unsigned>(t.pixels.size() < 4 ? 0 : t.pixels[3]));
     if (t.pixels.empty()) return nullptr;
     return create(dev, t.width, t.height, TEXTURE_FORMAT_A8R8G8B8, t.pixels.data());
 }
@@ -137,8 +156,15 @@ BOOL __stdcall SpriteObject::Draw(VECTOR2* pv2Scaling, float fRot, VECTOR2* pv2T
     // Compute destination rect.
     float dstX = pv2Trans ? pv2Trans->x : 0.0f;
     float dstY = pv2Trans ? pv2Trans->y : 0.0f;
-    float dstW = static_cast<float>(m_width);
-    float dstH = static_cast<float>(m_height);
+    float sourceW = static_cast<float>(m_width);
+    float sourceH = static_cast<float>(m_height);
+    if (pRect) {
+        sourceW = static_cast<float>(pRect->right - pRect->left);
+        sourceH = static_cast<float>(pRect->bottom - pRect->top);
+        if (sourceW <= 0.0f || sourceH <= 0.0f) return FALSE;
+    }
+    float dstW = sourceW;
+    float dstH = sourceH;
     if (pv2Scaling) { dstW *= pv2Scaling->x; dstH *= pv2Scaling->y; }
 
     // Source UV rect from pRect (pixels) 鈫?normalized.
@@ -207,6 +233,12 @@ BOOL __stdcall SpriteObject::LockRect(LOCKED_RECT* pOutLockedRect, RECT* /*pRect
     return FALSE;
 }
 
-BOOL __stdcall SpriteObject::UnlockRect() { return TRUE; }
+BOOL __stdcall SpriteObject::UnlockRect() {
+    // LockRect is intentionally fail-closed until a staging/read-write texture
+    // path is implemented.  Returning TRUE here would report a successful
+    // unlock for a lock that never occurred and can make callers discard or
+    // submit invalid pixel data.
+    return FALSE;
+}
 
 } // namespace mxh::gx::dx11

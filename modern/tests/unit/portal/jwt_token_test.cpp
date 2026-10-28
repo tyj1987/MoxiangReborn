@@ -76,13 +76,11 @@ TEST(JwtToken, VerifyMissingSegmentsFails) {
 }
 
 // ---------------------------------------------------------------------------
-// Tests requiring BCrypt HMAC (skipped in unit-test runner).
-// These will be verified via the portal integration test.
+// BCrypt-backed HS256 behavior. These tests must execute on the supported
+// Windows build instead of silently accepting an unavailable HMAC provider.
 // ---------------------------------------------------------------------------
 
 TEST(JwtToken, CreateTokenIsNonEmpty) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string token = create_jwt("test-secret-key-32bytes-long!!", "testuser", 42, 3600);
     EXPECT_FALSE(token.empty());
     std::size_t dots = 0;
@@ -91,8 +89,6 @@ TEST(JwtToken, CreateTokenIsNonEmpty) {
 }
 
 TEST(JwtToken, CreateTokenHasThreeParts) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string token = create_jwt("test-secret-key-32bytes-long!!", "alice", 1, 86400);
     auto first_dot = token.find('.');
     auto second_dot = token.find('.', first_dot + 1);
@@ -102,8 +98,6 @@ TEST(JwtToken, CreateTokenHasThreeParts) {
 }
 
 TEST(JwtToken, VerifyValidTokenSucceeds) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string secret = "test-secret-key-32bytes-long!!";
     std::string token = create_jwt(secret, "alice", 99, 86400);
     JwtPayload payload{};
@@ -114,8 +108,6 @@ TEST(JwtToken, VerifyValidTokenSucceeds) {
 }
 
 TEST(JwtToken, VerifyWrongSecretFails) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string token = create_jwt("secret-one-32bytes-long-key!!!!", "alice", 1, 3600);
     JwtPayload payload{};
     auto err = verify_jwt("secret-two-32bytes-long-key!!!!", token, payload);
@@ -124,8 +116,6 @@ TEST(JwtToken, VerifyWrongSecretFails) {
 }
 
 TEST(JwtToken, VerifyTamperedTokenFails) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string token = create_jwt("test-secret-key-32bytes-long!!", "alice", 1, 3600);
     auto last_dot = token.rfind('.');
     std::string tampered = token;
@@ -137,8 +127,6 @@ TEST(JwtToken, VerifyTamperedTokenFails) {
 }
 
 TEST(JwtToken, VerifyExpiredTokenFails) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string secret = "test-secret-key-32bytes-long!!";
     std::string token = make_expired_jwt(secret);
     JwtPayload payload{};
@@ -148,8 +136,6 @@ TEST(JwtToken, VerifyExpiredTokenFails) {
 }
 
 TEST(JwtToken, UserIdxRoundTrips) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string secret = "test-secret-key-32bytes-long!!";
     for (std::uint32_t idx : {0u, 1u, 100u, 99999u, 0xFFFFFFFFu}) {
         std::string token = create_jwt(secret, "user", idx, 3600);
@@ -161,8 +147,6 @@ TEST(JwtToken, UserIdxRoundTrips) {
 }
 
 TEST(JwtToken, DifferentUsersGetDifferentTokens) {
-    GTEST_SKIP() << "BCrypt HMAC unavailable in unit-test runner; "
-                    "verified via portal integration test";
     std::string secret = "test-secret-key-32bytes-long!!";
     std::string t1 = create_jwt(secret, "alice", 1, 3600);
     std::string t2 = create_jwt(secret, "bob", 2, 3600);

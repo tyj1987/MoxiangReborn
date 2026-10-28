@@ -1,0 +1,27 @@
+{
+  "schema": "moxiang.evidence.original.map17.local-e2e.v1",
+  "date": "2026-10-15",
+  "sourceCommit": "8448c69fac585f32e051eda571b11486d1c04a6b",
+  "scope": "local-only engineering gate; SQLite and locally spawned Login/Agent/Map servers",
+  "command": "mxh_client_e2e.exe --login-host 127.0.0.1 --backend sqlite --map-number 17 --account map17_1015 --character-name Map17Gate --timeout 20 --login-exe ... --agent-exe ... --map-exe ...",
+  "result": "passed",
+  "steps": [
+    "LoginAck received",
+    "CharacterListAck received with zero slots",
+    "CharacterMakeSyn accepted and CharacterListAck refreshed",
+    "CharacterListAck re-fetch found chrid 100000",
+    "CharacterSelectAck map_num=17",
+    "GameInAck player_id=100000 map=17"
+  ],
+  "observed": {
+    "map": 17,
+    "monsterAddCount": 192,
+    "npcAddObserved": true,
+    "resourceRoot": "modern/data/PlayDH"
+  },
+  "limitations": [
+    "Does not prove PVE MSSQL persistence or remote deployment.",
+    "Does not close the nine missing Map17 texture dependencies.",
+    "Does not prove GUI, combat, pickup, equipment, map-change, relog, or commercial release readiness."
+  ]
+}

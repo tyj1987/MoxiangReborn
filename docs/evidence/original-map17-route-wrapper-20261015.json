@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-15T00:00:00Z",
+  "purpose": "Make the source-bound Map17 birth route deployable without replacing the default PVE chain",
+  "script": "deploy/scripts/start_current_vm112.ps1",
+  "mode": {
+    "default": "five services on 16001/17001/18001/18002/18003",
+    "map17": "explicit -EnableMap17 adds Map17 on 18004 and registers 17=192.168.2.244:18004",
+    "database": "unchanged CT930 writer contract",
+    "resource": "same playdh-current stage and manifest"
+  },
+  "checks": [
+    {
+      "command": "PowerShell parser on start_current_vm112.ps1",
+      "result": "passed"
+    },
+    {
+      "check": "Map17 switch, route registration, optional map17 server spec and port collision guard",
+      "result": "passed"
+    }
+  ],
+  "runtime": {
+    "deployed": false,
+    "reason": "Default VM112 services were left untouched; the next isolated PVE run must use a separate stage/port set and verify the nine texture blockers remain explicit.",
+    "releaseReady": false
+  }
+}

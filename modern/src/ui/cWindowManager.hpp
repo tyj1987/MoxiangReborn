@@ -22,9 +22,11 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <vector>
 
 #include "cWindow.hpp"
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3)
 
 namespace mxh::ui {
 
@@ -49,6 +51,7 @@ public:
     std::unique_ptr<cDialog> RemoveDialog(cDialog* dlg);
     bool RemoveDialogById(std::int32_t id);
     void RemoveAll();
+    void AbandonAllForProcessExit() noexcept;
 
     // Process destroy queue (call once per frame). Dialogs marked
     // closeRequested() are removed and destroyed here, not at the
@@ -64,6 +67,9 @@ public:
     const std::vector<std::unique_ptr<cDialog>>& dialogs() const noexcept {
         return m_dialogs;
     }
+    std::vector<std::unique_ptr<cDialog>>& dialogs() noexcept {
+        return m_dialogs;
+    }
 
     // Topmost dialog (the one currently receiving input). null if no
     // active dialogs. Determined by the dialogs' Add() order: the last
@@ -77,6 +83,8 @@ public:
     // active dialog whose bounding box contains (x, y).
     // -------------------------------------------------------------------------
     cDialog* findById(std::int32_t id) const;
+    cWindow* findWindowByLegacyId(std::string_view id) const;
+    cWindow* findWindowByLegacyFunc(std::string_view func) const;
     cDialog* findByXY(std::int32_t x, std::int32_t y) const;
 
     // -------------------------------------------------------------------------
@@ -129,6 +137,25 @@ public:
     // -------------------------------------------------------------------------
     void RenderAll();
 
+    // -------------------------------------------------------------------------
+    // M-R7 (G3) 分辨率自适应 1:1 行为.
+    //
+    // SetCurrentResolutionMode: 客户端启动时按屏幕尺寸调 detect_from_screen_size
+    // 选 mode, 然后调 OnResolutionChange 1 次. 同时调 OnResolutionChange 触发
+    // reload (外部 caller 必须重新调 cDialogLoader::LoadAll 重新装载, 因为
+    // cWindowManager 不持 .bin 路径).
+    //
+    // 1:1 行为: 跟老版 cScriptManager 启动时按 GetSystemMetrics 选档 1:1.
+    // -------------------------------------------------------------------------
+    void SetCurrentResolutionMode(ResolutionMode mode) noexcept;
+    ResolutionMode currentResolutionMode() const noexcept { return m_resolutionMode; }
+
+    // OnResolutionChange: 客户端通知"屏幕尺寸换了". 现代 1:1 端实现是 no-op (重
+    // 装载由 caller 决定, cWindowManager 不持 .bin 路径). 1:1 老版没这个 API,
+    // modern 暴露是为了 cWindowManager 持 mode 给 Render() scale 用 — 头less
+    // 测试可断言 m_resolutionMode 被设过.
+    void OnResolutionChange(ResolutionMode new_mode) noexcept;
+
     // Test accessors.
     bool destroyQueueEmpty() const noexcept     { return m_destroyQueue.empty(); }
     std::size_t destroyQueueSize() const noexcept { return m_destroyQueue.size(); }
@@ -148,6 +175,7 @@ private:
     static bool isFocusableCandidate(const cWindow* w) noexcept;
 
     cWindow* m_focused = nullptr;  // currently focused window (any dialog)
+    ResolutionMode m_resolutionMode = kDefaultResolutionMode;  // M-R7 (G3)
 
 private:
     // Owned dialogs. Order = z-order: back is index 0, front is back().

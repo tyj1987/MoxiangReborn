@@ -143,11 +143,9 @@ public:
     // via SetOnRowClicked).
     int ListMouseCheck(std::int32_t x, std::int32_t y, std::uint32_t we) noexcept;
 
-    // Render placeholder (1:1 with legacy — base does no-op,
-    // cListDialogEx draws selected highlight + link chains).
-    // The actual sprite draws are deferred to the 6.4+ cImage
-    // / Phase 13 host integration (same as cGuagen's RenderIsNoop).
-    void Render() override {}
+    // Render visible link rows and their multi-color chains through
+    // the shared text adapter.
+    void Render() override;
 
     // ----- Callback hook -----
 

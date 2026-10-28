@@ -1,0 +1,226 @@
+# 与 GitLab CI 保持同步（见 .gitlab-ci.yml）。改脚本、镜像或 paths 时，两边一起改。
+#
+# original_governance_and_python_tests
+# - pull_request 且目标分支为 codex/reorg-original-20261009。
+#   paths 与该 job 的 changes（锚点 python_tooling_changes）同一组，并加上本文件。
+#   GitLab 写成 **/*；GitHub 用 ** 即可匹配子目录。
+# - push 到 codex/reorg-original-20261009 没有 paths 过滤，对应
+#   CI_COMMIT_BRANCH == 该分支时无 changes 也会跑。
+# - 镜像与 .linux_trusted 的 image 字段逐字相同，含 digest。
+# - 该 job 没有 before_script。测试步骤的命令与 script 逐字一致。
+# - 顶层 variables PYTHONDONTWRITEBYTECODE=1、GIT_LFS_SKIP_SMUDGE=1 同样设置。
+#
+# original_resource_reference_warn
+# - GitLab rules：该分支的流水线，以及目标分支为该分支的 merge request。没有 changes 过滤。
+#   GitHub 的 pull_request.paths 作用到整个 workflow，不能只过滤其中一个 job，
+#   所以 pull_request 上这个 job 与上面的 paths 一起触发。
+#   push 到 codex/reorg-original-20261009 没有 paths 过滤，对应 CI_COMMIT_BRANCH 规则。
+# - 镜像同样钉 .linux_trusted 的 digest。命令与 script 逐字一致。
+# - 该 job 没有 allow_failure。只警告来自工具：未设置 MXH_RESOURCE_REF_STRICT 时
+#   check 的退出码为 0；MXH_RESOURCE_REF_STRICT=1 或 --strict 才把缺失或无结论变成失败。
+#   这里不设置该变量，也不使用 continue-on-error。continue-on-error 会把 unittest 失败
+#   一并放过去，和 GitLab 不一致。GitLab 若写成 allow_failure: true，才对应
+#   continue-on-error: true。
+# - check 与单元测试拆成两步。check 的命令和参数与 GitLab script 逐字相同，
+#   单独一步且 if: always()，单元测试失败时这一步仍会跑。退出码仍由 check 自己决定。
+#   original_governance_and_python_tests 也用同一步跑同一条 check，方便两边日志都有结果。
+#   GitLab 的 script 不拆步，命令文本不变。
+# - GitLab artifacts / codequality 不在这里上传：job 在 Alpine 容器内，不能跑
+#   需要 glibc Node 的 upload-artifact。
+#
+# Alpine 是 musl，跑不了 GitHub 注入的 glibc Node。checkout 不用 actions/checkout，
+# 只在容器里装 git。pull_request 拉 merge ref；push 按 GITHUB_SHA 取本次提交，
+# 避免连续合并时拉到分支尖上后一个提交。这不是 GitLab script 的一部分。
+#
+# rog_gate_self_test
+# - 与 GitLab job rog_gate_self_test 同步。image 含 digest，script 命令逐字相同。
+# - 镜像是 mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04 的 linux/amd64
+#   manifest（index digest 为
+#   sha256:7ee7da33a68d997971660d91ecc8372e55a38a777c3c6bd6808daf91928052db）。
+#   镜像里已有 git、curl、sha256sum 和 /bin/sleep。官方 PowerShell 7.6.9
+#   linux-x64 tar.gz 下载后按发行版 hashes.sha256 校验再解压。不跑 apt，
+#   也不拉未固定的包。
+# - 不用 MCR powershell:7.5-ubuntu-24.04
+#   （sha256:042240d57ec9e47e511033b92625a8d95875ee5860af3015992c248b58a8be81）：
+#   该 tag 仍是 7.5.0-preview.5，且没有 git。
+# - 校验后的命令是：
+#     pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+#     pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
+#   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
+# - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
+# - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
+#   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
+
+name: original_governance_and_python_tests
+
+on:
+  pull_request:
+    branches: [codex/reorg-original-20261009]
+    paths:
+      - modern/tools/**
+      - modern/tests/unit/tools/**
+      - scripts/check-project-governance.py
+      - scripts/check-no-pak-changes.py
+      - scripts/check-ps1-encoding.py
+      - scripts/rog-gate-build.ps1
+      - scripts/clean-deploy.ps1
+      - scripts/commercial-smoke.ps1
+      - scripts/rog-gate-build.cmd
+      - scripts/clean-deploy.cmd
+      - scripts/gui-client-smoke.ps1
+      - scripts/gui-client-smoke-ephemeral.ps1
+      - scripts/tests/test-gui-client-smoke-ephemeral.ps1
+      - .gitignore
+      - "**.[Pp][Aa][Kk]"
+      - .gitlab-ci.yml
+      - .github/workflows/python-tools.yml
+      - reference/manifests/**
+  push:
+    branches: [codex/reorg-original-20261009]
+
+permissions:
+  contents: read
+
+jobs:
+  original_governance_and_python_tests:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
+    defaults:
+      run:
+        shell: sh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          apk add --no-cache git ca-certificates
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: original_governance_and_python_tests
+        run: |
+          python3 --version
+          python3 scripts/check-project-governance.py
+          python3 scripts/check-no-pak-changes.py
+          python3 scripts/check-ps1-encoding.py
+          python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
+          python3 -B -m unittest modern/tests/unit/tools/test_pak_writer.py
+          python3 -B -m unittest modern/tests/unit/tools/test_check_no_pak_changes.py
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+          python3 -B -m unittest modern/tests/unit/tools/test_mh_bin.py
+
+      - name: resource_reference_gate check
+        if: always()
+        run: |
+          python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
+
+  original_resource_reference_warn:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
+    defaults:
+      run:
+        shell: sh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          apk add --no-cache git ca-certificates
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: original_resource_reference_warn
+        run: |
+          python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
+
+      - name: resource_reference_gate check
+        if: always()
+        run: |
+          python3 modern/tools/resource_reference_gate.py check --manifest reference/manifests/original-resource-references.json --root modern/data/PlayDH --report ci-resource-reference-report.json --codequality ci-resource-reference-codequality.json
+
+  rog_gate_self_test:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: rog_gate_self_test
+        run: |
+          set -eu
+          pwsh_dir="$(mktemp -d)"
+          pwsh_tarball="${pwsh_dir}/powershell-7.6.9-linux-x64.tar.gz"
+          curl -fsSL -o "${pwsh_tarball}" "https://github.com/PowerShell/PowerShell/releases/download/v7.6.9/powershell-7.6.9-linux-x64.tar.gz"
+          echo "1da6d6d6035d651f20e70ddee7c4c15ac6ab8b9fb40ee92240d91263f28a884b  ${pwsh_tarball}" | sha256sum -c -
+          tar -xzf "${pwsh_tarball}" -C "${pwsh_dir}"
+          export PATH="${pwsh_dir}:${PATH}"
+          export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+          pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+          pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks

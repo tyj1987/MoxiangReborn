@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,7 @@
 #include "mxh/ui/interface_script.hpp"
 
 #include "../../../third_party/nlohmann/json.hpp"
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -27,33 +29,32 @@ namespace {
 // Locate PlayDH. In normal local runs this is a junction at
 // modern/data/PlayDH. For the harness we accept several fallbacks.
 fs::path locate_playdh() {
-    fs::path candidates[] = {
-        "modern/data/PlayDH",
-        "../data/PlayDH",
-        "../../data/PlayDH",
-        "../../../data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c / "Image" / "InterfaceScript", ec)) return c;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate / "Image" / "InterfaceScript", candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
     }
     return {};
 }
 
+// Repo goldens under the modern/ tree. MXH_SOURCE_DIR is that source root,
+// injected by CMake. Do not walk the working directory, and do not read
+// MXH_PLAYDH_ROOT: that variable is the PlayDH asset root, not these files.
 fs::path locate_golden_dir() {
-    fs::path candidates[] = {
-        "modern/tests/fixtures/interface_script",
-        "../tests/fixtures/interface_script",
-        "../../tests/fixtures/interface_script",
-        "C:/moxiang/modern/tests/fixtures/interface_script",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c, ec)) return c;
+    const fs::path golden =
+        fs::path(MXH_SOURCE_DIR) / "tests" / "fixtures" / "interface_script";
+    std::error_code ec;
+    if (!fs::is_directory(golden, ec)) {
+        throw std::runtime_error(
+            "Cannot locate fixture directory \"" + golden.string() + "\"");
     }
-    return {};
+    return golden;
 }
 
 void render_rect(std::ostringstream& os, const char* key,
@@ -222,16 +223,7 @@ std::string normalize_for_compare(const std::string& s) {
 }
 
 std::vector<std::string> collect_bin_names() {
-    fs::path playdh;
-    fs::path candidates[] = {
-        "modern/data/PlayDH",
-        "C:/moxiang/modern/data/PlayDH",
-        "C:/moxiang/墨香【源码配套资源】/PlayDH",
-    };
-    for (const auto& c : candidates) {
-        std::error_code ec;
-        if (fs::exists(c / "Image" / "InterfaceScript", ec)) { playdh = c; break; }
-    }
+    const fs::path playdh = locate_playdh();
     std::vector<std::string> names;
     if (!playdh.empty()) {
         for (auto& e : fs::directory_iterator(playdh / "Image" / "InterfaceScript")) {
@@ -252,7 +244,8 @@ TEST_P(InterfaceScriptLegacy, MatchesGolden) {
     fs::path playdh = locate_playdh();
     fs::path golden_dir = locate_golden_dir();
     ASSERT_FALSE(playdh.empty()) << "Cannot locate PlayDH/Image/InterfaceScript";
-    ASSERT_FALSE(golden_dir.empty()) << "Cannot locate fixture directory";
+    ASSERT_TRUE(fs::is_directory(golden_dir))
+        << "Cannot locate fixture directory \"" << golden_dir.string() << "\"";
 
     const std::string fname = GetParam();
     fs::path bin = playdh / "Image" / "InterfaceScript" / fname;

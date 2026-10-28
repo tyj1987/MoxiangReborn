@@ -154,6 +154,9 @@ struct ClientConfig {
     std::chrono::milliseconds connect_timeout{5000};
     bool use_encryption = false;
     bool use_legacy_framing = false;  // Phase 7.6: 4DyuchiNET compatibility
+    // Optional local bind (e.g. 192.168.2.30) so Clash TUN cannot steal LAN TCP.
+    // Empty uses MXH_BIND_IP if set, otherwise the OS default source.
+    std::string bind_address;
 };
 
 // Asynchronous TCP server.
@@ -166,6 +169,9 @@ public:
     TcpServer& operator=(const TcpServer&) = delete;
 
     [[nodiscard]] NetError start(const ServerConfig& cfg);
+    // A call from a connection callback only requests shutdown. One external
+    // owner must call stop() again to join I/O threads and release sockets;
+    // it must finish before that owner destroys the server.
     void stop();
     [[nodiscard]] bool is_running() const noexcept { return running_.load(); }
 

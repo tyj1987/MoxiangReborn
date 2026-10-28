@@ -12,8 +12,8 @@ import struct
 import sys
 from pathlib import Path
 
-ROOT = Path(r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）")
-RES = ROOT / "墨香【源码配套资源】" / "PlayDH" / "Resource"
+ROOT = Path(__file__).resolve().parents[1]
+RES = ROOT / "modern" / "data" / "PlayDH" / "Resource"
 
 
 def decrypt_bin_payload(data: bytes, type_: int) -> bytes:

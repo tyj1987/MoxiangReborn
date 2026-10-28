@@ -2,12 +2,14 @@
 # 用 PowerShell 验证 modern/ 下的资源格式算法与原版 .bin/.pak/.bsad 文件 100% 兼容。
 
 [CmdletBinding()]
-param()
+param([string]$Root = '')
 
 $ErrorActionPreference = 'Stop'
 
-$Root = 'D:\墨香全套源代码（源码+资源+客户端+服务端+教程）'
-$Res  = Join-Path $Root '墨香【源码配套资源】\PlayDH\Resource'
+if ([string]::IsNullOrWhiteSpace($Root)) {
+    $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+}
+$Res  = Join-Path $Root 'modern\data\PlayDH\Resource'
 
 Write-Host '=' -NoNewline; Write-Host ('=' * 60)
 Write-Host ' Moxian-Reborn Algorithm Verification'

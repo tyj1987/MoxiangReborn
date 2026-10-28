@@ -46,9 +46,19 @@
 
 namespace mxh::game {
 
+struct SkillEffectRefs {
+    std::uint16_t skill_id = 0;
+    std::string effect_start;
+    std::string effect_use;
+    std::string effect_self;
+    std::string effect_map_object_create;
+    std::string effect_mine_operate;
+};
+
 // Result of a parse attempt.
 struct SkillListParseResult {
     std::vector<SkillInfo>  skills;   // one entry per non-empty row
+    std::vector<SkillEffectRefs> effect_refs; // preserves original BEFF names
     std::uint32_t           rows_seen = 0;   // total rows (including parse errors)
     std::uint32_t           parse_errors = 0; // rows that didn't tokenize
     std::uint8_t            decoded_crc = 0;  // for verification

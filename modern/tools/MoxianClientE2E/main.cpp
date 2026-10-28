@@ -32,12 +32,25 @@
 //
 // Usage:
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
-//                  [--no-spawn]  # assume servers are already running
+//                  [--login-host HOST] [--agent-host HOST] [--map-host HOST]
+//                  [--login-port N] [--agent-port N] [--map-port N]
+//                  [--map12-port N] [--map-number N]
+//                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
+//                  [--exercise-equip]   # Live equipment MoveAck/relogin gate
+//                  [--exercise-shop]    # Live NPC shop catalog/buy gate
+//                  [--exercise-quest]   # Live QuestScript accept/claim gate
+//                  [--exercise-position] # movement/GameOut/relog position gate
+//                  [--no-spawn]  # assume servers are already running (remote-safe)
+//                  [--account NAME] [--password-env ENV_NAME]
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
 //                  [--db DB]          SQLite file or MSSQL kv string
 //                  [--init-schema]    apply schema before spawning
 //                  [--use-hsel]       run the whole chain HSEL-encrypted
+//
+// The default LoginServer endpoint is VM112 (192.168.2.244).  Select a local
+// chain explicitly with --login-host 127.0.0.1; MXH_LOGIN_HOST is supported
+// for non-secret environment configuration and is overridden by the CLI.
 //
 // MSSQL single-command example (Phase P0; LocalDB):
 //   mxh_client_e2e --backend mssql_odbc --init-schema
@@ -75,19 +88,32 @@
 #include "CInGameState.hpp"
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
+#include "mxh/compat/quest_string_catalog.hpp"
 
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/mssql_odbc_adapter.hpp"
+#include "mxh/db/schema_migration.hpp"
+#include "mxh/server/account_service.hpp"
+#include "mxh/server/quest_script_loader.hpp"
+#include "mxh/game/npc_role.hpp"
+
+#include "../../tests/support/e2e_ports.hpp"
+#include "../../tests/support/playdh_env.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 #ifdef _WIN32
@@ -114,11 +140,38 @@ struct CliArgs {
     std::string db;                     // SQLite file path or MSSQL kv string
     bool db_explicit = false;
     bool no_spawn = false;
+    bool keep_servers = false; // 2026-09-07: skip procs destructor cleanup so a
+                               // follow-up GUI client can attach after E2E PASS
     std::string character_name;
-    std::string account = "test";
-    std::string password = "test";
+    std::string account = "mxh_e2e";
+    std::string password = "Pass1234";
+    std::string password_env;
+    // Remote PVE is the authoritative test environment.  Local loopback is
+    // still available, but must be selected explicitly with --login-host
+    // (or MXH_LOGIN_HOST) so a remote run can never silently fall back to a
+    // local three-server chain.
+    std::string login_host = "192.168.2.244";
+    std::string agent_host;  // empty = LoginAck agent_addr, else override
+    std::string map_host;    // reserved; GameIn uses persistent AgentSession
+    bool login_host_explicit = false;
+    // MXH_E2E_PORT_BASE, read at startup, replaces these when a port flag is
+    // omitted. Resolved ports must be in 1024..65535. 16001/17001/18001 and
+    // 36001/37001/38001 are refused before any server starts.
+    int login_port = mxh::test::kE2eDefaultLoginPort;
+    int agent_port = mxh::test::kE2eDefaultAgentPort;
+    int map_port = mxh::test::kE2eDefaultMapPort;
+    int map12_port = mxh::test::kE2eDefaultMap12Port;
+    bool dump_cli = false;
     int  timeout_s = 10;
+    int  map_number = 10;
     bool use_hsel = false;  // Phase R-1: run the whole chain HSEL-encrypted
+    bool exercise_combat = false; // opt-in live combat gate; never implicit
+    bool exercise_equip = false; // opt-in equipment move and persistence gate
+    bool exercise_shop = false; // opt-in live NPC shop catalog/buy gate
+    bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
+    bool exercise_skills = false; // opt-in quick-slot skill/effect gate
+    bool exercise_mapchange = false; // opt-in cross-map route/load gate
+    bool exercise_position = false; // opt-in movement/GameOut/relog position gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -127,17 +180,43 @@ struct CliArgs {
                                // bootstrap the shared DB itself.
 };
 
+std::string resolve_server_exe(const char* argv0,
+                               const char* directory,
+                               const char* executable) {
+    std::error_code error;
+    auto tool_dir = std::filesystem::absolute(argv0, error).parent_path().parent_path();
+    if (error) tool_dir = std::filesystem::current_path() / "modern" / "build" / "tools";
+    const auto single_config = tool_dir / directory / executable;
+    if (std::filesystem::exists(single_config)) return single_config.string();
+    const auto multi_config = tool_dir / directory / "Debug" / executable;
+    if (std::filesystem::exists(multi_config)) return multi_config.string();
+    return single_config.string();
+}
+
+std::filesystem::path find_e2e_playdh_root(const std::string& map_exe) {
+    // MXH_PLAYDH_ROOT replaces the upward search. A set value that is empty,
+    // not a directory, or missing Resource/Server or Image/InterfaceScript
+    // throws; it must not fall back or be skipped.
+    return mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
+}
+
 CliArgs parse_cli(int argc, char** argv) {
     CliArgs a;
-    // Default exe paths: assume the build dir produced them under
-    // modern/build/tools/MoxianXxxServer/Debug/.
-    const std::string build_dir = "C:/moxiang/modern/build/tools";
-    a.login_exe = build_dir + "/MoxianLoginServer/Debug/mxh_login_server.exe";
-    a.agent_exe = build_dir + "/MoxianAgentServer/Debug/mxh_agent_server_CHINA.exe";
-    a.map_exe   = build_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
+    // Resolve next to this executable so both Ninja single-config and Visual
+    // Studio multi-config build trees work without a machine-specific path.
+    a.login_exe = resolve_server_exe(
+        argv[0], "MoxianLoginServer", "mxh_login_server.exe");
+    a.agent_exe = resolve_server_exe(
+        argv[0], "MoxianAgentServer", "mxh_agent_server_CHINA.exe");
+    a.map_exe = resolve_server_exe(
+        argv[0], "MoxianMapServer", "mxh_map_server_CHINA.exe");
     // MSSQL default matches the verified LocalDB command from the P0 E2E:
     //   --backend mssql_odbc --db "backend=mssql_odbc;host=(localdb)\MSSQLLocalDB;database=Moxiang;"
     a.db = "backend=mssql_odbc;host=(localdb)\\MSSQLLocalDB;database=Moxiang;encrypt=no;trust_server_certificate=yes;";
+    bool login_port_explicit = false;
+    bool agent_port_explicit = false;
+    bool map_port_explicit = false;
+    bool map12_port_explicit = false;
     for (int i = 1; i < argc; ++i) {
         const std::string_view s = argv[i];
         if      (s == "--login-exe" && i + 1 < argc) a.login_exe = argv[++i];
@@ -149,16 +228,91 @@ CliArgs parse_cli(int argc, char** argv) {
             a.db_explicit = true;
         }
         else if (s == "--no-spawn") a.no_spawn = true;
+        else if (s == "--keep-servers") a.keep_servers = true;
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
         else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
+        else if (s == "--password-env" && i + 1 < argc) a.password_env = argv[++i];
+        else if (s == "--login-host" && i + 1 < argc) {
+            a.login_host = argv[++i];
+            a.login_host_explicit = true;
+        }
+        else if (s == "--agent-host" && i + 1 < argc) a.agent_host = argv[++i];
+        else if (s == "--map-host" && i + 1 < argc) a.map_host = argv[++i];
+        else if (s == "--login-port" && i + 1 < argc) {
+            a.login_port = std::atoi(argv[++i]);
+            login_port_explicit = true;
+        }
+        else if (s == "--agent-port" && i + 1 < argc) {
+            a.agent_port = std::atoi(argv[++i]);
+            agent_port_explicit = true;
+        }
+        else if (s == "--map-port" && i + 1 < argc) {
+            a.map_port = std::atoi(argv[++i]);
+            map_port_explicit = true;
+        }
+        else if (s == "--map12-port" && i + 1 < argc) {
+            a.map12_port = std::atoi(argv[++i]);
+            map12_port_explicit = true;
+        }
+        else if (s == "--map-number" && i + 1 < argc) a.map_number = std::atoi(argv[++i]);
+        else if (s == "--dump-cli") a.dump_cli = true;
         else if (s == "--timeout"   && i + 1 < argc) a.timeout_s = std::atoi(argv[++i]);
         else if (s == "--use-hsel")  a.use_hsel = true;
+        else if (s == "--exercise-combat") a.exercise_combat = true;
+        else if (s == "--exercise-equip") a.exercise_equip = true;
+        else if (s == "--exercise-shop") a.exercise_shop = true;
+        else if (s == "--exercise-quest") a.exercise_quest = true;
+        else if (s == "--exercise-skills") a.exercise_skills = true;
+        else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
+        else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
         }
+    }
+    if (!a.login_host_explicit) {
+        const char* host = std::getenv("MXH_LOGIN_HOST");
+        if (host != nullptr && *host != '\0') {
+            a.login_host = host;
+        }
+    }
+    if (!a.password_env.empty()) {
+        const char* value = std::getenv(a.password_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::fprintf(stderr, "password environment variable is empty: %s\n",
+                         a.password_env.c_str());
+            std::exit(3);
+        }
+        a.password = value;
+    }
+    try {
+        const auto resolved = mxh::test::resolve_e2e_cli_ports(
+            std::getenv(mxh::test::kE2ePortBaseEnv),
+            login_port_explicit, a.login_port,
+            agent_port_explicit, a.agent_port,
+            map_port_explicit, a.map_port,
+            map12_port_explicit, a.map12_port);
+        a.login_port = resolved.login;
+        a.agent_port = resolved.agent;
+        a.map_port = resolved.map;
+        a.map12_port = resolved.map12;
+    } catch (const std::runtime_error& error) {
+        std::fprintf(stderr, "%s\n", error.what());
+        std::exit(3);
+    }
+    const auto rejected = mxh::test::e2e_ports_reject_reason(
+        a.login_port, a.agent_port, a.map_port, a.map12_port);
+    if (!rejected.empty()) {
+        std::fprintf(stderr, "%s\n", rejected.c_str());
+        std::exit(3);
+    }
+    if (a.login_port == a.agent_port || a.login_port == a.map_port ||
+        a.login_port == a.map12_port || a.agent_port == a.map_port ||
+        a.agent_port == a.map12_port || a.map_port == a.map12_port) {
+        std::fprintf(stderr, "login, agent, map and map12 ports must be distinct\n");
+        std::exit(3);
     }
     return a;
 }
@@ -299,9 +453,8 @@ int ensure_mssql_schema(const CliArgs& cli) {
     master->disconnect();
     LOG("MSSQL schema init: database '%s' ready", target_db.c_str());
 
-    // 2. Connect to the target DB and create the two tables the modern
-    //    servers use (chr_log_info for login, character_info for the
-    //    agent/map servers), then seed the E2E test account.
+    // 2. Connect to the target DB, run the same migration entrypoint used by
+    //    deployment, then create the explicitly requested E2E account.
     auto db = mxh::db::make_adapter("mssql_odbc");
     auto cr = db->connect(cfg);
     if (!cr) {
@@ -310,49 +463,128 @@ int ensure_mssql_schema(const CliArgs& cli) {
         return 1;
     }
 
-    const char* kChrLogInfo =
-        "IF OBJECT_ID(N'dbo.chr_log_info', N'U') IS NULL "
-        "CREATE TABLE dbo.chr_log_info ("
-        " id NVARCHAR(50) NOT NULL PRIMARY KEY,"
-        " pw NVARCHAR(160) NOT NULL,"
-        " userlevel INT NOT NULL DEFAULT 0);"
-        "IF COL_LENGTH(N'dbo.chr_log_info', N'pw') < 320 "
-        "ALTER TABLE dbo.chr_log_info ALTER COLUMN pw NVARCHAR(160) NOT NULL;";
-    const char* kCharacterInfo =
-        "IF OBJECT_ID(N'dbo.character_info', N'U') IS NULL "
-        "CREATE TABLE dbo.character_info ("
-        " chrid BIGINT NOT NULL PRIMARY KEY,"
-        " charname NVARCHAR(50) NOT NULL,"
-        " userid BIGINT NOT NULL,"
-        " sex_type TINYINT NOT NULL DEFAULT 0,"
-        " hair_type TINYINT NOT NULL DEFAULT 0,"
-        " face_type TINYINT NOT NULL DEFAULT 0,"
-        " body_type TINYINT NOT NULL DEFAULT 0,"
-        " start_area INT NOT NULL DEFAULT 0,"
-        " height FLOAT NOT NULL DEFAULT 1.0,"
-        " width FLOAT NOT NULL DEFAULT 1.0,"
-        " level INT NOT NULL DEFAULT 1,"
-        " map_num INT NOT NULL DEFAULT 0,"
-        " standing_idx INT NOT NULL DEFAULT 0);";
-    const char* kSeedAccount =
-        "IF NOT EXISTS (SELECT 1 FROM dbo.chr_log_info WHERE id = N'test') "
-        "INSERT INTO dbo.chr_log_info (id, pw, userlevel) "
-        "VALUES (N'test', N'test', 2);";
-
-    const char* statements[] = {kChrLogInfo, kCharacterInfo, kSeedAccount};
-    for (const char* sql : statements) {
-        auto er = db->execute(sql);
-        if (!er) {
-            LOG("MSSQL schema init: statement failed: %s",
-                er.error_message.c_str());
-            return 1;
-        }
+    const auto migrated = mxh::db::migrate_modern_schema(*db);
+    if (!migrated.ok()) {
+        LOG("MSSQL schema migration failed: %s", migrated.error_message.c_str());
+        return 1;
+    }
+    const auto account = mxh::server::create_account(
+        *db, cli.account, cli.password);
+    if (!account.ok() && account.status != mxh::server::AccountCreateStatus::AlreadyExists) {
+        LOG("MSSQL E2E account creation failed: %s", account.message.c_str());
+        return 1;
     }
     db->disconnect();
-    LOG("MSSQL schema init: tables ready + test account seeded ('test'/'test')");
+    LOG("MSSQL schema migrated to version %d", mxh::db::kModernSchemaVersion);
+    return 0;
+}
+
+int prepare_sqlite_database(const std::string& path, const CliArgs& cli) {
+    auto db = mxh::db::make_adapter("sqlite");
+    mxh::db::ConnectionConfig cfg;
+    cfg.backend = "sqlite";
+    cfg.path = path;
+    const auto connected = db->connect(cfg);
+    if (!connected.ok()) {
+        LOG("SQLite E2E connect failed: %s", connected.error_message.c_str());
+        return 1;
+    }
+    const auto migrated = mxh::db::migrate_modern_schema(*db);
+    if (!migrated.ok()) {
+        LOG("SQLite schema migration failed: %s", migrated.error_message.c_str());
+        return 1;
+    }
+    const auto account = mxh::server::create_account(*db, cli.account, cli.password);
+    if (!account.ok() && account.status != mxh::server::AccountCreateStatus::AlreadyExists) {
+        LOG("SQLite E2E account creation failed: %s", account.message.c_str());
+        return 1;
+    }
     return 0;
 }
 #endif  // _WIN32
+
+struct EquipmentGateResult {
+    std::uint32_t db_idx = 0;
+    std::uint16_t icon_idx = 0;
+};
+
+bool exercise_equipment_move(mxh::client::CInGameState& game,
+                             int timeout_s,
+                             EquipmentGateResult& result) {
+    constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+    const auto& equipped = game.game_info().items.WearedItem[kWeaponSlot];
+    result.db_idx = equipped.dwDBIdx;
+    result.icon_idx = equipped.wIconIdx;
+
+    std::size_t bag_slot = mxh::game::SLOT_INVENTORY_NUM;
+    for (std::size_t slot = 0; slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+        if (mxh::game::is_empty_slot(game.game_info().items.Inventory[slot])) {
+            bag_slot = slot;
+            break;
+        }
+    }
+
+    bool observed_unequip = false;
+    if (result.db_idx != 0 && result.icon_idx != 0 &&
+        bag_slot < mxh::game::SLOT_INVENTORY_NUM &&
+        game.request_inventory_move(
+            mxh::game::TP_WEAREDITEM_START + kWeaponSlot, bag_slot)) {
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
+            if (game.game_info().items.Inventory[bag_slot].dwDBIdx == result.db_idx &&
+                mxh::game::is_empty_slot(
+                    game.game_info().items.WearedItem[kWeaponSlot])) {
+                observed_unequip = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+    }
+    if (!observed_unequip) {
+        LOG("[5/5] FAIL: equipment MoveAck unequip db=%u bag_slot=%zu",
+            result.db_idx, bag_slot);
+        return false;
+    }
+
+    bool observed_equip = false;
+    if (game.request_inventory_move(
+            bag_slot, mxh::game::TP_WEAREDITEM_START + kWeaponSlot)) {
+        const auto deadline = std::chrono::steady_clock::now() +
+                              std::chrono::seconds(timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
+            const auto& weapon = game.game_info().items.WearedItem[kWeaponSlot];
+            if (weapon.dwDBIdx == result.db_idx &&
+                weapon.wIconIdx == result.icon_idx &&
+                game.game_info().items.Inventory[bag_slot].dwDBIdx == 0) {
+                observed_equip = true;
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+    }
+    if (!observed_equip) {
+        LOG("[5/5] FAIL: equipment MoveAck equip db=%u slot=%u",
+            result.db_idx,
+            static_cast<unsigned>(mxh::game::TP_WEAREDITEM_START + kWeaponSlot));
+        return false;
+    }
+    LOG("[5/5] OK: equipment MoveAck unequip/equip db=%u icon=%u slot=%u",
+        result.db_idx, static_cast<unsigned>(result.icon_idx),
+        static_cast<unsigned>(kWeaponSlot));
+    return true;
+}
+
+bool persisted_equipment_matches(const mxh::client::CInGameState& game,
+                                 const EquipmentGateResult& expected) {
+    constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+    const auto& weapon = game.game_info().items.WearedItem[kWeaponSlot];
+    return weapon.dwDBIdx == expected.db_idx &&
+           weapon.wIconIdx == expected.icon_idx &&
+           game.game_info().weared_item_idx[kWeaponSlot] == expected.icon_idx;
+}
 
 // ---------------------------------------------------------------------------
 // E2E flow
@@ -367,13 +599,22 @@ int run_e2e(const CliArgs& cli) {
         LOG("WSAStartup failed (err=%d)", rc);
         return 1;
     }
+    std::filesystem::path e2e_playdh_root;
+    try {
+        e2e_playdh_root = find_e2e_playdh_root(cli.map_exe);
+    } catch (const std::runtime_error& error) {
+        LOG("%s", error.what());
+        return 3;
+    }
+    if (e2e_playdh_root.empty()) {
+        LOG("unable to locate canonical PlayDH root for MapServer");
+        return 3;
+    }
 
     // ---- spawn servers (unless --no-spawn) ----
     std::vector<std::unique_ptr<ServerProc>> procs;
     if (!cli.no_spawn) {
-        // Phase P0: mssql_odbc needs the shared SQL Server schema before
-        // any of the three processes start (LoginServer --init-schema is
-        // SQLite-only DDL).  SQLite files are created below per server.
+        // MSSQL needs its target database before the shared migration runs.
         if (cli.db_backend == "mssql_odbc") {
             if (cli.init_schema) {
                 const int schema_rc = ensure_mssql_schema(cli);
@@ -387,97 +628,172 @@ int run_e2e(const CliArgs& cli) {
             }
         }
 
-        // DB files go in modern/scratch/e2e_client/ so they auto-clean
-        // (we delete the dir on success; verify_servers_e2e.py uses
-        // a similar pattern).
+        // All three processes intentionally share one database.
         std::string scratch, login_db, agent_db, map_db;
         if (cli.db_backend == "mssql_odbc" || cli.db_explicit) {
             // MSSQL and explicitly selected SQLite runs share one database.
             login_db = agent_db = map_db = cli.db;
         } else {
-            scratch = "C:\\moxiang\\modern\\scratch\\e2e_client";
-            CreateDirectoryA(scratch.c_str(), nullptr);
-            login_db = scratch + "\\login.db";
-            agent_db = scratch + "\\agent.db";
-            map_db   = scratch + "\\map.db";
+            std::error_code temp_error;
+            const auto temp_root = std::filesystem::temp_directory_path(temp_error);
+            if (temp_error || temp_root.empty()) {
+                LOG("unable to resolve temporary directory for SQLite E2E");
+                return 1;
+            }
+            scratch = (temp_root / "moxian-e2e-client").string();
+            std::filesystem::create_directories(scratch, temp_error);
+            if (temp_error) {
+                LOG("unable to create SQLite E2E directory: %s", scratch.c_str());
+                return 1;
+            }
+            login_db = scratch + "\\moxian.db";
+            agent_db = map_db = login_db;
+            DeleteFileA(login_db.c_str());
+        }
+
+        if (cli.db_backend == "sqlite") {
+            const int schema_rc = prepare_sqlite_database(login_db, cli);
+            if (schema_rc != 0) return schema_rc;
         }
 
         const std::string backend_flag =
             cli.db_backend == "mssql_odbc" ? "mssql_odbc" : "sqlite";
-        const std::string init_schema_flag =
-            (cli.db_backend == "sqlite" && cli.init_schema) ? "--init-schema" : "";
-
         // LoginServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "login";
         procs.back()->exe  = cli.login_exe;
-        procs.back()->spawn_with_args("", {
-            "--port", "16001",
+        std::vector<std::string> login_args{
+            "--port", std::to_string(cli.login_port),
             "--backend", backend_flag,
             "--db", login_db,
             "--agent-addr", "127.0.0.1",
-            "--agent-port", "17001",
-            init_schema_flag,
-            "--legacy",
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--agent-port", std::to_string(cli.agent_port),
+            "--legacy"};
+        if (cli.use_hsel) login_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", login_args);
 
         // AgentServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
-        procs.back()->spawn_with_args("", {
-            "--port", "17001",
+        std::vector<std::string> agent_args{
+            "--port", std::to_string(cli.agent_port),
             "--backend", backend_flag,
             "--db", agent_db,
             "--legacy",
-            "--map-server", "127.0.0.1:18001",
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--map-server", "127.0.0.1:" + std::to_string(cli.map_port),
+            "--default-map", std::to_string(cli.map_number)};
+        if (cli.exercise_mapchange) {
+            agent_args.emplace_back("--map-server-map");
+            agent_args.emplace_back("12=127.0.0.1:" + std::to_string(cli.map12_port));
+        }
+        if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", agent_args);
 
         // MapServer
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "map";
         procs.back()->exe  = cli.map_exe;
-        procs.back()->spawn_with_args("", {
-            "--port", "18001",
+        std::vector<std::string> map_args{
+            "--port", std::to_string(cli.map_port),
             "--backend", backend_flag,
-            "--map", "12",
+            "--map", std::to_string(cli.map_number),
             "--db", map_db,
-            "--legacy",
-            (cli.use_hsel ? "--use-hsel" : "")});
+            "--resource-root", e2e_playdh_root.string(),
+            "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+            "--resource-profile", "playdh-current"};
+        if (cli.exercise_shop) {
+            map_args.emplace_back("--dev-initial-money");
+            map_args.emplace_back("10000000");
+        }
+        if (cli.use_hsel) map_args.emplace_back("--use-hsel");
+        procs.back()->spawn_with_args("", map_args);
+
+        if (cli.exercise_mapchange) {
+            procs.push_back(std::make_unique<ServerProc>());
+            procs.back()->name = "map12";
+            procs.back()->exe = cli.map_exe;
+            std::vector<std::string> map12_args{
+                "--port", std::to_string(cli.map12_port),
+                "--backend", backend_flag,
+                "--map", "12",
+                "--db", map_db,
+                "--resource-root", e2e_playdh_root.string(),
+                "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+                "--resource-profile", "playdh-current"};
+            if (cli.use_hsel) map12_args.emplace_back("--use-hsel");
+            procs.back()->spawn_with_args("", map12_args);
+        }
 
         // Wait for the three ports.
-        if (!wait_for_port(16001, cli.timeout_s)) {
-            LOG("LoginServer failed to listen on :16001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.login_port, cli.timeout_s)) {
+            LOG("LoginServer failed to listen on :%d within %ds", cli.login_port, cli.timeout_s);
             return 1;
         }
-        if (!wait_for_port(17001, cli.timeout_s)) {
-            LOG("AgentServer failed to listen on :17001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.agent_port, cli.timeout_s)) {
+            LOG("AgentServer failed to listen on :%d within %ds", cli.agent_port, cli.timeout_s);
             return 1;
         }
-        if (!wait_for_port(18001, cli.timeout_s)) {
-            LOG("MapServer failed to listen on :18001 within %ds", cli.timeout_s);
+        if (!wait_for_port(cli.map_port, cli.timeout_s)) {
+            LOG("MapServer failed to listen on :%d within %ds", cli.map_port, cli.timeout_s);
             return 1;
         }
-        LOG("all 3 servers listening (login:16001, agent:17001, map:18001)");
+        if (cli.exercise_mapchange && !wait_for_port(cli.map12_port, cli.timeout_s)) {
+            LOG("MapServer[12] failed to listen on :%d within %ds", cli.map12_port, cli.timeout_s);
+            return 1;
+        }
+        LOG("all 3 servers listening (login:%d, agent:%d, map:%d)",
+            cli.login_port, cli.agent_port, cli.map_port);
     } else {
-        LOG("--no-spawn: assuming servers are already up (login:16001, agent:17001, map:18001)");
+        LOG("--no-spawn: assuming servers are already up (login:%d, agent:%d, map:%d)",
+            cli.login_port, cli.agent_port, cli.map_port);
     }
 
     // ---- CEngine + state machine ----
     mxh::client::CEngine engine;
+    std::size_t audio_skill_cues = 0;
+    std::size_t audio_attack_cues = 0;
+    engine.SetAudioEventFn([&](mxh::client::CEngine::AudioCue cue) {
+        if (cue == mxh::client::CEngine::AudioCue::Skill) ++audio_skill_cues;
+        if (cue == mxh::client::CEngine::AudioCue::Attack) ++audio_attack_cues;
+    });
+    engine.SetSpatialAudioEventFn(
+        [&](mxh::client::CEngine::AudioCue cue, float) {
+            if (cue == mxh::client::CEngine::AudioCue::Skill) ++audio_skill_cues;
+            if (cue == mxh::client::CEngine::AudioCue::Attack) ++audio_attack_cues;
+        });
     // CEngine will accept state-change requests without a CMainGame
     // callback; we don't actually drive state transitions in this
     // headless flow (each state is started in sequence directly).
+    // Give the client states the same explicit profile root used by the
+    // servers so GameIn exercises the real UI/effect dependency gate rather
+    // than falling back to a headless "root missing" path.
+    {
+        std::filesystem::path root;
+        try {
+            root = find_e2e_playdh_root(cli.map_exe);
+        } catch (const std::runtime_error& error) {
+            LOG("%s", error.what());
+            return 3;
+        }
+        if (!root.empty()) {
+            engine.SetPlaydhRoot(root);
+            LOG("using explicit PlayDH root: %s",
+                engine.playdh_root()->string().c_str());
+        }
+    }
 
     // ---- Step 1: Login ----
-    LOG("[1/5] Login: CLoginState connecting to 127.0.0.1:16001 ...");
+    LOG("[1/5] Login: CLoginState connecting to %s:%d ...",
+        cli.login_host.c_str(), cli.login_port);
     mxh::client::CLoginState login;
-    login.Start(&engine, "127.0.0.1", 16001, cli.account, cli.password,
+    login.Start(&engine, cli.login_host.c_str(), cli.login_port, cli.account, cli.password,
                 cli.use_hsel);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            login.Process();
             // TakeLoginResult() is destructive (it zeroes the cached
             // user_idx), so wait for the ack to be *flagged* received
             // first, then drain.
@@ -489,8 +805,7 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
         if (!login.is_ack_received()) {
-            LOG("[1/5] FAIL: timed out waiting for LoginAck (auth_key=%u)",
-                login.auth_key());
+            LOG("[1/5] FAIL: timed out waiting for LoginAck");
             return 2;
         }
     }
@@ -504,13 +819,18 @@ int run_e2e(const CliArgs& cli) {
     }
 
     // ---- Step 2: CharSelect ----
-    // We bypass the agent port returned in LoginAck (it would be
-    // 7001 by default; for the spawned servers it's 17001).  Use
-    // the spawned server's actual port.
-    LOG("[2/5] CharSelect: CCharSelectState connecting to 127.0.0.1:17001 ...");
+    // LoginAck advertises Agent IP+port. Spawned local servers use the
+    // explicitly selected endpoint. Remote --no-spawn runs keep LoginAck IP
+    // unless --agent-host overrides it, while the port is selected here so
+    // isolated PVE instances can be tested without touching the legacy chain.
+    login_result.agent_port = static_cast<std::uint16_t>(cli.agent_port);
+    if (!cli.agent_host.empty()) {
+        login_result.agent_addr = cli.agent_host;
+    }
+    LOG("[2/5] CharSelect: CCharSelectState connecting to %s:%u ...",
+        login_result.agent_addr.c_str(),
+        static_cast<unsigned>(login_result.agent_port));
     mxh::client::CCharSelectState chsel;
-    // Override the port the LoginAck would have told us.
-    login_result.agent_port = 17001;
     chsel.SetLoginResult(login_result);
     chsel.Start(&engine, cli.use_hsel);
     bool char_select_done = false;
@@ -524,6 +844,7 @@ int run_e2e(const CliArgs& cli) {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel.Process();
             if (!chsel.character_list().empty()) break;  // ListAck received
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -562,6 +883,7 @@ int run_e2e(const CliArgs& cli) {
             auto deadline = std::chrono::steady_clock::now() +
                            std::chrono::seconds(cli.timeout_s);
             while (std::chrono::steady_clock::now() < deadline) {
+                charmake.Process();
                 if (charmake.is_connected()) break;
                 if (charmake.is_failed()) break;
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -589,9 +911,16 @@ int run_e2e(const CliArgs& cli) {
             params.body_type  = 0;
             params.hair_type  = 1;
             params.face_type  = 1;
-            params.start_area = 18;
+            params.start_area = 17;
             params.height     = 1.0f;
             params.width      = 0.9f;
+            // Match the canonical CHINA character-creation defaults from
+            // CharMakeOptionCatalog.  An empty equipment array creates a
+            // visually valid but combat-invalid avatar (no weapon stats),
+            // which makes the real Map10 combat/drop gate take minutes.
+            params.weared_item_idx[1] = 11000; // starter weapon
+            params.weared_item_idx[2] = 23000; // starter cloth
+            params.weared_item_idx[3] = 27000; // starter boots
             if (!charmake.SubmitCharacter(params)) {
                 LOG("[3/5] FAIL: SubmitCharacter rejected: %s",
                     charmake.failure_reason().c_str());
@@ -605,7 +934,9 @@ int run_e2e(const CliArgs& cli) {
             auto deadline = std::chrono::steady_clock::now() +
                            std::chrono::seconds(cli.timeout_s);
             while (std::chrono::steady_clock::now() < deadline) {
+                charmake.Process();
                 if (charmake.is_failed()) break;
+                if (char_select_done) break;
                 // char_select_done is set via the engine callback.
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
@@ -619,6 +950,7 @@ int run_e2e(const CliArgs& cli) {
             // char_select_done.  Polled via the state-change fn.
             int poll_ticks = 0;
             while (!char_select_done && poll_ticks++ < 200) {
+                charmake.Process();
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
             }
             if (!char_select_done) {
@@ -641,10 +973,12 @@ int run_e2e(const CliArgs& cli) {
     chsel2.SetLoginResult(login_result);
     chsel2.Start(&engine, cli.use_hsel);
     std::uint32_t created_chrid = 0;
+    std::size_t created_slot = 0;
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel2.Process();
             if (!chsel2.character_list().empty()) break;  // ListAck received
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
@@ -653,10 +987,14 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
         std::uint32_t valid_count = 0;
-        for (const auto& s : chsel2.character_list()) {
+        for (std::size_t slot = 0; slot < chsel2.character_list().size(); ++slot) {
+            const auto& s = chsel2.character_list()[slot];
             if (s.valid) {
                 ++valid_count;
-                if (created_chrid == 0) created_chrid = s.chrid;
+                if (created_chrid == 0) {
+                    created_chrid = s.chrid;
+                    created_slot = slot;
+                }
             }
         }
         if (valid_count == 0) {
@@ -667,50 +1005,876 @@ int run_e2e(const CliArgs& cli) {
             static_cast<unsigned>(created_chrid),
             static_cast<unsigned>(valid_count));
     }
-    chsel2.Release();
-
-    // ---- Step 5: InGame ----
-    LOG("[5/5] InGame: CInGameState connecting to 127.0.0.1:18001 ...");
-    mxh::client::CInGameState game;
-    // Start a per-tick thread that calls Process() every 50ms; this
-    // gives the in-game state a chance to retry the GameInSyn send
-    // (which may transiently fail during the TCP connect handshake).
-    std::atomic<bool> tick_stop{false};
-    std::thread tick_thread([&game, &tick_stop]() {
-        while (!tick_stop.load(std::memory_order_acquire)) {
-            game.Process();
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        }
-    });
-    game.Start(&engine, "127.0.0.1", 18001, created_chrid, 12,
-               cli.use_hsel);
+    if (!chsel2.SelectSlot(created_slot) || !chsel2.ConfirmSelection()) {
+        LOG("[4/5] FAIL: cannot confirm the first character slot");
+        return 2;
+    }
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
         while (std::chrono::steady_clock::now() < deadline) {
+            chsel2.Process();
+            if (chsel2.selected_map() != 0) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+        if (chsel2.selected_map() == 0) {
+            LOG("[4/5] FAIL: timed out waiting for CharacterSelectAck");
+            return 2;
+        }
+    }
+    chsel2.Release();
+
+    // ---- Step 5: InGame ----
+    LOG("[5/5] InGame: sending GameInSyn through persistent AgentSession ...");
+    mxh::client::CInGameState game;
+    game.Start(&engine, created_chrid,
+               static_cast<std::uint16_t>(cli.map_number));
+    {
+        auto deadline = std::chrono::steady_clock::now() +
+                       std::chrono::seconds(cli.timeout_s);
+        while (std::chrono::steady_clock::now() < deadline) {
+            game.Process();
             if (game.is_in_game()) break;
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
         if (!game.is_in_game()) {
             LOG("[5/5] FAIL: timed out waiting for GameInAck");
-            tick_stop.store(true, std::memory_order_release);
-            tick_thread.join();
             return 2;
+        }
+        // Map10 is the first vertical-slice gate.  Let the receive thread
+        // drain the server's initial spawn burst, then require the complete
+        // decoded AIGroup population rather than merely the first packet.
+        if (cli.map_number == 10) {
+            const auto spawn_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(2);
+            while (game.monsters().size() < 228 &&
+                   std::chrono::steady_clock::now() < spawn_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.monsters().size() != 228) {
+                LOG("[5/5] FAIL: Map10 monster population=%zu, expected 228",
+                    game.monsters().size());
+                return 2;
+            }
+            LOG("[5/5] OK: Map10 initial monster population=%zu", game.monsters().size());
+        }
+        // GameInAck is sent before the server's initial CHARACTER_ADD/NpcAdd
+        // burst.  Drain that burst once before optional gates inspect the
+        // decoded entity lists; otherwise a fast client can report a missing
+        // dealer or empty NPC catalog even though the server sent it.
+        const auto entity_drain_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::milliseconds(750);
+        while (std::chrono::steady_clock::now() < entity_drain_deadline) {
+            game.Process();
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
         }
         const auto& info = game.game_info();
         LOG("[5/5] OK: GameInAck received, player_id=%u name='%s' "
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
-    }
-    tick_stop.store(true, std::memory_order_release);
-    tick_thread.join();
 
-    // Clean shutdown — release states (disconnects TcpClient) and
-    // kill server procs (ServerProc dtor calls TerminateProcess).
-    login.Release();
+        if (cli.exercise_quest) {
+            const auto quest_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestString.bin";
+            auto quest_catalog = mxh::compat::load_quest_string_catalog(quest_path);
+            const auto script_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestScript.bin";
+            const auto script_catalog = mxh::server::load_quest_script(script_path);
+            // QuestString.bin is a presentation catalog and its first main
+            // quest is not guaranteed to be present in the executable
+            // QuestScript.bin.  Select the first entry shared by both real
+            // resources, preferring a definition with actual subquests.
+            const mxh::compat::QuestStringEntry* selected_entry = nullptr;
+            for (const auto* entry : quest_catalog.main_quests()) {
+                if (!entry) continue;
+                const auto* definition = script_catalog.find_quest(entry->quest_id);
+                if (definition && !definition->subquests.empty()) {
+                    selected_entry = entry;
+                    break;
+                }
+            }
+            if (selected_entry) {
+                auto it = std::find_if(
+                    quest_catalog.entries.begin(), quest_catalog.entries.end(),
+                    [&](const auto& entry) {
+                        return entry.quest_id == selected_entry->quest_id &&
+                               entry.subquest_id == selected_entry->subquest_id;
+                    });
+                if (it != quest_catalog.entries.end())
+                    std::rotate(quest_catalog.entries.begin(), it, it + 1);
+            }
+            game.set_quest_catalog(std::move(quest_catalog));
+            const auto* selected = game.selected_quest();
+            if (selected == nullptr || selected->quest_id == 0u) {
+                LOG("[5/5] FAIL: canonical quest catalog has no selectable main quest");
+                return 2;
+            }
+            game.set_quest_open(true);
+            if (game.quest_status() == "Active - hunt monsters") {
+                LOG("[5/5] Quest: canonical quest=%u already active; reusing ...",
+                    static_cast<unsigned>(game.quest_id()));
+            } else {
+                LOG("[5/5] Quest: accepting canonical quest=%u ...",
+                    static_cast<unsigned>(game.quest_id()));
+                game.send_quest(mxh::proto::QuestProtocol::StartSyn);
+                const auto quest_deadline = std::chrono::steady_clock::now() +
+                                             std::chrono::seconds(cli.timeout_s);
+                while (game.quest_status() != "Active - hunt monsters" &&
+                       std::chrono::steady_clock::now() < quest_deadline) {
+                    game.Process();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            if (game.quest_status() != "Active - hunt monsters") {
+                LOG("[5/5] FAIL: Quest StartAck status='%s' quest=%u",
+                    game.quest_status().c_str(), static_cast<unsigned>(game.quest_id()));
+                return 2;
+            }
+            LOG("[5/5] OK: Quest StartAck quest=%u status=%s",
+                static_cast<unsigned>(game.quest_id()), game.quest_status().c_str());
+            game.send_quest(mxh::proto::QuestProtocol::EndSyn);
+            const auto end_deadline = std::chrono::steady_clock::now() +
+                                      std::chrono::seconds(cli.timeout_s);
+            while (game.quest_status() != "Not complete" &&
+                   std::chrono::steady_clock::now() < end_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.quest_status() != "Not complete") {
+                LOG("[5/5] FAIL: incomplete Quest EndNack status='%s'",
+                    game.quest_status().c_str());
+                return 2;
+            }
+            LOG("[5/5] OK: incomplete Quest EndNack recovery quest=%u",
+                static_cast<unsigned>(game.quest_id()));
+        }
+
+        if (cli.exercise_shop) {
+            const auto dealer = std::min_element(
+                game.npcs().begin(), game.npcs().end(), [&game](const auto& lhs, const auto& rhs) {
+                    const auto lhs_dealer = mxh::game::role_from_wire(lhs.npc_kind) ==
+                                             mxh::game::NpcRole::Dealer;
+                    const auto rhs_dealer = mxh::game::role_from_wire(rhs.npc_kind) ==
+                                             mxh::game::NpcRole::Dealer;
+                    if (lhs_dealer != rhs_dealer) return lhs_dealer;
+                    const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
+                    const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
+                    const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
+                    const auto rhs_dz = static_cast<float>(rhs.position_z) - game.local_z();
+                    return lhs_dx * lhs_dx + lhs_dz * lhs_dz <
+                           rhs_dx * rhs_dx + rhs_dz * rhs_dz;
+                });
+            if (dealer == game.npcs().end() ||
+                mxh::game::role_from_wire(dealer->npc_kind) != mxh::game::NpcRole::Dealer) {
+                LOG("[5/5] FAIL: Map10 has no canonical dealer NPC");
+                return 2;
+            }
+            // MapServer enforces a 5,000-unit maximum client step.  A
+            // dealer can be farther away than one wire move from the
+            // spawn point, so walk in authoritative-sized segments before
+            // sending the interaction request.  The old one-jump probe
+            // silently received MoveCorrection and then reported a shop
+            // failure even though the catalog was present.
+            const auto move_into_npc_range = [&game](std::uint16_t target_x,
+                                                      std::uint16_t target_z) {
+                constexpr float kMaxStep = 4000.0f;
+                constexpr float kStopRange = 250.0f;
+                for (int step = 0; step < 32; ++step) {
+                    const float x = game.local_x();
+                    const float z = game.local_z();
+                    const float dx = static_cast<float>(target_x) - x;
+                    const float dz = static_cast<float>(target_z) - z;
+                    const float distance = std::sqrt(dx * dx + dz * dz);
+                    if (distance <= kStopRange) break;
+                    const float length = std::min(kMaxStep,
+                                                  distance - kStopRange);
+                    const auto next_x = static_cast<std::uint16_t>(
+                        std::clamp(x + dx * length / distance, 0.0f, 65535.0f));
+                    const auto next_z = static_cast<std::uint16_t>(
+                        std::clamp(z + dz * length / distance, 0.0f, 65535.0f));
+                    game.send_move(next_x, next_z,
+                                   mxh::proto::MoveProtocol::OneTarget);
+                    game.Process();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                game.send_move(target_x, target_z,
+                               mxh::proto::MoveProtocol::OneTarget);
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                game.Process();
+            };
+            move_into_npc_range(dealer->position_x, dealer->position_z);
+            LOG("[5/5] Shop: requesting canonical NPC shop catalog npc=%u ...",
+                static_cast<unsigned>(dealer->npc_id));
+            game.open_shop(dealer->npc_id);
+            const auto shop_deadline = std::chrono::steady_clock::now() +
+                                       std::chrono::seconds(cli.timeout_s);
+            while (!game.shop_open() &&
+                   std::chrono::steady_clock::now() < shop_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!game.shop_open() || game.shop_items().empty()) {
+                LOG("[5/5] FAIL: canonical NPC shop catalog unavailable");
+                return 2;
+            }
+            const auto item_id = game.shop_items().front().item_id;
+            const auto count_item = [&game, item_id]() {
+                std::uint64_t total = 0;
+                for (const auto& item : game.game_info().items.Inventory) {
+                    if (item.wIconIdx == item_id) total += item.ItemParam;
+                }
+                return total;
+            };
+            const auto before = count_item();
+            game.buy_shop_item(0);
+            const auto buy_deadline = std::chrono::steady_clock::now() +
+                                      std::chrono::seconds(cli.timeout_s);
+            while ((game.shop_open() || count_item() <= before) &&
+                   std::chrono::steady_clock::now() < buy_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.shop_open() || count_item() <= before) {
+                LOG("[5/5] FAIL: shop BuyAck/inventory update item=%u before=%llu after=%llu",
+                    static_cast<unsigned>(item_id),
+                    static_cast<unsigned long long>(before),
+                    static_cast<unsigned long long>(count_item()));
+                return 2;
+            }
+            LOG("[5/5] OK: shop BuyAck item=%u count=%llu->%llu npc=%u",
+                static_cast<unsigned>(item_id),
+                static_cast<unsigned long long>(before),
+                static_cast<unsigned long long>(count_item()),
+                static_cast<unsigned>(game.shop_npc_id()));
+            const auto shop_map = game.game_info().map_num;
+            game.Release();
+            mxh::client::CInGameState relog_after_shop;
+            relog_after_shop.Start(&engine, created_chrid, shop_map);
+            const auto relog_shop_deadline = std::chrono::steady_clock::now() +
+                                             std::chrono::seconds(cli.timeout_s * 3);
+            while (relog_after_shop.game_info().player_id != created_chrid &&
+                   std::chrono::steady_clock::now() < relog_shop_deadline) {
+                relog_after_shop.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            std::uint64_t relog_count = 0;
+            for (const auto& item : relog_after_shop.game_info().items.Inventory) {
+                if (item.wIconIdx == item_id) relog_count += item.ItemParam;
+            }
+            if (relog_after_shop.game_info().player_id != created_chrid ||
+                relog_count < before + 1u) {
+                LOG("[5/5] FAIL: shop purchase did not survive relog item=%u count=%llu",
+                    static_cast<unsigned>(item_id),
+                    static_cast<unsigned long long>(relog_count));
+                return 2;
+            }
+            LOG("[5/5] OK: shop purchase survives relog item=%u count=%llu",
+                static_cast<unsigned>(item_id),
+                static_cast<unsigned long long>(relog_count));
+            relog_after_shop.Release();
+        }
+
+        if (cli.exercise_mapchange) {
+            constexpr std::uint16_t target_map = 12;
+            LOG("[5/5] MapChange: requesting authoritative map=%u ...",
+                static_cast<unsigned>(target_map));
+            mxh::net::Message change;
+            change.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            change.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::ChangeMapSyn);
+            change.header.object_id = created_chrid;
+            change.payload.resize(4, 0);
+            std::memcpy(change.payload.data(), &target_map, sizeof(target_map));
+            if (engine.agent_session().send(change) != mxh::net::NetError::Ok) {
+                LOG("[5/5] FAIL: ChangeMapSyn send failed");
+                return 2;
+            }
+            const auto change_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(cli.timeout_s * 3);
+            while (game.game_info().map_num != target_map &&
+                   std::chrono::steady_clock::now() < change_deadline) {
+                game.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (game.game_info().map_num != target_map) {
+                LOG("[5/5] FAIL: target GameInAck map=%u expected=%u",
+                    static_cast<unsigned>(game.game_info().map_num),
+                    static_cast<unsigned>(target_map));
+                return 2;
+            }
+            LOG("[5/5] OK: MapChange target GameInAck map=%u monsters=%zu npcs=%zu",
+                static_cast<unsigned>(game.game_info().map_num),
+                game.monsters().size(), game.npcs().size());
+            game.Release();
+            mxh::client::CInGameState relog_after_change;
+            relog_after_change.Start(&engine, created_chrid, target_map);
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (relog_after_change.game_info().map_num != target_map &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog_after_change.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (relog_after_change.game_info().map_num != target_map) {
+                LOG("[5/5] FAIL: target route did not survive relog");
+                return 2;
+            }
+            LOG("[5/5] OK: MapChange target route survives fresh GameIn map=%u",
+                static_cast<unsigned>(relog_after_change.game_info().map_num));
+            relog_after_change.Release();
+        }
+
+        if (cli.exercise_combat) {
+            // This is deliberately opt-in: it exercises the real client
+            // request path and waits only for server-authoritative replies.
+            // No damage, life, drop, or inventory value is synthesized here.
+            LOG("[5/5] Combat: exercising server-authoritative attack/effect/drop path ...");
+            std::size_t initial_alive = 0;
+            for (const auto& monster : game.monsters()) {
+                if (monster.current_life != 0) ++initial_alive;
+            }
+            // A missing or rare drop must fail this probe in a bounded window;
+            // the previous 15x multiplier could leave a headless client alive
+            // for half an hour while repeatedly selecting refreshed targets.
+            const auto combat_window_s = std::min<std::int64_t>(
+                std::max<std::int64_t>(cli.timeout_s, 30) * 3, 600);
+            const auto combat_deadline = std::chrono::steady_clock::now() +
+                                         std::chrono::seconds(combat_window_s);
+            std::uint32_t observed_target = 0;
+            std::uint32_t initial_life = 0;
+            bool observed_hit = false;
+            bool observed_life_change = false;
+            bool observed_shield_change = false;
+            bool observed_drop = false;
+            bool observed_pickup = false;
+            std::uint16_t observed_item_id = 0;
+            std::unordered_map<std::uint32_t, std::uint32_t> life_before;
+            std::unordered_map<std::uint32_t, std::uint32_t> shield_before;
+            for (const auto& monster : game.monsters()) {
+                life_before.emplace(monster.object_id, monster.current_life);
+                shield_before.emplace(monster.object_id, monster.current_shield);
+            }
+            std::size_t inventory_before = 0;
+            std::unordered_map<std::uint32_t, bool> inventory_before_db;
+            for (const auto& item : info.items.Inventory) {
+                if (!mxh::game::is_empty_slot(item)) {
+                    ++inventory_before;
+                    if (item.dwDBIdx != 0) inventory_before_db[item.dwDBIdx] = true;
+                }
+            }
+            // Use the same authoritative movement path as the player client
+            // before attacking.  Map10's spawn groups are intentionally
+            // spread across the map, so an attack-only probe would otherwise
+            // prove only the range guard rather than combat.
+            if (!game.monsters().empty()) {
+                // MonsterAdd can arrive before the first authoritative life
+                // snapshot.  Drain that initial burst so the cursor selects
+                // a live server-known entity instead of an object whose
+                // provisional life is still zero.
+                const auto snapshot_deadline = std::chrono::steady_clock::now() +
+                                               std::chrono::seconds(2);
+                while (std::chrono::steady_clock::now() < snapshot_deadline) {
+                    game.Process();
+                    const bool has_live = std::any_of(
+                        game.monsters().begin(), game.monsters().end(),
+                        [](const auto& monster) { return monster.current_life != 0; });
+                    if (has_live) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                const auto live_begin = std::find_if(
+                    game.monsters().begin(), game.monsters().end(),
+                    [](const auto& monster) { return monster.current_life != 0; });
+                const auto live_end = game.monsters().end();
+                const auto selection_begin = live_begin == live_end
+                    ? game.monsters().begin() : live_begin;
+                // Prefer the live target with the smallest effective vitality
+                // (life + shield), then use distance as a tie breaker. This
+                // keeps the GUI-equivalent target selection deterministic and
+                // makes the result meaningful for both starter and progression
+                // fixtures: if the canonical target is above the player's
+                // damage range, the gate must fail with that balance evidence
+                // instead of weakening the monster or synthesizing a kill.
+                const auto nearest = std::min_element(
+                    selection_begin, game.monsters().end(),
+                    [&game](const auto& lhs, const auto& rhs) {
+                        if (lhs.current_life == 0 && rhs.current_life != 0) return false;
+                        if (lhs.current_life != 0 && rhs.current_life == 0) return true;
+                        const auto dx1 = static_cast<float>(lhs.position_x) - game.local_x();
+                        const auto dz1 = static_cast<float>(lhs.position_z) - game.local_z();
+                        const auto dx2 = static_cast<float>(rhs.position_x) - game.local_x();
+                        const auto dz2 = static_cast<float>(rhs.position_z) - game.local_z();
+                        const auto d1 = dx1 * dx1 + dz1 * dz1;
+                        const auto d2 = dx2 * dx2 + dz2 * dz2;
+                        if (std::abs(d1 - d2) > 2500.0f) return d1 < d2;
+                        const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                        const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                        if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
+                        return d1 < d2;
+                    });
+                game.send_move(nearest->position_x, nearest->position_z,
+                               mxh::proto::MoveProtocol::OneTarget);
+                const auto move_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::seconds(3);
+                while (std::chrono::steady_clock::now() < move_deadline) {
+                    game.Process();
+                    const auto dx = static_cast<float>(nearest->position_x) - game.local_x();
+                    const auto dz = static_cast<float>(nearest->position_z) - game.local_z();
+                    // Skill 1 has a 230-unit range.  Stop inside that range;
+                    // the earlier 500-unit probe could still be rejected by
+                    // the authoritative server and falsely report a combat
+                    // failure.
+                    if (dx * dx + dz * dz <= 180.0f * 180.0f) break;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+                // The production attack path requires an explicit cursor
+                // selection.  Headless acceptance has no screen projection,
+                // so select the same authoritative monster after moving into
+                // range and then exercise try_attack().
+                game.select_attack_target(nearest->object_id);
+                observed_target = nearest->object_id;
+                LOG("[5/5] Combat target selected id=%u life=%u pos=(%d,%d)",
+                    nearest->object_id, nearest->current_life,
+                    nearest->position_x, nearest->position_z);
+            }
+            auto next_attack = std::chrono::steady_clock::now();
+            while (std::chrono::steady_clock::now() < combat_deadline) {
+                game.Process();
+                if (std::chrono::steady_clock::now() >= next_attack) {
+                    // The production cursor selection is a one-shot pending
+                    // target.  A repeated GUI click selects the live target
+                    // again before each attack; mirror that interaction so
+                    // this gate can prove a complete kill/drop flow rather
+                    // than only the first server-authoritative hit.
+                    if (observed_target != 0) {
+                        auto target_it = std::find_if(
+                            game.monsters().begin(), game.monsters().end(),
+                            [observed_target](const auto& monster) {
+                                return monster.object_id == observed_target &&
+                                       monster.current_life != 0;
+                            });
+                        // A legitimate kill may have no item reward. Keep
+                        // exercising the same GUI target/select path against
+                        // another live monster until the acceptance window
+                        // observes an actual drop, instead of repeatedly
+                        // submitting a dead target and timing out.
+                        if (target_it == game.monsters().end()) {
+                            target_it = std::min_element(
+                                game.monsters().begin(), game.monsters().end(),
+                                [&game](const auto& lhs, const auto& rhs) {
+                                    if (lhs.current_life == 0 && rhs.current_life != 0)
+                                        return false;
+                                    if (lhs.current_life != 0 && rhs.current_life == 0)
+                                        return true;
+                                    const auto lhs_dx = static_cast<float>(lhs.position_x) - game.local_x();
+                                    const auto lhs_dz = static_cast<float>(lhs.position_z) - game.local_z();
+                                    const auto rhs_dx = static_cast<float>(rhs.position_x) - game.local_x();
+                                    const auto rhs_dz = static_cast<float>(rhs.position_z) - game.local_z();
+                                    const auto lhs_distance = lhs_dx * lhs_dx + lhs_dz * lhs_dz;
+                                    const auto rhs_distance = rhs_dx * rhs_dx + rhs_dz * rhs_dz;
+                                    if (std::abs(lhs_distance - rhs_distance) > 2500.0f)
+                                        return lhs_distance < rhs_distance;
+                                    const auto lhs_vitality = static_cast<std::uint64_t>(lhs.current_life) + lhs.current_shield;
+                                    const auto rhs_vitality = static_cast<std::uint64_t>(rhs.current_life) + rhs.current_shield;
+                                    if (lhs_vitality != rhs_vitality) return lhs_vitality < rhs_vitality;
+                                    return lhs_distance < rhs_distance;
+                                });
+                            if (target_it != game.monsters().end() &&
+                                target_it->current_life != 0) {
+                                observed_target = target_it->object_id;
+                            }
+                        }
+                        if (target_it != game.monsters().end() &&
+                            target_it->current_life != 0)
+                        {
+                            game.select_attack_target(observed_target);
+                            const auto dx = static_cast<float>(target_it->position_x) - game.local_x();
+                            const auto dz = static_cast<float>(target_it->position_z) - game.local_z();
+                            if (dx * dx + dz * dz > 180.0f * 180.0f) {
+                                game.send_move(target_it->position_x, target_it->position_z,
+                                               mxh::proto::MoveProtocol::OneTarget);
+                            }
+                        }
+                    }
+                    game.try_attack();
+                    next_attack = std::chrono::steady_clock::now() +
+                                  std::chrono::milliseconds(850);
+                }
+                for (const auto& event : game.drain_effect_events()) {
+                    if (event.kind == mxh::client::EffectEventKind::Hit) {
+                        observed_hit = true;
+                        observed_target = event.target_object_id;
+                    }
+                }
+                for (const auto& monster : game.monsters()) {
+                    const auto prior = life_before.find(monster.object_id);
+                    if (prior != life_before.end() &&
+                        monster.current_life < prior->second) {
+                        observed_life_change = true;
+                    }
+                    const auto prior_shield = shield_before.find(monster.object_id);
+                    if (prior_shield != shield_before.end() &&
+                        monster.current_shield < prior_shield->second) {
+                        observed_shield_change = true;
+                    }
+                    if (monster.object_id == observed_target && initial_life == 0) {
+                        initial_life = prior == life_before.end()
+                            ? monster.current_life : prior->second;
+                    }
+                }
+                if (!game.ground_drops().empty()) {
+                    observed_drop = true;
+                    if (observed_item_id == 0)
+                        observed_item_id = game.ground_drops().front().item_id;
+                    game.try_pickup();
+                }
+                std::size_t inventory_now = 0;
+                for (const auto& item : game.game_info().items.Inventory) {
+                    if (!mxh::game::is_empty_slot(item)) ++inventory_now;
+                }
+                if (inventory_now > inventory_before) observed_pickup = true;
+                if (observed_hit && observed_life_change && observed_drop &&
+                    observed_pickup) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            const std::size_t alive_after = std::count_if(
+                game.monsters().begin(), game.monsters().end(),
+                [](const auto& monster) { return monster.current_life != 0; });
+            if (!observed_hit || !observed_life_change || !observed_drop ||
+                !observed_pickup) {
+                LOG("[5/5] FAIL: combat gate hit=%s life_change=%s shield_change=%s drop=%s "
+                    "pickup=%s alive=%zu->%zu target=%u",
+                    observed_hit ? "yes" : "no",
+                    observed_life_change ? "yes" : "no",
+                    observed_shield_change ? "yes" : "no",
+                    observed_drop ? "yes" : "no",
+                    observed_pickup ? "yes" : "no",
+                    initial_alive, alive_after, observed_target);
+                return 2;
+            }
+            LOG("[5/5] OK: combat hit/effect/life/drop/pickup target=%u "
+                "alive=%zu->%zu", observed_target, initial_alive, alive_after);
+
+            // Exercise the same authoritative inventory move used by the
+            // GUI drag/drop path.  Select the slot containing the picked
+            // item, move it to a different inventory slot, and wait for the
+            // server's MoveAck before testing relog persistence.
+            bool observed_move = false;
+            std::size_t move_source = mxh::game::SLOT_INVENTORY_NUM;
+            // Prefer the authoritative DB row introduced by pickup.  The
+            // ground-drop item id is a catalog/list id and is not guaranteed
+            // to equal ITEMBASE.wIconIdx after server resolution.
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                const auto& item = game.game_info().items.Inventory[slot];
+                if (!mxh::game::is_empty_slot(item) && item.dwDBIdx != 0 &&
+                    inventory_before_db.find(item.dwDBIdx) == inventory_before_db.end()) {
+                    move_source = slot;
+                    break;
+                }
+            }
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                if (move_source == mxh::game::SLOT_INVENTORY_NUM &&
+                    game.game_info().items.Inventory[slot].wIconIdx ==
+                    observed_item_id) {
+                    move_source = slot;
+                    break;
+                }
+            }
+            std::size_t move_target = mxh::game::SLOT_INVENTORY_NUM;
+            for (std::size_t slot = 0;
+                 slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+                if (slot != move_source &&
+                    mxh::game::is_empty_slot(game.game_info().items.Inventory[slot])) {
+                    move_target = slot;
+                    break;
+                }
+            }
+            if (move_source < mxh::game::SLOT_INVENTORY_NUM &&
+                move_target < mxh::game::SLOT_INVENTORY_NUM &&
+                game.request_inventory_move(move_source, move_target)) {
+                const auto move_deadline = std::chrono::steady_clock::now() +
+                                           std::chrono::seconds(cli.timeout_s);
+                while (std::chrono::steady_clock::now() < move_deadline) {
+                    game.Process();
+                    if (game.game_info().items.Inventory[move_target].wIconIdx ==
+                        observed_item_id) {
+                        observed_move = true;
+                        break;
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            if (!observed_move) {
+                LOG("[5/5] FAIL: inventory MoveSyn/MoveAck item=%u source=%zu target=%zu",
+                    static_cast<unsigned>(observed_item_id), move_source,
+                    move_target);
+                return 2;
+            }
+            LOG("[5/5] OK: inventory MoveAck item=%u source=%zu target=%zu",
+                static_cast<unsigned>(observed_item_id), move_source, move_target);
+
+            // The drop catalog id need not be equippable. Exercise the
+            // starter weapon via the same authoritative move path as the UI.
+            EquipmentGateResult weapon;
+            if (!exercise_equipment_move(game, cli.timeout_s, weapon)) return 2;
+
+            // Close the live session and re-enter through a fresh state.  The
+            // server must flush the picked item on GameOutSyn; merely seeing it
+            // in the old state's inventory is not persistence evidence.
+            game.Release();
+            mxh::client::CInGameState relog;
+            relog.Start(&engine, created_chrid,
+                        static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog.is_in_game()) {
+                LOG("[5/5] FAIL: re-login GameInAck after GameOutSyn timed out");
+                return 2;
+            }
+            bool persisted_item = false;
+            for (const auto& item : relog.game_info().items.Inventory) {
+                if (item.wIconIdx == observed_item_id) {
+                    persisted_item = true;
+                    break;
+                }
+            }
+            if (!persisted_item) {
+                LOG("[5/5] FAIL: picked item=%u missing after fresh GameIn",
+                    static_cast<unsigned>(observed_item_id));
+                return 2;
+            }
+            if (!persisted_equipment_matches(relog, weapon)) {
+                constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+                const auto& persisted_weapon =
+                    relog.game_info().items.WearedItem[kWeaponSlot];
+                LOG("[5/5] FAIL: equipped weapon db=%u icon=%u not persisted; "
+                    "got db=%u icon=%u appearance=%u",
+                    weapon.db_idx, static_cast<unsigned>(weapon.icon_idx),
+                    persisted_weapon.dwDBIdx,
+                    static_cast<unsigned>(persisted_weapon.wIconIdx),
+                    static_cast<unsigned>(
+                        relog.game_info().weared_item_idx[kWeaponSlot]));
+                return 2;
+            }
+            LOG("[5/5] OK: GameOutSyn persistence re-login equipped weapon db=%u icon=%u",
+                weapon.db_idx, static_cast<unsigned>(weapon.icon_idx));
+            LOG("[5/5] OK: GameOutSyn persistence re-login item=%u",
+                static_cast<unsigned>(observed_item_id));
+            relog.Release();
+        }
+        if (cli.exercise_equip && !cli.exercise_combat) {
+            LOG("[5/5] Equipment: exercising authoritative unequip/equip and persistence ...");
+            EquipmentGateResult weapon;
+            if (!exercise_equipment_move(game, cli.timeout_s, weapon)) return 2;
+
+            game.Release();
+            mxh::client::CInGameState relog;
+            relog.Start(&engine, created_chrid,
+                        static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog.is_in_game()) {
+                LOG("[5/5] FAIL: equipment re-login GameInAck timed out");
+                return 2;
+            }
+            if (!persisted_equipment_matches(relog, weapon)) {
+                constexpr std::size_t kWeaponSlot = mxh::game::WEARED_WEAPON;
+                const auto& persisted_weapon =
+                    relog.game_info().items.WearedItem[kWeaponSlot];
+                LOG("[5/5] FAIL: equipped weapon db=%u icon=%u not persisted; "
+                    "got db=%u icon=%u appearance=%u",
+                    weapon.db_idx, static_cast<unsigned>(weapon.icon_idx),
+                    persisted_weapon.dwDBIdx,
+                    static_cast<unsigned>(persisted_weapon.wIconIdx),
+                    static_cast<unsigned>(
+                        relog.game_info().weared_item_idx[kWeaponSlot]));
+                return 2;
+            }
+            LOG("[5/5] OK: GameOutSyn persistence re-login equipped weapon db=%u icon=%u",
+                weapon.db_idx, static_cast<unsigned>(weapon.icon_idx));
+            relog.Release();
+        }
+        if (cli.exercise_skills) {
+            LOG("[5/5] Skills: exercising quick-slot skill/effect path ...");
+            std::size_t casts = 0;
+            std::size_t life_changes = 0;
+            std::size_t runtime_effect_events = 0;
+            std::unordered_map<std::uint32_t, std::pair<std::uint32_t, std::uint32_t>> skill_vitals;
+            for (const auto& monster : game.monsters()) {
+                if (monster.current_life != 0) skill_vitals.emplace(
+                    monster.object_id,
+                    std::make_pair(monster.current_life, monster.current_shield));
+            }
+            if (!skill_vitals.empty()) {
+                const auto target = std::min_element(
+                    game.monsters().begin(), game.monsters().end(),
+                    [&game](const auto& lhs, const auto& rhs) {
+                        const auto distance_sq = [&game](const auto& monster) {
+                            const auto dx = static_cast<float>(monster.position_x) - game.local_x();
+                            const auto dz = static_cast<float>(monster.position_z) - game.local_z();
+                            return dx * dx + dz * dz;
+                        };
+                        if (lhs.current_life == 0) return false;
+                        if (rhs.current_life == 0) return true;
+                        return distance_sq(lhs) < distance_sq(rhs);
+                    });
+                if (target != game.monsters().end()) {
+                    game.select_attack_target(target->object_id);
+                    game.send_move(target->position_x, target->position_z,
+                                   mxh::proto::MoveProtocol::OneTarget);
+                    // The client predicts the move locally, while the map
+                    // server applies it asynchronously.  Leave a short
+                    // settle window before sending the skill so the live
+                    // range check observes the authoritative position.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    const auto move_until = std::chrono::steady_clock::now() +
+                                            std::chrono::seconds(3);
+                    while (std::chrono::steady_clock::now() < move_until) {
+                        game.Process();
+                        const auto dx = static_cast<float>(target->position_x) - game.local_x();
+                        const auto dz = static_cast<float>(target->position_z) - game.local_z();
+                        // Keep the target inside the same authoritative attack
+                        // range enforced by CInGameState before trying the
+                        // offensive quick slots.  A wider settle window can
+                        // make the client reject every damaging skill while
+                        // still allowing self-heal to run, producing a false
+                        // failure in the skill acceptance gate.
+                        if (dx * dx + dz * dz <= 180.0f * 180.0f) break;
+                        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                    }
+                }
+            }
+            for (std::size_t slot = 0; slot < 4; ++slot) {
+                game.use_quick_slot(slot);
+                const auto until = std::chrono::steady_clock::now() +
+                                   std::chrono::milliseconds(1100);
+                while (std::chrono::steady_clock::now() < until) {
+                    game.Process();
+                    for (const auto& event : game.drain_effect_events()) {
+                        if (event.kind == mxh::client::EffectEventKind::CastStart)
+                            ++casts;
+                    }
+                    runtime_effect_events += game.drain_runtime_effect_events().size();
+                    for (const auto& monster : game.monsters()) {
+                        const auto it = skill_vitals.find(monster.object_id);
+                        if (it != skill_vitals.end() &&
+                            (monster.current_life < it->second.first ||
+                             monster.current_shield < it->second.second)) {
+                            ++life_changes;
+                            it->second = std::make_pair(monster.current_life,
+                                                        monster.current_shield);
+                        }
+                    }
+                    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                }
+            }
+            if (casts == 0 || life_changes == 0 || runtime_effect_events == 0 ||
+                audio_skill_cues == 0) {
+                LOG("[5/5] FAIL: skill gate casts=%zu life_changes=%zu runtime_effect_events=%zu audio_skill_cues=%zu",
+                    casts, life_changes, runtime_effect_events, audio_skill_cues);
+                return 2;
+            }
+            LOG("[5/5] OK: quick-slot skills/effects casts=%zu life_changes=%zu runtime_effect_events=%zu audio_skill_cues=%zu",
+                casts, life_changes, runtime_effect_events, audio_skill_cues);
+        }
+
+        if (cli.exercise_position) {
+            const auto start_x = game.local_x();
+            const auto start_z = game.local_z();
+            const auto target_x = static_cast<std::uint16_t>(
+                std::min<std::uint32_t>(65535u, static_cast<std::uint32_t>(start_x) + 800u));
+            const auto target_z = static_cast<std::uint16_t>(
+                std::min<std::uint32_t>(65535u, static_cast<std::uint32_t>(start_z) + 400u));
+            LOG("[5/5] Position: moving (%u,%u)->(%u,%u) before GameOut",
+                static_cast<unsigned>(start_x), static_cast<unsigned>(start_z),
+                static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+            game.send_move(target_x, target_z, mxh::proto::MoveProtocol::OneTarget);
+            const auto move_deadline = std::chrono::steady_clock::now() +
+                                       std::chrono::seconds(cli.timeout_s);
+            while (std::chrono::steady_clock::now() < move_deadline) {
+                game.Process();
+                const auto dx = std::abs(static_cast<int>(game.local_x()) -
+                                         static_cast<int>(target_x));
+                const auto dz = std::abs(static_cast<int>(game.local_z()) -
+                                         static_cast<int>(target_z));
+                if (dx <= 32 && dz <= 32) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            const auto moved_dx = std::abs(static_cast<int>(game.local_x()) -
+                                           static_cast<int>(target_x));
+            const auto moved_dz = std::abs(static_cast<int>(game.local_z()) -
+                                           static_cast<int>(target_z));
+            if (moved_dx > 32 || moved_dz > 32) {
+                LOG("[5/5] FAIL: authoritative move did not settle actual=(%u,%u) target=(%u,%u)",
+                    static_cast<unsigned>(game.local_x()), static_cast<unsigned>(game.local_z()),
+                    static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+                return 2;
+            }
+            game.Release();
+            mxh::client::CInGameState relog_position;
+            relog_position.Start(&engine, created_chrid,
+                                 static_cast<std::uint16_t>(cli.map_number));
+            const auto relog_deadline = std::chrono::steady_clock::now() +
+                                        std::chrono::seconds(cli.timeout_s * 3);
+            while (!relog_position.is_in_game() &&
+                   std::chrono::steady_clock::now() < relog_deadline) {
+                relog_position.Process();
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+            }
+            if (!relog_position.is_in_game()) {
+                LOG("[5/5] FAIL: position re-login GameInAck timed out");
+                return 2;
+            }
+            const auto persisted_dx = std::abs(static_cast<int>(relog_position.local_x()) -
+                                               static_cast<int>(target_x));
+            const auto persisted_dz = std::abs(static_cast<int>(relog_position.local_z()) -
+                                               static_cast<int>(target_z));
+            if (persisted_dx > 32 || persisted_dz > 32) {
+                LOG("[5/5] FAIL: position did not persist actual=(%u,%u) target=(%u,%u)",
+                    static_cast<unsigned>(relog_position.local_x()),
+                    static_cast<unsigned>(relog_position.local_z()),
+                    static_cast<unsigned>(target_x), static_cast<unsigned>(target_z));
+                relog_position.Release();
+                return 2;
+            }
+            LOG("[5/5] OK: position persisted after GameOut/relog (%u,%u)",
+                static_cast<unsigned>(relog_position.local_x()),
+                static_cast<unsigned>(relog_position.local_z()));
+            relog_position.Release();
+        }
+    }
+    // Clean shutdown — release states and the persistent AgentSession, then
+    // kill server procs (ServerProc dtor calls TerminateProcess) unless
+    // --keep-servers asked us to leave them running for a follow-up GUI
+    // client capture (2026-09-07 visual polish).
     game.Release();
-    procs.clear();
+    login.Release();
+    engine.Release();
+    if (cli.keep_servers) {
+        // std::unique_ptr::release() relinquishes ownership without
+        // destroying the object, so ~ServerProc (which would call
+        // TerminateProcess) never runs.  The detached procs keep the
+        // child server processes alive so a follow-up mxh_client can
+        // attach with --auto-create to capture the post-GameIn frame.
+        LOG("Phase B.2.5 e2e: --keep-servers set; 3 server procs left running for follow-up capture");
+        for (auto& p : procs) (void)p.release();
+        procs.clear();
+    } else {
+        procs.clear();
+    }
     ::WSACleanup();
     LOG("Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)");
     return 0;
@@ -724,5 +1888,16 @@ int run_e2e(const CliArgs& cli) {
 
 int main(int argc, char** argv) {
     auto cli = parse_cli(argc, argv);
+    if (cli.dump_cli) {
+        std::fprintf(stdout, "login_host=%s\n", cli.login_host.c_str());
+        std::fprintf(stdout, "agent_host=%s\n", cli.agent_host.empty()
+            ? "(loginack)" : cli.agent_host.c_str());
+        std::fprintf(stdout, "map_host=%s\n", cli.map_host.empty()
+            ? "(agentsession)" : cli.map_host.c_str());
+        std::fprintf(stdout, "login_port=%d\nagent_port=%d\nmap_port=%d\nmap12_port=%d\n",
+            cli.login_port, cli.agent_port, cli.map_port, cli.map12_port);
+        std::fprintf(stdout, "no_spawn=%s\n", cli.no_spawn ? "true" : "false");
+        return 0;
+    }
     return run_e2e(cli);
 }

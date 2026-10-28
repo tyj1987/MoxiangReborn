@@ -93,6 +93,11 @@ void cMiniMapDlg::AddIcon(BigMapIconKind kind, std::uint32_t object_id, std::int
     m_icons.emplace(object_id, BigMapIcon{object_id, kind, x, z, x, z});
 }
 
+void cMiniMapDlg::ClearIcons() noexcept {
+    m_icons.clear();
+    m_heroIcon.reset();
+}
+
 void cMiniMapDlg::AddPartyMemberIcon(std::uint32_t player_id, std::int32_t x, std::int32_t z) {
     AddIcon(BigMapIconKind::PartyMember, player_id, x, z);
 }

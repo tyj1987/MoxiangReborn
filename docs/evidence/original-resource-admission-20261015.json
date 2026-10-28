@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "capturedUtc": "2026-10-15T02:00:00+08:00",
+  "sourceCommitBeforeAdmission": "5a06b99afe2e812eca37a927795906f373c48b38",
+  "admittedFiles": [
+    {
+      "path": "Resource/Map/3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "source": "five retained original Map.pak copies",
+      "textureAudit": {
+        "used": 23,
+        "missing": 0
+      }
+    },
+    {
+      "path": "Resource/Map/198.hfl",
+      "bytes": 1184002,
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "source": "five retained original Map.pak copies",
+      "textureAudit": {
+        "used": 1,
+        "missing": 0
+      }
+    },
+    {
+      "path": "Resource/Map/203.hfl",
+      "bytes": 3685568,
+      "sha256": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8",
+      "source": "D:/MX/client/Package/3DData/Map.pak entry 9741",
+      "sourcePakSha256": "00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3",
+      "heightField": "513x513 parsed",
+      "textureAudit": {
+        "used": 161,
+        "missing": 161
+      }
+    }
+  ],
+  "manifestAfterAdmission": {
+    "fileCount": 5135,
+    "byteCount": 1688281785
+  },
+  "remainingResourceBlockers": {
+    "hfl": 23,
+    "ttb": 18,
+    "map203MissingTextures": 161
+  },
+  "releaseReady": false,
+  "interpretation": "Only byte-verified original height fields were admitted. No generated HFL, substitute texture or guessed TTB was added; Map203 remains blocked until its exact texture dependencies are recovered.",
+  "package": {
+    "path": "modern/out/packages/original-vm112-resources-20261015.zip",
+    "sha256": "49dda721224eebf8662f03ac938239d4a591fae560bccc7f975e4c7c9550ae2a"
+  },
+  "sourceCommitAfterAdmission": "d91790b477d571230e524f5bbc246655aa11c146"
+}

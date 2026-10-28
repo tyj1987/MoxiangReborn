@@ -1,0 +1,21 @@
+{
+  "schema": "moxiang-original-pve-receipt/v1",
+  "lane": "original",
+  "sourceHead": "f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469",
+  "stage": "C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "packageSha256": "972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5",
+  "database": "MoxiangOriginalTest_20261009",
+  "ports": {"login": 16211, "agent": 17211, "map10": 18211, "map12": 18212, "map2": 18213},
+  "results": {
+    "exitCode": 0,
+    "map10GameIn": true,
+    "map10Monsters": 228,
+    "changeMapAck": 12,
+    "map12GameIn": true,
+    "map12NpcCount": 18,
+    "map12Relog": true,
+    "map12DealerNpcIds": [52, 53]
+  },
+  "fixtureCleanup": {"characterMapRestored": 10, "isolatedPortsReleased": true},
+  "log": "original-pve-mapchange-current-source-20261015.log"
+}

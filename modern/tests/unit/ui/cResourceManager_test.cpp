@@ -13,23 +13,33 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
 
-// PlayDH 实际位置由 AGENTS.md / scripts/start_modern.ps1 决定:
-// 优先用环境变量 MXH_PLAYDH_ROOT, 缺省回退到 <repo>/墨香【源码配套资源】/PlayDH
+// MXH_PLAYDH_ROOT is read once in mxh::test::playdh_dir_override().
+// Unset falls back to the upward search below.
 fs::path resolvePlayDHRoot() {
-    if (const char* env = std::getenv("MXH_PLAYDH_ROOT")) {
-        return fs::path(env);
-    }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     // Build-time hint from CMake (set by the test target)
     #ifdef MXH_PLAYDH_ROOT_TS
     return fs::path(MXH_PLAYDH_ROOT_TS);
     #endif
-    // Hardcoded fallback: assume test runs from <repo>/modern/build
-    return fs::path("C:/moxiang/墨香【源码配套资源】/PlayDH");
+    // Resolve from the executable/test working directory; never depend on a
+    // developer checkout path or the legacy compatibility junction.
+    std::error_code ec;
+    auto current = fs::absolute(fs::current_path(ec), ec);
+    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
+        const auto candidate = current / "modern" / "data" / "PlayDH";
+        std::error_code candidate_ec;
+        if (fs::is_directory(candidate, candidate_ec)) return candidate;
+        const auto parent = current.parent_path();
+        if (parent == current) break;
+        current = parent;
+    }
+    return {};
 }
 
 int g_failures = 0;

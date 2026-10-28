@@ -1,0 +1,114 @@
+#include "mxh/server/drop_item.hpp"
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <filesystem>
+#include "../../support/playdh_env.hpp"
+
+namespace {
+
+std::filesystem::path find_playdh_drop_file() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Server" / "MonsterDropItemList.bin";
+    auto base = std::filesystem::current_path();
+    for (int depth = 0; depth < 8; ++depth) {
+        const auto candidate = base / "modern" / "data" / "PlayDH" /
+            "Resource" / "Server" / "MonsterDropItemList.bin";
+        if (std::filesystem::exists(candidate)) return candidate;
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    return {};
+}
+
+std::filesystem::path find_playdh_root() {
+    const auto file = find_playdh_drop_file();
+    return file.empty() ? std::filesystem::path{} : file.parent_path();
+}
+
+std::filesystem::path find_reference_drop_file() {
+    // Opt in to a specific preserved 4dddd9a6 reference snapshot. Never
+    // discover a historical scratch tree by walking parent directories.
+    const char* configured = std::getenv("MXH_LEGACY_REFERENCE_ROOT");
+    if (!configured || !*configured) return {};
+    const std::filesystem::path root(configured);
+    if (!root.is_absolute() || root.filename() != "4dddd9a6") return {};
+    std::error_code ec;
+    const auto protocol = root / "[CC]Header" / "Protocol.h";
+    const auto candidate = root / "SWorking" / "Resource" / "Server" /
+        "MonsterDropItemList.bin";
+    if (std::filesystem::is_regular_file(protocol, ec) && !ec &&
+        std::filesystem::is_regular_file(candidate, ec) && !ec) return candidate;
+    return {};
+}
+
+}  // namespace
+
+TEST(DropItemLoaderTest, RejectsMislabeledCanonicalPayloadFailClosed) {
+    const auto path = find_playdh_drop_file();
+    if (path.empty()) GTEST_SKIP() << "canonical PlayDH not available";
+    std::string error;
+    const auto tables = mxh::server::load_drop_item_tables(
+        path, "playdh-current", &error);
+    // The current playdh-current file is byte-valid but its decoded payload
+    // starts with the AIGroup grammar ($Group), not the legacy drop grammar.
+    // Keep this explicit until the profile supplies the correct variant;
+    // silently treating it as a drop table would corrupt gameplay.
+    EXPECT_TRUE(tables.empty());
+    EXPECT_NE(error.find("$Group"), std::string::npos);
+}
+
+TEST(DropItemLoaderTest, AuditsBundledDropVariants) {
+    const auto root = find_playdh_root();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH not available";
+    for (const auto name : {"MonsterDropItemList.bin",
+                            "MonsterDropItemList-922.bin",
+                            "MonsterDropItemList-9-30.bin"}) {
+        std::string error;
+        const auto tables = mxh::server::load_drop_item_tables(
+            root / name, "playdh-current", &error);
+        std::cout << "drop-variant " << name << " tables=" << tables.size()
+                  << " error=" << error << "\n";
+        EXPECT_TRUE(tables.empty());
+        EXPECT_NE(error.find("$Group"), std::string::npos);
+    }
+    std::string root_error;
+    const auto root_tables = mxh::server::load_drop_item_tables(
+        root.parent_path() / "MonsterDropItemList.bin",
+        "playdh-current", &root_error);
+    std::cout << "drop-variant Resource/MonsterDropItemList.bin tables="
+              << root_tables.size() << " error=" << root_error << "\n";
+    EXPECT_GT(root_tables.size(), 0u);
+    for (std::size_t i = 0; i < std::min<std::size_t>(root_tables.size(), 5u); ++i) {
+        std::cout << "drop-table id=" << root_tables[i].drop_id
+                  << " entries=" << root_tables[i].entries.size();
+        if (!root_tables[i].entries.empty()) {
+            std::cout << " first_item=" << root_tables[i].entries.front().item_id;
+        }
+        std::cout << "\n";
+    }
+    for (const auto wanted : {102u, 104u, 105u, 219u}) {
+        const auto it = std::find_if(root_tables.begin(), root_tables.end(),
+            [wanted](const auto& table) { return table.drop_id == wanted; });
+        ASSERT_NE(it, root_tables.end()) << "missing table " << wanted;
+        std::cout << "monster-kind-candidate id=" << wanted
+                  << " entries=" << it->entries.size();
+        if (!it->entries.empty()) std::cout << " first_item=" << it->entries.front().item_id;
+        std::cout << "\n";
+    }
+}
+
+TEST(DropItemLoaderTest, ParsesReadOnlySworkingReference) {
+    const auto path = find_reference_drop_file();
+    if (path.empty()) GTEST_SKIP() << "read-only SWorking reference not available";
+    std::string error;
+    const auto tables = mxh::server::load_drop_item_tables(
+        path, "sworking-2008-reference", &error);
+    ASSERT_FALSE(tables.empty()) << error;
+    EXPECT_GT(tables.size(), 0u);
+    EXPECT_GT(std::count_if(tables.begin(), tables.end(),
+        [](const auto& table) { return !table.entries.empty(); }), 0);
+}

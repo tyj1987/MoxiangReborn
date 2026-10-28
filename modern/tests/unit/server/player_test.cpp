@@ -1,7 +1,9 @@
 ﻿#include "mxh/server/player.hpp"
 #include "mxh/server/money_manager.hpp"
+#include "mxh/server/original_experience.hpp"
 
 #include <gtest/gtest.h>
+#include <limits>
 
 namespace {
 mxh::server::PlayerSpawnInfo spawn() {
@@ -62,6 +64,77 @@ TEST(PlayerExperience, CarriesRemainderAcrossLevels) {
     EXPECT_EQ(player.state().progress.level, 11u);
     EXPECT_EQ(player.state().progress.level_exp, 15u);
     EXPECT_EQ(player.state().progress.total_exp, 25u);
+}
+
+TEST(PlayerExperience, OneGrantRaisesAtMostOneLevelLikeLegacySetPlayerExpPoint) {
+    auto player = active_player();
+    EXPECT_EQ(player.add_experience(350, 100), 1u);
+    EXPECT_EQ(player.state().progress.level, 11u);
+    EXPECT_EQ(player.state().progress.level_exp, 250u);
+    EXPECT_EQ(player.state().progress.total_exp, 350u);
+    EXPECT_EQ(player.add_experience(1, 100), 1u);
+    EXPECT_EQ(player.state().progress.level, 12u);
+    EXPECT_EQ(player.state().progress.level_exp, 151u);
+}
+
+TEST(OriginalExperience, NormalSegmentsAwardOnceAndPersistRecoveryFlag) {
+    mxh::server::PlayerProgress before;
+    before.level = before.max_level = 1;
+    before.exp_flag = 0x10u;
+    const auto first = mxh::server::calculate_original_experience_award(before, 4, 20, 60);
+    ASSERT_TRUE(first);
+    EXPECT_FALSE(first->leveled);
+    EXPECT_TRUE(first->refill_vitals);
+    EXPECT_EQ(first->progress.level_up_points, 1u);
+    EXPECT_EQ(first->progress.exp_flag, 0x11u);
+    EXPECT_EQ(first->progress.hp_mp_flag, 1u);
+    const auto second = mxh::server::calculate_original_experience_award(
+        first->progress, 1, 20, 60);
+    ASSERT_TRUE(second);
+    EXPECT_FALSE(second->refill_vitals);
+    EXPECT_EQ(second->progress.level_up_points, 1u);
+}
+
+TEST(OriginalExperience, LargeOneGrantRaisesOnlyOneLevelAndCarriesSegments) {
+    mxh::server::PlayerProgress before;
+    before.level = before.max_level = 1;
+    before.exp_flag = 0x10u;
+    const auto award = mxh::server::calculate_original_experience_award(before, 123, 20, 60);
+    ASSERT_TRUE(award);
+    EXPECT_TRUE(award->leveled);
+    EXPECT_TRUE(award->refill_vitals);
+    EXPECT_EQ(award->progress.level, 2u);
+    EXPECT_EQ(award->progress.max_level, 2u);
+    EXPECT_EQ(award->progress.level_exp, 103u);
+    EXPECT_EQ(award->progress.level_up_points, 10u);
+    EXPECT_EQ(award->progress.exp_flag, 0x1fu);
+    EXPECT_EQ(award->progress.hp_mp_flag, 0u);
+}
+
+TEST(OriginalExperience, OverSeventyLevelAndPointOverflowAreBounded) {
+    mxh::server::PlayerProgress before;
+    before.level = before.max_level = 70;
+    before.exp_flag = 0x1fu;
+    const auto award = mxh::server::calculate_original_experience_award(before, 100, 100, 1000);
+    ASSERT_TRUE(award);
+    EXPECT_EQ(award->progress.level, 71u);
+    EXPECT_EQ(award->progress.level_up_points, 4u);
+    before.level_up_points = 32767;
+    EXPECT_FALSE(mxh::server::calculate_original_experience_award(before, 100, 100, 1000));
+}
+
+TEST(OriginalExperience, RejectsNonFiniteLiveEventAwardBeforePublishingKill) {
+    using mxh::server::bounded_original_experience_amount;
+    EXPECT_EQ(bounded_original_experience_amount(123u, 1.0), 123u);
+    EXPECT_EQ(bounded_original_experience_amount(123u, 2.0), 246u);
+    EXPECT_FALSE(bounded_original_experience_amount(
+        123u, std::numeric_limits<double>::quiet_NaN()));
+    EXPECT_FALSE(bounded_original_experience_amount(
+        123u, std::numeric_limits<double>::infinity()));
+    EXPECT_FALSE(bounded_original_experience_amount(123u, -1.0));
+    EXPECT_EQ(bounded_original_experience_amount(
+        std::numeric_limits<std::uint32_t>::max(), 10.0),
+        std::numeric_limits<std::uint32_t>::max());
 }
 
 TEST(PlayerInventory, RequestedEmptyPositionWins) {

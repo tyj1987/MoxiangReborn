@@ -1,9 +1,32 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/server/dealitem_parser.hpp"
+#include "mxh/server/npc_shop.hpp"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cstring>
 #include <limits>
+#include <filesystem>
+#include "../../support/playdh_env.hpp"
+
+namespace {
+std::filesystem::path canonical_playdh() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
+    auto base = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !base.empty(); ++depth) {
+        for (const auto& root : {
+                 base / "modern" / "data" / "PlayDH",
+                 base / "data" / "PlayDH"}) {
+            if (std::filesystem::exists(root / "Resource" / "Dealitem.bin")) {
+                return root;
+            }
+        }
+        const auto parent = base.parent_path();
+        if (parent == base) break;
+        base = parent;
+    }
+    return {};
+}
+}
 
 TEST(DealItemParser, RejectsShortRows) {
     const std::string text = "1 map 2 npc 7\n";
@@ -16,4 +39,20 @@ TEST(DealItemParser, RejectsShortRows) {
     const auto parsed = mxh::server::parse_dealitem_bytes(raw);
     EXPECT_EQ(parsed.rows_seen, 1u);
     EXPECT_EQ(parsed.parse_errors, 1u);
+}
+
+TEST(DealItemParser, CanonicalProfileExposesDealerCatalogs) {
+    const auto root = canonical_playdh();
+    if (root.empty()) GTEST_SKIP() << "canonical PlayDH root not found";
+    const auto parsed = mxh::server::load_dealitem(
+        root / "Resource" / "Dealitem.bin");
+    ASSERT_TRUE(parsed.error_message.empty()) << parsed.error_message;
+    ASSERT_GT(parsed.npcs.size(), 0u);
+    const auto first = mxh::server::catalog_for_npc(
+        parsed, parsed.npcs.front().npc_index);
+    ASSERT_TRUE(first.has_value());
+    EXPECT_FALSE(first->entries.empty());
+    const auto map12_dealer = mxh::server::catalog_for_npc(parsed, 52u);
+    ASSERT_TRUE(map12_dealer.has_value());
+    EXPECT_FALSE(map12_dealer->entries.empty());
 }

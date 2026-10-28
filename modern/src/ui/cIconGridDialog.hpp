@@ -5,8 +5,7 @@
 // 1:1 port of legacy `cIconGridDialog` from
 //   `墨香【源码】\[Client]MH\Interface\cIconGridDialog.{h,cpp}`
 // (19 KB of legacy code; the modern port keeps the data model + state
-// machine and stubs render / drag-dispatch with no-ops until the 6.6+
-// cImage seam is wired in).
+// machine and routes grid/icon drawing through the cImage seam).
 //
 // The legacy widget extends cDialog directly (NOT cIconDialog — the
 // 1D-cell cIconDialog and the 2D-grid cIconGridDialog are siblings
@@ -29,9 +28,7 @@
 //   - m_acceptableIconType (per-instance icon-type bitmask).
 //
 // Render-side hooks (SetIconCellBGImage / SetDragOverBGImage) and
-// Render() are inert no-ops so 1:1 UI integration tests don't have to
-// wire images. The cImage seam arrives in 6.6 alongside the rest of
-// the 6.x render family.
+// cImage-based cell/icon drawing are available to the live UI runtime.
 //
 // Per P2-12 roadmap (docs/P2-12_DIALOGS_ROADMAP.md), this is a
 // Tier 1.5 subcontrol port (alongside cListDialogEx in 0.13.13,
@@ -47,9 +44,7 @@
 
 namespace mxh::ui {
 
-// Forward declaration; the modern cIconGridDialog accepts any
-// cWindow-derived pointer as the icon payload (we do not dereference
-// it during testing).
+// Forward declaration for the concrete icon payload owned by the caller.
 class cIcon;
 
 struct cIconGridCell {
@@ -85,9 +80,18 @@ public:
                   std::uint16_t cellWid, std::uint16_t cellHei,
                   std::uint16_t borderX,  std::uint16_t borderY);
 
-    // Render placeholder. The real draw (selected-bg, drag-over-bg,
-    // per-cell icon sprites) lands with the 6.6 cImage seam.
-    void Render() override {}
+    // Resize the cell storage without resetting the dialog identity or
+    // background image.  Runtime-owned grids such as inventory tabs are
+    // declared as generic 1x1 InterfaceScript nodes and receive their real
+    // dimensions when the owning dialog binds live state.
+    void EnsureGridDimensions(std::uint16_t col, std::uint16_t row);
+
+    // Detach every icon from the grid. Ownership remains with the caller.
+    void ClearIcons() noexcept;
+
+    // Render the grid background and selection overlays through cImage;
+    // icon payload drawing remains owned by the eventual cIcon renderer.
+    void Render() override;
 
     // ActionEvent: row hit-test + selection update + drag dispatch.
     // Returns WE_LBTNCLICK on a successful cell click, otherwise the
@@ -168,8 +172,8 @@ public:
     // so the 1:1 UI integration tests don't have to wire images. The
     // cImage seam arrives in 6.6.
     // -------------------------------------------------------------------------
-    void SetIconCellBGImage(void* /*img*/) noexcept {}
-    void SetDragOverBGImage(void* /*img*/) noexcept {}
+    void SetIconCellBGImage(void* img) noexcept { m_iconCellBGImage = img; }
+    void SetDragOverBGImage(void* img) noexcept { m_dragOverBGImage = img; }
 
     void SetShowGrid(bool val) noexcept         { m_bShowGrid = val; }
     bool IsShowGrid() const noexcept           { return m_bShowGrid; }
@@ -233,10 +237,14 @@ private:
 
     // Selection + drag state.
     std::int32_t     m_lCurSelCellPos   = -1;
+    std::int32_t     m_pressedCellPos  = -1;
+    std::uint32_t    m_pressedButton   = 0;
     std::int32_t     m_lCurDragOverPos  = -1;
     bool             m_bItemDraged      = false;
     bool             m_bShowGrid        = false;
     int              m_nIconType        = 0;
+    void*            m_iconCellBGImage  = nullptr;
+    void*            m_dragOverBGImage  = nullptr;
 
     // Acceptable icon type bitmask.
     std::uint32_t    m_acceptableIconType = 0xFFFFFFFFu;

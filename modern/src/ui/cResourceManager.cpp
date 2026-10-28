@@ -53,6 +53,7 @@ cResourceManager& cResourceManager::getInstance() noexcept {
 void cResourceManager::ReleaseScriptManager() noexcept {
     for (auto& t : m_tables) t.clear();
     m_reports.clear();
+    m_pathRoot.clear();
     m_loaded = false;
 }
 
@@ -61,6 +62,10 @@ bool cResourceManager::InitScriptManager(const std::filesystem::path& path_root)
         MLOG_WARN("[cResourceManager] already loaded; releasing first");
         ReleaseScriptManager();
     }
+
+    std::error_code root_ec;
+    m_pathRoot = std::filesystem::weakly_canonical(path_root, root_ec);
+    if (root_ec) m_pathRoot = path_root.lexically_normal();
 
     for (const auto& f : kHardPathFiles) {
         const auto bin_path = path_root / f.filename;
@@ -130,7 +135,10 @@ bool cResourceManager::loadTable(PathFileType type, const std::filesystem::path&
         }
         flush();
 
-        if (toks.size() < 5) continue;  // 老版允许 5 字段（无 atlas_idx）
+        if (toks.size() < 5) {
+            ++r.malformed_lines;
+            continue;  // 老版允许 5 字段（无 atlas_idx）
+        }
         ImageHardPath hp;
         std::int32_t dialog_idx = toks[0];
         if (toks.size() == 6) {
@@ -158,8 +166,11 @@ bool cResourceManager::loadTable(PathFileType type, const std::filesystem::path&
     }
 
     r.records = ok;
-    r.ok = true;
-    r.error.clear();
+    // A required path table with no valid records is not a usable resource
+    // profile. Keep the report explicit so callers cannot mistake a readable
+    // but empty/corrupt file for a complete seven-table initialization.
+    r.ok = ok != 0;
+    r.error = r.ok ? std::string{} : "no valid image path records";
     m_reports.push_back(r);
     MLOG_INFO("[cResourceManager] %s loaded from %s: %zu records (out of %zu lines)",
               kPathTypeName(type), bin_path.filename().string().c_str(),
@@ -190,6 +201,14 @@ bool cResourceManager::allLoaded() const noexcept {
         if (!r.ok) return false;
     }
     return true;
+}
+
+bool cResourceManager::loadedFrom(const std::filesystem::path& path_root) const noexcept {
+    if (!m_loaded) return false;
+    std::error_code ec;
+    const auto requested = std::filesystem::weakly_canonical(path_root, ec);
+    if (ec) return false;
+    return requested == m_pathRoot;
 }
 
 }  // namespace mxh::ui

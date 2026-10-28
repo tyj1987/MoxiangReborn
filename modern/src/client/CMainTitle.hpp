@@ -1,16 +1,15 @@
 // mxh/client/CMainTitle.hpp
-// Phase A.1.8 — 1:1 port of legacy CMainTitle (墨香【源码】\[Client]MH\MainTitle.h).
+// Modern 1:1-facing port of legacy CMainTitle (墨香【源码】\[Client]MH\MainTitle.h).
 //
 // CMainTitle owns the boot → login → server-select → agent-connect
-// flow.  The legacy CMainTitle is a 1860-line file with ~50 members;
-// A.1.8 ships the full 1:1 surface as a header (so future A.1.8.b+
-// tasks can fill the bodies in without changing the public API),
-// and a minimal Init / Release / Process implementation that:
+// flow. The legacy CMainTitle is a 1860-line file with ~50 members; this
+// implementation preserves its public state surface while driving the live
+// login UI and network handshake. It:
 //   * Reads MHVerInfo.ver (client version string — see legacy
 //     MHClient.cpp SetGameVersion()).
-//   * Skips the logo window, server list dialog, intro replay, and
-//     Distribute TCP connect (those land in A.1.8.b / B.1 once the
-//     resource / network layers are wired in).
+//   * Loads the shipped IDDlg tree and routes login success/failure through
+//     the modern state coordinator; optional legacy-only title decorations
+//     remain outside the playable path.
 //
 // 1:1 quirks preserved:
 //   * 9 field surface matching legacy MainTitle.h (m_pCamera,
@@ -27,10 +26,37 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientUiRuntime.hpp"
 
 #include <cstdint>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace mxh::ui {
+class cDialog;
+class cEditBox;
+}
 
 namespace mxh::client {
+
+class CEngine;
+
+enum class LoginUiCommandKind : std::uint8_t {
+    None,
+    Submit,
+    Exit,
+};
+
+struct LoginUiCommand {
+    LoginUiCommandKind kind = LoginUiCommandKind::None;
+};
+
+// 1:1 with recovered GlobalEventFunc.cpp:
+//   MT_OKBTN / MT_LogInOkBtnFunc -> login
+//   MT_ENDBTN / MT_ExitBtnFunc   -> clear fields (server list later)
+LoginUiCommand resolve_login_ui_command(
+    const ClientUiActivation& activation) noexcept;
 
 // Forward-declared classes (legacy MainTitle.h's dependencies) are
 // kept as opaque `void*` for now.  This matches the Phase 6.4
@@ -56,15 +82,40 @@ public:
 
     // -------------------------------------------------------------------------
     // Legacy 1:1 accessors used by the rest of the engine.  These are
-    // intentionally present (even though the A.1.8 stub bodies don't
-    // do much) so future A.1.8.b tasks can fill the bodies in
-    // without changing the public API.
+    // intentionally present to preserve the legacy public API while the
+    // modern implementation owns the live login flow.
     // -------------------------------------------------------------------------
     std::uint32_t GetDistAuthKey() const noexcept          { return m_DistAuthKey; }
     std::uint32_t GetUserIdx() const noexcept             { return m_UserIdx; }
 
     void OnLoginError(std::uint32_t errorcode, std::uint32_t dwParam);
     void OnDisconnect();
+
+    // Load IDDlg.bin (MT_LOGINDLG) and seed the ID/password edit boxes.
+    // Idempotent for the dialog tree; credentials are applied every call.
+    void Start(CEngine* engine,
+               std::string username = {},
+               std::string password = {});
+
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseMove(std::int32_t x, std::int32_t y);
+    bool OnKeyEvent(bool down, std::uint32_t key);
+    bool OnChar(std::uint32_t ch);
+
+    bool trySubmit();
+    void clearFields();
+    // Preserve the account name while erasing the password after an
+    // authentication attempt.  The edit control is cleared as well so a
+    // failed login can return to an editable, non-secret state.
+    void clearPassword();
+    bool consumeSubmit() noexcept;
+    const std::string& username() const noexcept { return m_username; }
+    const std::string& password() const noexcept { return m_password; }
+
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
 
     // 1:1 quirk: m_DistAuthKey and m_UserIdx are populated by the
     // Distribute server's response to MP_USERCONN.  A.1.8 leaves them
@@ -115,6 +166,18 @@ private:
     // (B.1) can include it in MP_USERCONN_REQUEST_LOGIN.  Matches
     // the legacy MHClient.cpp g_CLIENTVERSION[] global.
     char                  m_ClientVersion[32]       = {0};
+
+    void bind_login_edits();
+    void sync_credentials_from_edits();
+    bool handle_ui_activation(const ClientUiActivation& activation);
+    bool handle_edit_return();
+    mxh::ui::cEditBox* id_edit() const;
+    mxh::ui::cEditBox* password_edit() const;
+
+    ClientUiRuntime m_uiRuntime;
+    std::string     m_username;
+    std::string     m_password;
+    bool            m_submitRequested = false;
 };
 
 } // namespace mxh::client

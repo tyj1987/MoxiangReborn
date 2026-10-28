@@ -21,6 +21,17 @@
 
 #include <cstdint>
 
+namespace {
+struct GaugeDrawCapture { int x=0; int y=0; int w=0; int h=0; int calls=0; };
+bool CaptureGaugeDraw(void* ctx, void*, float x, float y, float w, float h,
+                     float, float, float, float, std::uint32_t, int) {
+    auto* c = static_cast<GaugeDrawCapture*>(ctx);
+    c->x = static_cast<int>(x); c->y = static_cast<int>(y);
+    c->w = static_cast<int>(w); c->h = static_cast<int>(h); ++c->calls;
+    return true;
+}
+}
+
 namespace mxh::ui::test {
 
 // ===========================================================================
@@ -43,6 +54,25 @@ TEST(CGuagen, InheritsCWindow) {
     EXPECT_NE(base, nullptr);
     // cWindow::Render is virtual; cGuagen overrides it.
     base->Render();  // should not crash
+}
+
+TEST(CGuagen, RenderUsesProgressWidthThroughImageAdapter) {
+    cGuagen g;
+    g.Init(10, 20, 100, 12, nullptr, 1);
+    cImage piece;
+    piece.SetSpriteObject(reinterpret_cast<void*>(1));
+    g.SetPieceImage(piece);
+    g.SetGuageWidth(80.0f);
+    g.SetValue(0.5f);
+    GaugeDrawCapture capture;
+    bindRenderer(&CaptureGaugeDraw, &capture);
+    g.Render();
+    bindRenderer(nullptr, nullptr);
+    EXPECT_EQ(capture.calls, 1);
+    EXPECT_EQ(capture.x, 10);
+    EXPECT_EQ(capture.y, 20);
+    EXPECT_EQ(capture.w, 40);
+    EXPECT_EQ(capture.h, 12);
 }
 
 // ===========================================================================

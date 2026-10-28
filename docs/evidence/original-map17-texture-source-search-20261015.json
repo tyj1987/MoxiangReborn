@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-10-15",
+  "map": 17,
+  "requiredTextures": [
+    "tile_17_mou_a_01.dds",
+    "tile_17_mou_a_02.dds",
+    "tile_17_mou_a_03.dds",
+    "tile_17_mou_a_04.dds",
+    "tile_17_mou_a_05.dds",
+    "tile_17_mou_a_06.dds",
+    "tile_17_mou_a_07.dds",
+    "tile_17_mou_a_08.dds",
+    "tile_17_mou_a_09.dds"
+  ],
+  "result": "not_found_as_pack_entries",
+  "policy": "Do not admit renamed, substituted, or Unity-derived textures into the original 1:1 line.",
+  "candidates": [
+    {"path": "modern/data/PlayDH/Map.pak", "bytes": 584312358, "hflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a", "exactTextureEntries": false},
+    {"path": "D:/MX/client-legacy/Map.pak", "bytes": 584312358, "hflSha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a", "exactTextureEntries": false},
+    {"path": "D:/MoyoI/墨香源启/Map.pak", "bytes": 693761626, "hflSha256": "2cd9795b1d85715c4c68461b13347ab720c73793b12a41dc78d3cb07a415e5b8", "exactTextureEntries": false},
+    {"path": "D:/MoyoI/��ī��/Map.pak", "bytes": 637009180, "hflSha256": "2cd9795b1d85715c4c68461b13347ab720c73793b12a41dc78d3cb07a415e5b8", "exactTextureEntries": false},
+    {"path": "D:/MX/client/Package/3DData/Map.pak", "bytes": 1135536849, "hflSha256": null, "exactTextureEntries": false, "note": "Different package header/index; contains other tile_17 DDS names but no required mou_a names."}
+  ],
+  "verification": {
+    "tool": "modern/build-quest-x64/tools/MoxianResourceExplorer/Release/mxh_explorer.exe",
+    "commands": ["list <candidate>/Map.pak", "extract-pak <candidate>/Map.pak 17.hfl", "hfl 17.hfl"],
+    "dependencyAudit": "modern/tools/audit_map_dependencies.py 17",
+    "currentAuditMissingCount": 9
+  },
+  "falsePositiveReview": {
+    "candidate": "D:/MoyoI/墨香源启/Map.pak",
+    "rawByteMatches": "tile_17_mou_a_01..09 appear inside the embedded 17.hfl texture-name table",
+    "entryListMatches": 0,
+    "extractAttempt": {
+      "entry": "tile_17_mou_a_01.tga",
+      "result": "entry_not_found"
+    },
+    "controlEntry": {
+      "entry": "tile_17_nanju_01.dds",
+      "result": "extractable",
+      "bytes": 2856
+    },
+    "conclusion": "The raw strings are HFL dependency references, not texture payload entries; no exact mou_a texture was admitted."
+  },
+  "extensionAndPakCorrection": "extensionAndPakCorrection (2026-10-24): requiredTextures above used the wrong extension (.dds). Map17's original HFL references tile_17_mou_a_01..09.tga. The worktree and client-legacy PlayDH/Map.pak rows are the 4192-entry archive, not a complete read of D:\\MX\\client\\Package\\3DData\\Map.pak, which reads 11267 entries to EOF. The extract attempt for tile_17_mou_a_01.tga was already entry_not_found. A 2026-10-21 reconciliation searched .tga across that original pak and all drives and also found nothing, so 'no original exists' stands. This is informational, not a missing-file defect."
+}

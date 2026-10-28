@@ -39,6 +39,14 @@
 
 namespace mxh::client {
 
+namespace {
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; bytes && i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+}
+
 // -------------------------------------------------------------------------
 // Wire-format helpers (pure functions, unit-tested independently).
 // -------------------------------------------------------------------------
@@ -116,21 +124,60 @@ void CLoginState::Release() {
     m_started.store(false, std::memory_order_release);
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
-    m_failureReason.clear();
+    // Phase 1 §7.2: clear the LoginAck timeout so a re-entry does not
+    // carry a stale deadline from a previous Start().
+    m_loginAckDeadline = {};
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_failureReason.clear();
+    }
+    clear_secret(m_password);
+    m_events.clear();
     setInitialized(false);
 }
 
 void CLoginState::Process() {
     tick();
-    // The TcpClient runs its own recv thread; on_message is invoked from
-    // there.  Nothing for us to do per-frame except keep the tick counter
-    // moving so the host can drive any animation tied to it.
+    for (auto& event : m_events.drain()) {
+        switch (event.kind) {
+            case ClientRuntimeEventKind::Message:
+                handle_message(event.connection, event.message);
+                break;
+            case ClientRuntimeEventKind::Disconnected:
+                handle_disconnect(event.connection, event.network_error);
+                break;
+            case ClientRuntimeEventKind::Error:
+                fail_with(event.detail);
+                break;
+            case ClientRuntimeEventKind::Connected:
+                break;
+        }
+    }
+    // Phase 1 §7.2: application-level LoginAck timeout.  After
+    // RequestLogin is sent, `handle_message` arms `m_loginAckDeadline`;
+    // if neither LoginAck nor LoginNack arrives before the deadline,
+    // we surface a fail_with so the user can retry (instead of hanging
+    // silently).  Skipped when the deadline is unset (not yet started)
+    // or when the state is already terminal.
+    if (!m_ackReceived.load(std::memory_order_acquire) &&
+        !m_failed.load(std::memory_order_acquire) &&
+        m_loginAckDeadline != std::chrono::steady_clock::time_point{} &&
+        std::chrono::steady_clock::now() >= m_loginAckDeadline) {
+        fail_with("LoginAck timeout (no response from LoginServer)");
+    }
 }
 
 void CLoginState::Start(CEngine* engine, std::string host,
                         std::uint16_t port,
                         std::string user_id, std::string password,
                         bool use_hsel) {
+    if (m_started.load(std::memory_order_acquire)) {
+        // Do not overwrite the in-flight credential buffer or endpoint when
+        // a UI retry callback races with the original connect attempt.
+        MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
+        clear_secret(password);
+        return;
+    }
     m_pEngine = engine;
     m_host    = std::move(host);
     m_port    = port;
@@ -141,10 +188,6 @@ void CLoginState::Start(CEngine* engine, std::string host,
         m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
     }
 
-    if (m_started.load(std::memory_order_acquire)) {
-        MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
-        return;
-    }
     m_started.store(true, std::memory_order_release);
 
     MLOG_INFO("CLoginState connecting to %s:%u as '%s'",
@@ -186,18 +229,20 @@ mxh::client::LoginResult CLoginState::TakeLoginResult() {
     {
         std::lock_guard<std::mutex> lk(m_mu);
         r.agent_addr = m_agentAddr;
+        // Consume the advertised endpoint while holding the same mutex used
+        // by the network callback that stores it.  Clearing it after unlock
+        // creates a race during a fast login/re-entry cycle.
+        m_agentAddr.clear();
     }
     r.agent_port    = m_agentPort.load(std::memory_order_acquire);
     r.user_idx      = m_userIdx.load(std::memory_order_acquire);
     r.dist_auth_key = m_authKey.load(std::memory_order_acquire);
-    MLOG_DEBUG("CLoginState::TakeLoginResult -> user_idx=%u agent=%s:%u dist_auth_key=%u",
+    MLOG_DEBUG("CLoginState::TakeLoginResult -> user_idx=%u agent=%s:%u",
               static_cast<unsigned>(r.user_idx),
               r.agent_addr.c_str(),
-              static_cast<unsigned>(r.agent_port),
-              static_cast<unsigned>(r.dist_auth_key));
+              static_cast<unsigned>(r.agent_port));
     // user_level isn't returned by modern LoginServer's 23B ack.
     // Consume so a second call returns empty.
-    m_agentAddr.clear();
     m_agentPort.store(0, std::memory_order_release);
     m_userIdx.store(0, std::memory_order_release);
     return r;
@@ -216,6 +261,24 @@ bool CLoginState::on_connect(mxh::net::ConnectionId id,
 
 void CLoginState::on_message(mxh::net::ConnectionId id,
                               const mxh::net::Message& msg) {
+    if (msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::UserConn)
+        && msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::kModernHselKey)) {
+        // Encryption state must be installed before the recv thread decodes
+        // the next packet; this does not mutate gameplay or UI state.
+        handle_message(id, msg);
+        return;
+    }
+    ClientRuntimeEvent event;
+    event.kind = ClientRuntimeEventKind::Message;
+    event.connection = id;
+    event.message = msg;
+    if (!m_events.push(std::move(event))) {
+        MLOG_ERROR("CLoginState event queue overflow; packet dropped");
+    }
+}
+
+void CLoginState::handle_message(mxh::net::ConnectionId id,
+                                  const mxh::net::Message& msg) {
     using mxh::proto::Category;
     using mxh::proto::UserConnProtocol;
     const auto cat   = static_cast<Category>(msg.header.category);
@@ -234,8 +297,10 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
     switch (proto) {
         case UserConnProtocol::DistConnectSuccess: {
             m_authKey.store(msg.header.object_id, std::memory_order_release);
-            MLOG_INFO("CLoginState: got DistConnectSuccess auth_key=%u",
-                      static_cast<unsigned>(msg.header.object_id));
+            // The auth key is credential material; keep it out of logs even
+            // in developer builds.  Only the protocol event is useful for
+            // diagnosing the login state machine.
+            MLOG_INFO("CLoginState: got DistConnectSuccess");
             // Build and send the RequestLogin legacy payload.
             const auto pl = legacy_request_login_payload(
                 m_authKey, m_userId, m_password);
@@ -246,12 +311,16 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
             out.header.object_id = 0;
             out.payload          = pl;
             const auto e = m_client->send(out);
+            clear_secret(m_password);
             if (e != mxh::net::NetError::Ok) {
                 fail_with(std::string("send RequestLogin failed: ") +
                           mxh::net::to_string(e));
                 return;
             }
             MLOG_INFO("CLoginState: sent RequestLogin (38B legacy payload)");
+            // Phase 1 §7.2: arm the application-level LoginAck timeout
+            // (default 10 s, overridable via SetLoginAckTimeoutForTest).
+            m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
             break;
         }
         case UserConnProtocol::NotifyUserLoginAck: {
@@ -300,6 +369,15 @@ void CLoginState::on_message(mxh::net::ConnectionId id,
 
 void CLoginState::on_disconnect(mxh::net::ConnectionId id,
                                  mxh::net::NetError reason) {
+    ClientRuntimeEvent event;
+    event.kind = ClientRuntimeEventKind::Disconnected;
+    event.connection = id;
+    event.network_error = reason;
+    (void)m_events.push(std::move(event));
+}
+
+void CLoginState::handle_disconnect(mxh::net::ConnectionId id,
+                                     mxh::net::NetError reason) {
     MLOG_INFO("CLoginState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
@@ -318,6 +396,12 @@ void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {
     m_agentPort.store(ack.agent_port, std::memory_order_release);
     m_userIdx.store(ack.user_idx, std::memory_order_release);
     m_ackReceived.store(true, std::memory_order_release);
+    // Phase 1 §7.2: disarm the LoginAck timeout — the ack arrived
+    // before the deadline, so the Process() poll no longer needs to
+    // check against it.  Releasing the deadline also prevents a
+    // subsequent Process() from spuriously firing it on a stale
+    // post-success value.
+    m_loginAckDeadline = {};
     MLOG_INFO("CLoginState: LoginAck agent=%s:%u user_idx=%u level=%u",
               ack.agent_addr.c_str(),
               static_cast<unsigned>(ack.agent_port),
@@ -353,7 +437,11 @@ void CLoginState::fail_with(const std::string& reason) {
     bool expected = false;
     if (!m_failed.compare_exchange_strong(expected, true,
             std::memory_order_acq_rel)) return;
-    m_failureReason = reason;
+    {
+        std::lock_guard<std::mutex> lk(m_mu);
+        m_failureReason = reason;
+    }
+    clear_secret(m_password);
     MLOG_ERROR("CLoginState: %s", reason.c_str());
 }
 

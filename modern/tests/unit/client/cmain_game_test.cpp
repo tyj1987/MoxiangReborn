@@ -21,12 +21,59 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <vector>
 
 using mxh::client::CMainGame;
 using mxh::client::CGameState;
 using mxh::client::GameStateId;
 using mxh::client::kStateCount;
 using mxh::client::CMainTitle;
+
+TEST(CEngine, UiResolutionModeStartsAtLoginAndCanBePromotedAfterDisplayCommit) {
+    mxh::client::CEngine engine;
+    EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Low800x600);
+    engine.SetUiResolutionMode(mxh::ui::ResolutionMode::Mid1024x768);
+    EXPECT_EQ(engine.ui_resolution_mode(), mxh::ui::ResolutionMode::Mid1024x768);
+}
+
+TEST(CEngine, EmitsSemanticAudioCuesToHost) {
+    mxh::client::CEngine engine;
+    std::vector<mxh::client::CEngine::AudioCue> cues;
+    engine.SetAudioEventFn([&](mxh::client::CEngine::AudioCue cue) { cues.push_back(cue); });
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Attack);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Skill);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::UiClick);
+    engine.EmitAudio(mxh::client::CEngine::AudioCue::Pickup);
+    ASSERT_EQ(cues.size(), 4u);
+    EXPECT_EQ(cues[0], mxh::client::CEngine::AudioCue::Attack);
+    EXPECT_EQ(cues[1], mxh::client::CEngine::AudioCue::Skill);
+    EXPECT_EQ(cues[2], mxh::client::CEngine::AudioCue::UiClick);
+    EXPECT_EQ(cues[3], mxh::client::CEngine::AudioCue::Pickup);
+}
+
+TEST(CEngine, EmitsResolvedSoundIdsWithClampedDistance) {
+    mxh::client::CEngine engine;
+    std::uint32_t sound_id = 0;
+    float distance = -1.0f;
+    engine.SetSoundEventFn([&](std::uint32_t id, float d) {
+        sound_id = id;
+        distance = d;
+    });
+    engine.EmitSoundAt(417u, -3.0f);
+    EXPECT_EQ(sound_id, 417u);
+    EXPECT_FLOAT_EQ(distance, 0.0f);
+}
+
+TEST(CEngine, EmitsSpatialCueWithNonNegativeDistance) {
+    mxh::client::CEngine engine;
+    float distance = -1.0f;
+    engine.SetSpatialAudioEventFn([&](mxh::client::CEngine::AudioCue cue, float d) {
+        EXPECT_EQ(cue, mxh::client::CEngine::AudioCue::Pickup);
+        distance = d;
+    });
+    engine.EmitAudioAt(mxh::client::CEngine::AudioCue::Pickup, -8.0f);
+    EXPECT_FLOAT_EQ(distance, 0.0f);
+}
 
 TEST(CMainGameEngine, EngineInstalledAfterInitCanRequestStateChange) {
     CMainGame game;
@@ -107,6 +154,22 @@ TEST(CMainGameStateIds, IsDelayedTransition) {
     EXPECT_EQ(game.GetCurGameState(), rawTitle);
     EXPECT_EQ(game.GetCurStateNum(), GameStateId::Title);
 
+    game.Release();
+}
+
+TEST(CMainGameStateIds, PassesStateInitParamToNextState) {
+    CMainGame game;
+    game.Init(nullptr);
+    auto loading = std::make_unique<mxh::client::CGameLoading>();
+    auto* raw = loading.get();
+    game.RegisterState(GameStateId::GameLoading, std::move(loading));
+    mxh::client::LoadStateContext context;
+    context.completed_steps = 4;
+    context.total_steps = 8;
+    game.SetGameState(GameStateId::GameLoading, &context);
+    game.Process();
+    ASSERT_EQ(game.GetCurGameState(), raw);
+    EXPECT_FLOAT_EQ(raw->progress(), 0.5f);
     game.Release();
 }
 

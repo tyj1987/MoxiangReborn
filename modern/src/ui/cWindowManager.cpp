@@ -1,5 +1,6 @@
 // mxh/ui/cWindowManager.cpp
 // Phase 6.6 — implementation of the modern cWindowManager.
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) — must come first for full type
 #include "cWindowManager.hpp"
 
 #include "cButton.hpp"
@@ -61,6 +62,19 @@ void cWindowManager::RemoveAll() {
     m_modalDialog = nullptr;
 }
 
+void cWindowManager::AbandonAllForProcessExit() noexcept {
+    m_focused = nullptr;
+    m_modalDialog = nullptr;
+    for (auto& dialog : m_dialogs) {
+        (void)dialog.release();
+    }
+    m_dialogs.clear();
+    for (auto& dialog : m_destroyQueue) {
+        (void)dialog.release();
+    }
+    m_destroyQueue.clear();
+}
+
 void cWindowManager::ProcessDestroyQueue() {
     m_destroyQueue.clear();
 }
@@ -91,6 +105,31 @@ cDialog* cWindowManager::findById(std::int32_t id) const {
         cObject* p = w->parent();
         while (p && p->parent()) p = p->parent();
         return d.get();
+    }
+    return nullptr;
+}
+
+cWindow* cWindowManager::findWindowByLegacyId(std::string_view id) const {
+    // Skip inactive dialogs: the legacy engine only routes input to the
+    // active top-level dialog, so lookups must mirror that. Otherwise a
+    // hidden dialog sharing the same legacy id (CMI_CLOSEBTN lives in
+    // many .bin files) shadows the one the player can actually see.
+    for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {
+        if (!*it || !(*it)->isActive()) continue;
+        if (cWindow* found = (*it)->findWindowByLegacyId(id)) {
+            return found;
+        }
+    }
+    return nullptr;
+}
+
+cWindow* cWindowManager::findWindowByLegacyFunc(std::string_view func) const {
+    // See findWindowByLegacyId: the active dialog owns input first.
+    for (auto it = m_dialogs.rbegin(); it != m_dialogs.rend(); ++it) {
+        if (!*it || !(*it)->isActive()) continue;
+        if (cWindow* found = (*it)->findWindowByLegacyFunc(func)) {
+            return found;
+        }
     }
     return nullptr;
 }
@@ -136,13 +175,24 @@ std::uint32_t cWindowManager::ActionKeyboardEvent(std::int32_t key,
 }
 
 void cWindowManager::RenderAll() {
-    // Walk back-to-front so the topmost dialog draws last (over the
-    // others). The actual GPU draw happens inside cDialog::Render()
-    // which is still a placeholder in 6.6; the real draw lands in
-    // 6.8 (MoxianRenderDemo integration).
+    // Walk back-to-front so the topmost active dialog draws last.  Legacy
+    // #ACTIVE 0 roots remain owned by the manager but are neither rendered
+    // nor eligible for input until gameplay explicitly opens them.
     for (const auto& d : m_dialogs) {
-        if (d) d->Render();
+        if (d && d->isActive() && d->isVisible()) d->Render();
     }
+}
+
+// M-R7 (G3) 分辨率自适应 1:1 行为.
+void cWindowManager::SetCurrentResolutionMode(ResolutionMode mode) noexcept {
+    m_resolutionMode = mode;
+}
+
+void cWindowManager::OnResolutionChange(ResolutionMode new_mode) noexcept {
+    // 1:1 老版 cScriptManager 没这个 API. modern 暴露是为了 caller (MoxianClient main)
+    // 切换屏幕尺寸时通知 cWindowManager. 实际重新装载由 caller 决定
+    // (cWindowManager 不持 .bin 路径). 头less 头实现是更新 m_resolutionMode.
+    m_resolutionMode = new_mode;
 }
 
 // ===========================================================================

@@ -18,11 +18,21 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
+#include <string>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
 namespace mxh::game {
+
+struct SkillEffectNames {
+    std::string effect_start;
+    std::string effect_use;
+    std::string effect_self;
+    std::string effect_map_object_create;
+    std::string effect_mine_operate;
+};
 
 // Out-of-range skill access.
 class SkillNotFound : public std::out_of_range {
@@ -69,6 +79,7 @@ public:
 
     // Lookup.  Throws SkillNotFound if the skill isn't in the table.
     const SkillInfo& get(std::uint32_t skill_idx) const;
+    std::optional<SkillEffectNames> effect_names(std::uint32_t skill_idx) const;
 
     // Non-throwing variant.  Returns true and populates `out` on
     // success; returns false and leaves `out` untouched on miss.
@@ -90,6 +101,7 @@ public:
 private:
     std::vector<SkillInfo> m_skills;
     std::unordered_map<std::uint32_t, std::size_t> m_idx;
+    std::unordered_map<std::uint32_t, SkillEffectNames> m_effectNames;
 };
 
 }  // namespace mxh::game

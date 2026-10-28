@@ -1,0 +1,2 @@
+.\Crypt.cpp line:53, msg:CCrypt EnInit Initial() failed, time:7월/15일 0시49분1.773초
+.\MHNetwork.cpp line:202, msg:Decrypt CRC Error, time:7월/15일 1시58분32.484초

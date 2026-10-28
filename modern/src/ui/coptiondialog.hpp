@@ -45,6 +45,7 @@ namespace mxh::ui {
 
 class cCheckBox;
 class cPushupButton;
+class cGuageBar;
 
 // 1:1 with legacy sGAMEOPTION (legacy OptionManager.h).
 // The struct is laid out verbatim from the legacy source so the
@@ -128,6 +129,10 @@ public:
     // cWindowManager port is complete (the legacy wires 4
     // tab sheets by walking the WINDOW_ID tree).
     void Linking();
+
+    // Resolves the concrete controls from the InterfaceScript tree.  The
+    // dialog can therefore run without the legacy OPTIONMGR/widget shim.
+    bool HasConcreteBindings() const noexcept { return m_concreteBindings; }
 
     // 1:1 with legacy OnActionEvent(LONG, void*, DWORD).
     // Hides the (non-existent in cWindow) base OnActionEvent.
@@ -231,6 +236,32 @@ private:
     MainBarIconCallback m_mainBarCb = nullptr;
     void*           m_mainBarUser = nullptr;
     bool           m_bGraphicTabDisabled = false;
+    bool           m_concreteBindings = false;
+    cCheckBox*     m_cbNoDeal = nullptr;
+    cCheckBox*     m_cbNoParty = nullptr;
+    cCheckBox*     m_cbNoFriend = nullptr;
+    cCheckBox*     m_cbNoChatting = nullptr;
+    cCheckBox*     m_cbNoWhisper = nullptr;
+    cCheckBox*     m_cbNoBalloon = nullptr;
+    cCheckBox*     m_cbAutoHide = nullptr;
+    cCheckBox*     m_cbNoSystemMsg = nullptr;
+    cCheckBox*     m_cbNoItemMsg = nullptr;
+    cCheckBox*     m_cbShadowHero = nullptr;
+    cCheckBox*     m_cbShadowMonster = nullptr;
+    cCheckBox*     m_cbShadowOthers = nullptr;
+    cCheckBox*     m_cbAutoControl = nullptr;
+    cCheckBox*     m_cbBgmSound = nullptr;
+    cCheckBox*     m_cbEnvSound = nullptr;
+    cGuageBar*     m_gbGamma = nullptr;
+    cGuageBar*     m_gbSight = nullptr;
+    cGuageBar*     m_gbBgmSound = nullptr;
+    cGuageBar*     m_gbEnvSound = nullptr;
+    cPushupButton* m_pbChatMode = nullptr;
+    cPushupButton* m_pbMacroMode = nullptr;
+    cPushupButton* m_pbBasicGraphic = nullptr;
+    cPushupButton* m_pbDownGraphic = nullptr;
+    cPushupButton* m_pbBasicEffect = nullptr;
+    cPushupButton* m_pbOneEffect = nullptr;
     // 1:1 with legacy cTabDialog::curIdx1 / curIdx2 (the per-type
     // insertion cursors that COptionDialog::Add uses to route
     // PUSHBUTTON / DIALOG children into the right tab slot).

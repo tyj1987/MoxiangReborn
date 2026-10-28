@@ -33,7 +33,10 @@ target_compile_features(mxh_portal_lib PRIVATE cxx_std_17)
 
 # M5.3: link mxh_server (account_service + account_moderation) and
 # mxh_db (IDbAdapter factory) for /api/auth/* routes.
-target_link_libraries(mxh_portal_lib PRIVATE mxh_log mxh_server mxh_db)
+target_link_libraries(mxh_portal_lib
+    PRIVATE mxh_log
+    PUBLIC mxh_server mxh_db
+)
 if(WIN32)
     target_link_libraries(mxh_portal_lib PRIVATE bcrypt)
 endif()

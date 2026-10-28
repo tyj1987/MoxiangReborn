@@ -1,0 +1,415 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-map-pak-resource-audit",
+  "generatedUtc": "2026-10-15T00:00:00Z",
+  "pak": "modern/data/PlayDH/Map.pak",
+  "pakSha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+  "entryCount": 59,
+  "embeddedHfl": [
+    {
+      "path": "1.hfl",
+      "bytes": 1200122
+    },
+    {
+      "path": "10.hfl",
+      "bytes": 1188682
+    },
+    {
+      "path": "101.hfl",
+      "bytes": 1137568
+    },
+    {
+      "path": "102.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "103.hfl",
+      "bytes": 1184392
+    },
+    {
+      "path": "104.hfl",
+      "bytes": 1190372
+    },
+    {
+      "path": "105.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "106.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "108.hfl",
+      "bytes": 1190502
+    },
+    {
+      "path": "109.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "11.hfl",
+      "bytes": 1090118
+    },
+    {
+      "path": "110.hfl",
+      "bytes": 1137568
+    },
+    {
+      "path": "118.hfl",
+      "bytes": 1099608
+    },
+    {
+      "path": "12.hfl",
+      "bytes": 1200122
+    },
+    {
+      "path": "13.hfl",
+      "bytes": 1197652
+    },
+    {
+      "path": "14.hfl",
+      "bytes": 1189592
+    },
+    {
+      "path": "15.hfl",
+      "bytes": 1197912
+    },
+    {
+      "path": "17.hfl",
+      "bytes": 1192972
+    },
+    {
+      "path": "18.hfl",
+      "bytes": 1208442
+    },
+    {
+      "path": "19.hfl",
+      "bytes": 1188942
+    },
+    {
+      "path": "198.hfl",
+      "bytes": 1184002
+    },
+    {
+      "path": "199.hfl",
+      "bytes": 1184002
+    },
+    {
+      "path": "2.hfl",
+      "bytes": 1188552
+    },
+    {
+      "path": "20.hfl",
+      "bytes": 1197002
+    },
+    {
+      "path": "201.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "202.hfl",
+      "bytes": 1137568
+    },
+    {
+      "path": "204.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "205.hfl",
+      "bytes": 1313872
+    },
+    {
+      "path": "206.hfl",
+      "bytes": 1190372
+    },
+    {
+      "path": "207.hfl",
+      "bytes": 1184002
+    },
+    {
+      "path": "21.hfl",
+      "bytes": 1187252
+    },
+    {
+      "path": "22.hfl",
+      "bytes": 1088948
+    },
+    {
+      "path": "25.hfl",
+      "bytes": 1119096
+    },
+    {
+      "path": "3.hfl",
+      "bytes": 1189592
+    },
+    {
+      "path": "39.hfl",
+      "bytes": 1094668
+    },
+    {
+      "path": "40.hfl",
+      "bytes": 1192452
+    },
+    {
+      "path": "5.hfl",
+      "bytes": 1189592
+    },
+    {
+      "path": "54.hfl",
+      "bytes": 1189592
+    },
+    {
+      "path": "58.hfl",
+      "bytes": 1200122
+    },
+    {
+      "path": "59.hfl",
+      "bytes": 1197912
+    },
+    {
+      "path": "6.hfl",
+      "bytes": 1195182
+    },
+    {
+      "path": "60.hfl",
+      "bytes": 1192452
+    },
+    {
+      "path": "65.hfl",
+      "bytes": 1208442
+    },
+    {
+      "path": "66.hfl",
+      "bytes": 1188552
+    },
+    {
+      "path": "67.hfl",
+      "bytes": 1191672
+    },
+    {
+      "path": "68.hfl",
+      "bytes": 1185822
+    },
+    {
+      "path": "69.hfl",
+      "bytes": 1197652
+    },
+    {
+      "path": "7.hfl",
+      "bytes": 1200122
+    },
+    {
+      "path": "70.hfl",
+      "bytes": 1189592
+    },
+    {
+      "path": "72.hfl",
+      "bytes": 1197912
+    },
+    {
+      "path": "73.hfl",
+      "bytes": 1188682
+    },
+    {
+      "path": "75.hfl",
+      "bytes": 1085698
+    },
+    {
+      "path": "8.hfl",
+      "bytes": 1233922
+    },
+    {
+      "path": "9.hfl",
+      "bytes": 1187252
+    },
+    {
+      "path": "login.hfl",
+      "bytes": 1100636
+    }
+  ],
+  "embeddedTtb": [
+    {
+      "path": "105.ttb",
+      "bytes": 2097160
+    },
+    {
+      "path": "12.ttb",
+      "bytes": 2097160
+    },
+    {
+      "path": "15.ttb",
+      "bytes": 2097160
+    },
+    {
+      "path": "200.ttb",
+      "bytes": 2097160
+    }
+  ],
+  "checkedMissingNames": [
+    "0.hfl",
+    "4.hfl",
+    "23.hfl",
+    "24.hfl",
+    "32.hfl",
+    "33.hfl",
+    "34.hfl",
+    "94.hfl",
+    "0.ttb",
+    "3.ttb",
+    "4.ttb",
+    "23.ttb",
+    "24.ttb",
+    "32.ttb",
+    "33.ttb",
+    "34.ttb",
+    "94.ttb",
+    "198.ttb"
+  ],
+  "interpretation": "Map.pak contains exact HFL payloads for 3.hfl and 198.hfl, already admitted as loose original resources. The remaining missing HFL/TTB names are absent from this pak; embedded payloads do not close those source gaps. No substitution is admitted.",
+  "candidatePackComparison": {
+    "tool": "modern/build-quest-x64/tools/MoxianResourceExplorer/Release/mxh_explorer.exe list",
+    "checkedMissingNames": [
+      "0.hfl",
+      "4.hfl",
+      "23.hfl",
+      "24.hfl",
+      "32.hfl",
+      "33.hfl",
+      "34.hfl",
+      "94.hfl",
+      "0.ttb",
+      "3.ttb",
+      "4.ttb",
+      "23.ttb",
+      "24.ttb",
+      "32.ttb",
+      "33.ttb",
+      "34.ttb",
+      "94.ttb",
+      "198.ttb"
+    ],
+    "candidates": [
+      {
+        "id": "moyoi-primary",
+        "path": "D:\\MoyoI\\墨香源启\\Map.pak",
+        "bytes": 693761626,
+        "sha256": "2d6ac5fd709075bdb9ea4e5b60ff022fa249d9d5b14ab58cedae6e6173a49f95",
+        "parsedEntryCount": 4560,
+        "parsedHflCount": 71,
+        "parsedTtbCount": 4,
+        "checkedMissingNamesPresent": [],
+        "checkedMissingNamesAbsent": [
+          "0.hfl",
+          "4.hfl",
+          "23.hfl",
+          "24.hfl",
+          "32.hfl",
+          "33.hfl",
+          "34.hfl",
+          "94.hfl",
+          "0.ttb",
+          "3.ttb",
+          "4.ttb",
+          "23.ttb",
+          "24.ttb",
+          "32.ttb",
+          "33.ttb",
+          "34.ttb",
+          "94.ttb",
+          "198.ttb"
+        ]
+      },
+      {
+        "id": "moyoi-legacy-name",
+        "path": "D:\\MoyoI\\��ī��\\Map.pak",
+        "bytes": 637009180,
+        "sha256": "a2166971f184e0d6f1cd872d1d89fc6ad69eb15a0455958a39836a5065bf76ea",
+        "parsedEntryCount": 4381,
+        "parsedHflCount": 63,
+        "parsedTtbCount": 4,
+        "checkedMissingNamesPresent": [],
+        "checkedMissingNamesAbsent": [
+          "0.hfl",
+          "4.hfl",
+          "23.hfl",
+          "24.hfl",
+          "32.hfl",
+          "33.hfl",
+          "34.hfl",
+          "94.hfl",
+          "0.ttb",
+          "3.ttb",
+          "4.ttb",
+          "23.ttb",
+          "24.ttb",
+          "32.ttb",
+          "33.ttb",
+          "34.ttb",
+          "94.ttb",
+          "198.ttb"
+        ]
+      },
+      {
+        "id": "mx-client-legacy",
+        "path": "D:\\MX\\client-legacy\\Map.pak",
+        "bytes": 584312358,
+        "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+        "parsedEntryCount": 4192,
+        "parsedHflCount": 55,
+        "parsedTtbCount": 4,
+        "checkedMissingNamesPresent": [],
+        "checkedMissingNamesAbsent": [
+          "0.hfl",
+          "4.hfl",
+          "23.hfl",
+          "24.hfl",
+          "32.hfl",
+          "33.hfl",
+          "34.hfl",
+          "94.hfl",
+          "0.ttb",
+          "3.ttb",
+          "4.ttb",
+          "23.ttb",
+          "24.ttb",
+          "32.ttb",
+          "33.ttb",
+          "34.ttb",
+          "94.ttb",
+          "198.ttb"
+        ]
+      },
+      {
+        "id": "playdh-current",
+        "path": "E:\\Workspaces\\moxiang\\worktrees\\original-integration\\modern\\data\\PlayDH\\Map.pak",
+        "bytes": 584312358,
+        "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+        "parsedEntryCount": 4192,
+        "parsedHflCount": 55,
+        "parsedTtbCount": 4,
+        "checkedMissingNamesPresent": [],
+        "checkedMissingNamesAbsent": [
+          "0.hfl",
+          "4.hfl",
+          "23.hfl",
+          "24.hfl",
+          "32.hfl",
+          "33.hfl",
+          "34.hfl",
+          "94.hfl",
+          "0.ttb",
+          "3.ttb",
+          "4.ttb",
+          "23.ttb",
+          "24.ttb",
+          "32.ttb",
+          "33.ttb",
+          "34.ttb",
+          "94.ttb",
+          "198.ttb"
+        ]
+      }
+    ],
+    "conclusion": "All four readable candidate packs contain zero of the checked missing HFL/TTB names. MoyoI Map.pak contains 71 HFL and 4 TTB entries but does not close any listed original file gap; no payload admitted."
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "schema": "moxiang.original.canonical-birth-map-route.v1",
+  "generatedAt": "2026-10-17T08:40:00+08:00",
+  "branch": "codex/reorg-original-20261009",
+  "head": "a31714498f1bd61e42ae819224a48e14279b1512",
+  "change": "AgentHandler persists submitted canonical StartArea only when the exact map route is registered; otherwise configured default map remains the fallback.",
+  "targetedTest": {
+    "command": "mxh_server_handler_tests.exe --gtest_filter=AgentCharacterCreateTest.PersistsCanonicalBirthMapWhenRouteIsRegistered",
+    "result": "PASS",
+    "tests": 1,
+    "passed": 1
+  },
+  "handlerSuite": {
+    "command": "mxh_server_handler_tests.exe",
+    "result": "PASS",
+    "tests": 162,
+    "passed": 162
+  },
+  "commercialSmoke": {
+    "command": "scripts/commercial-smoke.ps1 -BuildDir modern/build-clean-debug-20261015 -SkipMssql -SkipGui",
+    "result": "PASS",
+    "tests": 35,
+    "passed": 35,
+    "skipped": 1,
+    "skippedTests": [
+      "MxhResourcePayloadSha256.VerifyManifest_Deploy"
+    ],
+    "explicitSkips": [
+      "MSSQL_E2E",
+      "GUI_CLIENT_SMOKE"
+    ]
+  },
+  "artifact": {
+    "path": "modern/build-clean-debug-20261015/tests/unit/server/Debug/mxh_server_handler_tests.exe",
+    "sha256": "188A8FB0E3E8936B72268CC20AB2E9806D0308FABFA3D48F985DDF4330D84664"
+  }
+}

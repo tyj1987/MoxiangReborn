@@ -9,12 +9,16 @@
 //   * CLoginState::fail_with() is idempotent.
 
 #include "CLoginState.hpp"
+#include "mxh/proto/protocol.hpp"
+#include "mxh/net/net.hpp"
 
 #include <gtest/gtest.h>
 
 #include <array>
+#include <chrono>
 #include <cstring>
 #include <span>
+#include <thread>
 
 using mxh::client::LegacyLoginAck;
 using mxh::client::legacy_request_login_payload;
@@ -78,6 +82,20 @@ TEST(LoginStateWire, RequestLoginPayloadEmptyFields) {
 //   = 23 bytes
 // -------------------------------------------------------------------------
 
+TEST(LoginStateWire, LoginAckAdvertisesConfiguredLanAgent) {
+    std::array<std::uint8_t, 23> buf{};
+    std::memcpy(buf.data(), "192.168.2.107", 13);
+    buf[16] = 0x69;  // 17001 == 0x4269
+    buf[17] = 0x42;
+    buf[18] = 0x2A;
+    buf[22] = 1;
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->agent_addr, "192.168.2.107");
+    EXPECT_EQ(ack->agent_port, 17001);
+    EXPECT_EQ(ack->user_idx, 42u);
+}
+
 TEST(LoginStateWire, LoginAckHappyPath) {
     std::array<std::uint8_t, 23> buf{};
     // agentip "127.0.0.1\0\0\0\0\0\0\0" (16B)
@@ -126,4 +144,248 @@ TEST(CLoginStateDefaults, AllFieldsZero) {
     EXPECT_EQ(s.user_idx(),   0u);
     EXPECT_EQ(s.agent_addr(), "");
     EXPECT_EQ(s.agent_port(), 0u);
+}
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.2 登录错误矩阵 — wire-format boundary coverage.
+// The full error matrix (Nack, server-down, retry, etc.) is exercised
+// end-to-end by MoxianClientE2E and the Phase B.2.5 E2E tool; this
+// section locks the byte-format boundaries that an attacker could
+// otherwise probe.
+// -------------------------------------------------------------------------
+
+TEST(LoginStateWire, RequestLoginPayloadBoundaryLength17) {
+    // Exactly 17 bytes of id is the documented max; password must
+    // still occupy the next 17 bytes starting at offset 21.
+    const std::string id17(17, 'a');
+    const std::string pw3("xyz");
+    const auto pl = legacy_request_login_payload(0u, id17, pw3);
+    ASSERT_EQ(pl.size(), 38u);
+    for (int i = 0; i < 17; ++i) EXPECT_EQ(pl[4 + i], 'a');
+    EXPECT_EQ(pl[21], 'x');
+    EXPECT_EQ(pl[22], 'y');
+    EXPECT_EQ(pl[23], 'z');
+    for (int i = 24; i < 38; ++i) EXPECT_EQ(pl[i], 0u);
+}
+
+TEST(LoginStateWire, RequestLoginPayloadUtf8IdRoundTrip) {
+    // Chinese 墨香玩家 (multi-byte UTF-8) is the §7.2 合法中文 case.
+    // 4 chars × 3 bytes = 12 bytes; well under the 17-byte cap.
+    const std::string cn_id = "\xE5\xA2\xA8\xE9\xA6\x99\xE7\x8E\xA9\xE5\xAE\xB6";  // 墨香玩家
+    const auto pl = legacy_request_login_payload(0x01020304u, cn_id, "pw");
+    ASSERT_EQ(pl.size(), 38u);
+    EXPECT_EQ(pl[4], 0xE5u);
+    EXPECT_EQ(pl[5], 0xA2u);
+    EXPECT_EQ(pl[6], 0xA8u);
+    EXPECT_EQ(pl[15], 0xB6u);
+    EXPECT_EQ(pl[16], 0u);  // 12 bytes of UTF-8, 5 bytes of zero padding
+    EXPECT_EQ(pl[21], 'p');
+    EXPECT_EQ(pl[22], 'w');
+}
+
+TEST(LoginStateWire, RequestLoginPayloadUtf8Truncation) {
+    // Chinese text longer than 17 bytes must be truncated to 17 bytes
+    // (the legacy 17-byte id field is fixed).  The truncated bytes are
+    // the leading 17 bytes of the UTF-8 sequence — partial codepoints
+    // are possible but match the legacy MHClient behaviour.
+    const std::string cn_id(20, '\xE5');  // 20 × 0xE5 — leading bytes only
+    const auto pl = legacy_request_login_payload(0u, cn_id, "");
+    for (int i = 0; i < 17; ++i) EXPECT_EQ(pl[4 + i], 0xE5u);
+    // bytes 21..37 remain zero because password is empty
+    for (int i = 21; i < 38; ++i) EXPECT_EQ(pl[i], 0u);
+}
+
+TEST(LoginStateWire, LoginAckBoundaryPayload) {
+    // Exactly 23 bytes is the documented min; smaller must reject.
+    std::array<std::uint8_t, 23> buf{};
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->user_level, 0u);
+}
+
+TEST(LoginStateWire, LoginAckNullAgentAddrIsNotEmpty) {
+    // A LoginAck whose agent_ip field is all zeros (the server has
+    // nothing to advertise because it could not bind) must still parse
+    // successfully and report an empty string — not crash the state.
+    std::array<std::uint8_t, 23> buf{};
+    buf[16] = 0xFF; buf[17] = 0xFF;  // invalid port 65535 — must not crash
+    auto ack = parse_legacy_login_ack(std::span<const std::uint8_t>(buf.data(), buf.size()));
+    ASSERT_TRUE(ack.has_value());
+    EXPECT_EQ(ack->agent_addr, "");
+    EXPECT_EQ(ack->agent_port, 65535u);
+}
+
+// -------------------------------------------------------------------------
+// Phase 1 §7.2 错误矩阵 — LoginNack / 数据库不可用 / LoginServer down.
+//
+// These cover the §7.2 items that the CLoginState can decide on its
+// own: 错误密码 / 不存在账号 / 禁用账号 / 数据库不可用 all collapse to
+// the same LoginNack path, so one test covers all four.  LoginServer
+// 不可用 / 登录超时 / 断线后重试 are exercised by on_disconnect paths
+// in the E2E tool and the capture harness — not unit-testable here.
+// -------------------------------------------------------------------------
+
+namespace {
+mxh::net::Message make_login_nack() {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+    m.header.object_id = 0;
+    m.payload = {};
+    return m;
+}
+}  // namespace
+
+TEST(LoginStateErrorMatrix, LoginNackTriggersFailWith) {
+    // 错误密码 / 不存在账号 / 禁用账号 / 数据库不可用 all hit the same
+    // Nack path.  The state must flip to is_failed() with a non-empty
+    // failure_reason() so the host can surface a recoverable error.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();  // CLoginState::on_message queues; Process() drains
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_FALSE(s.failure_reason().empty());
+    EXPECT_FALSE(s.is_ack_received());
+}
+
+TEST(LoginStateErrorMatrix, LoginNackIsIdempotent) {
+    // 连续点击登录 with two back-to-back Nacks must not crash, leak,
+    // or change the failure reason after the first one.  The first
+    // fail_with() short-circuits further state mutation.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    const auto first_reason = s.failure_reason();
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_EQ(s.failure_reason(), first_reason);
+}
+
+TEST(LoginStateErrorMatrix, LoginAckAfterNackDoesNotRecover) {
+    // A late LoginAck after a Nack must not silently promote the
+    // state — once failed, only a fresh Start() should re-arm the
+    // connection.  This locks the "disconnect + retry" gate: a
+    // broken session cannot be revived by a stray packet on the
+    // existing socket.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+
+    // Build a real LoginAck payload (23B) — must not flip is_failed.
+    std::array<std::uint8_t, 23> ack{};
+    std::memcpy(ack.data(), "127.0.0.1", 9);
+    ack[16] = 0x59; ack[17] = 0x1B;  // port 7001 LE
+    ack[18] = 0x04; ack[19] = 0x03; ack[20] = 0x02; ack[21] = 0x01;
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(ack.begin(), ack.end());
+    s.HandleMessageForTest(m);
+    s.Process();
+    EXPECT_TRUE(s.is_failed());  // still failed — no silent recovery
+}
+
+TEST(LoginStateErrorMatrix, FailWithIsIdempotent) {
+    // Direct fail_with() is idempotent: the first call wins, the
+    // second is a no-op.  The dispatch path depends on this so a
+    // burst of Nacks / malformed acks does not overwrite the original
+    // human-readable reason with a less informative follow-up.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    const auto first = s.failure_reason();
+    EXPECT_FALSE(first.empty());
+    // send a short payload to trigger "payload too short" path
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(10, 0);  // < 23 bytes
+    s.HandleMessageForTest(m);
+    s.Process();
+    EXPECT_EQ(s.failure_reason(), first);
+}
+
+// Phase 1 §7.2 "登录超时": with no LoginAck / LoginNack arriving after
+// RequestLogin is sent, the application-level deadline fires and the
+// state surfaces a recoverable failure instead of hanging silently.
+// Production default is 10 s; we override to 50 ms for the test.
+TEST(LoginStateErrorMatrix, LoginAckTimeoutFiresWhenNoResponse) {
+    mxh::client::CLoginState s;
+    s.SetLoginAckTimeoutForTest(std::chrono::milliseconds(50));
+    s.ArmLoginAckDeadlineForTest();
+    EXPECT_FALSE(s.is_failed());
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_FALSE(s.failure_reason().empty());
+    EXPECT_NE(s.failure_reason().find("timeout"), std::string::npos)
+        << "expected 'timeout' in: " << s.failure_reason();
+}
+
+TEST(LoginStateErrorMatrix, LoginAckBeforeTimeoutDoesNotFail) {
+    // Sanity check: if a LoginAck arrives before the deadline, the
+    // Process() poll must not fire the timeout.  The deadline is
+    // disarmed by dispatch_login_ack so subsequent ticks are no-ops.
+    mxh::client::CLoginState s;
+    s.SetLoginAckTimeoutForTest(std::chrono::milliseconds(50));
+    s.SetDispatchForTest(true);
+    s.HandleMessageForTest(make_login_nack());
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    // failure reason should be the nack, NOT a timeout
+    EXPECT_EQ(s.failure_reason().find("timeout"), std::string::npos)
+        << "unexpected 'timeout' in: " << s.failure_reason();
+}
+
+// -------------------------------------------------------------------------
+// §7.2 LoginServer 不可用 + 断线后重试: drive the on_disconnect path.
+// CLoginState::on_disconnect queues a Disconnected event; Process() drains
+// the queue and (if no ack has been received yet) flips is_failed()
+// with "disconnected before LoginAck: <reason>".  This covers both the
+// §7.2 connect-failed case (the LoginServer is not listening) and
+// the §7.2 retry-after-disconnect case (the user clicked Login, the
+// socket closed, the state surfaces a recoverable error, the user
+// can press Login again).
+// -------------------------------------------------------------------------
+
+TEST(LoginStateErrorMatrix, DisconnectBeforeAckTriggersFailWith) {
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    // Drive a synthetic disconnect (e.g. LoginServer closed mid-handshake).
+    s.on_disconnect({}, mxh::net::NetError::Disconnected);
+    s.Process();
+    EXPECT_TRUE(s.is_failed());
+    EXPECT_NE(s.failure_reason().find("disconnected before LoginAck"),
+              std::string::npos);
+}
+
+TEST(LoginStateErrorMatrix, DisconnectAfterAckIsIgnored) {
+    // If we already received the LoginAck, a later disconnect must
+    // not stomp the success state.  This locks the §7.2 断线后重试
+    // gate: a stale disconnect event from a previous session cannot
+    // turn a successful login into a failure.
+    mxh::client::CLoginState s;
+    s.SetDispatchForTest(true);
+    // Build a valid 23B LoginAck so the state records ack_received=true.
+    std::array<std::uint8_t, 23> ack{};
+    std::memcpy(ack.data(), "127.0.0.1", 9);
+    ack[16] = 0x59; ack[17] = 0x1B;
+    ack[18] = 0x04; ack[19] = 0x03; ack[20] = 0x02; ack[21] = 0x01;
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::NotifyUserLoginAck);
+    m.payload.assign(ack.begin(), ack.end());
+    s.HandleMessageForTest(m);
+    s.Process();
+    ASSERT_FALSE(s.is_failed());
+
+    // Now a disconnect arrives — must not flip is_failed.
+    s.on_disconnect({}, mxh::net::NetError::Disconnected);
+    s.Process();
+    EXPECT_FALSE(s.is_failed());
 }

@@ -7,9 +7,12 @@
 #include <filesystem>
 #include <algorithm>
 #include <cctype>
+#include "../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findMapPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Map.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -24,6 +27,8 @@ std::filesystem::path findMapPack() {
 }
 
 std::filesystem::path findMonsterPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "monster.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -38,6 +43,8 @@ std::filesystem::path findMonsterPack() {
 }
 
 std::filesystem::path findCharacterPack() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Character.pak";
     auto root = std::filesystem::current_path();
     for (int level = 0; level < 8; ++level) {
         for (const auto& first : std::filesystem::directory_iterator(root)) {
@@ -79,6 +86,12 @@ TEST(StmStaticModel, ParsesRealMap12Scene) {
     EXPECT_EQ(faces, 58601u);
     EXPECT_EQ(model.collision_offset, 4624722u);
     EXPECT_LT(model.collision_offset, bytes.size());
+    ASSERT_FALSE(model.collision_bounds.empty());
+    for (const auto& bounds : model.collision_bounds) {
+        EXPECT_LE(bounds.min[0], bounds.max[0]);
+        EXPECT_LE(bounds.min[1], bounds.max[1]);
+        EXPECT_LE(bounds.min[2], bounds.max[2]);
+    }
 }
 
 TEST(StmStaticModel, RejectsTruncatedData) {
@@ -106,11 +119,20 @@ TEST(StmStaticModel, ParsesRealL001BonesAndPhysique) {
     if (path.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
     const auto pack = mxh::compat::PackFile::open(path);
     ASSERT_NE(pack, nullptr);
+    // Manual basename extraction: std::filesystem::path::string() on Windows
+    // would re-encode entry.name through the system codepage and throw
+    // std::system_error "No mapping for the Unicode character exists in the
+    // target multi-byte code page." for entries with non-ANSI bytes
+    // (e.g. EUC-KR text strings in monster.pak). entry.name is a raw
+    // std::string copy of the on-disk bytes; we only need a case-folded
+    // basename to match against `wanted`, so split on the last '/' or '\\'.
     const auto readBasename = [&](std::string wanted) {
         std::transform(wanted.begin(), wanted.end(), wanted.begin(),
                        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
         for (const auto& entry : pack->entries()) {
-            auto base = std::filesystem::path(entry.name).filename().string();
+            const auto& n = entry.name;
+            const auto sep = n.find_last_of("/\\");
+            std::string base = (sep == std::string::npos) ? n : n.substr(sep + 1);
             std::transform(base.begin(), base.end(), base.begin(),
                            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
             if (base == wanted) return pack->read(entry.name);

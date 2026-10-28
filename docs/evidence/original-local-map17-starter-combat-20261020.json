@@ -1,0 +1,45 @@
+{
+  "schema": "moxiang.original.local-map17-starter-combat.v1",
+  "recordedAt": "2026-10-20T02:33:38+08:00",
+  "sourceHead": "15d5fcef208f338a9e86fe60b28affbef72db093",
+  "mode": "local three-server SQLite, headless C++ state-class E2E",
+  "command": "mxh_client_e2e.exe --login-host 127.0.0.1 --backend sqlite --map-number 17 --exercise-combat --timeout 10",
+  "binary": {
+    "path": "modern/out/build-client-x64-diagnose/tools/MoxianClientE2E/Release/mxh_client_e2e.exe",
+    "sha256": "fb6c9ddf6ab8ead7bddd2c387f3e50933522f2c8c1fe2895da01187dc3fa3224"
+  },
+  "log": {
+    "path": "docs/evidence/original-local-map17-starter-combat-20261020.log",
+    "sha256": "55b15fc2227479d73cd8eff6a864a828bdbbcce273ca5b14098e53275efe2251"
+  },
+  "database": "disposable SQLite test database removed after run",
+  "results": {
+    "exitCode": 0,
+    "protocolSteps": "PASS 5/5",
+    "map": 17,
+    "level": 1,
+    "gameInMonsters": 216,
+    "starterEquipment": [
+      11000,
+      23000,
+      27000
+    ],
+    "combat": "PASS",
+    "target": "50030",
+    "targetInitialLife": 53,
+    "naturalDrop": "PASS item=50108",
+    "pickup": "PASS",
+    "inventoryMove": "PASS source=0 target=1",
+    "reloginPersistence": "PASS item=50108",
+    "alive": "216->213"
+  },
+  "scope": [
+    "This closes a local Map17 headless starter combat/drop/pickup/relogin sub-gate for the current binary.",
+    "It does not close human GUI acceptance, Map17 nine missing exact terrain textures, full 1:1 original-resource parity, PVE MSSQL confirmation for this exact binary, or commercial release readiness."
+  ],
+  "evidenceHighlights": [
+    "[e2e] Phase B.2.5 e2e: all 5 protocol steps passed (login/charselect/charcreate/relist/gamein)",
+    "[e2e] [5/5] OK: combat hit/effect/life/drop/pickup target=50030 alive=216->213",
+    "[e2e] [5/5] OK: GameOutSyn persistence re-login item=50108"
+  ]
+}

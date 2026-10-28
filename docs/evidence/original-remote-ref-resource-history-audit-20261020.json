@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-remote-ref-resource-history-audit",
+  "capturedAt": "2026-10-20T15:05:00+08:00",
+  "worktree": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "remote": "https://gitlab.52trz.com/52trz/moxiang-reborn.git",
+  "refsAudited": [
+    "refs/heads/main",
+    "refs/heads/codex/reorg-original-20261009",
+    "refs/heads/codex/reorg-unity-20261009",
+    "refs/heads/codex/unity-client-remaster",
+    "refs/heads/codex/sync-moxiang-20261001"
+  ],
+  "commandShape": "git log --all --name-only -- '*.[Hh][Ff][Ll]' '*.[Tt][Tt][Bb]' '*Monster_203.bin'",
+  "results": {
+    "exactMissingHfl": {
+      "count": 0,
+      "detail": "No byte-authenticated exact payload beyond the current rejected placeholder family"
+    },
+    "exactMissingTtb": {
+      "count": 0,
+      "detail": "No PlayDH historical TTB object; only UnityNative derived overlays"
+    },
+    "monster203": {
+      "count": 0,
+      "nearMatch": "Resource/Server/InsDGMonster_203.bin"
+    }
+  },
+  "decision": "NO_NEW_EXACT_SOURCE",
+  "action": "No resource copied, renamed, or admitted; original 1:1 tree remains untouched.",
+  "releaseReady": false
+}

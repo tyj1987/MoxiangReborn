@@ -1,10 +1,20 @@
 add_executable(mxh_box_geometry_tests box_geometry_test.cpp)
 target_link_libraries(mxh_box_geometry_tests PRIVATE mxh_render GTest::gtest_main)
 gtest_add_tests(TARGET mxh_box_geometry_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+# Header-only, DX-free: StaticScene map-centre regression (Map 10 0.6 offset).
+add_executable(mxh_static_scene_center_tests static_scene_center_test.cpp)
+target_include_directories(mxh_static_scene_center_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_static_scene_center_tests PRIVATE GTest::gtest_main)
+gtest_add_tests(TARGET mxh_static_scene_center_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+add_executable(mxh_entity_frame_stats_tests entity_frame_stats_test.cpp)
+target_include_directories(mxh_entity_frame_stats_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_entity_frame_stats_tests PRIVATE GTest::gtest_main)
+gtest_add_tests(TARGET mxh_entity_frame_stats_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 add_executable(mxh_render_tests
     tga_loader_test.cpp
     mesh_geometry_test.cpp
     font_object_test.cpp
+    primitives_color_test.cpp
     height_field_test.cpp
     height_field_rendergrid_test.cpp
     hfield_object_test.cpp
@@ -21,6 +31,9 @@ add_executable(mxh_render_tests
     file_storage_typedef_test.cpp
     primitives_3d_shader_test.cpp
     filesystem_file_storage_test.cpp
+    frustum_test.cpp
+    entity_scene_snapshot_test.cpp
+    terrain_scene_test.cpp
 )
 
 target_link_libraries(mxh_render_tests PRIVATE mxh_render gtest_main)
@@ -104,9 +117,34 @@ gtest_add_tests(TARGET mxh_render_tests
     TextureLoaderDDS.DXT1RoundTripDecodesSolidColor
     TextureLoaderDDS.DXT5RoundTripRetainsAlpha
     TextureLoaderDDS.SaveDDSRejectsEmptyTexture
+    TextureLoader.FlipVerticalSwapsFirstAndLastRow
+    TextureLoader.LoginDdsSkyBandIsOnTopAfterTitleFlip
     TextureLoaderAutoDetect.UnknownHeaderReturnsEmpty
     FilesystemFileStorage.MountsOriginalMapPack
     FilesystemFileStorage.ResolvesMapPackBasenameForLegacyRelativePath
+    FilesystemFileStorage.WarnsAndSkipsPakThatFailsToOpen
+    FilesystemFileStorage.DefaultPakTierOrderIsPlayDhThenOriginal
+    FilesystemFileStorage.ClassifiesPakByEntryWalk
+    FilesystemFileStorage.ClassifiesSyntheticOriginalCounts2942441547
+    FilesystemFileStorage.SkipsAmbiguousPakHeader
+    FilesystemFileStorage.SkipsUnrecognizedPakHeader
+    FilesystemFileStorage.PakTierOrderFollowsConfiguredPriority
+    FilesystemFileStorage.CaseOnlyNameTieBreakIsRawBytes
+    FilesystemFileStorage.ResolvesSameEntryByPakNameOrder
+    FilesystemFileStorage.LooseFileOverridesMountedPaks
+    FilesystemFileStorage.CaseDistinctPakFilesResolveByRawBytes
+    FilesystemFileStorage.CrossTierResolutionFollowsConfiguredPriority
+    FilesystemFileStorage.Utf8PakNameSortAndLogAreStable
+    FilesystemFileStorage.SkipsPakShorterThanEightBytes
+    EntitySceneSnapshot.SynchronizeReplacesAllRuntimeEntityClasses
+    EntitySceneSnapshot.EmptySnapshotRemovesLocalAndRemotePlayers
+    EntitySceneSnapshot.MissingVisualIsCountedAsFailedLoadWithPlaceholder
+    EntitySceneMotion.MapsLegacyOneBasedActionSlotsToChxIndices
+    EntityScenePlaceholder.FillOctUsesSceneScaleAndKindColor
+    EntityScenePlaceholder.MonsterSpawnStaysDrawableWithoutCatalog
+    TerrainSceneMapCenter.DefaultsToOriginBeforeLoad
+    TerrainSceneMapCenter.IsIdempotentAndConst
+    TerrainSceneMapCenter.ReturnsStdPairOfFloats
     HFieldObjectDefaults.ConstructWithoutDeviceDoesNotCrash
     HFieldObjectDefaults.QueryInterfaceIUnknownReturnsSelf
     HFieldObjectDefaults.QueryInterfaceUnknownIIDReturnsENoInterface
@@ -249,10 +287,26 @@ gtest_add_tests(TARGET mxh_render_tests
     FileStorageCrossStructTest.HeaderIsSmallerThanAtomInfo
     FileStorageCrossStructTest.NamesAreRawCharArrays
     # R-9.x: 3D solid VS shader source validation
+    PrimitiveTexturedColor.CanonicalLightBlueProducesRgbaVertexBytes
+    PrimitiveTexturedColor.AsymmetricRgbAndAlphaKeepChannelOrder
     Primitives3DShader.Solid2DVSCompiles
     Primitives3DShader.Solid2DVSInputSignature
     Primitives3DShader.Solid3DVSCompiles
     Primitives3DShader.Solid3DVSInputSignature
     Primitives3DShader.Solid3DVSHasViewProjCBuffer
     Primitives3DShader.SolidPSCompiles
+    # G5 M-R5: frustum culling (header-only Frustum + AABB p-vertex test)
+    FrustumExtract.IdentityLikePlanesAreNormalized
+    FrustumIntersectsAABB.BoxAtOriginInFrontOfCameraIsVisible
+    FrustumIntersectsAABB.BoxFarBehindFarPlaneIsCulled
+    FrustumIntersectsAABB.BoxBehindCameraIsCulled
+    FrustumIntersectsAABB.BoxStraddlingNearPlaneIsVisible
+    FrustumIntersectsAABB.BoxOffToTheLeftOfLeftPlaneIsCulled
+    FrustumIntersectsAABB.EmptyPlanesDontCrash
 )
+
+# describeSource()/FSOpenFile() share FilesystemFileStorage::locate():
+# loose / pak / missing, pak names as printed by "[pak] mount order".
+add_executable(mxh_file_storage_source_tests file_storage_source_test.cpp)
+target_link_libraries(mxh_file_storage_source_tests PRIVATE mxh_render GTest::gtest_main)
+gtest_add_tests(TARGET mxh_file_storage_source_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)

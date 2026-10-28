@@ -38,6 +38,14 @@ struct QuestSub final {
     std::uint32_t target_id  = 0;     // monster_kind / item_idx / npc_idx / map_num
     std::uint32_t count      = 0;     // current progress
     std::uint32_t target     = 0;     // required count
+    // Legacy $SUBQUEST index.  It is runtime-only metadata; persistence keeps
+    // the flattened sub rows and reconstructs this value from QuestScript.bin.
+    std::uint32_t stage      = 0;
+};
+
+struct QuestItemCost final {
+    std::uint16_t item_idx = 0;
+    std::uint32_t quantity = 0;
 };
 
 // ---- Quest definition (loaded from QuestScript.bin / QuestInfo.bin) ----
@@ -48,10 +56,12 @@ struct QuestDefinition final {
     std::uint16_t max_level       = 99;
     std::uint32_t reward_exp      = 0;
     std::uint32_t reward_money    = 0;
+    std::uint32_t money_cost      = 0;
     std::uint32_t reward_item_idx = 0;     // 0 = no item
     std::uint32_t reward_item_qty = 0;
     std::uint32_t timer_seconds   = 0;     // 0 = no timer
     std::vector<QuestSub> subs;
+    std::vector<QuestItemCost> item_costs;
 };
 
 // ---- Quest runtime progress (one player x one quest) ----
@@ -87,6 +97,7 @@ enum class QuestRewardStatus : std::uint8_t {
     Granted = 0,
     NotComplete = 1,
     PlayerInactive = 2,
+    MissingItem = 3,
 };
 
 struct QuestRewardResult final {
@@ -112,10 +123,9 @@ struct QuestLog final {
 // ---- In-game event to dispatch into a player's quest log. ----
 // Models the legacy eQuestEvent (NpcTalk / Hunt / UseItem / MapChange /
 // Die / Time / GameEnter / Level / Count / HuntAll / EndSub) at the
-// granularity needed to drive QuestProgress counters.  Only Kill /
-// Collect sub kinds are supported by the in-process bridge right now;
-// ReachMap / TalkNpc / Survive will be added when their sub-kind
-// counters get real legacy semantics ported in.
+// granularity needed to drive QuestProgress counters.  Kill, Collect and
+// TalkNpc are wired through the modern map event bridge; ReachMap and
+// Survive remain pending until their legacy counters are ported in.
 struct QuestEvent final {
     QuestSubKind kind      = QuestSubKind::None;
     std::uint32_t target_id = 0;   // monster_kind / item_idx / map_num / npc_idx

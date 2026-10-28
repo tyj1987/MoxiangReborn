@@ -8,25 +8,27 @@
 #include <vector>
 
 #include <windows.h>  // for GetModuleFileNameW to find resources relative to exe
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 
-// Returns the absolute path to the "墨香【源码配套资源】\PlayDH" directory,
+// Returns the canonical modern/data/PlayDH directory,
 // locating the workspace by walking up from the test executable's path.
 std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     wchar_t buf[MAX_PATH];
     HMODULE h = GetModuleHandleW(nullptr);
     DWORD n = GetModuleFileNameW(h, buf, MAX_PATH);
     if (n == 0) return {};
 
     std::filesystem::path p(buf);
-    // Walk up looking for "墨香【源码配套资源】" sibling dir.
+    // Walk up looking for the canonical modern resource tree.
     for (int i = 0; i < 6; ++i) {
         p = p.parent_path();
         if (p.empty()) break;
-        auto candidate = p / L"墨香【源码配套资源】" / L"PlayDH";
+        auto candidate = p / L"modern" / L"data" / L"PlayDH";
         if (std::filesystem::exists(candidate)) return candidate;
     }
     return {};

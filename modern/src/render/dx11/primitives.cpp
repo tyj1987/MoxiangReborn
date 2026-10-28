@@ -364,14 +364,15 @@ void PrimitiveDrawer::drawTexturedQuad(ID3D11ShaderResourceView* srv,
     auto [x3, y3] = rot(x,       y + h);
 
     struct V { float x, y, u, v; std::uint32_t c; };
+    const auto vertexColor = pack_argb_for_rgba_vertex(color);
     // CCW in NDC for FrontCounterClockwise=TRUE rasterizer.
     V verts[6] = {
-        { x0, y0, u0, v0, color },
-        { x3, y3, u0, v1, color },
-        { x2, y2, u1, v1, color },
-        { x0, y0, u0, v0, color },
-        { x2, y2, u1, v1, color },
-        { x1, y1, u1, v0, color },
+        { x0, y0, u0, v0, vertexColor },
+        { x3, y3, u0, v1, vertexColor },
+        { x2, y2, u1, v1, vertexColor },
+        { x0, y0, u0, v0, vertexColor },
+        { x2, y2, u1, v1, vertexColor },
+        { x1, y1, u1, v0, vertexColor },
     };
 
     D3D11_MAPPED_SUBRESOURCE mapped{};

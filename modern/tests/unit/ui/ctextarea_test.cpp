@@ -27,8 +27,8 @@
 //     negative.
 //   - SetTextColor / GetTextColor stores the color.
 //   - Add delegates to cDialog::Add.
-//   - Render is a no-op (1:1 quirk: render path is Phase 6.13+
-//     deferred).
+//   - Render uses the shared image/text adapter and remains safe without a
+//     host renderer.
 //
 // 1:1 quirks preserved:
 //   - cImage opaque-pointer pattern (void*) — 1:1 with the
@@ -301,13 +301,96 @@ TEST(CTextAreaTest, AddDelegatesToBaseDialog) {
 }
 
 // ===========================================================================
-// Render (placeholder, 1:1 quirk: Phase 6.13+ deferred)
+// Render safety and adapter path
 // ===========================================================================
 
-TEST(CTextAreaTest, RenderIsNoOp) {
+TEST(CTextAreaTest, PointerClickInsideTextRectFocusesEditor) {
+    cTextArea ta;
+    ta.Init(100, 50, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{10, 12, 210, 92}, 256);
+    ta.SetActive(true);
+    EXPECT_EQ(ta.ActionEvent(130, 80, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_TRUE(ta.IsCaretVisible());
+}
+
+TEST(CTextAreaTest, PointerClickOutsideTextRectDoesNotFocusEditor) {
+    cTextArea ta;
+    ta.Init(100, 50, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{10, 12, 210, 92}, 256);
+    ta.SetActive(true);
+    ta.SetFocusEdit(false);
+    EXPECT_EQ(ta.ActionEvent(105, 55, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_FALSE(ta.IsCaretVisible());
+}
+
+TEST(CTextAreaTest, KeyboardInputHonorsEnterAndReadOnly) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 32);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.ActionKeyboardEvent(0, 'A');
+    ta.ActionKeyboardEvent(13, 0);
+    ta.ActionKeyboardEvent(0, 'B');
+    EXPECT_EQ(ta.GetScriptText(), "A\nB");
+    ta.SetReadOnly(true);
+    ta.ActionKeyboardEvent(8, 0);
+    EXPECT_EQ(ta.GetScriptText(), "A\nB");
+}
+
+TEST(CTextAreaTest, KeyboardNavigationEditsAtCaret) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 32);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.SetScriptText("AC");
+    ta.ActionKeyboardEvent(37, 0);
+    ta.ActionKeyboardEvent(0, 'B');
+    EXPECT_EQ(ta.GetScriptText(), "ABC");
+    EXPECT_EQ(ta.GetCaretPos(), 2u);
+    ta.ActionKeyboardEvent(46, 0);
+    EXPECT_EQ(ta.GetScriptText(), "AB");
+}
+
+TEST(CTextAreaTest, ScrollCommandsClampToVisibleText) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 28}, 256);
+    ta.SetScriptText("A\nB\nC\nD");
+    EXPECT_EQ(ta.GetTopLineIdx(), 0);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 1);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 2);
+    ta.OnDownwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 2);
+    ta.OnUpwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 1);
+    ta.OnUpwardItem();
+    ta.OnUpwardItem();
+    EXPECT_EQ(ta.GetTopLineIdx(), 0);
+}
+
+TEST(CTextAreaTest, Utf8CaretMovesAndDeletesWholeCodepoint) {
+    cTextArea ta;
+    ta.Init(0, 0, 240, 120, nullptr, 0);
+    ta.InitTextArea(TextRect{0, 0, 200, 100}, 64);
+    ta.SetActive(true);
+    ta.SetFocusEdit(true);
+    ta.SetScriptText("甲B한");
+    ta.ActionKeyboardEvent(8, 0);
+    EXPECT_EQ(ta.GetScriptText(), "甲B");
+    ta.ActionKeyboardEvent(0, 0x4E59);
+    EXPECT_EQ(ta.GetScriptText(), "甲B乙");
+}
+
+TEST(CTextAreaTest, RenderWithoutImagesIsSafe) {
     cTextArea ta;
     ta.Init(0, 0, 200, 200, nullptr, 0);
-    ta.Render();  // 1:1 quirk: no-op
+    ta.Render();
     SUCCEED();
 }
 

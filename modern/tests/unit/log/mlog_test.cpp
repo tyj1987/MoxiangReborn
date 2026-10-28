@@ -128,4 +128,59 @@ TEST(MlogMacrosTest, MacrosAcceptZeroArgs) {
     SUCCEED();
 }
 
+// ===========================================================================
+// Cross-process run identifier (set_run_id / run_id / set_process_name /
+// process_name).  When a launcher passes --run-id, every log line gets
+// tagged so concurrent client + server logs can be correlated.
+// ===========================================================================
+
+TEST(RunIdTest, EmptyByDefault) {
+    // Reset to a known state, then read back.  Other tests in this
+    // binary may have set a run id, so the helper "set then read"
+    // shape is used to keep the test deterministic.
+    set_run_id("");
+    EXPECT_STREQ(run_id(), "");
+    EXPECT_EQ(run_id()[0], '\0');
+}
+
+TEST(RunIdTest, RoundTripsShortRunId) {
+    set_run_id("abc12345");
+    EXPECT_STREQ(run_id(), "abc12345");
+}
+
+TEST(RunIdTest, TruncatesLongerRunId) {
+    // 32-char input, the implementation caps the buffer at 24 bytes
+    // total, so the returned pointer must hold at most 23 visible
+    // chars plus a null terminator.
+    set_run_id("0123456789012345678901234567890ab");
+    const std::string got = run_id();
+    EXPECT_LE(got.size(), 23u);
+    // The first 23 chars must match the prefix of the input.
+    EXPECT_EQ(got, std::string("01234567890123456789012"));
+}
+
+TEST(RunIdTest, NullPointerClearsRunId) {
+    set_run_id("sentinel");
+    ASSERT_STREQ(run_id(), "sentinel");
+    set_run_id(nullptr);
+    EXPECT_EQ(run_id()[0], '\0');
+}
+
+TEST(ProcessNameTest, EmptyByDefault) {
+    set_process_name("");
+    EXPECT_STREQ(process_name(), "");
+}
+
+TEST(ProcessNameTest, RoundTripsShortName) {
+    set_process_name("client");
+    EXPECT_STREQ(process_name(), "client");
+}
+
+TEST(ProcessNameTest, TruncatesLongerName) {
+    // 32-char input, the buffer is 16 bytes, so 15 visible chars max.
+    set_process_name("very_long_process_name_exceeds_buffer");
+    const std::string got = process_name();
+    EXPECT_LE(got.size(), 15u);
+}
+
 }  // namespace mxh::test

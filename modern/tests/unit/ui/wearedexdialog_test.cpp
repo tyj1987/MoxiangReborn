@@ -54,6 +54,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <array>
 
 namespace mxh::ui::test {
 
@@ -96,6 +97,36 @@ cIcon* MakeOpaqueIcon() {
 }
 
 }  // namespace
+
+class EquipmentSnapshot final : public mxh::services::IInventoryService {
+public:
+    std::array<mxh::game::ItemBase, mxh::game::WEARED_ITEM_MAX> items{};
+    const mxh::game::ItemBase* getItem(std::uint16_t) const noexcept override { return nullptr; }
+    std::uint16_t occupiedSlotCount() const noexcept override { return 0; }
+    std::uint16_t totalCapacity() const noexcept override { return mxh::game::SLOT_INVENTORY_NUM; }
+    const mxh::game::ItemBase* getWearedItem(std::uint8_t slot) const noexcept override {
+        return slot < items.size() && items[slot].dwDBIdx != 0 ? &items[slot] : nullptr;
+    }
+    bool isWearedSlotOccupied(std::uint8_t slot) const noexcept override {
+        return getWearedItem(slot) != nullptr;
+    }
+    std::optional<std::uint16_t> findItemByIconIdx(std::uint16_t) const noexcept override {
+        return std::nullopt;
+    }
+    bool hasItem(std::uint16_t) const noexcept override { return false; }
+};
+
+TEST(CWearedExDialogTest, RefreshBindsTheTenEquipmentCells) {
+    cWearedExDialog dlg;
+    dlg.Init(0, 0, 240, 180, nullptr, 0);
+    EquipmentSnapshot snapshot;
+    snapshot.items[1] = mxh::game::make_item(9, 321, 81);
+    dlg.SetInventoryService(&snapshot);
+    dlg.RefreshFromInventoryService();
+    EXPECT_EQ(dlg.GetCellNum(), 10u);
+    EXPECT_EQ(dlg.GetIconForIdx(1), nullptr); // no sprite hook in unit mode
+    EXPECT_TRUE(dlg.IsAddable(1));
+}
 
 TEST(CWearedExDialogTest, AddItemSuccessReturnsTrue) {
     cWearedExDialog dlg;

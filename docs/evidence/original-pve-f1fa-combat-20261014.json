@@ -1,0 +1,67 @@
+{
+  "schema": 1,
+  "kind": "original-pve-current-commit-combat-receipt",
+  "capturedUtc": "2026-10-14T14:06:00Z",
+  "sourceCommit": "3d30042b4ed5e2ebe8b44acdbd2661861d359061",
+  "sourceDirty": false,
+  "packageSha256": "e179ed644600ad871dab633e413b0007ce3230ab6715186e1ea34c82fba9d7e4",
+  "pve": {
+    "host": "192.168.2.244",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "stage": "C:\\Moxiang\\original\\stage-20261014",
+    "ports": {"login": 16101, "agent": 17101, "map10": 18101, "map12": 18102, "map2": 18103},
+    "stageSourceAfterRestore": "a089ad6b22e8dc4626a217108429d612554c6726"
+  },
+  "fixture": {
+    "account": "mxh_cb2610",
+    "password": "process-only; not stored",
+    "playerId": 100015,
+    "level": 53,
+    "map": 2,
+    "baseAttributes": {"gengol": 2000, "minchub": 12, "cheryuk": 2000, "simmek": 12},
+    "vitals": {"hp": 20271, "shield": 8897, "mp": 100},
+    "equipmentRows": 3,
+    "removedAfterRun": true,
+    "postCleanupAccountRows": 0
+  },
+  "map2": {
+    "exitCode": 0,
+    "loginAck": true,
+    "agentConnect": true,
+    "characterSelect": true,
+    "gameInAck": true,
+    "monsterPopulation": "128->126",
+    "serverAuthoritativeHit": true,
+    "lifeChanged": true,
+    "groundDrop": {"dropId": 90000, "itemId": 50009, "count": 1},
+    "clickPickup": true,
+    "inventoryMoveAck": {"source": 0, "target": 1, "itemId": 50009},
+    "reloginPersistence": true,
+    "log": "modern/out/runs/original-pve-f1fa-combat-map2-20261014.log",
+    "logSha256": "89ebf497445d865e9ecb505e4338b3e18230279dcafd975c1ecc36e66b5b35e9"
+  },
+  "map10": {
+    "exitCode": 2,
+    "serverAuthoritativeHit": true,
+    "lifeChanged": true,
+    "dropObserved": false,
+    "pickupObserved": false,
+    "failure": "no natural item drop observed within the current E2E acceptance window",
+    "log": "modern/out/runs/original-pve-f1fa-combat-20261014.log",
+    "logSha256": "612b54e840bfd7e55407b405d32587cb0015239d4924faaebd90c885ede7f4b5"
+  },
+  "cleanup": {
+    "isolatedPortsClosed": true,
+    "stageRestored": true,
+    "temporaryPayloadRemoved": true,
+    "defaultPortsUntouched": true,
+    "releaseReady": false,
+    "remainingGates": [
+      "Map10 natural drop/pickup with current commit",
+      "真人GUI战斗和资源呈现",
+      "完整原版资源缺口与全地图玩法",
+      "稳定性、故障恢复和双路线商业验收"
+    ]
+  }
+}

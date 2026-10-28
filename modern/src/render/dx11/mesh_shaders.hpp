@@ -14,6 +14,12 @@ struct MeshShaders {
     Microsoft::WRL::ComPtr<ID3D11PixelShader>  psEffect;     // dot3 + effect texture (slot t2)
     Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilLit;
 
+    // STM-only vertex-colour variant: streams (Vertex, COLOR0 RGBA8),
+    // output = tex * vcl (D3DTOP_MODULATE 1x), fog kept, no N.L.
+    Microsoft::WRL::ComPtr<ID3D11VertexShader> vsStmVcl;
+    Microsoft::WRL::ComPtr<ID3D11PixelShader>  psStmVcl;
+    Microsoft::WRL::ComPtr<ID3D11InputLayout>  ilStmVcl;
+
     // 3D solid-color shader pair: input = (pos3, packed RGBA byte).
     // Used by RenderTriVector3 / RenderTriIvertex for untextured debug triangles.
     Microsoft::WRL::ComPtr<ID3D11VertexShader> vs3DSolid;

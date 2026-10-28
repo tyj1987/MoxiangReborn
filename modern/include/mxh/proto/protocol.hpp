@@ -209,6 +209,20 @@ inline const char* category_name(Category c) {
 }
 
 // ============================================================================
+// Character sub-protocols (MP_CHAR_*). These are existing legacy wire values.
+enum class CharacterProtocol : std::uint8_t {
+    LifeAck = 1,
+    MaxLifeNotify = 3,
+    ShieldAck = 5,
+    MaxShieldNotify = 7,
+    NaeRyukAck = 9,
+    MaxNaeRyukNotify = 11,
+    ExpPointAck = 13,
+    LevelNotify = 19,
+    PlayerLevelUpNotify = 20,
+    LevelUpPointNotify = 24,
+};
+
 // UserConn sub-protocols (MP_USERCONN_*).
 // This is the login flow: client → DistributeServer → AgentServer.
 // Values are 1:1 with the original C enum MP_PROTOCOL_USERCONN (auto-increment
@@ -422,9 +436,41 @@ enum class ChatProtocol : std::uint8_t {
     GuildUnion          = 20,  // guild union chat
 };
 
+// Party messages used by the live map data-plane.  These values mirror the
+// protected legacy protocol numbering; the modern enum keeps the runtime
+// code type-safe without editing the original header.
+enum class PartyProtocol : std::uint8_t {
+    Info       = 0,
+    CreateSyn  = 1,
+    CreateAck  = 2,
+    CreateNack = 3,
+    AddSyn     = 4,
+    AddAck     = 5,
+    AddNack    = 6,
+    AddInvite  = 7,
+    InviteAcceptSyn = 8,
+    InviteAcceptAck = 9,
+    InviteAcceptNack = 10,
+    BreakupSyn = 28,
+    BreakupAck = 29,
+    BreakupNack = 30,
+};
+
+// Guild data-plane values from MP_PROTOCOL_GUILD. Kept separate from the
+// legacy header so modern handlers can use typed values without changing it.
+enum class GuildProtocol : std::uint8_t {
+    CreateSyn = 0, CreateAck = 1, CreateNack = 2,
+    BreakupSyn = 4, BreakupAck = 5, BreakupNack = 6,
+    AddMemberSyn = 8, AddMemberInvite = 9, AddMemberAck = 10,
+    AddMemberNack = 11, Invite = 13, InviteAccept = 14,
+    InviteAcceptNack = 15, Info = 24,
+};
+
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
-// 1:1 with the original C enum MP_PROTOCOL_ITEM.
+// Current modern-to-modern Item profile. The separately generated
+// original_item::ItemProtocol records the SHA-pinned C enum; values diverge
+// after MoveNack because modern Pickup occupies original Buy's 19..21.
 // ============================================================================
 enum class ItemProtocol : std::uint8_t {
     TotalInfoLocal       = 0,   // client-local dispatch from GameInAck
@@ -450,6 +496,12 @@ enum class ItemProtocol : std::uint8_t {
     MoveSyn              = 16,  // C -> S: move item within inventory
     MoveAck              = 17,  // S -> C: move success
     MoveNack             = 18,
+
+    // Modern-only ground-drop claim. The original YY_MOVE lines are comments,
+    // so these 19..21 values collide with original BuySyn/Ack/Nack.
+    PickupSyn            = 19,  // C -> S: claim ground drop [object_id:u32]
+    PickupAck            = 20,  // S -> C: [object_id:u32][item_id:u16][count:u16]
+    PickupNack           = 21,  // S -> C: claim failed
 
     BuySyn               = 22,  // C -> S: buy from NPC
     BuyAck               = 23,  // S -> C: buy success
@@ -603,10 +655,12 @@ enum class BattleProtocol : std::uint8_t {
 
 // Quest protocol (Category = Quest = 39, MP_QUEST).
 // Matches [CC]Header/Protocol.h MP_PROTOCOL_QUEST offsets 1:1. Only the
-// Start / End sub-protocols used by the T3 side-by-side replay harness
-// are defined here; legacy also has TotalInfo / ChangeState / Notify
-// sub-protocols that will be added when the modern quest manager lands.
+// Start / End plus the legacy state-notification sub-protocols used by the
+// live quest manager are defined here with their original numeric offsets.
 enum class QuestProtocol : std::uint8_t {
+    TotalInfo             = 0,   // S -> C: quest state snapshot/change
+    ChangeState           = 1,   // S -> C: quest state changed
+    RemoveNotify          = 2,   // S -> C: quest removed
     StartSyn              = 9,   // C -> S: start (accept) quest
     StartAck              = 10,  // S -> C: quest accepted
     StartNack             = 11,  // S -> C: quest rejected

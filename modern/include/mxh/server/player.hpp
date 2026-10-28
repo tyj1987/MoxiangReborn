@@ -60,13 +60,20 @@ public:
 
     std::optional<std::uint16_t> insert_inventory_item(mxh::game::ItemBase item) noexcept;
     std::optional<mxh::game::ItemBase> remove_inventory_item(std::uint16_t slot) noexcept;
+    std::uint32_t count_inventory_item(std::uint16_t item_idx) const noexcept;
+    bool remove_inventory_item_by_icon(std::uint16_t item_idx,
+                                       std::uint32_t quantity) noexcept;
     bool equip_inventory_item(std::uint16_t inventory_slot,
                               std::uint8_t equipment_slot) noexcept;
     bool unequip_item(std::uint8_t equipment_slot,
                       std::uint16_t inventory_slot) noexcept;
 
     PlayerDamageResult apply_damage(std::uint32_t amount) noexcept;
+    bool mark_dead_if_zero_life() noexcept;
     bool revive() noexcept;
+    bool resume_after_authoritative_revive(std::uint32_t hp,
+                                           std::uint32_t shield,
+                                           std::uint32_t mp) noexcept;
     void heal_full() noexcept;
 
 private:

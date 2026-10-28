@@ -28,6 +28,18 @@ public:
     const std::string& name() const noexcept { return m_name; }
     void               setName(std::string n) { m_name = std::move(n); }
 
+    // Original symbolic #ID from InterfaceScript. The legacy client first
+    // retained this token and then resolved it through WindowIDs.h; keeping
+    // both forms makes diagnostics and exact resource-driven lookup possible.
+    const std::string& legacyId() const noexcept { return m_legacyId; }
+    void setLegacyId(std::string id) { m_legacyId = std::move(id); }
+
+    // Original #FUNC callback token from InterfaceScript. Some legacy
+    // controls (notably the character creation button) have no #ID and can
+    // only be bound correctly through this symbolic function name.
+    const std::string& legacyFunc() const noexcept { return m_legacyFunc; }
+    void setLegacyFunc(std::string func) { m_legacyFunc = std::move(func); }
+
     // Parent (non-owning; ownership flows through the owning cWindow tree).
     cObject* parent() const noexcept { return m_parent; }
     void     setParent(cObject* p) noexcept { m_parent = p; }
@@ -41,6 +53,8 @@ protected:
 private:
     std::int32_t m_id     = 0;
     std::string  m_name;
+    std::string  m_legacyId;
+    std::string  m_legacyFunc;
     cObject*     m_parent = nullptr;
 };
 

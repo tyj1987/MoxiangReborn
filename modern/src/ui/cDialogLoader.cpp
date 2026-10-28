@@ -4,15 +4,30 @@
 #include "mxh/ui/cDialogLoader.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <string_view>
 #include <system_error>
+#include <unordered_map>
 
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/ui/cAni.hpp"               // M-R4.8: cAni stub (full def, no legacy)
 #include "mxh/ui/cButton.hpp"
+#include "mxh/ui/bigmapdlg.hpp"
+#include "mxh/ui/minimapdlg.hpp"
+#include "mxh/ui/ccharacterdialog.hpp"
+#include "mxh/ui/cchatdialog.hpp"
+#include "mxh/ui/cfrienddialog.hpp"
+#include "mxh/ui/cminifrienddialog.hpp"
+#include "mxh/ui/cGuildDialog.hpp"
+#include "mxh/ui/cinventoryexdialog.hpp"
+#include "mxh/ui/cmainbardialog.hpp"
+#include "mxh/ui/cmakdial.hpp"
+#include "mxh/ui/guagedialog.hpp"
+#include "mxh/ui/mugongsuryundialog.hpp"
 #include "mxh/ui/cCheckBox.hpp"
 #include "mxh/ui/cComboBox.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -30,6 +45,7 @@
 #include "mxh/ui/cListDialogEx.hpp"
 #include "mxh/ui/cMugongDialog.hpp"
 #include "mxh/ui/cObjectGuagen.hpp"
+#include "mxh/ui/coptiondialog.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cQuestDialog.hpp"
 #include "mxh/ui/cResourceManager.hpp"
@@ -41,6 +57,7 @@
 #include "mxh/ui/cWantedDialog.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 #include "mxh/ui/interface_script.hpp"
+#include "legacy_window_ids.hpp"
 // M-R4.8: 4 stub class (cWearedExDialog/cMunpaMarkDialog/cPrivateWarehouseDialog/
 // cSuryunDialog) 走 legacy 1:1 port lowercase 头 (M-R4 era 完整版, 含
 // ctor/dtor/AddItem/DeleteItem/SetMunpaMark 等). 实体定义由对应 legacy
@@ -71,6 +88,167 @@ void*        g_loadSpriteCtx = nullptr;
 // 持所有 cImage 句柄, 程序退出前不会被释放
 std::vector<std::unique_ptr<cImage>> g_cimage_owners;
 
+// G2 follow-up: cache cImage by (image_idx, rect). Without this, 165 dialogs
+// each load 4-20 children from the same 1.tif fallback sprite, allocating
+// 4MB DX11 GPU textures per call (165 * ~10 = 1650+ textures, ~6.6GB GPU,
+// which crashes the driver on a 4GB Intel Arc B580). Cache returns the
+// same cImage for the same image_idx+rect.
+struct ImageKey {
+    PathFileType type = PathFileType::HardPath;
+    bool direct_atlas = false;
+    std::int32_t idx = 0;
+    std::int32_t l = 0, t = 0, r = 0, b = 0;
+    bool operator==(const ImageKey& o) const noexcept {
+        return type == o.type && direct_atlas == o.direct_atlas &&
+               idx == o.idx && l == o.l && t == o.t &&
+               r == o.r && b == o.b;
+    }
+};
+struct ImageKeyHash {
+    std::size_t operator()(const ImageKey& k) const noexcept {
+        std::size_t h = static_cast<std::size_t>(k.type);
+        h ^= static_cast<std::size_t>(k.direct_atlas) + 0x9e3779b9u +
+             (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.idx) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.l) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.t) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.r) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        h ^= static_cast<std::size_t>(k.b) + 0x9e3779b9u + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+std::unordered_map<ImageKey, cImage*, ImageKeyHash> g_cimage_cache;
+std::unordered_map<std::string, void*> g_sprite_by_path;
+
+using ChatMessageTable = std::unordered_map<std::int32_t, std::string>;
+std::unordered_map<std::string, ChatMessageTable> g_chat_message_tables;
+
+const ChatMessageTable* loadChatMessagesForScript(const std::filesystem::path& bin_path) {
+    // cResourceManager::GetMsg is initialized with FILE_IMAGE_MSG, which is
+    // Image/image_msg.bin.  chat_msg.bin is a separate in-game chat catalog
+    // and yields plausible but completely wrong captions on title dialogs.
+    const auto chat_path = bin_path.parent_path().parent_path() / "image_msg.bin";
+    const auto cache_key = chat_path.lexically_normal().string();
+    if (const auto found = g_chat_message_tables.find(cache_key);
+        found != g_chat_message_tables.end()) {
+        return &found->second;
+    }
+
+    auto read = mxh::compat::read_mh_bin(chat_path);
+    if (!read.ok()) return nullptr;
+
+    ChatMessageTable messages;
+    const std::string_view payload(
+        reinterpret_cast<const char*>(read.value.data.data()), read.value.data.size());
+    std::size_t cursor = 0;
+    std::int32_t line_number = 1;
+    while (cursor < payload.size()) {
+        const auto line_end = payload.find_first_of("\r\n", cursor);
+        const auto line = payload.substr(cursor, line_end - cursor);
+        std::size_t value_begin = 0;
+        while (value_begin < line.size() && line[value_begin] == ' ') ++value_begin;
+        std::int32_t id = 0;
+        const auto [id_end, id_error] = std::from_chars(
+            line.data() + value_begin, line.data() + line.size(), id);
+        if (id_error == std::errc{} && id_end != line.data() + value_begin) {
+            auto quote = static_cast<std::size_t>(id_end - line.data());
+            while (quote < line.size() && line[quote] == ' ') ++quote;
+            if (quote < line.size() && line[quote] == '"') {
+                const auto closing = line.find('"', quote + 1);
+                if (closing != std::string_view::npos) {
+                    // cResourceManager::GetMsg skips idx - 1 physical lines;
+                    // the numeric prefix is consumed but never used as a key.
+                    messages.emplace(line_number,
+                                     std::string(line.substr(quote + 1, closing - quote - 1)));
+                }
+            } else if (quote < line.size()) {
+                // Image/image_msg.bin stores unquoted UI captions.  The
+                // legacy loader consumes the leading number and returns the
+                // rest of that physical line verbatim.
+                messages.emplace(line_number, std::string(line.substr(quote)));
+            }
+        }
+        cursor = line_end == std::string_view::npos ? payload.size() : line_end + 1;
+        if (cursor < payload.size() && payload[cursor] == '\n' &&
+            line_end < payload.size() && payload[line_end] == '\r') {
+            ++cursor;
+        }
+        ++line_number;
+    }
+
+    return &g_chat_message_tables.emplace(cache_key, std::move(messages)).first->second;
+}
+
+void applyLegacyIdentity(cWindow& window, const InterfaceNode& node) {
+    if (node.id.has_value()) {
+        window.setLegacyId(*node.id);
+        if (const auto numeric = resolve_legacy_window_id(*node.id)) {
+            window.setId(*numeric);
+        }
+    }
+    if (node.func.has_value()) {
+        window.setLegacyFunc(*node.func);
+    }
+    if (node.font_idx_set) {
+        const auto font = static_cast<std::uint16_t>(
+            std::clamp(node.font_idx, 0, 0xFFFF));
+        if (auto* label = dynamic_cast<cStatic*>(&window)) {
+            label->SetFontIdx(font);
+        } else if (auto* edit = dynamic_cast<cEditBox*>(&window)) {
+            edit->SetFontIdx(font);
+        } else if (auto* button = dynamic_cast<cButton*>(&window)) {
+            button->SetFontIdx(font);
+        }
+    }
+    if (auto* label = dynamic_cast<cStatic*>(&window)) {
+        const auto rgb = [](const std::array<std::int32_t, 3>& value) {
+            return 0xFF000000u |
+                (static_cast<std::uint32_t>(std::clamp(value[0], 0, 255)) << 16) |
+                (static_cast<std::uint32_t>(std::clamp(value[1], 0, 255)) << 8) |
+                static_cast<std::uint32_t>(std::clamp(value[2], 0, 255));
+        };
+        if (node.fg_color) label->SetFGColor(rgb(*node.fg_color));
+        if (node.text_xy) label->SetTextXY((*node.text_xy)[0], (*node.text_xy)[1]);
+        if (node.shadow) label->SetShadow(*node.shadow);
+        if (node.shadow_color) label->SetShadowColor(rgb(*node.shadow_color));
+        if (node.shadow_text_xy) {
+            label->SetShadowTextXY((*node.shadow_text_xy)[0],
+                                   (*node.shadow_text_xy)[1]);
+        }
+        // cScriptManager maps script 0/1/2 to left/right/center; the
+        // modern enum has a different ordinal order.
+        if (node.text_align == 0) label->SetAlign(cStatic::Align::Left);
+        else if (node.text_align == 1) label->SetAlign(cStatic::Align::Right);
+        else if (node.text_align == 2) label->SetAlign(cStatic::Align::Center);
+    }
+}
+
+void applyLegacyText(cWindow& window, const InterfaceNode& node,
+                     const ChatMessageTable* messages) {
+    if (!messages) return;
+    const auto text_for = [messages](const std::optional<std::int32_t>& index)
+        -> const std::string* {
+        if (!index.has_value()) return nullptr;
+        const auto found = messages->find(*index);
+        return found == messages->end() ? nullptr : &found->second;
+    };
+    if (auto* label = dynamic_cast<cStatic*>(&window)) {
+        if (const auto* text = text_for(node.text_msg_idx)) label->SetStaticText(*text);
+    }
+    if (auto* button = dynamic_cast<cButton*>(&window)) {
+        if (const auto* text = text_for(node.btn_text_msg_idx)) button->SetText(*text);
+    }
+}
+
+void applyLegacyActiveState(cWindow& window, const InterfaceNode& node) {
+    if (!node.active_set) return;
+    // #ACTIVE controls visibility in the legacy script, not merely input.
+    // Respect it before the title state selects its root dialog so hidden
+    // character-management captions cannot bleed into the login frame.
+    window.SetActive(node.active);
+    window.SetVisible(node.active);
+}
+
 }  // namespace
 
 void cDialogLoader::SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept {
@@ -86,34 +264,567 @@ namespace {
 // M-R4.3 helper: 跨表查 1 张老 .tif 装 cImage. 命中 cimages_owners vector.
 // 失败 (hook 未注册 / image_idx < 0 / rect 缺失 / 跨表查 miss) 返 nullptr.
 // M-R4.1 root basicImage + M-R4.3 children 9 类图都用这个.
-cImage* loadImageForImageIdx(std::int32_t image_idx,
-                              const std::optional<mxh::ui::ImageRect>& rect) {
-    if (!g_loadSprite || image_idx < 0 || !rect.has_value()) {
+cImage* loadImageFromAtlas(std::int32_t atlas_idx, const ImageRect& rect,
+                           const ImageKey& key) {
+    if (!g_loadSprite || atlas_idx < 0) {
         return nullptr;
     }
-    const auto hp = cResourceManager::getInstance().getHardPath(
-        image_idx, PathFileType::HardPath);
-    if (!hp.has_value()) return nullptr;
-    const auto info = cSpriteAtlas::getInstance().getInfo(hp->atlas_idx);
+    const auto& ir = rect;
+    if (auto it = g_cimage_cache.find(key); it != g_cimage_cache.end()) {
+        return it->second;
+    }
+    const auto info = cSpriteAtlas::getInstance().getInfo(atlas_idx);
     if (!info.has_value()) return nullptr;
     const auto tif_abs = cSpriteAtlas::getInstance().resolvePath(*info);
     if (!std::filesystem::exists(tif_abs)) return nullptr;
-    void* sprite = g_loadSprite(g_loadSpriteCtx, tif_abs.string());
+    const auto tif_key = tif_abs.string();
+    void* sprite = nullptr;
+    if (auto sit = g_sprite_by_path.find(tif_key); sit != g_sprite_by_path.end()) {
+        sprite = sit->second;
+    } else {
+        sprite = g_loadSprite(g_loadSpriteCtx, tif_key);
+        if (sprite) g_sprite_by_path.emplace(tif_key, sprite);
+    }
     if (!sprite) return nullptr;
     auto owner = std::make_unique<cImage>();
-    const auto& ir = *rect;
     owner->SetSource(ir.left, ir.top, ir.right, ir.bottom,
                      info->width, info->height);
     owner->SetSpriteObject(sprite);
     cImage* out = owner.get();
     g_cimage_owners.push_back(std::move(owner));
+    g_cimage_cache.emplace(key, out);
     return out;
 }
 
+cImage* loadImageForPathIndex(std::int32_t image_idx, PathFileType path_type,
+                               const ImageRect& rect) {
+    if (image_idx < 0) return nullptr;
+    const auto hp = cResourceManager::getInstance().getHardPath(
+        image_idx, path_type);
+    if (!hp.has_value()) return nullptr;
+    const ImageKey key{path_type, false, image_idx,
+                       rect.left, rect.top, rect.right, rect.bottom};
+    return loadImageFromAtlas(hp->atlas_idx, rect, key);
+}
+
+cImage* loadImageForImageIdx(std::int32_t image_idx,
+                              const std::optional<mxh::ui::ImageRect>& rect) {
+    if (!rect.has_value()) return nullptr;
+    // InterfaceScript image tuples contain a direct image_path.bin atlas
+    // index plus a source rect. They are not image_hard_path.bin icon IDs.
+    const ImageKey key{PathFileType::HardPath, true, image_idx,
+                       rect->left, rect->top, rect->right, rect->bottom};
+    return loadImageFromAtlas(image_idx, *rect, key);
+}
+
+} // namespace
+
+cImage* cDialogLoader::LoadLegacyImage(std::int32_t hard_idx) {
+    const auto hard_path = cResourceManager::getInstance().getHardPath(
+        hard_idx, PathFileType::HardPath);
+    if (!hard_path) return nullptr;
+    return loadImageForPathIndex(hard_idx, PathFileType::HardPath, ImageRect{
+        hard_path->left, hard_path->top, hard_path->right, hard_path->bottom});
+}
+
+cImage* cDialogLoader::LoadLegacyPathImage(std::int32_t image_idx,
+                                            PathFileType path_type) {
+    const auto hard = cResourceManager::getInstance().getHardPath(image_idx,
+                                                                   path_type);
+    if (!hard.has_value()) return nullptr;
+    return loadImageForPathIndex(image_idx, path_type,
+                                 ImageRect{hard->left, hard->top,
+                                           hard->right, hard->bottom});
+}
+
+namespace {
+
+bool addInterfaceNode(cWindow& parent, const InterfaceNode& node,
+                      DialogLoadReport& report, ResolutionMode mode,
+                      const ChatMessageTable* messages,
+                      std::size_t depth = 0) {
+            // InterfaceScript is untrusted profile data.  A malformed
+            // nested tree must fail fast instead of exhausting the stack or
+            // hanging the client during GameLoading/UI startup.
+            constexpr std::size_t kMaxInterfaceDepth = 128;
+            if (depth > kMaxInterfaceDepth) {
+                report.error = "InterfaceScript nesting exceeds safety limit";
+                return false;
+            }
+            if (!node.point.has_value()) return false;
+            const auto& p = *node.point;
+            const auto before_count = parent.childCount();
+            // 路由 widget class by type
+            if (node.type == "BTN") {
+                cImage* basic  = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                cImage* over   = loadImageForImageIdx(node.over_image_idx,
+                                                     node.over_image_rect);
+                cImage* press  = loadImageForImageIdx(node.press_image_idx,
+                                                     node.press_image_rect);
+                auto btn = std::make_unique<cButton>();
+                btn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
+                          /*id=*/0);
+                if (basic)  ++report.cimg_count;
+                if (over)   ++report.cimg_count;
+                if (press)  ++report.cimg_count;
+                parent.Add(std::move(btn));
+            } else if (node.type == "STATIC") {
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto st = std::make_unique<cStatic>();
+                st->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(st));
+            } else if (node.type == "EDITBOX") {
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                cImage* focus = loadImageForImageIdx(node.focus_image_idx,
+                                                     node.focus_image_rect);
+                auto eb = std::make_unique<cEditBox>();
+                eb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, focus, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                if (focus) ++report.cimg_count;
+                parent.Add(std::move(eb));
+            } else if (node.type == "LISTDLG") {
+                // M-R4.5: cListDialog (text list) — basicImage 跨表查装
+                // list_over / select image 留给 M-R4.5+ (基本 layout 1:1 优先)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ld = std::make_unique<cListDialog>();
+                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                // InitList 配置行数 + clip — 用默认 10 行 (无 clip 信息从 .bin)
+                ld->InitList(/*maxLines=*/10,
+                             /*clipX=*/p.x, /*clipY=*/p.y,
+                             /*clipW=*/p.w, /*clipH=*/p.h);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ld));
+            } else if (node.type == "ICONDLG") {
+                // M-R4.5: cIconDialog (icon grid container) — basicImage 跨表查装
+                // M-R4.9 (2026-08-22): when no explicit #INFO cell data is in
+                // the .bin, default to one full-area cell matching the dialog
+                // rect. This matches legacy cScriptManager::GetInfoFromFile
+                // eICONDLG behaviour: it always creates at least one cell so
+                // GetCellNum() / PtInCell() / AddIcon() work before explicit
+                // layout data is loaded at runtime.
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ic = std::make_unique<cIconDialog>();
+                ic->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                // SetCellNum(1) populates m_cells with one empty cell;
+                // AddIconCell then writes the dialog rect into that cell.
+                // This matches legacy cScriptManager eICONDLG behaviour.
+                ic->SetCellNum(1);
+                ic->AddIconCell(/*x=*/0, /*y=*/0,
+                                static_cast<std::int32_t>(p.w),
+                                static_cast<std::int32_t>(p.h));
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ic));
+            } else if (node.type == "GUAGEBAR") {
+                // M-R4.5: cGuageBar (draggable progress bar) — basicImage 跨表查装
+                // InitGuageBar 默认 horizontal + 100 interval, 跟老版 cGuageBar contract 一致
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto gb = std::make_unique<cGuageBar>();
+                gb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                gb->InitGuageBar(/*interval=*/100, /*vertical=*/false);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(gb));
+            } else if (node.type == "TABDIALOG" || node.type == "TABDLG") {
+                // M-R4.5: cTabDialog (tab container) — 1:1 化但 .bin 中 0 命中
+                // (老版实际是 eCHARGUAGEDLG 路由, 但接口 1:1 保留)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto tb = std::make_unique<cTabDialog>();
+                tb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                tb->InitTab(/*tabNum=*/1);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(tb));
+            } else if (node.type == "CHECKBOX") {
+                // M-R4.6: cCheckBox — 3 类图 (basic + checkBox + check).
+                // 1:1 with 老版 cCheckBox::Init(x,y,w,h,basic,checkBox,check,cb,id)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                cImage* checkBoxImg = loadImageForImageIdx(node.select_image_idx,
+                                                         node.select_image_rect);
+                cImage* checkImg = loadImageForImageIdx(node.over_image_idx,
+                                                       node.over_image_rect);
+                auto cb = std::make_unique<cCheckBox>();
+                cb->Init(p.x, p.y, static_cast<std::int16_t>(p.w),
+                          static_cast<std::int32_t>(p.h),
+                          basic, checkBoxImg, checkImg,
+                          /*Func=*/{}, /*ID=*/0);
+                if (basic) ++report.cimg_count;
+                if (checkBoxImg) ++report.cimg_count;
+                if (checkImg) ++report.cimg_count;
+                parent.Add(std::move(cb));
+            } else if (node.type == "PUSHUPBTN") {
+                // M-R4.6: cPushupButton (toggle button) — 3 类图.
+                // 1:1 with 老版 cPushupButton, 继承 cButton 走 3 类图
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                cImage* over = loadImageForImageIdx(node.over_image_idx,
+                                                     node.over_image_rect);
+                cImage* press = loadImageForImageIdx(node.press_image_idx,
+                                                     node.press_image_rect);
+                auto pb = std::make_unique<cPushupButton>();
+                pb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
+                          /*id=*/0);
+                if (basic) ++report.cimg_count;
+                if (over) ++report.cimg_count;
+                if (press) ++report.cimg_count;
+                parent.Add(std::move(pb));
+            } else if (node.type == "ICONGRIDDLG") {
+                // M-R4.6: cIconGridDialog (drag-drop icon grid) — 1 类图.
+                // Init(x,y,w,h,basic, col, row, id) 老版 cIconGridDialog contract
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ig = std::make_unique<cIconGridDialog>();
+                ig->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, node.grid_cols, node.grid_rows, /*id=*/0);
+                if (node.init_grid) {
+                    const auto& g = *node.init_grid;
+                    ig->InitGrid(g.x, g.y, static_cast<std::uint16_t>(std::clamp(g.w, 0, 65535)),
+                                 static_cast<std::uint16_t>(std::clamp(g.h, 0, 65535)),
+                                 node.grid_border_x, node.grid_border_y);
+                }
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ig));
+            } else if (node.type == "LISTCTRL") {
+                // M-R4.6: cListCtrl (multi-column list) — 1 类图 + InitListCtrl
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto lc = std::make_unique<cListCtrl>();
+                lc->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                // InitListCtrl 默认 1 column + 10 lines per page
+                lc->InitListCtrl(/*wMaxColumns=*/1, /*wLinePerPage=*/10);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(lc));
+            } else if (node.type == "COMBOBOX") {
+                // M-R4.6: cComboBox (dropdown list) — 1 类图 + InitComboList
+                // 4 image slots (top/middle/down/over) 留给 M-R4.6+ (无 #INFO)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto co = std::make_unique<cComboBox>();
+                co->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(co));
+            } else if (node.type == "TEXTAREA") {
+                // M-R4.6: cTextArea (scrollable text) — 继承 cDialog.
+                // InitTextArea 留给 M-R4.6+ (无 textRelRect / bufSize 信息)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ta = std::make_unique<cTextArea>();
+                ta->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ta));
+            } else if (node.type == "GUAGEN") {
+                // M-R4.6: cGuagen (progress bar base) — 1 类图.
+                // SetValue / SetPieceImage 留给 M-R4.6+ (无 piece image 信息)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto gn = std::make_unique<cGuagen>();
+                gn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(gn));
+            } else if (node.type == "GUAGENE") {
+                // M-R4.6: cObjectGuagen (CObjectGuagen effect/interp gauge) — 1 类图
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ogn = std::make_unique<cObjectGuagen>();
+                ogn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ogn));
+            } else if (node.type == "LISTDLGEX") {
+                // M-R4.7: cListDialogEx (link-list text) — 1 类图 + InitLinkList
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ld = std::make_unique<cListDialogEx>();
+                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                ld->InitLinkList(/*maxLines=*/10);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ld));
+            } else if (node.type == "MUGONGDLG") {
+                // M-R4.7: cMugongDialog (skill slots) — 1 类图.
+                // 继承 cDialog 没自己 Init, 用 cDialog::Init
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto md = std::make_unique<cMugongDialog>();
+                md->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(md));
+            } else if (node.type == "QUESTDLG") {
+                // M-R4.7: cQuestDialog (quest log) — 1 类图.
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto qd = std::make_unique<cQuestDialog>();
+                qd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(qd));
+            } else if (node.type == "MINFRIENDDLG") {
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto md = std::make_unique<cMiniFriendDialog>();
+                md->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                         static_cast<std::uint16_t>(p.h), basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(md));
+            } else if (node.type == "WANTEDDLG") {
+                // M-R4.7: cWantedDialog (wanted list) — 1 类图.
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto wd = std::make_unique<cWantedDialog>();
+                wd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(wd));
+            } else if (node.type == "JOURNALDLG") {
+                // M-R4.7: cJournalDialog (quest journal) — 1 类图.
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto jd = std::make_unique<cJournalDialog>();
+                jd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(jd));
+            } else if (node.type == "ITEMSHOPGRIDDLG") {
+                // M-R4.7: cItemShopGridDialog (item shop drag-drop grid) — 1 类图.
+                // 继承 cIconGridDialog, 用其 Init(x, y, w, h, basic, id)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto isg = std::make_unique<cItemShopGridDialog>();
+                isg->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(isg));
+            } else if (node.type == "SPIN") {
+                // M-R4.7: cSpin (number spinner) — 1 类图 (basic, 继承 cEditBox
+                // 但 cSpin::Init 签名只接 basic + callback, focus 走 cEditBox 默认)
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto sp = std::make_unique<cSpin>();
+                sp->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*callback=*/{}, /*id=*/0);
+                sp->InitSpin(/*spinStrSize=*/10, /*strSize=*/10);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(sp));
+            } else if (node.type == "DLG") {
+                // M-R4.7: 嵌套 cDialog as child (老版 eDLG 路由).
+                // 跟 root 一样装 basicImage + apply_legacy_layout
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto nested = std::make_unique<cDialog>();
+                const bool applied = apply_legacy_layout(*nested, node, basic, mode);
+                if (!applied) {
+                    // nested 没 #POINT — skip, 不挂
+                    return false;
+                }
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(nested));
+            } else if (node.type == "WEAREDDLG") {
+                // M-R4.8: cWearedExDialog 1 类图 (继承 cIconDialog, 完整
+                // 1:1 port 在 src/ui/wearedexdialog.{hpp,cpp}).
+                // M-R4.9 (2026-08-22): same default cell as ICONDLG so
+                // PtInCell / AddIcon work pre-runtime layout.
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto we = std::make_unique<cWearedExDialog>();
+                we->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                we->SetCellNum(1);
+                we->AddIconCell(/*x=*/0, /*y=*/0,
+                                static_cast<std::int32_t>(p.w),
+                                static_cast<std::int32_t>(p.h));
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(we));
+            } else if (node.type == "PRIVATEWAREHOUSEDLG") {
+                // M-R4.8: cPrivateWarehouseDialog 1 类图 (继承 cDialog,
+                // 完整 1:1 port 在 src/ui/privatewarehousedialog.{hpp,cpp}).
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto pwd = std::make_unique<cPrivateWarehouseDialog>();
+                pwd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(pwd));
+            } else if (node.type == "MUNPAMARKDLG") {
+                // M-R4.8: cMunpaMarkDialog 1 类图 (继承 cDialog, 完整
+                // 1:1 port 在 src/ui/munpamarkdialog.{hpp,cpp}).
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto mm = std::make_unique<cMunpaMarkDialog>();
+                mm->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(mm));
+            } else if (node.type == "SHOPITEMINVENGRID") {
+                // M-R4.8: cItemShopInven 1 类图 (继承 cIconGridDialog, 完整
+                // 1:1 port 在 modern cItemShopInven.hpp + 1:1 老版逻辑 TODO).
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto isi = std::make_unique<cItemShopInven>();
+                isi->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, node.grid_cols, node.grid_rows, /*id=*/0);
+                if (node.init_grid) {
+                    const auto& g = *node.init_grid;
+                    isi->InitGrid(g.x, g.y, static_cast<std::uint16_t>(std::clamp(g.w, 0, 65535)),
+                                  static_cast<std::uint16_t>(std::clamp(g.h, 0, 65535)),
+                                  node.grid_border_x, node.grid_border_y);
+                }
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(isi));
+            } else if (node.type == "ANI") {
+                // M-R4.8: cAni 1 类图 (继承 cWindow, 完整 1:1 port 在
+                // modern cAni.hpp + 老版 frame-loop TODO).
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto ani = std::make_unique<cAni>();
+                ani->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                           static_cast<std::uint16_t>(p.h),
+                           basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(ani));
+            } else if (node.type == "SURYUNDLG") {
+                // M-R4.8: cSuryunDialog 1 类图 (继承 cDialog, 完整
+                // 1:1 port 在 src/ui/suryundialog.{hpp,cpp}, 无 InitTab).
+                cImage* basic = loadImageForImageIdx(node.basic_image_idx,
+                                                     node.basic_image_rect);
+                auto sy = std::make_unique<cSuryunDialog>();
+                sy->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
+                          static_cast<std::uint16_t>(p.h),
+                          basic, /*id=*/0);
+                if (basic) ++report.cimg_count;
+                parent.Add(std::move(sy));
+            }
+            if (parent.childCount() > before_count) {
+                if (cWindow* added = parent.childAt(parent.childCount() - 1)) {
+                    applyLegacyIdentity(*added, node);
+                    applyLegacyActiveState(*added, node);
+                    applyLegacyText(*added, node, messages);
+                }
+            }
+            // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
+            // 老版 cScriptManager 也没单独路由这些 (1:1 行为).
+            // GUAGE / LIST 0 命中, 不实现.
+
+    if (parent.childCount() <= before_count) return false;
+    cWindow* added = parent.childAt(parent.childCount() - 1);
+    if (!added) return false;
+
+    for (const auto& nested : node.children) {
+        const auto nested_before = added->childCount();
+        if (!addInterfaceNode(*added, *nested, report, mode, messages, depth + 1)) continue;
+        if (auto* gauge = dynamic_cast<cGuageBar*>(added)) {
+            if (cWindow* gauge_child = added->childAt(nested_before)) {
+                if (dynamic_cast<cButton*>(gauge_child)) {
+                    gauge->Add(gauge_child);
+                }
+            }
+        }
+    }
+    return true;
+}
+
+std::unique_ptr<cDialog> makeDialogRoot(const InterfaceNode& node) {
+    // Exact cases from recovered legacy cScriptManager::GetDlgInfoFromFile.
+    // Keep the generic fallback for root types whose dedicated modern class
+    // has not yet reached runtime parity; never invent a substitute class.
+    if (node.type == "CHARGUAGEDLG") {
+        return std::make_unique<cGuageDialog>();
+    }
+    if (node.type == "LISTDLG") {
+        return std::make_unique<cListDialog>();
+    }
+    if (node.type == "LISTDLGEX") {
+        return std::make_unique<cListDialogEx>();
+    }
+    if (node.type == "CHARINFODLG") {
+        return std::make_unique<cCharacterDialog>();
+    }
+    if (node.type == "MUGONGSURYUNDLG") {
+        return std::make_unique<cMugongSuryunDialog>();
+    }
+    if (node.type == "MAINDLG") {
+        return std::make_unique<cMainBarDialog>();
+    }
+    if (node.type == "INVENTORYDLG") {
+        return std::make_unique<cInventoryExDialog>();
+    }
+    if (node.type == "CHATDLG") {
+        return std::make_unique<cChatDialog>();
+    }
+    if (node.type == "BIGMAPDLG") {
+        return std::make_unique<cBigMapDlg>();
+    }
+    if (node.type == "MINIMAPDLG") {
+        return std::make_unique<cMiniMapDlg>();
+    }
+    if (node.type == "CHARMAKEDLG") {
+        return std::make_unique<cCharMakeDlg>();
+    }
+    if (node.type == "GUILDDLG") {
+        return std::make_unique<cGuildDialog>();
+    }
+    if (node.type == "FRIENDDLG") {
+        return std::make_unique<cFriendDialog>();
+    }
+    if (node.type == "MINFRIENDDLG") {
+        return std::make_unique<cMiniFriendDialog>();
+    }
+    if (node.type == "OPTIONDLG") {
+        return std::make_unique<cOptionDialog>();
+    }
+    return std::make_unique<cDialog>();
+}
 }  // namespace
 
+// M-R7 (G3): header declares single overload with default arg
+// `ResolutionMode mode = kDefaultResolutionMode`, 所以 callers 传 2/3 arg 都行.
+// 只实现一次, 不写 2-arg wrapper 避免 LNK/overload 冲突.
 DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
-                                        cWindowManager& wm) {
+                                        cWindowManager& wm,
+                                        ResolutionMode mode) {
     DialogLoadReport r;
     r.path = bin_path;
     r.bin_name = bin_path.filename().string();
@@ -129,6 +840,7 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         r.error = "decrypted payload is empty";
         return r;
     }
+    const auto* chat_messages = loadChatMessagesForScript(bin_path);
 
     // 2) parse_interface_script
     std::string_view payload(
@@ -170,14 +882,30 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
                                             root->basic_image_rect);
         if (cimg) r.cimg_count += 1;
 
-        auto dlg = std::make_unique<cDialog>();
+        auto dlg = makeDialogRoot(*root);
         const bool applied = apply_legacy_layout(*dlg, *root,
-                                                  /*basicImage=*/cimg);
+                                                  /*basicImage=*/cimg,
+                                                  mode);
         if (!applied) {
             r.error = "apply_legacy_layout failed for root[" +
                       std::to_string(i) + "]";
             return r;
         }
+        applyLegacyIdentity(*dlg, *root);
+        // BigMap.bin identifies its root by type rather than an explicit
+        // #ID token.  Preserve the legacy root name so runtime activation
+        // can address the shipped map dialog just like other InterfaceScript
+        // roots.
+        if (root->type == "BIGMAPDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("BIGMAPDLG");
+        }
+        if (root->type == "GUILDDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("GUILDDLG");
+        }
+        if (root->type == "FRIENDDLG" && !root->id.has_value()) {
+            dlg->setLegacyId("FRIENDDLG");
+        }
+        dlg->setName(r.bin_name);
         if (!first_point_set) {
             const auto& p = *root->point;
             r.has_point = true;
@@ -193,385 +921,31 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
         // 9 类图 (basic/over/press/select/focus/tooltip) 跨表查装
         std::size_t child_count = 0;
         for (const auto& child : root->children) {
-            if (!child->point.has_value()) continue;
-            const auto& p = *child->point;
-            // 路由 widget class by type
-            if (child->type == "BTN") {
-                cImage* basic  = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                cImage* over   = loadImageForImageIdx(child->over_image_idx,
-                                                     child->over_image_rect);
-                cImage* press  = loadImageForImageIdx(child->press_image_idx,
-                                                     child->press_image_rect);
-                auto btn = std::make_unique<cButton>();
-                btn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
-                          /*id=*/0);
-                if (basic)  ++r.cimg_count;
-                if (over)   ++r.cimg_count;
-                if (press)  ++r.cimg_count;
-                dlg->Add(std::move(btn));
-                ++child_count;
-            } else if (child->type == "STATIC") {
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto st = std::make_unique<cStatic>();
-                st->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(st));
-                ++child_count;
-            } else if (child->type == "EDITBOX") {
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                cImage* focus = loadImageForImageIdx(child->focus_image_idx,
-                                                     child->focus_image_rect);
-                auto eb = std::make_unique<cEditBox>();
-                eb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, focus, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                if (focus) ++r.cimg_count;
-                dlg->Add(std::move(eb));
-                ++child_count;
-            } else if (child->type == "LISTDLG") {
-                // M-R4.5: cListDialog (text list) — basicImage 跨表查装
-                // list_over / select image 留给 M-R4.5+ (基本 layout 1:1 优先)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ld = std::make_unique<cListDialog>();
-                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                // InitList 配置行数 + clip — 用默认 10 行 (无 clip 信息从 .bin)
-                ld->InitList(/*maxLines=*/10,
-                             /*clipX=*/p.x, /*clipY=*/p.y,
-                             /*clipW=*/p.w, /*clipH=*/p.h);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ld));
-                ++child_count;
-            } else if (child->type == "ICONDLG") {
-                // M-R4.5: cIconDialog (icon grid container) — basicImage 跨表查装
-                // cell 数量 留默认 0,AddIconCell 留给 M-R4.5+ (基本 layout 1:1 优先)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ic = std::make_unique<cIconDialog>();
-                ic->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ic));
-                ++child_count;
-            } else if (child->type == "GUAGEBAR") {
-                // M-R4.5: cGuageBar (draggable progress bar) — basicImage 跨表查装
-                // InitGuageBar 默认 horizontal + 100 interval, 跟老版 cGuageBar contract 一致
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto gb = std::make_unique<cGuageBar>();
-                gb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                gb->InitGuageBar(/*interval=*/100, /*vertical=*/false);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(gb));
-                ++child_count;
-            } else if (child->type == "TABDIALOG" || child->type == "TABDLG") {
-                // M-R4.5: cTabDialog (tab container) — 1:1 化但 .bin 中 0 命中
-                // (老版实际是 eCHARGUAGEDLG 路由, 但接口 1:1 保留)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto tb = std::make_unique<cTabDialog>();
-                tb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                tb->InitTab(/*tabNum=*/1);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(tb));
-                ++child_count;
-            } else if (child->type == "CHECKBOX") {
-                // M-R4.6: cCheckBox — 3 类图 (basic + checkBox + check).
-                // 1:1 with 老版 cCheckBox::Init(x,y,w,h,basic,checkBox,check,cb,id)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                cImage* checkBoxImg = loadImageForImageIdx(child->select_image_idx,
-                                                         child->select_image_rect);
-                cImage* checkImg = loadImageForImageIdx(child->over_image_idx,
-                                                       child->over_image_rect);
-                auto cb = std::make_unique<cCheckBox>();
-                cb->Init(p.x, p.y, static_cast<std::int16_t>(p.w),
-                          static_cast<std::int32_t>(p.h),
-                          basic, checkBoxImg, checkImg,
-                          /*Func=*/{}, /*ID=*/0);
-                if (basic) ++r.cimg_count;
-                if (checkBoxImg) ++r.cimg_count;
-                if (checkImg) ++r.cimg_count;
-                dlg->Add(std::move(cb));
-                ++child_count;
-            } else if (child->type == "PUSHUPBTN") {
-                // M-R4.6: cPushupButton (toggle button) — 3 类图.
-                // 1:1 with 老版 cPushupButton, 继承 cButton 走 3 类图
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                cImage* over = loadImageForImageIdx(child->over_image_idx,
-                                                     child->over_image_rect);
-                cImage* press = loadImageForImageIdx(child->press_image_idx,
-                                                     child->press_image_rect);
-                auto pb = std::make_unique<cPushupButton>();
-                pb->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, over, press, /*onClick=*/{}, /*userdata=*/nullptr,
-                          /*id=*/0);
-                if (basic) ++r.cimg_count;
-                if (over) ++r.cimg_count;
-                if (press) ++r.cimg_count;
-                dlg->Add(std::move(pb));
-                ++child_count;
-            } else if (child->type == "ICONGRIDDLG") {
-                // M-R4.6: cIconGridDialog (drag-drop icon grid) — 1 类图.
-                // Init(x,y,w,h,basic, col, row, id) 老版 cIconGridDialog contract
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ig = std::make_unique<cIconGridDialog>();
-                ig->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*col=*/1, /*row=*/1, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ig));
-                ++child_count;
-            } else if (child->type == "LISTCTRL") {
-                // M-R4.6: cListCtrl (multi-column list) — 1 类图 + InitListCtrl
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto lc = std::make_unique<cListCtrl>();
-                lc->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                // InitListCtrl 默认 1 column + 10 lines per page
-                lc->InitListCtrl(/*wMaxColumns=*/1, /*wLinePerPage=*/10);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(lc));
-                ++child_count;
-            } else if (child->type == "COMBOBOX") {
-                // M-R4.6: cComboBox (dropdown list) — 1 类图 + InitComboList
-                // 4 image slots (top/middle/down/over) 留给 M-R4.6+ (无 #INFO)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto co = std::make_unique<cComboBox>();
-                co->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(co));
-                ++child_count;
-            } else if (child->type == "TEXTAREA") {
-                // M-R4.6: cTextArea (scrollable text) — 继承 cDialog.
-                // InitTextArea 留给 M-R4.6+ (无 textRelRect / bufSize 信息)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ta = std::make_unique<cTextArea>();
-                ta->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ta));
-                ++child_count;
-            } else if (child->type == "GUAGEN") {
-                // M-R4.6: cGuagen (progress bar base) — 1 类图.
-                // SetValue / SetPieceImage 留给 M-R4.6+ (无 piece image 信息)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto gn = std::make_unique<cGuagen>();
-                gn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(gn));
-                ++child_count;
-            } else if (child->type == "GUAGENE") {
-                // M-R4.6: cObjectGuagen (CObjectGuagen effect/interp gauge) — 1 类图
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ogn = std::make_unique<cObjectGuagen>();
-                ogn->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                           static_cast<std::uint16_t>(p.h),
-                           basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ogn));
-                ++child_count;
-            } else if (child->type == "LISTDLGEX") {
-                // M-R4.7: cListDialogEx (link-list text) — 1 类图 + InitLinkList
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ld = std::make_unique<cListDialogEx>();
-                ld->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                ld->InitLinkList(/*maxLines=*/10);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ld));
-                ++child_count;
-            } else if (child->type == "MUGONGDLG") {
-                // M-R4.7: cMugongDialog (skill slots) — 1 类图.
-                // 继承 cDialog 没自己 Init, 用 cDialog::Init
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto md = std::make_unique<cMugongDialog>();
-                md->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(md));
-                ++child_count;
-            } else if (child->type == "QUESTDLG") {
-                // M-R4.7: cQuestDialog (quest log) — 1 类图.
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto qd = std::make_unique<cQuestDialog>();
-                qd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(qd));
-                ++child_count;
-            } else if (child->type == "WANTEDDLG") {
-                // M-R4.7: cWantedDialog (wanted list) — 1 类图.
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto wd = std::make_unique<cWantedDialog>();
-                wd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(wd));
-                ++child_count;
-            } else if (child->type == "JOURNALDLG") {
-                // M-R4.7: cJournalDialog (quest journal) — 1 类图.
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto jd = std::make_unique<cJournalDialog>();
-                jd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(jd));
-                ++child_count;
-            } else if (child->type == "ITEMSHOPGRIDDLG") {
-                // M-R4.7: cItemShopGridDialog (item shop drag-drop grid) — 1 类图.
-                // 继承 cIconGridDialog, 用其 Init(x, y, w, h, basic, id)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto isg = std::make_unique<cItemShopGridDialog>();
-                isg->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                           static_cast<std::uint16_t>(p.h),
-                           basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(isg));
-                ++child_count;
-            } else if (child->type == "SPIN") {
-                // M-R4.7: cSpin (number spinner) — 1 类图 (basic, 继承 cEditBox
-                // 但 cSpin::Init 签名只接 basic + callback, focus 走 cEditBox 默认)
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto sp = std::make_unique<cSpin>();
-                sp->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*callback=*/{}, /*id=*/0);
-                sp->InitSpin(/*spinStrSize=*/10, /*strSize=*/10);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(sp));
-                ++child_count;
-            } else if (child->type == "DLG") {
-                // M-R4.7: 嵌套 cDialog as child (老版 eDLG 路由).
-                // 跟 root 一样装 basicImage + apply_legacy_layout
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto nested = std::make_unique<cDialog>();
-                const bool applied = apply_legacy_layout(*nested, *child, basic);
-                if (!applied) {
-                    // nested 没 #POINT — skip, 不挂
-                    continue;
-                }
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(nested));
-                ++child_count;
-            } else if (child->type == "WEAREDDLG") {
-                // M-R4.8: cWearedExDialog 1 类图 (继承 cIconDialog, 完整
-                // 1:1 port 在 src/ui/wearedexdialog.{hpp,cpp}).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto we = std::make_unique<cWearedExDialog>();
-                we->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(we));
-                ++child_count;
-            } else if (child->type == "PRIVATEWAREHOUSEDLG") {
-                // M-R4.8: cPrivateWarehouseDialog 1 类图 (继承 cDialog,
-                // 完整 1:1 port 在 src/ui/privatewarehousedialog.{hpp,cpp}).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto pwd = std::make_unique<cPrivateWarehouseDialog>();
-                pwd->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                           static_cast<std::uint16_t>(p.h),
-                           basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(pwd));
-                ++child_count;
-            } else if (child->type == "MUNPAMARKDLG") {
-                // M-R4.8: cMunpaMarkDialog 1 类图 (继承 cDialog, 完整
-                // 1:1 port 在 src/ui/munpamarkdialog.{hpp,cpp}).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto mm = std::make_unique<cMunpaMarkDialog>();
-                mm->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(mm));
-                ++child_count;
-            } else if (child->type == "SHOPITEMINVENGRID") {
-                // M-R4.8: cItemShopInven 1 类图 (继承 cIconGridDialog, 完整
-                // 1:1 port 在 modern cItemShopInven.hpp + 1:1 老版逻辑 TODO).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto isi = std::make_unique<cItemShopInven>();
-                isi->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                           static_cast<std::uint16_t>(p.h),
-                           basic, /*col=*/1, /*row=*/1, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(isi));
-                ++child_count;
-            } else if (child->type == "ANI") {
-                // M-R4.8: cAni 1 类图 (继承 cWindow, 完整 1:1 port 在
-                // modern cAni.hpp + 老版 frame-loop TODO).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto ani = std::make_unique<cAni>();
-                ani->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                           static_cast<std::uint16_t>(p.h),
-                           basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(ani));
-                ++child_count;
-            } else if (child->type == "SURYUNDLG") {
-                // M-R4.8: cSuryunDialog 1 类图 (继承 cDialog, 完整
-                // 1:1 port 在 src/ui/suryundialog.{hpp,cpp}, 无 InitTab).
-                cImage* basic = loadImageForImageIdx(child->basic_image_idx,
-                                                     child->basic_image_rect);
-                auto sy = std::make_unique<cSuryunDialog>();
-                sy->Init(p.x, p.y, static_cast<std::uint16_t>(p.w),
-                          static_cast<std::uint16_t>(p.h),
-                          basic, /*id=*/0);
-                if (basic) ++r.cimg_count;
-                dlg->Add(std::move(sy));
+            if (addInterfaceNode(*dlg, *child, r, mode, chat_messages)) {
                 ++child_count;
             }
-            // data-only 类型 (PAGE / NPC / MOTION) 跳过, 不是 widget
-            // 老版 cScriptManager 也没单独路由这些 (1:1 行为).
-            // GUAGE / LIST 0 命中, 不实现.
+        }
+        if (!r.error.empty()) return r;
+        if (auto* character = dynamic_cast<cCharacterDialog*>(dlg.get())) {
+            character->Linking();
+        }
+        if (auto* chat = dynamic_cast<cChatDialog*>(dlg.get())) {
+            chat->Linking();
+        }
+        if (auto* quest = dynamic_cast<cQuestDialog*>(dlg.get())) {
+            quest->Linking();
+        }
+        if (auto* guild = dynamic_cast<cGuildDialog*>(dlg.get())) {
+            guild->Linking();
+        }
+        if (auto* friend_dialog = dynamic_cast<cFriendDialog*>(dlg.get())) {
+            friend_dialog->Linking();
+        }
+        if (auto* mini_friend = dynamic_cast<cMiniFriendDialog*>(dlg.get())) {
+            mini_friend->Linking();
+        }
+        if (auto* option_dialog = dynamic_cast<cOptionDialog*>(dlg.get())) {
+            option_dialog->Linking();
         }
         if (child_count > 0) {
             r.dialog_type += "+" + std::to_string(child_count) + "child";
@@ -585,8 +959,10 @@ DialogLoadReport cDialogLoader::LoadOne(const std::filesystem::path& bin_path,
     return r;
 }
 
+// M-R7 (G3): 单一实现 (default arg 让 2/3 arg call 都走这里)
 std::vector<DialogLoadReport> cDialogLoader::LoadAll(
-    const std::filesystem::path& playdh_root, cWindowManager& wm) {
+    const std::filesystem::path& playdh_root, cWindowManager& wm,
+    ResolutionMode mode) {
     std::vector<DialogLoadReport> out;
 
     // 提示 M-R1/M-R2 状态(不强制)
@@ -632,7 +1008,7 @@ std::vector<DialogLoadReport> cDialogLoader::LoadAll(
 
     out.reserve(bins.size());
     for (const auto& bin : bins) {
-        auto rep = LoadOne(bin, wm);
+        auto rep = LoadOne(bin, wm, mode);
         const char* level = rep.ok ? "OK" : "FAIL";
         MLOG_INFO("[cDialogLoader] %-4s %-32s type=%-20s roots=%zu point=(%d,%d,%d,%d)",
                   level, rep.bin_name.c_str(),

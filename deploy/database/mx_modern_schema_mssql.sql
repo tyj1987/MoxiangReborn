@@ -1,9 +1,8 @@
 -- mx_modern_schema_mssql.sql
 --
 -- Modern (C++17) Moxian server schema for SQL Server.
--- The modern servers skip --init-schema for non-SQLite backends; apply
--- this script out-of-band to the game database before starting the
--- three processes with --backend mssql_odbc.
+-- This file mirrors mxh::db::migrate_modern_schema for environments that
+-- require sqlcmd-based provisioning. It never creates accounts.
 --
 -- Usage (LocalDB example):
 --   sqlcmd -S "(localdb)\MSSQLLocalDB" -E -i mx_modern_schema_mssql.sql
@@ -15,6 +14,15 @@ END
 GO
 
 USE [Moxiang]
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_schema_version')
+BEGIN
+    CREATE TABLE [dbo].[modern_schema_version] (
+        [version] INT NOT NULL PRIMARY KEY,
+        [applied_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+END
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'chr_log_info')
@@ -39,9 +47,9 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'character_info')
 BEGIN
     CREATE TABLE [dbo].[character_info] (
-        [chrid]        BIGINT        NOT NULL PRIMARY KEY,
-        [charname]     NVARCHAR(50)  NOT NULL,
-        [userid]       BIGINT        NOT NULL,
+        [charname]     NVARCHAR(50)  NOT NULL PRIMARY KEY,
+        [chrid]        BIGINT        NOT NULL UNIQUE,
+        [userid]       NVARCHAR(50)  NOT NULL,
         [sex_type]     TINYINT       NOT NULL DEFAULT 0,
         [hair_type]    TINYINT       NOT NULL DEFAULT 0,
         [face_type]    TINYINT       NOT NULL DEFAULT 0,
@@ -51,19 +59,60 @@ BEGIN
         [width]        FLOAT         NOT NULL DEFAULT 1.0,
         [level]        INT           NOT NULL DEFAULT 1,
         [map_num]      INT           NOT NULL DEFAULT 0,
-        [standing_idx] INT           NOT NULL DEFAULT 0
+        [position_x]   FLOAT         NULL,
+        [position_z]   FLOAT         NULL,
+        [standing_idx] INT           NOT NULL DEFAULT 0,
+        [character_data] VARBINARY(MAX) NULL
     );
 END
 GO
 
--- Test account used by the client E2E (id/pw = test/test).
-IF NOT EXISTS (SELECT 1 FROM [dbo].[chr_log_info] WHERE [id] = N'test')
+IF COL_LENGTH(N'dbo.character_info', N'character_data') IS NULL
 BEGIN
-    INSERT INTO [dbo].[chr_log_info] ([id], [pw], [userlevel])
-    VALUES (N'test', N'test', 2);
+    ALTER TABLE [dbo].[character_info]
+        ADD [character_data] VARBINARY(MAX) NULL;
 END
 GO
 
+IF COL_LENGTH(N'dbo.character_info', N'position_x') IS NULL
+    ALTER TABLE dbo.character_info ADD position_x FLOAT NULL;
+IF COL_LENGTH(N'dbo.character_info', N'position_z') IS NULL
+    ALTER TABLE dbo.character_info ADD position_z FLOAT NULL;
+GO
+
+-- Old characters retain NULL until their four attributes are imported from
+-- an authoritative source. Only CharacterMake writes 12 for new characters.
+IF COL_LENGTH(N'dbo.character_info', N'base_gengol') IS NULL
+    ALTER TABLE dbo.character_info ADD base_gengol INT NULL CONSTRAINT ck_character_info_base_gengol CHECK (base_gengol >= 0 AND base_gengol <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_minchub') IS NULL
+    ALTER TABLE dbo.character_info ADD base_minchub INT NULL CONSTRAINT ck_character_info_base_minchub CHECK (base_minchub >= 0 AND base_minchub <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_cheryuk') IS NULL
+    ALTER TABLE dbo.character_info ADD base_cheryuk INT NULL CONSTRAINT ck_character_info_base_cheryuk CHECK (base_cheryuk >= 0 AND base_cheryuk <= 65535);
+IF COL_LENGTH(N'dbo.character_info', N'base_simmek') IS NULL
+    ALTER TABLE dbo.character_info ADD base_simmek INT NULL CONSTRAINT ck_character_info_base_simmek CHECK (base_simmek >= 0 AND base_simmek <= 65535);
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE [object_id] = OBJECT_ID(N'dbo.character_info')
+      AND [name] = N'userid'
+      AND TYPE_NAME([user_type_id]) <> N'nvarchar'
+)
+BEGIN
+    ALTER TABLE [dbo].[character_info]
+        ALTER COLUMN [userid] NVARCHAR(50) NOT NULL;
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+               WHERE name = N'ux_character_info_charname'
+                 AND object_id = OBJECT_ID(N'dbo.character_info'))
+BEGIN
+    CREATE UNIQUE NONCLUSTERED INDEX [ux_character_info_charname]
+        ON [dbo].[character_info] ([charname]);
+END
+GO
 
 -- M3 D-stage: modern player state (upsert target for BuySyn money persistence).
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = N'modern_player_state')
@@ -252,5 +301,51 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID(N'dbo.modern_player_vitals', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[modern_player_vitals] (
+        [player_id] BIGINT NOT NULL PRIMARY KEY,
+        [hp] BIGINT NULL,
+        [shield] BIGINT NULL,
+        [mp] BIGINT NULL,
+        [dead] BIT NOT NULL,
+        [initialized] BIT NOT NULL,
+        [revision] BIGINT NOT NULL,
+        [updated_at] NVARCHAR(32) NOT NULL,
+        CONSTRAINT [ck_modern_player_vitals_state] CHECK ([player_id] > 0 AND (([initialized] = 0 AND [hp] IS NULL AND [shield] IS NULL AND [mp] IS NULL AND [dead] = 0 AND [revision] = 0)
+            OR ([initialized] = 1 AND [hp] IS NOT NULL AND [shield] IS NOT NULL AND [mp] IS NOT NULL
+                AND [hp] BETWEEN 0 AND 4294967295 AND [shield] BETWEEN 0 AND 4294967295 AND [mp] BETWEEN 0 AND 4294967295
+                AND [revision] BETWEEN 1 AND 9223372036854775806
+                AND (([dead] = 1 AND [hp] = 0) OR ([dead] = 0 AND [hp] > 0)))))
+    );
+END
+GO
+
+IF OBJECT_ID(N'dbo.modern_player_vitals', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.check_constraints
+       WHERE parent_object_id = OBJECT_ID(N'dbo.modern_player_vitals')
+         AND name = N'ck_modern_player_vitals_state'
+   )
+BEGIN
+    ALTER TABLE [dbo].[modern_player_vitals] WITH CHECK ADD CONSTRAINT [ck_modern_player_vitals_state]
+        CHECK ([player_id] > 0 AND (([initialized] = 0 AND [hp] IS NULL AND [shield] IS NULL AND [mp] IS NULL AND [dead] = 0 AND [revision] = 0)
+            OR ([initialized] = 1 AND [hp] IS NOT NULL AND [shield] IS NOT NULL AND [mp] IS NOT NULL
+                AND [hp] BETWEEN 0 AND 4294967295 AND [shield] BETWEEN 0 AND 4294967295 AND [mp] BETWEEN 0 AND 4294967295
+                AND [revision] BETWEEN 1 AND 9223372036854775806
+                AND (([dead] = 1 AND [hp] = 0) OR ([dead] = 0 AND [hp] > 0))));
+END
+GO
+
 PRINT 'Moxiang modern schema ready';
+IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 1)
+BEGIN
+    INSERT INTO [dbo].[modern_schema_version] ([version]) VALUES (1);
+END
+GO
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[modern_schema_version] WHERE [version] = 4)
+BEGIN
+    INSERT INTO [dbo].[modern_schema_version] ([version]) VALUES (4);
+END
 GO

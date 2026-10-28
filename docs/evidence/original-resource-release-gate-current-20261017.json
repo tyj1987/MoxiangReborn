@@ -1,0 +1,126 @@
+{
+  "blockers": [
+    {
+      "code": "public-package-release-ready",
+      "detail": "Kenney Interface Sounds,kenney-animated-characters-retro-2022,kenney-mini-characters-2024,polyhaven-weathered-planks-1k"
+    },
+    {
+      "code": "unity-derived-readiness",
+      "detail": "false=245 missing=0 invalidJson=0"
+    },
+    {
+      "code": "original-exact-resource",
+      "detail": "{\"hfl\": 22, \"map17MissingUsedTextures\": 9, \"map203MissingTextures\": 161, \"ttb\": 18}"
+    }
+  ],
+  "originalExactResources": {
+    "hfl": 22,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 161,
+    "ttb": 18
+  },
+  "originalRepo": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "publicAssetAdmission": {
+    "packageCount": 4,
+    "packages": [
+      {
+        "assetId": "Kenney Interface Sounds",
+        "attributionRequired": false,
+        "audioLevels": "audio-levels.json",
+        "commercialUse": true,
+        "filesChecked": 8,
+        "gates": [
+          "human-listening",
+          "PVE-client-acceptance",
+          "final-audio-mix-review"
+        ],
+        "license": "CC0-1.0",
+        "licenseUrl": "https://kenney.nl/support",
+        "manifest": "Assets/Moxiang/Audio/Resources/MoxiangAudio/KenneyInterface/manifest.json",
+        "manifestSha256": "d75a34a5eae5e165aa2ed86db982d573a991abec93f1c94a305082e02cb00b90",
+        "packageSha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+        "releaseReady": false,
+        "source": "https://kenney.nl/assets/interface-sounds",
+        "status": "admitted-runtime"
+      },
+      {
+        "assetId": "kenney-animated-characters-retro-2022",
+        "attributionRequired": false,
+        "audioLevels": null,
+        "commercialUse": true,
+        "filesChecked": 12,
+        "gates": [
+          "visual-fit",
+          "animation-retarget",
+          "performance",
+          "human-gui",
+          "PVE-client-acceptance",
+          "final-art-review"
+        ],
+        "license": "CC0-1.0",
+        "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "manifest": "Assets/Moxiang/ThirdParty/KenneyAnimatedCharactersRetro/manifest.json",
+        "manifestSha256": "71d0fadca2bdfa280667d71477ec427c85c65d8da5862077b712495502ab677f",
+        "packageSha256": "1d03f1fb001f3cf629425b69c898df58261a316616220ea25b58bd35298e6882",
+        "releaseReady": false,
+        "source": "https://kenney.nl/assets/animated-characters-retro",
+        "status": "candidate"
+      },
+      {
+        "assetId": "kenney-mini-characters-2024",
+        "attributionRequired": false,
+        "audioLevels": null,
+        "commercialUse": true,
+        "filesChecked": 4,
+        "gates": [
+          "visual-fit",
+          "performance",
+          "human-gui",
+          "PVE-client-acceptance",
+          "final-art-review"
+        ],
+        "license": "CC0-1.0",
+        "licenseUrl": "https://kenney.nl/support",
+        "manifest": "Assets/Moxiang/ThirdParty/KenneyMiniCharacters/manifest.json",
+        "manifestSha256": "85b27f7b01b1dce2b5a62ad24e75f46c5c0eadcd80d7db894c128e46fb65cee5",
+        "packageSha256": "a95a02b556735246570549d0c4a1fcd13ea46ede18187c63d463575a56fd6e1d",
+        "releaseReady": false,
+        "source": "https://kenney.nl/assets/mini-characters",
+        "status": "admitted-runtime"
+      },
+      {
+        "assetId": "polyhaven-weathered-planks-1k",
+        "attributionRequired": false,
+        "audioLevels": null,
+        "commercialUse": true,
+        "filesChecked": 4,
+        "gates": [
+          "visual-fit",
+          "material-import",
+          "performance",
+          "PVE-client-acceptance"
+        ],
+        "license": "CC0-1.0",
+        "licenseUrl": "https://polyhaven.com/license",
+        "manifest": "Assets/Moxiang/ThirdParty/PolyHavenWeatheredPlanks/manifest.json",
+        "manifestSha256": "33234f8c327d662d0abb528d92cac9f73415c74062c0e0d41096ae6e5450c453",
+        "packageSha256": null,
+        "releaseReady": false,
+        "source": "https://polyhaven.com/a/weathered_planks",
+        "status": "admitted-runtime"
+      }
+    ],
+    "packagesReleaseReady": false,
+    "passed": true
+  },
+  "releaseReady": false,
+  "schemaVersion": 1,
+  "unityDerived": {
+    "files": 7446,
+    "invalidJson": 0,
+    "releaseReadyFalse": 245,
+    "releaseReadyMissing": 0,
+    "releaseReadyTrue": 0
+  },
+  "unityProject": "E:/Workspaces/moxiang/worktrees/unity-integration/unity/MoxiangClient"
+}

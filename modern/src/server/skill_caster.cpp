@@ -1,15 +1,14 @@
 ﻿// skill_caster.cpp - Phase 13.4 caster data plane implementation.
 //
-// 1:1 port of the skill caster decision + damage math that legacy
-// [Server]Map/SkillManager.cpp + [Server]Map/CharacterCalcManager.cpp
-// expose.  The body of `skill_caster_calculate_damage` is a 1:1
-// extraction of the inline `MapHandler::calculate_damage` so the
-// 5/5 attack capture wire shape stays byte-for-byte stable when
-// the orchestrator is later rewired to call this module.
+// The current skill/defence damage path remains simplified. Hydrated ordinary
+// weapon endpoints are sampled inclusively without changing the wire shape.
 
 #include "mxh/server/skill_caster.hpp"
+#include "mxh/game/battle_factory.hpp"
 
 #include <cmath>
+#include <algorithm>
+#include <limits>
 #include <utility>
 
 namespace mxh::server {
@@ -55,9 +54,14 @@ mxh::game::DamageResult skill_caster_calculate_damage(
     }
 
     const auto simple = mxh::game::to_simple(skill);
-    std::int32_t base_damage = static_cast<std::int32_t>(simple.phy_attack)
-                             + static_cast<std::int32_t>(attacker.phy_attack)
-                             - static_cast<std::int32_t>(defender.phy_defence);
+    std::uint32_t physical = attacker.phy_attack;
+    if (attacker.has_physical_range) {
+        if (attacker.phy_attack_max < attacker.phy_attack_min) return result;
+        const auto span = std::uint64_t(attacker.phy_attack_max) - attacker.phy_attack_min + 1u;
+        physical = attacker.phy_attack_min + static_cast<std::uint32_t>(rng() % span);
+    }
+    std::int64_t base_damage = static_cast<std::int64_t>(simple.phy_attack)
+                             + physical - static_cast<std::int64_t>(defender.phy_defence);
     if (base_damage < 1) base_damage = 1;
 
     std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
@@ -65,18 +69,77 @@ mxh::game::DamageResult skill_caster_calculate_damage(
                              - static_cast<std::int32_t>(defender.att_defence);
     if (attr_damage < 0) attr_damage = 0;
 
-    std::int32_t total_damage = base_damage + attr_damage;
+    std::int64_t total_damage = base_damage + attr_damage;
 
     std::uint8_t crit_roll = static_cast<std::uint8_t>(rng() % 100);
     if (crit_roll < (simple.critical_rate + attacker.critical_rate)) {
         result.is_critical = true;
-        total_damage = static_cast<std::int32_t>(total_damage * 1.5);
+        total_damage = static_cast<std::int64_t>(total_damage * 1.5);
         result.hit_result = 2;
     } else {
         result.hit_result = 1;
     }
 
-    result.damage = total_damage;
+    result.damage = static_cast<std::int32_t>(std::min<std::int64_t>(
+        total_damage, std::numeric_limits<std::int32_t>::max()));
+    return result;
+}
+
+mxh::game::DamageResult skill_caster_calculate_monster_damage(
+    const mxh::game::PlayerCombatStats& attacker,
+    const mxh::game::PlayerCombatStats& defender,
+    const mxh::game::SkillInfo& skill,
+    std::mt19937& rng) noexcept {
+    mxh::game::DamageResult result;
+    const auto simple = mxh::game::to_simple(skill);
+
+    const auto dodge_roll = static_cast<std::uint8_t>(rng() % 100);
+    if (dodge_roll < defender.dodge_rate) {
+        result.is_miss = true;
+        result.hit_result = 0;
+        return result;
+    }
+
+    // AttackRate is the legacy multiplier.  A zero field means the skill
+    // carries no override and therefore uses the normal 1.0 multiplier.
+    const double skill_rate = skill.AttackRate[0] > 0.0f
+        ? static_cast<double>(skill.AttackRate[0]) : 1.0;
+    std::uint32_t min_attack = attacker.phy_attack;
+    std::uint32_t max_attack = attacker.phy_attack;
+    if (attacker.has_physical_range) {
+        min_attack = attacker.phy_attack_min;
+        max_attack = attacker.phy_attack_max;
+    }
+    const auto gap = max_attack >= min_attack
+        ? static_cast<std::uint64_t>(max_attack) - min_attack + 1u : 1u;
+    const auto roll = static_cast<int>(rng() % gap);
+    auto physical = mxh::game::compute_player_physical_attack(
+        min_attack, max_attack, 0.0, skill_rate, false, roll);
+    // UpPhyAttack is a flat skill contribution in the modern combat view;
+    // retain it before applying the original defence curve.
+    physical = static_cast<std::uint32_t>(std::min<std::uint64_t>(
+        static_cast<std::uint64_t>(physical) + simple.phy_attack,
+        std::numeric_limits<std::uint32_t>::max()));
+    const auto defence_level = mxh::game::compute_phy_defence_level(
+        defender.phy_defence, std::max<std::uint16_t>(1u, attacker.level));
+    std::int64_t total_damage = mxh::game::compute_received_damage(
+        physical, defence_level);
+
+    std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
+                             + static_cast<std::int32_t>(attacker.att_attack)
+                             - static_cast<std::int32_t>(defender.att_defence);
+    if (attr_damage > 0) total_damage += attr_damage;
+
+    const auto crit_roll = static_cast<std::uint8_t>(rng() % 100);
+    if (crit_roll < (simple.critical_rate + attacker.critical_rate)) {
+        result.is_critical = true;
+        total_damage = static_cast<std::int64_t>(total_damage * 1.5);
+        result.hit_result = 2;
+    } else {
+        result.hit_result = 1;
+    }
+    result.damage = static_cast<std::int32_t>(std::min<std::int64_t>(
+        total_damage, std::numeric_limits<std::int32_t>::max()));
     return result;
 }
 

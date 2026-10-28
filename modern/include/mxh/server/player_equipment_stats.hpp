@@ -1,0 +1,110 @@
+#pragma once
+
+#include "mxh/game/base_attack_power.hpp"
+#include "mxh/game/item_list_types.hpp"
+#include "mxh/server/player_state.hpp"
+#include "mxh/server/legacy_shop_item_kind.hpp"
+#include <algorithm>
+
+namespace mxh::server {
+
+// Realtime shop appearance is restored/expired by ShopItemManager using
+// SellPrice==StoredTime and the separate Param/BeginTime/Remaintime record.
+// Its physical ItemBase is not an ordinary weapon/option record. Only skip a
+// known appearance with no stat/effect contribution; never silently omit buffs.
+inline bool is_noncombat_realtime_shop_appearance(const game::ItemInfo& info) noexcept {
+    if ((info.ItemKind != LEGACY_SHOP_ITEM_MAKEUP && info.ItemKind != LEGACY_SHOP_ITEM_EQUIP) ||
+        info.ItemType != 11 || info.SellPrice != 1u /* SHOP_ITEM_PARAM_STORED_TIME */ ||
+        info.GenGol || info.MinChub || info.CheRyuk || info.SimMek ||
+        info.Life || info.Shield || info.NaeRyuk || info.PhyDef ||
+        info.MeleeAttackMin || info.MeleeAttackMax || info.RangeAttackMin || info.RangeAttackMax ||
+        info.CriticalPercent || info.Plus_MugongIdx || info.Plus_Value ||
+        info.AllPlus_Kind || info.AllPlus_Value || info.wSetItemKind ||
+        info.LifeRecover || info.LifeRecoverRate != 0 || info.NaeRyukRecover || info.NaeRyukRecoverRate != 0 ||
+        info.MugongNum || info.MugongType || info.wItemAttr ||
+        info.wAcquireSkillIdx1 || info.wAcquireSkillIdx2 || info.wDeleteSkillIdx) return false;
+    for (unsigned i=0;i<game::ITEM_ELEM_MAX;++i)
+        if (info.AttrAttack.Element[i] != 0 || info.AttrRegist.Element[i] != 0) return false;
+    return true;
+}
+
+// Ordinary KR/CN equipment only. Recompute from scratch; never accumulate a
+// previous result. Unsupported templates/options fail before publishing stats.
+// Caller retains/restores the equipment slots if a proposed move is rejected.
+template<class Lookup>
+bool rebuild_equipment_stats(PlayerState& state, game::PlayerCombatStats& combat,
+                             Lookup lookup) {
+    PlayerAttributes attributes{};
+    std::uint16_t melee_min=0, melee_max=0, range_min=0, range_max=0, defence=0;
+    std::uint32_t life=0, shield=0;
+    std::uint16_t mp=0, weapon_kind=0;
+    bool weapon_present=false;
+    float melee_rate_min=0, melee_rate_max=0, range_rate_min=0, range_rate_max=0;
+    constexpr float rates[]{1.f,.6f,.55f,.5f,.45f,.4f,.35f,.30f,.3f,.25f,.2f,.15f,.1f,.05f};
+    for (std::size_t slot=0; slot<state.equipment.items.size(); ++slot) {
+        const auto& item=state.equipment.items[slot];
+        if (!item.dwDBIdx) continue; // Appearance-only icons confer no stats.
+        game::ItemInfo info{};
+        if (!lookup(item.wIconIdx,info) || item.RareIdx || info.wSetItemKind) return false;
+        if (is_noncombat_realtime_shop_appearance(info)) continue;
+        if (!(info.ItemKind & 2048u) ||
+            !(info.EquipKind == slot || (info.EquipKind == game::WEARED_RING1 && slot == game::WEARED_RING2)) ||
+            (item.Durability != 0u && item.Durability != 100u)) return false;
+        // Modern make_item/grant/drop/shop creation uses exactly 100 for plain
+        // durability; zero is also used for plain fixtures/records. These are
+        // not a general legacy option-index range. Original nonzero option IDs
+        // require an explicit import/option model (including a legacy ID100).
+        // Elemental options require the separate per-element combat pipeline.
+        for (unsigned i=0;i<game::ITEM_ELEM_MAX;++i)
+            if (info.AttrAttack.Element[i] != 0 || info.AttrRegist.Element[i] != 0) return false;
+        const auto gap=std::clamp(int(info.LimitLevel)-int(state.progress.level),0,13);
+        const float rate=rates[gap];
+        const auto word=[&](auto value) { return static_cast<std::uint16_t>(value*rate); };
+        if (info.ItemKind == 2058u) { // eEQUIP_ITEM_ARMLET: percentage, not flat damage.
+            melee_rate_min += info.MeleeAttackMin*rate*.01f;
+            melee_rate_max += info.MeleeAttackMax*rate*.01f;
+            range_rate_min += info.RangeAttackMin*rate*.01f;
+            range_rate_max += info.RangeAttackMax*rate*.01f;
+        } else {
+            melee_min += word(info.MeleeAttackMin); melee_max += word(info.MeleeAttackMax);
+            range_min += word(info.RangeAttackMin); range_max += word(info.RangeAttackMax);
+        }
+        defence += word(info.PhyDef);
+        attributes.gengol += word(info.GenGol); attributes.minchub += word(info.MinChub);
+        attributes.cheryuk += word(info.CheRyuk); attributes.simmek += word(info.SimMek);
+        life += static_cast<std::uint32_t>(info.Life*rate);
+        shield += static_cast<std::uint32_t>(info.Shield*rate); mp += word(info.NaeRyuk);
+        if (slot == game::WEARED_WEAPON) { weapon_present=true; weapon_kind=info.WeaponType; }
+    }
+    const auto gengol=static_cast<std::uint16_t>(state.attributes.gengol+attributes.gengol);
+    const auto minchub=static_cast<std::uint16_t>(state.attributes.minchub+attributes.minchub);
+    const auto cheryuk=static_cast<std::uint16_t>(state.attributes.cheryuk+attributes.cheryuk);
+    const bool ranged=weapon_kind == 5 || weapon_kind == 6; // WP_GUNG / WP_AMGI.
+    const auto endpoint=[&](bool maximum) -> std::optional<std::uint32_t> {
+        if (weapon_kind == 9) return 0u; // WP_EVENT_HAMMER.
+        const auto weapon=static_cast<std::uint16_t>((ranged ? (maximum?range_max:range_min) :
+            (maximum?melee_max:melee_min)+(weapon_present?0:5)));
+        const auto power=game::base_attack_power(ranged?minchub:gengol,weapon);
+        if (!power) return std::nullopt;
+        const float bonus=ranged ? (maximum?range_rate_max:range_rate_min) : (maximum?melee_rate_max:melee_rate_min);
+        const double value=static_cast<float>(*power)*(1.f+bonus);
+        if (value > UINT32_MAX) return std::nullopt;
+        return static_cast<std::uint32_t>(value);
+    };
+    const auto minimum=endpoint(false), maximum=endpoint(true);
+    if (!minimum || !maximum || *maximum < *minimum) return false;
+    state.equipment_attributes=attributes;
+    state.bonuses.item_max_life=static_cast<std::int32_t>(life);
+    state.bonuses.item_max_shield=static_cast<std::int32_t>(shield);
+    state.bonuses.item_max_naeryuk=mp;
+    state.recompute_max_stats();
+    state.vitals.current_hp=std::min(state.vitals.current_hp,state.vitals.max_hp);
+    state.vitals.current_mp=std::min(state.vitals.current_mp,state.vitals.max_mp);
+    state.vitals.current_shield=std::min(state.vitals.current_shield,state.vitals.max_shield);
+    combat.phy_attack_min=*minimum; combat.phy_attack_max=*maximum;
+    combat.has_physical_range=true;
+    combat.phy_defence=static_cast<std::uint16_t>(cheryuk/1.5)+defence;
+    return true;
+}
+
+} // namespace mxh::server

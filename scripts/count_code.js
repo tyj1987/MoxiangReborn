@@ -1,7 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
-const root = 'd:\\墨香全套源代码（源码+资源+客户端+服务端+教程）\\墨香【源码】';
+const root = process.argv[2] || path.resolve(__dirname, '..', '墨香【源码】');
+
+if (!fs.existsSync(root)) {
+  console.error(`Legacy source root not found: ${root}`);
+  console.error('Pass the source root as the first argument.');
+  process.exitCode = 2;
+}
 
 function countDir(dir) {
   let files = 0;

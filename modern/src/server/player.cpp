@@ -1,5 +1,6 @@
 ﻿#include "mxh/server/player.hpp"
 #include "mxh/server/money_manager.hpp"
+#include "mxh/game/experience_curve.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -9,7 +10,8 @@ namespace mxh::server {
 namespace {
 constexpr std::uint16_t kInventorySlots = mxh::game::SLOT_INVENTORY_NUM;
 constexpr std::uint16_t kEquipmentBase = mxh::game::TP_WEAREDITEM_START;
-constexpr std::uint16_t kMaxLevel = 99;
+// Legacy SetLevel rejects levels >= MAX_CHARACTER_LEVEL_NUM (121).
+constexpr std::uint16_t kMaxLevel = mxh::game::MAX_CHARACTER_LEVEL_NUM - 1;
 
 bool valid_item(const mxh::game::ItemBase& item) noexcept {
     return item.dwDBIdx != 0 && item.wIconIdx != 0;
@@ -87,9 +89,12 @@ std::uint32_t Player::add_experience(std::uint32_t amount,
                             state_.progress.level_exp;
     state_.progress.level_exp += std::min(applied, level_room);
     std::uint32_t level_ups = 0;
-    while (state_.progress.level < kMaxLevel &&
-           next_level_exp != 0 &&
-           state_.progress.level_exp >= next_level_exp) {
+    // Legacy CPlayer::SetPlayerExpPoint checks the current level threshold
+    // once and calls SetLevel(level + 1) once per experience grant.  Carry the
+    // remainder forward; another grant may trigger the next level.
+    if (state_.progress.level < kMaxLevel &&
+        next_level_exp != 0 &&
+        state_.progress.level_exp >= next_level_exp) {
         state_.progress.level_exp -= next_level_exp;
         ++state_.progress.level;
         ++level_ups;
@@ -127,6 +132,36 @@ std::optional<mxh::game::ItemBase> Player::remove_inventory_item(std::uint16_t s
     state_.inventory.items[slot] = mxh::game::make_empty_item();
     state_.inventory.items[slot].Position = slot;
     return item;
+}
+
+std::uint32_t Player::count_inventory_item(std::uint16_t item_idx) const noexcept {
+    if (!is_active() || item_idx == 0u) return 0u;
+    std::uint64_t total = 0;
+    for (const auto& item : state_.inventory.items) {
+        if (item.wIconIdx != item_idx || item.dwDBIdx == 0u) continue;
+        total += item.ItemParam;
+    }
+    return static_cast<std::uint32_t>(std::min<std::uint64_t>(total, 0xffffffffu));
+}
+
+bool Player::remove_inventory_item_by_icon(std::uint16_t item_idx,
+                                            std::uint32_t quantity) noexcept {
+    if (!is_active() || item_idx == 0u || quantity == 0u ||
+        count_inventory_item(item_idx) < quantity) return false;
+    auto remaining = quantity;
+    for (auto& item : state_.inventory.items) {
+        if (remaining == 0u) break;
+        if (item.wIconIdx != item_idx || item.dwDBIdx == 0u) continue;
+        const auto consumed = std::min<std::uint32_t>(item.ItemParam, remaining);
+        item.ItemParam = static_cast<std::uint16_t>(item.ItemParam - consumed);
+        remaining -= consumed;
+        if (item.ItemParam == 0u) {
+            const auto position = item.Position;
+            item = mxh::game::make_empty_item();
+            item.Position = position;
+        }
+    }
+    return remaining == 0u;
 }
 
 bool Player::equip_inventory_item(std::uint16_t inventory_slot,
@@ -189,10 +224,29 @@ PlayerDamageResult Player::apply_damage(std::uint32_t amount) noexcept {
     return result;
 }
 
+bool Player::mark_dead_if_zero_life() noexcept {
+    if (lifecycle_ != PlayerLifecycle::Active || state_.vitals.current_hp != 0) return false;
+    lifecycle_ = PlayerLifecycle::Dead;
+    return true;
+}
+
 bool Player::revive() noexcept {
     if (lifecycle_ != PlayerLifecycle::Dead) return false;
     state_.vitals.current_hp = std::max<std::uint32_t>(1, state_.vitals.max_hp / 2);
     state_.vitals.current_shield = 0;
+    lifecycle_ = PlayerLifecycle::Active;
+    return true;
+}
+
+bool Player::resume_after_authoritative_revive(std::uint32_t hp,
+                                               std::uint32_t shield,
+                                               std::uint32_t mp) noexcept {
+    if (lifecycle_ != PlayerLifecycle::Dead || hp == 0 ||
+        hp > state_.vitals.max_hp || shield > state_.vitals.max_shield ||
+        mp > state_.vitals.max_mp) return false;
+    state_.vitals.current_hp = hp;
+    state_.vitals.current_shield = shield;
+    state_.vitals.current_mp = mp;
     lifecycle_ = PlayerLifecycle::Active;
     return true;
 }
@@ -204,5 +258,4 @@ void Player::heal_full() noexcept {
 }
 
 }
-
 

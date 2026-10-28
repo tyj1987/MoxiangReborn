@@ -42,6 +42,15 @@ public:
     virtual std::uint16_t getWis() const noexcept = 0;
     virtual std::uint16_t getDex() const noexcept = 0;
 
+    // The legacy game exposes four named core attributes rather than the
+    // five generic RPG slots above.  Keep these additive defaults so older
+    // service implementations remain source-compatible while live GameIn
+    // data can bind the actual GenGol/MinChub/CheRyuk/SimMek values.
+    virtual std::uint16_t getGenGol() const noexcept { return 0; }
+    virtual std::uint16_t getMinChub() const noexcept { return 0; }
+    virtual std::uint16_t getCheRyuk() const noexcept { return 0; }
+    virtual std::uint16_t getSimMek() const noexcept { return 0; }
+
     // ----- Level / experience -----
 
     virtual std::uint16_t getLevel() const noexcept = 0;

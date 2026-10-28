@@ -50,6 +50,13 @@ struct GlyphEntry {
     int          advance    = 0;     // pen advance in pixels (per glyph)
 };
 
+// Legacy RenderFont treats RECT.top as the top of the font line. GDI glyph
+// origins are baseline-relative, so convert using the selected font ascent.
+constexpr int glyph_top_from_line_top(int line_top, int ascent,
+                                      int glyph_bearing_y) noexcept {
+    return line_top + ascent - glyph_bearing_y;
+}
+
 class FontObject : public IDIFontObject {
 public:
     static FontObject* create(Device* dev, const LOGFONT* lf, std::uint32_t dwFlag);
@@ -100,6 +107,7 @@ private:
 
     HFONT                                        m_hFont   = nullptr;
     HDC                                          m_memDC   = nullptr;
+    int                                          m_fontAscent = 0;
 
     std::unordered_map<std::uint16_t, GlyphEntry> m_glyphs;
 

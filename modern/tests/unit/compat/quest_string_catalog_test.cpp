@@ -1,6 +1,7 @@
 #include "mxh/compat/quest_string_catalog.hpp"
 
 #include <gtest/gtest.h>
+#include "../../support/playdh_env.hpp"
 
 TEST(QuestStringCatalog, ParsesMainAndSubquestText) {
     const auto result = mxh::compat::parse_quest_string_text(
@@ -21,14 +22,15 @@ TEST(QuestStringCatalog, ConvertsKnownBig5TitleToUnicode) {
 
 TEST(QuestStringCatalog, LoadsRealQuestStringResource) {
     std::filesystem::path path;
-    for (const auto& item : std::filesystem::recursive_directory_iterator(
-             std::filesystem::current_path(),
-             std::filesystem::directory_options::skip_permission_denied)) {
-        if (item.is_regular_file() && item.path().filename() == "QuestString.bin" &&
-            item.path().parent_path().filename() == "QuestScript") {
-            path = item.path();
-            break;
-        }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        path = *playdh_override / "Resource" / "QuestScript" / "QuestString.bin";
+    }
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; path.empty() && depth < 8 && !root.empty(); ++depth) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / "QuestScript" / "QuestString.bin";
+        if (std::filesystem::is_regular_file(candidate)) path = candidate;
+        root = root.parent_path();
     }
     if (!std::filesystem::exists(path)) GTEST_SKIP() << "PlayDH unavailable";
     const auto result = mxh::compat::load_quest_string_catalog(path);

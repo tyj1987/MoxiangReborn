@@ -11,8 +11,8 @@
 //     kModernNotifyVersionAck, kModernNotifyVersionNack)
 //
 // Why these tests matter:
-//   The modern enum classes are 1:1 wire-compatible with the legacy
-//   [CC]Header/Protocol.h #defines. If a future change accidentally
+//   Many modern enum values match the legacy [CC]Header/Protocol.h, but the
+//   Item profile diverges after MoveNack. If a future change accidentally
 //   re-orders Category or shifts a UserConnProtocol value by one,
 //   every wire packet using that category/protocol stops talking to
 //   legacy clients/servers — silent breakage with no compiler
@@ -283,6 +283,30 @@ TEST(CategoryTest, CategoryNamesIdentifySecurityCategories) {
     EXPECT_STREQ(category_name(Category::HackShield), "HackShield");
     EXPECT_STREQ(category_name(Category::NProtect), "NProtect");
     EXPECT_STREQ(category_name(Category::HackCheck), "HackCheck");
+}
+
+TEST(PartyProtocolTest, CreateAndBreakupValuesMatchLegacy) {
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::Info), 0u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateSyn), 1u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateAck), 2u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::CreateNack), 3u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::AddSyn), 4u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::AddInvite), 7u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::InviteAcceptSyn), 8u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::InviteAcceptAck), 9u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupSyn), 28u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupAck), 29u);
+    EXPECT_EQ(static_cast<std::uint8_t>(PartyProtocol::BreakupNack), 30u);
+}
+
+TEST(GuildProtocolTest, CreateAndBreakupValuesMatchLegacy) {
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateSyn), 0u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateAck), 1u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::CreateNack), 2u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupSyn), 4u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupAck), 5u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::BreakupNack), 6u);
+    EXPECT_EQ(static_cast<std::uint8_t>(GuildProtocol::Info), 24u);
 }
 
 TEST(CategoryTest, CompleteLegacyCategoryTableIsSequential) {

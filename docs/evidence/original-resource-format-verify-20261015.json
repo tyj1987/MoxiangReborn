@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-resource-format-verify",
+  "generatedUtc": "2026-10-15T00:00:00Z",
+  "sourceHead": "dfa6b7757d92823b96363d345020561488de3c9c",
+  "explorer": "modern/out/ctest-current-20261015/tools/MoxianResourceExplorer/mxh_explorer.exe",
+  "pakEntryCounts": {
+    "Effect.pak": 1671,
+    "Character.pak": 4468,
+    "Map.pak": 4192,
+    "monster.pak": 2967,
+    "npc.pak": 422,
+    "Pet.pak": 362,
+    "Titan.pak": 294
+  },
+  "binChecks": [
+    "Resource/MonsterList.bin:type/file_size/payload",
+    "Resource/ItemList.bin:file_size/payload"
+  ],
+  "extracts": [
+    {
+      "path": "tile_201_wall04.dds",
+      "bytes": 2856,
+      "sha256": "f45681aa496070e34e3f5a4f8d366867220f1a40cc3723233b4780285ccc4181",
+      "magic": "DDS "
+    },
+    {
+      "path": "titan_portal_eff.mod",
+      "bytes": 15012,
+      "sha256": "49c444494ed3228bc663bab1984c4b8ccf6ba58a0989a5f1946a426615bd18ed",
+      "magic": "02000000100000000300000010000000"
+    }
+  ],
+  "result": "pass",
+  "command": "python scripts/verify_real_resources.py"
+}

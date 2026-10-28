@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "date": "2026-10-20",
+  "kind": "original-pve-gui-state-frames",
+  "sourceHead": "3929291a8e446b831c3b05deb22512ed161fb9d6",
+  "client": "modern/out/build-client-x64-diagnose/tools/MoxianClient/Debug/mxh_client.exe",
+  "clientSha256": "9da72d2b33bb179d866e581c808622ccd78fd5515dbdeeb1ae3ad6064b0a5910",
+  "log": "modern/out/runs/human/pve-gui-20261020-fixed/client.err.log",
+  "logSha256": "2d369d3b2a81507468e442009152d3c45aa0b818f46dfadc03b2a96eda52e2df",
+  "endpoint": {
+    "vmid": 112,
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "mapNumber": 10
+  },
+  "observed": {
+    "guiSmokePass": true,
+    "characterSelectAck": true,
+    "gameInAck": true,
+    "map10MonsterCount": 228,
+    "originalBgmIds": [
+      "1667",
+      "1670"
+    ],
+    "sfxManifest": true,
+    "playerModel": true,
+    "terrainMarker": true
+  },
+  "frames": {
+    "map10.tga": {
+      "bytes": 3145746,
+      "sha256": "f8c873a8cc2ccc2b4653f5639f03823eb9a4645c2286edac7e7a25673269d49d"
+    },
+    "state-charselect.tga": {
+      "bytes": 3145746,
+      "sha256": "8690146dd43e7c9fd2ac3b18e0b2202f7232e042f453dd8e6e9394133ffd5238"
+    },
+    "state-connect.tga": {
+      "bytes": 1920018,
+      "sha256": "1afe991a6ff85ce80c7ebeb3ddcec800fb3acdae0ffbc04e5842556b67619e30"
+    },
+    "state-gamein.tga": {
+      "bytes": 3145746,
+      "sha256": "f8c873a8cc2ccc2b4653f5639f03823eb9a4645c2286edac7e7a25673269d49d"
+    },
+    "state-gameloading.tga": {
+      "bytes": 3145746,
+      "sha256": "64b3742665d2a4a99315d1e477384003eb89c7fbd0991f149bf1b378f981a5d3"
+    },
+    "state-login.tga": {
+      "bytes": 3145746,
+      "sha256": "64b3742665d2a4a99315d1e477384003eb89c7fbd0991f149bf1b378f981a5d3"
+    }
+  },
+  "verification": {
+    "stateFramesPermissive": "PASS",
+    "terrainFrame": "PASS",
+    "entityFrame": "FAIL_player_upright_heuristic",
+    "note": "The entity frame visibly contains the player and the log records the original woman.chx model; the existing pixel verifier assumes a center crop and is not accepted as a full visual gate."
+  },
+  "releaseReady": false,
+  "remainingGates": [
+    "manual GUI input across movement/NPC/quest/combat/drop/pickup/equip/map-change/relogin",
+    "complete original-resource parity",
+    "full visual/audio comparison",
+    "stability/recovery"
+  ]
+}

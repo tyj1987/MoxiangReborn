@@ -32,8 +32,12 @@
 #pragma once
 
 #include "CGameState.hpp"
+#include "ClientUiRuntime.hpp"
+#include "StateTransfer.hpp"
 
+#include <chrono>
 #include <cstdint>
+#include <array>
 #include <memory>
 #include <optional>
 #include <string>
@@ -41,34 +45,56 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cDialogLoader.hpp"
+#include "mxh/render/EntityScene.hpp"
 
 namespace mxh::client {
 
 class CEngine;
 
-// 1:1 with the legacy LoginAck payload (login_handler.cpp make_login_ack).
-// Bridged from CLoginState::TakeLoginResult() to CCharSelectState via
-// SetLoginResult() so the agent connect address/port + auth keys flow
-// through state boundaries without globals.
-struct LoginResult {
-    std::string  agent_addr;
-    std::uint16_t agent_port = 0;
-    std::uint32_t user_idx   = 0;
-    std::uint8_t  user_level = 0;
-    std::uint32_t dist_auth_key = 0;  // from DistConnectSuccess, needed by Agent's ListSyn
+enum class CharSelectUiCommandKind : std::uint8_t {
+    None,
+    SelectSlot,
+    Create,
+    Delete,
+    Enter,
+    Logout,
 };
 
-struct GameEntryRequest {
-    std::uint32_t character_id = 0;
-    std::uint16_t map_num = 0;
+struct CharSelectUiCommand {
+    CharSelectUiCommandKind kind = CharSelectUiCommandKind::None;
+    std::size_t slot_index = 0;
 };
+
+CharSelectUiCommand resolve_char_select_ui_command(
+    const ClientUiActivation& activation) noexcept;
 
 // One slot in the legacy CharacterListAck SEND_CHARSELECT_INFO.
-// We parse the minimum needed to auto-select: chrid (u32) per slot.
+// We retain the character id and original 17-byte name used by the slot UI.
 struct CharacterSlot {
     std::uint32_t chrid = 0;
+    std::string   name;
     bool          valid = false;     // false = empty slot (chrid == 0)
+    std::uint8_t gender = 0;
+    std::uint8_t face_type = 0;
+    std::uint8_t hair_type = 0;
+    std::uint16_t level = 0;
+    std::uint16_t map_num = 0;
+    std::array<std::uint16_t, 10> weared_item_idx{};
 };
+
+// Converts the server's complete character slot into the renderer's stable
+// appearance payload. The preview scene can place this at any camera anchor
+// without inventing appearance defaults or touching protocol data.
+std::optional<mxh::gx::ScenePlayer> make_character_preview(
+    const CharacterSlot& slot, float world_x = 25600.0f,
+    float world_y = 0.0f, float world_z = 25600.0f);
+
+// Selection is authoritative to the most recently received list.  Keeping
+// this check separate makes the rule testable without opening a socket.
+bool is_listed_character(std::span<const CharacterSlot> slots,
+                         std::uint32_t chrid) noexcept;
 
 // Build the 8-byte CharacterListSyn payload (agent_handler.cpp:526-538):
 //   [user_id: u32 LE] [dist_auth_key: u32 LE]
@@ -80,6 +106,14 @@ legacy_character_list_syn_payload(std::uint32_t user_id,
 //   [channel: u16 LE]  (the chrid is in MSGBASE.object_id, not payload)
 std::vector<std::uint8_t>
 legacy_character_select_syn_payload(std::uint16_t channel);
+
+// Build the 4-byte CharacterRemoveSyn payload (legacy MSG_DWORD):
+//   [character_id: u32 LE]
+std::vector<std::uint8_t>
+legacy_character_remove_syn_payload(std::uint32_t character_id);
+
+// Build the empty-payload DisconnectSyn packet used to leave Agent cleanly.
+mxh::net::Message legacy_character_disconnect_syn_message();
 
 // Parse the 889-byte legacy CharacterListAck payload (no _CRYPTCHECK_,
 // CHINA locale, kMaxCharSlots=5).  Returns the first 5 slots; valid
@@ -127,30 +161,84 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // Idempotent (second call is a no-op).
     void Start(CEngine* engine, bool use_hsel = false);
 
-    // Override auto-select.  Default behaviour after ListAck is to send
-    // CharacterSelectSyn for the first valid slot; the host can call
-    // this from UI handlers to pick a different one.
+    // ---- Phase 1 §7.3 protocol-burst test hooks ------------------------
+    // Direct dispatch (skips network recv thread) so the test can drive
+    // the state with synthetic CharacterRemoveAck / ListAck packets and
+    // verify §7.3 删除确认 / 取消 and 重登持久化 paths without spinning
+    // up a real AgentServer.  Mirrors the CInGameState / CLoginState /
+    // CCharMake hook pattern (commits a8e194da / d3804f82 / f8eb9acd).
+    // Production code never calls these.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
+
+    // ---- Phase 1 §7.2 / §7.3 test hook: arm the CharacterListAck / -----
+    // CharacterSelectAck application-level timeouts.  Mirrors the
+    // CLoginState login-timeout hook (commit fa74305e) — production code
+    // never calls these.
+    void SetAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
+        m_ackTimeout = t;
+    }
+    void ArmListAckDeadlineForTest() noexcept {
+        m_listAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+    }
+    void ArmSelectAckDeadlineForTest() noexcept {
+        m_selectAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+    }
+
+    // Manual selection is the production default. The test-only switch
+    // preserves deterministic unattended E2E coverage.
     void SelectCharacter(std::uint32_t chrid);
+    bool SelectSlot(std::size_t slot_index) noexcept;
+    bool ConfirmSelection();
+    bool RequestCharacterCreation();
+    bool RequestCharacterDeletion();
+    bool RequestLogout();
+    bool OnMouseButton(bool left, bool down, std::int32_t x, std::int32_t y);
+    bool OnMouseMove(std::int32_t x, std::int32_t y);
+    bool OnKeyEvent(bool down, std::uint32_t key);
+    bool OnChar(std::uint32_t ch);
+    void set_auto_select_for_test(bool enabled) noexcept { m_autoSelectForTest = enabled; }
+    bool auto_select_for_test() const noexcept { return m_autoSelectForTest; }
 
     // Inspectors.
     bool        is_connected() const noexcept;
+    bool        is_failed() const noexcept { return m_failed; }
+    const std::string& failure_reason() const noexcept { return m_failureReason; }
     std::uint16_t selected_map() const noexcept { return m_selectedMap; }
     std::uint32_t selected_chrid() const noexcept { return m_selectedChrid; }
     bool has_character_list() const noexcept { return m_listReceived; }
+    bool deletion_pending() const noexcept { return m_removeSent; }
+    bool logout_pending() const noexcept { return m_logoutSent; }
     const LoginResult& login_result() const noexcept { return m_login; }
+    // M-R7.1 (2026-08-20): host reads the loaded cDialog tree to render
+    // the 1:1 UI (CharSelectDlg.bin — 12 child widgets, 5 character
+    // slots, 4 buttons, 3 statics).
+    const std::vector<std::unique_ptr<mxh::ui::cDialog>>& ui_dialogs() const noexcept {
+        return m_uiRuntime.dialogs();
+    }
+    ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const std::vector<CharacterSlot>& character_list() const noexcept {
         return m_characters;
     }
 
 private:
     void send_list_syn();
+    bool send_remove_syn(std::uint32_t character_id);
     void auto_select_first();
+    bool select_adjacent(int direction) noexcept;
+    bool handle_ui_activation(const ClientUiActivation& activation);
+    void apply_character_remove_ack();
+    void refresh_character_slot_ui();
     void dispatch_select_ack(std::uint16_t map_num);
     void fail_with(const std::string& reason);
 
     CEngine*                 m_pEngine    = nullptr;  // not owned
     std::unique_ptr<mxh::net::TcpClient> m_client;
     LoginResult              m_login;
+    ClientUiRuntime          m_uiRuntime;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;
 
@@ -161,9 +249,29 @@ private:
     bool                     m_started     = false;
     bool                     m_listReceived = false;
     bool                     m_selectSent   = false;
+    bool                     m_removeSent   = false;
+    bool                     m_logoutSent   = false;
+    bool                     m_listSynSent  = false;
+    std::uint32_t            m_removeChrid  = 0;
+    bool                     m_autoSelectForTest = false;
+    // Phase 1 §7.3: opt-in flag for ccharselect_state_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a
+    // no-op so a missing test setup cannot accidentally exercise the
+    // dispatch path.  Defaults to false.
+    bool                     m_dispatchEnabledForTest = false;
     bool                     m_releasing    = false;
     bool                     m_failed      = false;
     std::string              m_failureReason;
+
+    // Phase 1 §7.2 / §7.3: application-level timeouts for the
+    // CharacterListAck (after CharacterListSyn) and CharacterSelectAck
+    // (after CharacterSelectSyn) round-trips.  Mirrors the CLoginState
+    // login-timeout pattern (commit fa74305e).  Default 10 s, overridable
+    // by SetAckTimeoutForTest.  steady_clock so a wall-clock adjustment
+    // (e.g. NTP) cannot false-fire.
+    std::chrono::steady_clock::time_point m_listAckDeadline{};
+    std::chrono::steady_clock::time_point m_selectAckDeadline{};
+    std::chrono::milliseconds             m_ackTimeout{std::chrono::seconds(10)};
 };
 
 } // namespace mxh::client

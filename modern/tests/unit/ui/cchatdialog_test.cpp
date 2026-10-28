@@ -31,6 +31,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -144,6 +145,65 @@ TEST(CChatDialog, LinkingWiresChildren) {
     for (int i = 0; i < 5; ++i) {
         EXPECT_EQ(d.GetSheet(i), &sheets[i]);
     }
+}
+
+TEST(CChatDialog, LinkingResolvesRuntimeChildrenAndWritesRows) {
+    cChatDialog d;
+
+    auto edit = std::make_unique<cEditBox>();
+    auto* editPtr = edit.get();
+    editPtr->InitEditbox(390, 128);
+    editPtr->setLegacyId("MI_CHATEDITBOX");
+    d.Add(std::move(edit));
+
+    std::vector<cListDialog*> sheets;
+    for (int i = 0; i < 5; ++i) {
+        auto sheet = std::make_unique<cListDialog>();
+        auto* sheetPtr = sheet.get();
+        sheetPtr->setLegacyId("CTI_SHEET" + std::to_string(i + 1));
+        sheets.push_back(sheetPtr);
+        d.Add(std::move(sheet));
+    }
+
+    constexpr const char* kMenuIds[5]{
+        "CTI_BTN_WHOLE", "CTI_BTN_PARTY", "CTI_BTN_MUNPA",
+        "CTI_BTN_ALLMUNPA", "CTI_BTN_WORLD"};
+    std::vector<cPushupButton*> menus;
+    for (const auto* id : kMenuIds) {
+        auto menu = std::make_unique<cPushupButton>();
+        auto* menuPtr = menu.get();
+        menuPtr->setLegacyId(id);
+        menus.push_back(menuPtr);
+        d.Add(std::move(menu));
+    }
+    auto allShout = std::make_unique<cPushupButton>();
+    auto* allShoutPtr = allShout.get();
+    allShoutPtr->setLegacyId("CTI_BTN_ALLWORLD1");
+    d.Add(std::move(allShout));
+
+    d.Linking();
+
+    EXPECT_EQ(d.GetChatEditBox(), editPtr);
+    for (int i = 0; i < 5; ++i) EXPECT_EQ(d.GetSheet(i), sheets[i]);
+
+    d.AddMsg(mxh::ui::kChatLimitWhole | mxh::ui::kChatLimitShout,
+             0xFF123456u, "runtime message");
+    ASSERT_EQ(sheets[0]->RowCount(), 1u);
+    ASSERT_EQ(sheets[4]->RowCount(), 1u);
+    EXPECT_EQ(sheets[0]->GetRow(0).first, "runtime message");
+    EXPECT_EQ(sheets[0]->GetRow(0).second, 0xFF123456u);
+    EXPECT_EQ(d.GetLineNum(), 2);
+
+    d.SelectMenu(static_cast<int>(ChatSheet::Shout));
+    EXPECT_EQ(editPtr->editText(), "$");
+    EXPECT_TRUE(menus[4]->IsPushed());
+    EXPECT_FALSE(menus[0]->IsPushed());
+
+    d.SetAllShoutBtnPushed(true);
+    EXPECT_TRUE(allShoutPtr->IsPushed());
+    d.ShowGuildTab(false);
+    EXPECT_FALSE(menus[2]->isActive());
+    EXPECT_FALSE(menus[3]->isActive());
 }
 
 TEST(CChatDialog, AddMsgRoutesToMatchingSheets) {

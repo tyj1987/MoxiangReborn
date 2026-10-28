@@ -24,12 +24,14 @@
 
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
-#include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <iostream>
@@ -37,6 +39,7 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 namespace {
 
@@ -44,24 +47,60 @@ struct Args {
     std::uint16_t port       = 7001;
     std::string   db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string   db_path    = "modern/build/runtime/moxian_agent.db";
+    std::string   db_env;
+    std::string   bind_address = "0.0.0.0";
     bool          use_legacy = false;
     bool          use_hsel   = false;
     // Phase 9: optional MapServer connection for GameIn forwarding.
     std::string   map_server_addr;  // empty = no MapServer (stub mode)
     std::uint16_t map_server_port   = 8001;
     std::uint16_t default_map_num   = 12;
+    struct MapRouteSpec {
+        std::uint16_t map_num = 0;
+        std::string address;
+        std::uint16_t port = 0;
+    };
+    std::vector<MapRouteSpec> map_routes;
 };
+
+std::uint16_t parse_default_map(std::string_view token) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffu) {
+        std::cerr << "invalid --default-map (expected 0..255): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
+
+std::uint16_t parse_u16_option(std::string_view token, const char* option,
+                               std::uint16_t minimum = 1) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value > 0xffffu || value < minimum) {
+        std::cerr << "invalid " << option << " (expected " << minimum
+                  << "..65535): " << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
 
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_u16_option(argv[++i], "--port");
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--use-hsel")
@@ -72,23 +111,53 @@ Args parse_args(int argc, char** argv) {
             auto colon = spec.rfind(':');
             if (colon != std::string::npos) {
                 a.map_server_addr = spec.substr(0, colon);
-                a.map_server_port = static_cast<std::uint16_t>(
-                    std::stoi(spec.substr(colon + 1)));
+                a.map_server_port = parse_u16_option(
+                    spec.substr(colon + 1), "--map-server port");
             } else {
                 a.map_server_addr = spec;
             }
         }
         else if (s == "--default-map" && i + 1 < argc)
-            a.default_map_num = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.default_map_num = parse_default_map(argv[++i]);
+        else if (s == "--map-server-map" && i + 1 < argc) {
+            // Parse MAP=HOST:PORT. This is explicit so a production run
+            // cannot silently infer a destination from the process name.
+            const std::string spec = argv[++i];
+            const auto equals = spec.find('=');
+            const auto colon = spec.rfind(':');
+            if (equals == std::string::npos || colon <= equals + 1 ||
+                colon + 1 >= spec.size()) {
+                std::cerr << "invalid --map-server-map (expected MAP=HOST:PORT): "
+                          << spec << "\n";
+                std::exit(2);
+            }
+            Args::MapRouteSpec route;
+            route.map_num = static_cast<std::uint16_t>(
+                parse_u16_option(spec.substr(0, equals), "--map-server-map map", 0));
+            route.address = spec.substr(equals + 1, colon - equals - 1);
+            route.port = parse_u16_option(spec.substr(colon + 1),
+                                          "--map-server-map port");
+            if (route.map_num == 0 || route.port == 0 || route.address.empty())
+                std::exit(2);
+            a.map_routes.push_back(std::move(route));
+        }
         else if (s == "--help") {
             std::cout << "Usage: mxh_agent_server [options]\n"
                       << "  --port N              listen port (default 7001)\n"
                       << "  --db PATH             db path (SQLite file or MSSQL DSN)\n"
+                      << "  --db-env NAME         read database path/DSN from an environment variable\n"
                       << "  --backend NAME        'sqlite' (default) or 'mssql_odbc'\n"
+                      << "  --bind-address IP     listen interface (default 0.0.0.0)\n"
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
+                      << "  --map-server-map M=H:P register an additional map route\n"
                       << "  --default-map N       map assigned to newly created characters\n";
             std::exit(0);
+        }
+        else {
+            std::cerr << "unknown option: " << s << "\n"
+                      << "use --help for valid options\n";
+            std::exit(2);
         }
     }
     return a;
@@ -156,8 +225,10 @@ struct ReplyQueue {
 // them to AgentHandler for routing to the correct client.
 class MapClientHandler : public mxh::net::IConnectionHandler {
 public:
-    explicit MapClientHandler(mxh::server::AgentHandler& agent)
-        : agent_(agent) {}
+    MapClientHandler(mxh::server::AgentHandler& agent, std::uint16_t map_num)
+        : agent_(agent), map_num_(map_num) {}
+
+    void set_sender(mxh::net::ITcpSender* sender) noexcept { sender_ = sender; }
 
     bool on_connect(mxh::net::ConnectionId id,
                     const std::string& remote_addr) override {
@@ -169,11 +240,15 @@ public:
     void on_message(mxh::net::ConnectionId id,
                     const mxh::net::Message& msg) override {
         auto cat = static_cast<mxh::proto::Category>(msg.header.category);
-        std::cout << "[MapClient] recv cat=" << mxh::proto::category_name(cat)
-                  << " proto=" << (int)msg.header.protocol
-                  << " obj=" << msg.header.object_id << "\n";
+        if (mxh::net::packet_trace_enabled() ||
+            msg.header.protocol == static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::GameInAck)) {
+            std::cout << "[MapClient] recv cat=" << mxh::proto::category_name(cat)
+                      << " proto=" << (int)msg.header.protocol
+                      << " obj=" << msg.header.object_id << "\n";
+        }
         // Forward MapServer response to AgentHandler for client routing.
-        agent_.forward_from_map(id, msg);
+        agent_.forward_from_map(id, msg, map_num_, sender_);
     }
 
     void on_disconnect(mxh::net::ConnectionId id,
@@ -186,11 +261,23 @@ public:
 
 private:
     mxh::server::AgentHandler& agent_;
+    std::uint16_t map_num_ = 0;
+    mxh::net::ITcpSender* sender_ = nullptr;
     mxh::net::ConnectionId map_conn_id_{};
 };
 
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
+
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
 
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
@@ -206,7 +293,8 @@ int main(int argc, char** argv) {
               << "  locale   = " << locale_name() << "\n"
               << "  port     = " << args.port << "\n"
               << "  db.bk    = " << args.db_backend << "\n"
-              << "  db.path  = " << args.db_path << "\n"
+              << "  db.source= " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind     = " << args.bind_address << "\n"
               << "  legacy   = " << (args.use_legacy ? "YES" : "no") << "\n";
 
     // 1. Connect to database. Backend selected via --backend (sqlite
@@ -226,49 +314,8 @@ int main(int argc, char** argv) {
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect: " << cr.error_message << "\n"; return 1; }
 
-    // Phase 8: ensure character_info table exists with all needed columns.
-    // CREATE TABLE IF NOT EXISTS is idempotent. ALTER TABLE ADD COLUMN is
-    // also idempotent (silently fails if column already exists).
-    // SQLite-only DDL: skip for non-SQLite backends (MSSQL schema is
-    // created out-of-band, e.g. deploy/database/mx_modern_schema_mssql.sql
-    // or mxh_client_e2e --backend mssql_odbc --init-schema).
-    if (db->backend_name() == "sqlite") {
-        static const char* kSchemaInit =
-            "CREATE TABLE IF NOT EXISTS character_info ("
-            "    charname     TEXT PRIMARY KEY,"
-            "    chrid        INTEGER NOT NULL UNIQUE,"
-            "    userid       TEXT NOT NULL,"
-            "    character_data BLOB"
-            ");";
-        auto schema_result = db->execute(kSchemaInit);
-        if (!schema_result.ok()) {
-            std::cerr << "[main] schema init warning: "
-                      << schema_result.error_message << "\n";
-        }
-
-        static const char* kSchemaAlters[] = {
-            "ALTER TABLE character_info ADD COLUMN sex_type INTEGER DEFAULT 0",
-            "ALTER TABLE character_info ADD COLUMN hair_type INTEGER DEFAULT 0",
-            "ALTER TABLE character_info ADD COLUMN face_type INTEGER DEFAULT 0",
-            "ALTER TABLE character_info ADD COLUMN body_type INTEGER DEFAULT 0",
-            "ALTER TABLE character_info ADD COLUMN start_area INTEGER DEFAULT 0",
-            "ALTER TABLE character_info ADD COLUMN height REAL DEFAULT 1.0",
-            "ALTER TABLE character_info ADD COLUMN width REAL DEFAULT 1.0",
-            "ALTER TABLE character_info ADD COLUMN level INTEGER DEFAULT 1",
-            "ALTER TABLE character_info ADD COLUMN map_num INTEGER DEFAULT 12",
-            "ALTER TABLE character_info ADD COLUMN standing_idx INTEGER DEFAULT 0",
-        };
-        for (const auto* sql : kSchemaAlters) {
-            auto sr2 = db->execute(sql);
-            // Ignore errors (column already exists).
-            (void)sr2;
-        }
-    } else {
-        std::cout << "[main] schema for backend '"
-                  << db->backend_name()
-                  << "' is managed out-of-band; skipping SQLite DDL\n";
-    }
-    std::cout << "[main] DB schema initialized (backend=" << db->backend_name() << ")\n";
+    std::cout << "[main] DB connected; schema migration is an external precondition"
+              << " (backend=" << db->backend_name() << ")\n";
 
     // 2. Build reply queue + handler + server.
     auto queue = std::make_shared<ReplyQueue>();
@@ -280,31 +327,40 @@ int main(int argc, char** argv) {
         },
         args.use_legacy, args.use_hsel,
         [&server_ptr](mxh::net::ConnectionId id, const mxh::net::Message& m) {
-            if (server_ptr) server_ptr->send(id, m);
+            if (server_ptr) (void)server_ptr->send(id, m);
         }, args.default_map_num);
+    handler.set_allow_dev_gamein_fallback(false);
 
     mxh::net::TcpServer server(handler);
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
         std::cerr << "FATAL: server start: " << mxh::net::to_string(sr) << "\n";
         return 1;
     }
-    std::cout << "[main] AgentServer[" << locale_name() << "] listening on 0.0.0.0:"
+    std::cout << "[main] AgentServer[" << locale_name() << "] listening on "
+              << args.bind_address << ":"
               << args.port << "\n";
 
     // Phase 9: Connect to MapServer if specified.
     std::unique_ptr<MapClientHandler> map_handler;
     std::unique_ptr<mxh::net::TcpClient> map_client;
+    struct MapRouteConnection {
+        Args::MapRouteSpec spec;
+        std::unique_ptr<MapClientHandler> handler;
+        std::unique_ptr<mxh::net::TcpClient> client;
+    };
+    std::vector<std::unique_ptr<MapRouteConnection>> map_route_connections;
     auto next_map_reconnect = std::chrono::steady_clock::now();
 
     const auto connect_map_server = [&]() -> bool {
-        map_handler = std::make_unique<MapClientHandler>(handler);
+        map_handler = std::make_unique<MapClientHandler>(handler, args.default_map_num);
         map_client = std::make_unique<mxh::net::TcpClient>(*map_handler);
+        map_handler->set_sender(map_client.get());
         mxh::net::ClientConfig ccfg;
         ccfg.remote_address = args.map_server_addr;
         ccfg.port = args.map_server_port;
@@ -333,6 +389,35 @@ int main(int argc, char** argv) {
         }
     } else {
         std::cout << "[main] no --map-server specified, GameInSyn will use stub mode\n";
+    }
+
+    // Additional map endpoints are explicit and independent of the default
+    // connection. They are kept alive for the lifetime of AgentServer; a
+    // failed endpoint is reported and remains unavailable rather than being
+    // replaced by another map's connection.
+    for (const auto& spec : args.map_routes) {
+        auto route = std::make_unique<MapRouteConnection>();
+        route->spec = spec;
+        route->handler = std::make_unique<MapClientHandler>(handler, spec.map_num);
+        route->client = std::make_unique<mxh::net::TcpClient>(*route->handler);
+        route->handler->set_sender(route->client.get());
+        mxh::net::ClientConfig ccfg;
+        ccfg.remote_address = spec.address;
+        ccfg.port = spec.port;
+        ccfg.use_legacy_framing = true;
+        ccfg.connect_timeout = std::chrono::milliseconds(500);
+        const auto error = route->client->connect(ccfg);
+        if (error != mxh::net::NetError::Ok) {
+            std::cerr << "[main] cannot connect map=" << spec.map_num
+                      << " MapServer at " << spec.address << ":" << spec.port
+                      << " (" << mxh::net::to_string(error) << ")\n";
+            continue;
+        }
+        handler.set_map_server_for_map(spec.map_num, route->client.get(),
+                                       route->handler->get_map_conn_id());
+        std::cout << "[main] connected map=" << spec.map_num
+                  << " MapServer at " << spec.address << ":" << spec.port << "\n";
+        map_route_connections.push_back(std::move(route));
     }
 
     // 3. Main loop: drain reply queue + sleep + auto-reconnect MapClient.
@@ -364,6 +449,13 @@ int main(int argc, char** argv) {
         map_client->disconnect();
         map_client.reset();
         map_handler.reset();
+    }
+    for (auto& route : map_route_connections) {
+        handler.set_map_server_for_map(route->spec.map_num, nullptr,
+                                       mxh::net::ConnectionId{});
+        route->client->disconnect();
+        route->client.reset();
+        route->handler.reset();
     }
     server.stop();
     return 0;

@@ -7,8 +7,10 @@
 #include "mxh/compat/sound_list.hpp"
 #include "mxh/compat/hfl_height_field.hpp"
 #include "mxh/compat/stm_static_model.hpp"
+#include "mxh/compat/npc_chx_catalog.hpp"
 
 #include <cstdlib>
+#include <algorithm>
 #include <cfloat>
 #include <cstring>
 #include <filesystem>
@@ -41,20 +43,37 @@ COMMANDS:
     sound-list <SoundList.bin>     List original audio IDs and playback metadata
     hfl        <file.hfl>          Show terrain dimensions and texture palette
     stm        <file.stm>          Show static scene materials and mesh totals
+    npc-chx    <NpcChxList.bin>    Show NPC kind-to-CHX catalog entries
 
 OPTIONS:
     -o, --output DIR    Output directory
+    --profile ID        Resource profile for info/extract.
+                        Default and sworking-2008-reference keep R-17.
+                        playdh-current refuses an installed container.
     -h, --help          Show this help
 )";
 }
 
-int cmd_info(const fs::path& path) {
-    auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
+mxh::compat::Result<mxh::compat::MhFile> read_bin_for_profile(
+    const fs::path& path, const std::string& profile) {
+    if (profile.empty()) return mxh::compat::read_mh_bin(path);
+    return mxh::compat::read_mh_bin(path, profile);
+}
+
+int fail_bin_read(const fs::path& path,
+                   const mxh::compat::Result<mxh::compat::MhFile>& result) {
+    if (!result.message.empty()) {
+        std::cerr << result.message << "\n";
+    } else {
         std::cerr << "ERROR: failed to read " << path << " (code="
                   << static_cast<int>(result.error) << ")\n";
-        return 1;
     }
+    return 1;
+}
+
+int cmd_info(const fs::path& path, const std::string& profile) {
+    auto result = read_bin_for_profile(path, profile);
+    if (!result.ok()) return fail_bin_read(path, result);
     const auto& file = result.value;
     std::cout << "File:        " << path << "\n";
     std::cout << "Header:\n";
@@ -99,6 +118,27 @@ int cmd_sound_list(const fs::path& path) {
     return 0;
 }
 
+int cmd_npc_chx(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input) { std::cerr << "ERROR: cannot open " << path << "\n"; return 1; }
+    const auto size = static_cast<std::size_t>(input.tellg());
+    input.seekg(0);
+    std::vector<std::uint8_t> bytes(size);
+    if (!input.read(reinterpret_cast<char*>(bytes.data()),
+                   static_cast<std::streamsize>(size))) return 1;
+    const auto catalog = mxh::compat::NpcChxCatalog::parse_bin(
+        std::span<const std::uint8_t>(bytes.data(), bytes.size()));
+    if (!catalog) {
+        std::cerr << "ERROR: NpcChxList payload could not be parsed\n";
+        return 1;
+    }
+    std::cout << "NpcChxList entries=" << catalog->entries().size() << "\n";
+    for (std::size_t index = 1; index < catalog->entries().size(); ++index) {
+        std::cout << index << '\t' << catalog->entries()[index] << '\n';
+    }
+    return 0;
+}
+
 int cmd_hfl(const fs::path& path) {
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     if (!input) { std::cerr << "ERROR: cannot open " << path << "\n"; return 1; }
@@ -113,9 +153,20 @@ int cmd_hfl(const fs::path& path) {
     }
     std::vector<bool> used(hfl.textures.size(), false);
     for (const auto tile : hfl.tiles) if ((tile & 0x3fffu) < used.size()) used[tile & 0x3fffu] = true;
+    float min_height = 0.0f;
+    float max_height = 0.0f;
+    if (!hfl.heights.empty()) {
+        const auto [min_it, max_it] = std::minmax_element(
+            hfl.heights.begin(), hfl.heights.end());
+        min_height = *min_it;
+        max_height = *max_it;
+    }
     std::cout << "HFL version=" << hfl.version << " heights=" << hfl.desc.height_count_x << 'x'
               << hfl.desc.height_count_z << " tiles=" << hfl.desc.tile_count_x << 'x'
-              << hfl.desc.tile_count_z << " textures=" << hfl.textures.size() << "\n";
+              << hfl.desc.tile_count_z << " textures=" << hfl.textures.size()
+              << " face_size=" << hfl.desc.face_size
+              << " width=" << hfl.desc.width << " height=" << hfl.desc.height
+              << " elevation=" << min_height << ".." << max_height << "\n";
     for (std::size_t i = 0; i < hfl.textures.size(); ++i)
         std::cout << i << '\t' << hfl.textures[i].index << '\t' << hfl.textures[i].name
                   << "\tused=" << used[i] << '\n';
@@ -165,12 +216,10 @@ int cmd_stm(const fs::path& path) {
     return 0;
 }
 
-int cmd_extract(const fs::path& path, const fs::path& out_dir) {
-    auto result = mxh::compat::read_mh_bin(path);
-    if (!result.ok()) {
-        std::cerr << "ERROR: read failed (code=" << static_cast<int>(result.error) << ")\n";
-        return 1;
-    }
+int cmd_extract(const fs::path& path, const fs::path& out_dir,
+                 const std::string& profile) {
+    auto result = read_bin_for_profile(path, profile);
+    if (!result.ok()) return fail_bin_read(path, result);
     fs::create_directories(out_dir);
     auto out = out_dir / (path.stem().string() + ".dec");
     std::ofstream f(out, std::ios::binary);
@@ -313,12 +362,17 @@ int main(int argc, char** argv) {
 
     // Parse -o flag anywhere after command.
     fs::path out_dir = fs::current_path();
+    std::string profile;
     std::vector<std::string> positional;
     for (int i = 2; i < argc; ++i) {
         std::string_view a = argv[i];
         if (a == "-o" || a == "--output") {
             if (i + 1 < argc) {
                 out_dir = argv[++i];
+            }
+        } else if (a == "--profile") {
+            if (i + 1 < argc) {
+                profile = argv[++i];
             }
         } else if (a == "-h" || a == "--help") {
             print_usage();
@@ -330,10 +384,10 @@ int main(int argc, char** argv) {
 
     try {
         if (cmd == "info" && positional.size() == 1) {
-            return cmd_info(positional[0]);
+            return cmd_info(positional[0], profile);
         }
         if (cmd == "extract" && positional.size() == 1) {
-            return cmd_extract(positional[0], out_dir);
+            return cmd_extract(positional[0], out_dir, profile);
         }
         if (cmd == "list" && positional.size() == 1) {
             return cmd_list(positional[0]);
@@ -349,6 +403,9 @@ int main(int argc, char** argv) {
         }
         if (cmd == "sound-list" && positional.size() == 1) {
             return cmd_sound_list(positional[0]);
+        }
+        if (cmd == "npc-chx" && positional.size() == 1) {
+            return cmd_npc_chx(positional[0]);
         }
         if (cmd == "hfl" && positional.size() == 1) {
             return cmd_hfl(positional[0]);

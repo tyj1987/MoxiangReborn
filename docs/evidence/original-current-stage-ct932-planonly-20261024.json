@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-current-stage-ct932-planonly",
+  "capturedAt": "2026-10-24",
+  "sourceHead": "335f004ee59088348d65b8c78e2235292fc0e350",
+  "sourceDirty": false,
+  "buildSourceHead": "41b4022be5813e0ddf5f329d25e185f9aaa5b97f",
+  "buildSourceComparison": {
+    "cppSourceHeadersTestsAndBuildConfigurationChanged": false
+  },
+  "package": {
+    "path": "modern/out/runs/original-current-ct932-20261024.zip",
+    "sha256": "c5c9da6a00ca11aada3616811b0f01a05680adf1ab43b603a3d474068d3b7129",
+    "fileCount": 12,
+    "resourcePakCount": 4
+  },
+  "target": {
+    "vmid": 112,
+    "host": "192.168.2.244",
+    "stage": "C:\\Moxiang\\original\\stage-ct932-20261024",
+    "databaseHost": "192.168.2.237",
+    "database": "MoxiangOriginalRestoreAudit_20261024",
+    "ports": [36001, 37001, 38001, 38002, 38003],
+    "isolatedDatabaseContainer": 932,
+    "liveSourceDatabaseContainer": 930
+  },
+  "resourceReconciliation": {
+    "profileId": "playdh-current",
+    "manifestSha256": "875d2de35eb0f22b4cf20eb2caa3794902b87c9e6038e30c73f0663c2f74d90c",
+    "expectedFiles": 5297,
+    "expectedBytes": 1691253485,
+    "initialStageFiles": 5136,
+    "initialStageBytes": 1689474757,
+    "missingFiles": 161,
+    "missingBytes": 1778728,
+    "unexpectedFiles": 0,
+    "wrongExistingHashes": 0,
+    "overlayArchiveSha256": "fb1f998fd5dbc69d58dc8089b0359251b80d4d4d2732b12157c42836d86577a2",
+    "addedFiles": 161,
+    "addedBytes": 1778728,
+    "addedHashesVerified": true,
+    "finalFiles": 5297,
+    "finalBytes": 1691253485,
+    "overlayRetainedAtStageRoot": true
+  },
+  "planOnly": {
+    "status": "passed",
+    "startsProcesses": false,
+    "sourceHead": "335f004ee59088348d65b8c78e2235292fc0e350",
+    "ports": [36001, 37001, 38001, 38002, 38003],
+    "resourceManifestCountAndBytes": "passed",
+    "stageFileHashes": "passed",
+    "databaseConnection": "not_attempted_by_plan_only"
+  },
+  "serviceStart": {
+    "status": "blocked_before_process_launch",
+    "sqlError": "08001 ODBC Driver 18 TLS target principal name mismatch",
+    "isolatedCloneCredentialDiagnostic": "login failed for sa; password not recorded",
+    "trustServerCertificateWasRelaxed": false,
+    "processesStarted": 0,
+    "candidatePidManifestCreated": false
+  },
+  "credentialRecovery": {
+    "isolatedCloneSaResetAttempt": "failed_before_interactive_prompt",
+    "isolatedSqlServiceAfterAttempt": "active",
+    "sourceContainerCredentialsChanged": false,
+    "databaseSchemaOrBusinessRowsWritten": false,
+    "credentialMaterialCommitted": false
+  },
+  "liveEnvironmentAfterAttempt": {
+    "ct930SqlService": "active",
+    "ct932SqlService": "active",
+    "vm112OriginalDefaultPorts": "unchanged",
+    "vm112UnityDefaultPorts": "unchanged",
+    "candidatePortsListening": false,
+    "ct930DatabaseWrites": false,
+    "sourceBackupsChanged": false
+  },
+  "notProven": [
+    "Current-source services are not running against CT932.",
+    "VM112 login and gameplay have not been executed against this stage.",
+    "GUI, business persistence, process restart, and cross-client acceptance remain open."
+  ]
+}

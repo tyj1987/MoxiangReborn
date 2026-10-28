@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-full-ctest",
+  "runDate": "2026-10-24",
+  "sourceHead": "8a3974a16ab13f083c3e9c35b5433469e06cbe4b",
+  "command": "ctest --test-dir modern/out/ctest-current-20261015 --output-on-failure -j 8",
+  "result": {
+    "total": 12574,
+    "passed": 12574,
+    "failed": 0,
+    "skipped": 14,
+    "exitCode": 0,
+    "realTimeSeconds": 123.94
+  },
+  "skippedTests": [
+    "MhFileExUtf8.LegacyEucKrTitanServerBinDecodesToEucKr",
+    "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+    "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+    "MxhResourcePayloadSha256.VerifyManifest_Deploy",
+    "MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds",
+    "MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip",
+    "MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip",
+    "MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState",
+    "DropItemLoaderTest.ParsesReadOnlySworkingReference",
+    "AiGroupLoader.LoadsRealMonster10Bin",
+    "AiGroupLoader.LoadsRealEmptyMonster12Bin",
+    "AISystemGroupLoader.ReplacesStateTransactionally",
+    "HselMapFixture.HselEncryptedGameInRoundTrip",
+    "PlayerMonsterPoint.LoadsRecoveredRuntimeBinary"
+  ],
+  "interpretation": "All runnable original-line tests passed. The 14 explicit skips remain real MSSQL, deployment/reference, and protected-runtime gates; they are not counted as commercial acceptance."
+}

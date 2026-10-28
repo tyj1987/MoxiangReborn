@@ -1,0 +1,17 @@
+{
+  "schema": "moxiang.evidence.original.debug-targeted-tests.v1",
+  "date": "2026-10-15",
+  "worktreeHead": "f5bb07e1c29fa96c79767eee525a919ce5c13cff",
+  "command": "ctest -C Debug --test-dir modern/build -R ^(MoxianClientE2E|FilesystemFileStorage\\..*|EffectRuntime\\..*|PackFile\\..*|SkillListParser\\..*|ExperienceCurve\\..*|RealResource\\..*)$ --output-on-failure",
+  "registeredSelected": 51,
+  "passed": 51,
+  "failed": 0,
+  "notRun": 0,
+  "result": "targeted-debug-pass",
+  "fullSuiteLimitations": [
+    "The existing build directory uses the NMake generator, but nmake is unavailable for a clean rebuild.",
+    "The full ctest registration includes missing server/portal executables and the RenderDemo executable.",
+    "One protocol burst test timed out in the stale full-suite run; it is not counted in this targeted result."
+  ],
+  "scope": "local client/resource/protocol regression evidence; does not replace PVE MSSQL, GUI visual, exact resource, or full clean-build gates"
+}

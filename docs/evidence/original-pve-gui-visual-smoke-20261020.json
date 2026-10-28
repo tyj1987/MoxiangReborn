@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-gui-visual-smoke",
+  "capturedAt": "2026-10-20T14:34:37+08:00",
+  "sourceHead": "c812703d",
+  "clientBinarySourceHead": "424cabdb14f5c38690d31ba3eed6f7fdd18ed5cb",
+  "worktree": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "client": {
+    "path": "modern/build/tools/MoxianClient/mxh_client.exe",
+    "sha256": "5BEFAFBB24D16A2B2EB32F34BE46252C3FC1BE660CE886749E2B8FED16965895",
+    "bytes": 4432384,
+    "exitCode": 0,
+    "renderer": "Direct3D 11",
+    "resourceProfile": "playdh-current"
+  },
+  "remote": {
+    "vm": 112,
+    "host": "192.168.2.244",
+    "loginPort": 16001,
+    "agentPort": 17001,
+    "mapPort": 18001,
+    "serverMutation": "not performed; -SkipServerStart",
+    "accountRegistration": "not performed; -SkipRegister",
+    "credentialHandling": "password supplied process-only and omitted from this receipt"
+  },
+  "command": "scripts/visual-smoke.ps1 -BuildDir modern/build -TimeoutSeconds 90 -MapNumber 10 -Username origpve15 -Password <process-only> -LoginHost 192.168.2.244 -LoginPort 16001 -AgentPort 17001 -MapPort 18001 -SkipServerStart -SkipRegister -ExistingCharacter",
+  "runRoot": "modern/out/runs/visual-smoke/c786ea2e",
+  "stateFrames": {
+    "verification": "scripts/verify-state-frames.py ... --permissive",
+    "result": "PASS",
+    "captured": [
+      {
+        "name": "connect",
+        "path": "modern/out/runs/visual-smoke/c786ea2e/state-frames/state-connect.tga",
+        "bytes": 1920018,
+        "sha256": "1AFE991A6FF85CE80C7EBEB3DDCEC800FB3ACDAE0FFBC04E5842556B67619E30",
+        "size": "800x600"
+      },
+      {
+        "name": "login",
+        "path": "modern/out/runs/visual-smoke/c786ea2e/state-frames/state-login.tga",
+        "bytes": 3145746,
+        "sha256": "64B3742665D2A4A99315D1E477384003EB89C7FBD0991F149BF1B378F981A5D3",
+        "size": "1024x768"
+      },
+      {
+        "name": "charselect",
+        "path": "modern/out/runs/visual-smoke/c786ea2e/state-frames/state-charselect.tga",
+        "bytes": 3145746,
+        "sha256": "1AAC5A88CC63712599F41582202B645A9B648BFEAC0B53C21DFC11F3C1B7A155",
+        "size": "1024x768"
+      },
+      {
+        "name": "gameloading",
+        "path": "modern/out/runs/visual-smoke/c786ea2e/state-frames/state-gameloading.tga",
+        "bytes": 3145746,
+        "sha256": "64B3742665D2A4A99315D1E477384003EB89C7FBD0991F149BF1B378F981A5D3",
+        "size": "1024x768"
+      },
+      {
+        "name": "gamein",
+        "path": "modern/out/runs/visual-smoke/c786ea2e/state-frames/state-gamein.tga",
+        "bytes": 3145746,
+        "sha256": "C87BF7E6A9BC8D186937BC438A04ACB6C3C3616DC6E672777A538B15687B785A",
+        "size": "1024x768"
+      }
+    ],
+    "missingByDesign": [
+      {
+        "name": "charmake",
+        "reason": "existing-character path does not enter character creation"
+      }
+    ]
+  },
+  "logEvidence": {
+    "path": "modern/out/runs/visual-smoke/c786ea2e/logs/client.err.log",
+    "bytes": 345123,
+    "sha256": "E2BF8628AC7B6D6C1F7FC6EFB456B157BCB82A70582DAC558C51FE3360F92B5D",
+    "markers": [
+      "MapChange.bin loaded entries=180",
+      "original BGM id=1667",
+      "original BGM id=1670",
+      "SFX manifest ready entries=1674 wav=740 ui=52 attack=26 skill=56 pickup=57",
+      "original ItemList loaded entries=9887 errors=0",
+      "original MonsterList loaded entries=499",
+      "original NpcChxList loaded entries=87",
+      "LoginAck agent=192.168.2.244:17001",
+      "GameInAck player_id=100017 map=10",
+      "GUI_SMOKE_PASS player_id=100017 map=10",
+      "GameOutSyn player_id=100017"
+    ]
+  },
+  "visualInspection": {
+    "gameinFrame": "tool-inspected; Map10 terrain, HUD, quick slots, minimap and visible entities are present",
+    "humanAcceptance": "not performed"
+  },
+  "result": "PARTIAL_PASS",
+  "limitations": [
+    "This run proves remote Login -> CharacterSelect -> Map10 GameIn with real client rendering; it does not prove character creation.",
+    "HUD-only and inventory interaction states remain pending SendInput/dialog-tree coverage.",
+    "It does not close exact HFL/TTB/Map17/Map203 original-resource gates, full gameplay, MSSQL fault recovery, or long-stability acceptance."
+  ],
+  "releaseReady": false
+}

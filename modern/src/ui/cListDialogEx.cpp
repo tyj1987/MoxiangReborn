@@ -6,6 +6,9 @@
 // emLink_* enum mapping.
 
 #include "cListDialogEx.hpp"
+#include "TextRender.hpp"
+
+#include <algorithm>
 
 namespace mxh::ui {
 
@@ -91,6 +94,38 @@ int cListDialogEx::ListMouseCheck(std::int32_t x, std::int32_t y,
         }
     }
     return selIdx;
+}
+
+void cListDialogEx::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+
+    const auto lineHeight = GetLineHeight();
+    if (lineHeight <= 0) return;
+
+    const int selected = GetCurSelectedRowIdx();
+    const int top = std::max(0, GetTopListItemIdx());
+    const int maxLines = GetMaxLine() == 0 ? static_cast<int>(m_linkItems.size())
+                                           : static_cast<int>(GetMaxLine());
+    const int end = std::min(static_cast<int>(m_linkItems.size()), top + maxLines);
+    for (int row = top; row < end; ++row) {
+        const auto& item = m_linkItems[static_cast<std::size_t>(row)];
+        std::int32_t x = absX();
+        const std::int32_t y = absY() + (row - top) * lineHeight;
+        for (const LinkItem* part = &item; part != nullptr; part = part->next.get()) {
+            TextRenderRequest request;
+            request.text = part->text;
+            request.x = x;
+            request.y = y;
+            request.width = 0;
+            request.height = lineHeight;
+            request.color = row == selected ? part->overColor : part->color;
+            request.font_index = 0;
+            request.align = TextRenderAlign::Left;
+            renderText(request);
+            x += static_cast<std::int32_t>(part->text.size()) * 8;
+        }
+    }
 }
 
 }  // namespace mxh::ui

@@ -2,7 +2,6 @@ add_executable(mxh_ui_tests
     cobject_test.cpp
     clistitem_test.cpp
     cwindow_test.cpp
-    cResourceManager_test.cpp
     cinventoryexdialog_test.cpp
     citemshopdialog_test.cpp
     cdealdialog_test.cpp
@@ -203,7 +202,38 @@ add_executable(mxh_ui_tests
     cskillpointredist_test.cpp
 )
 
+add_executable(mxh_dialog_atlas_tests cDialogLoader_atlas_test.cpp)
+target_link_libraries(mxh_dialog_atlas_tests PRIVATE
+    mxh_ui mxh_compat mxh_log gtest_main)
+target_include_directories(mxh_dialog_atlas_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
+target_compile_definitions(mxh_dialog_atlas_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+add_test(NAME mxh_dialog_atlas_contract COMMAND mxh_dialog_atlas_tests)
+
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
+# Interface-script goldens live in the repo, not under PlayDH. The test
+# locates them from this source root and does not walk the working directory.
+target_compile_definitions(mxh_ui_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+
+# cResourceManager_test uses its own small hand-written runner.  Keeping it in
+# mxh_ui_tests replaced GoogleTest's main(), so every registered UI gtest was
+# reported as passing without executing.  Run it as an explicit standalone
+# test instead.
+add_executable(mxh_ui_resource_manager_tests
+    cResourceManager_test.cpp
+)
+target_link_libraries(mxh_ui_resource_manager_tests PRIVATE
+    mxh_ui mxh_compat mxh_log
+)
+if(MSVC)
+    target_compile_options(mxh_ui_resource_manager_tests PRIVATE /FS /Z7 /MP1)
+endif()
+add_test(NAME mxh_ui_resource_manager_tests
+    COMMAND $<TARGET_FILE:mxh_ui_resource_manager_tests>)
+set_tests_properties(mxh_ui_resource_manager_tests PROPERTIES
+    SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")
 
 # InterfaceScript legacy test uses nlohmann/json for structural compare.
 target_include_directories(mxh_ui_tests PRIVATE
@@ -330,6 +360,7 @@ gtest_add_tests(TARGET mxh_ui_tests
     CWindowManager.RemoveDialogByIdDeferDestroys
     CWindowManager.RemoveDialogByIdUnknownIsNoop
     CWindowManager.RemoveAllDefersAll
+    CWindowManager.AbandonAllForProcessExitReleasesOwnership
     CWindowManager.FindByIdRecursesIntoDialogs
     CWindowManager.FindByXYReturnsTopmostHit
     CWindowManager.ModalDialogSteersAllInput
@@ -2313,6 +2344,8 @@ gtest_add_tests(TARGET mxh_ui_tests
     CStreetBuyStallTest.ResetClearsData
     # InterfaceScript parser (1:1 layout recovery from legacy bin files)
     InterfaceScriptParser.ParsesSingleRootDialog
+    InterfaceScriptParser.PreservesSignedTextOffsets
+    InterfaceScriptParser.RejectsMalformedNewTextStyleValues
     InterfaceScriptParser.ParsesDialogProperties
     InterfaceScriptParser.ParsesCommentLines
     InterfaceScriptParser.ParsesChildrenRecursively
@@ -2337,7 +2370,23 @@ gtest_add_tests(TARGET mxh_ui_tests
     InterfaceScriptRender.QuickDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.ExitDialogRendersAtLegacyPixelPosition
     InterfaceScriptRender.MultipleDialogsRenderAtDistinctLegacyPositions
-    # M-R3: cDialogLoader 是 hand-rolled main-style 跟 cResourceManager_test 一起跑 (双 main 冲突),
-    # 不在 gtest_add_tests 列表里 — 它作为 mxh_ui_tests 的 main 调用顺序的一部分.
+    # M-R3 cDialogLoader has a separate hand-rolled executable registered by
+    # tests/unit/CMakeLists.txt; mxh_ui_tests itself always uses gtest_main.
 )
 
+add_executable(mxh_ui_text_render_tests
+    text_render_adapter_test.cpp
+)
+target_link_libraries(mxh_ui_text_render_tests PRIVATE
+    mxh_ui mxh_log gtest_main
+)
+if(MSVC)
+    target_compile_options(mxh_ui_text_render_tests PRIVATE /FS /Z7 /MP1)
+endif()
+gtest_add_tests(TARGET mxh_ui_text_render_tests
+    TextRenderAdapterTest.StaticForwardsLegacyGeometryAndShadow
+    TextRenderAdapterTest.StaticSignedOffsetsAndOverflowFailClosed
+    TextRenderAdapterTest.EditBoxForwardsMaskedTextCaretAndStyle
+    TextRenderAdapterTest.ButtonForwardsStateColorAlignmentAndShadow
+    TextRenderAdapterTest.MsgBoxRendersLegacyLabelsAndMultilineBody
+)

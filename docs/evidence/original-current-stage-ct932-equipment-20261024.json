@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-current-stage-ct932-equipment-20261024",
+  "observedDate": "2026-10-24",
+  "result": "passed_isolated_equipment_move_and_relogin",
+  "releaseReady": false,
+  "clientSourceCommit": "2b3667875db04c1fe49f98ec5c683239a0540172",
+  "serverSourceCommit": "d1481931f2dae214af3d26f8927afa5253cf3fc2",
+  "runtimePackageSha256": "4587c50c93ef64755e5966f9e436f181292c62d98587919cc7d5bd99192b36ab",
+  "resourceManifestSha256": "875d2de35eb0f22b4cf20eb2caa3794902b87c9e6038e30c73f0663c2f74d90c",
+  "resourceFiles": 5297,
+  "resourceBytes": 1691253485,
+  "endpoint": {
+    "vm": 112,
+    "stage": "C:\\Moxiang\\original\\stage-ct932-20261024-r2",
+    "host": "192.168.2.244",
+    "ports": {
+      "login": 36101,
+      "agent": 37101,
+      "map10": 38101,
+      "map12": 38102,
+      "map2": 38103
+    },
+    "serverSpawnedByClient": false
+  },
+  "database": {
+    "container": 932,
+    "host": "192.168.2.237",
+    "name": "MoxiangOriginalRestoreAudit_20261024",
+    "schemaVersion": 4,
+    "tls": {
+      "encrypt": true,
+      "trustServerCertificate": false,
+      "hostnameInCertificate": "moxiang-db-recovery-20261009"
+    },
+    "sourceContainer930Modified": false,
+    "accountRegistrationRunId": "moxiang-ct932-e2e-account-ffb5554011bb4e1d8c8b46e7da223b20"
+  },
+  "fixture": {
+    "playerId": 100005,
+    "character": "EQa3cdb08b21",
+    "startingLevel": 1,
+    "map": 10,
+    "weapon": {
+      "databaseIndex": 700003,
+      "itemId": 11000,
+      "equipmentSlot": 1,
+      "absoluteEquipmentPosition": 81
+    }
+  },
+  "client": {
+    "executable": "modern/build-commercial-check-20261010/tools/MoxianClientE2E/Release/mxh_client_e2e.exe",
+    "sha256": "67267a652883f1370205c9e73383126049be8cc70096848d1f5516c9e7570466",
+    "commandProfile": "--no-spawn --use-hsel --exercise-equip --timeout 60 --login-port 36101 --agent-port 37101 --map-port 38101 --map-number 10",
+    "loginAck": true,
+    "characterListAck": true,
+    "characterSelectionAck": true,
+    "map10GameInAck": true,
+    "mapMonsterCount": 228,
+    "unequipMoveAck": {
+      "itemDatabaseIndex": 700003,
+      "sourcePosition": 81,
+      "targetInventorySlot": 0
+    },
+    "equipMoveAck": {
+      "itemDatabaseIndex": 700003,
+      "sourceInventorySlot": 0,
+      "targetPosition": 81
+    },
+    "gameOutAndFreshGameIn": true,
+    "freshGameInWeapon": {
+      "databaseIndex": 700003,
+      "itemId": 11000,
+      "appearanceSlot": 1
+    },
+    "exitCode": 0,
+    "log": "docs/evidence/original-current-stage-ct932-equip-final-20261024.log",
+    "logSha256": "08ffdb408c75e793c0797126722c0cd15ccbba1ed2711d8f727c0759a3ae19b1"
+  },
+  "localValidation": {
+    "configuration": "Release",
+    "buildTarget": "mxh_client_e2e",
+    "focusedCtest": {
+      "passed": 2,
+      "failed": 0,
+      "tests": [
+        "mxh_client_all_tests",
+        "MoxianClientE2EDumpCli"
+      ]
+    },
+    "gitDiffCheck": "passed"
+  },
+  "supplementalSetupRun": {
+    "description": "A preceding run created a fresh clone-only account/character and completed the same equipment round-trip before the helper was extracted; retained as setup-path evidence, not the canonical binary-bound result.",
+    "log": "docs/evidence/original-current-stage-ct932-equip-20261024.log",
+    "logSha256": "d3d4e6122dede8bbf1ab2fa98acc5240521dff54034b7f6519c2befcdf861fc4",
+    "exitCode": 0,
+    "canonicalResult": false
+  },
+  "limitations": [
+    "This was a headless protocol run and not human GUI acceptance.",
+    "The isolated equipment gate used the starter weapon and did not itself kill a monster or pick up a drop.",
+    "The combat E2E now invokes the same equipment helper after pickup, but that combined combat-pickup-equip path still needs a fresh run using the latest client commit.",
+    "Full-map, NPC, quest, social, economy, exact resource parity, Unity, licensing, and stability gates remain open."
+  ]
+}

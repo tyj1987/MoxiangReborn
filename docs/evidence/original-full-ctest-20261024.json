@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-full-ctest",
+  "runDate": "2026-10-24",
+  "workspace": "E:/Workspaces/moxiang/worktrees/original-integration",
+  "command": "ctest --test-dir modern/build/gameplay-client-isolated --output-on-failure -j1",
+  "result": {
+    "total": 12579,
+    "passed": 12579,
+    "failed": 0,
+    "skipped": 14,
+    "realTimeSeconds": 710.44
+  },
+  "skippedTests": [
+    "MhFileExUtf8.LegacyEucKrTitanServerBinDecodesToEucKr",
+    "Map10InGameSmoke.GameInAckDoesNotFalseFireInRelease",
+    "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+    "MxhResourcePayloadSha256.VerifyManifest_Deploy",
+    "MssqlOdbcAdapter.ConnectToLocalServerViaSharedMemorySucceeds",
+    "MssqlRealE2E.LoginCharacterAndLogMoneyRoundTrip",
+    "MssqlRealE2E.ModernSchemaLoginAndCharacterRoundTrip",
+    "MssqlRealE2E.BuySynOkArmPersistsMoneyToMssqlModernPlayerState",
+    "DropItemLoaderTest.ParsesReadOnlySworkingReference",
+    "AiGroupLoader.LoadsRealMonster10Bin",
+    "AiGroupLoader.LoadsRealEmptyMonster12Bin",
+    "AISystemGroupLoader.ReplacesStateTransactionally",
+    "HselMapFixture.HselEncryptedGameInRoundTrip",
+    "PlayerMonsterPoint.LoadsRecoveredRuntimeBinary"
+  ],
+  "interpretation": "All configured tests passed. Skipped tests remain explicit release gates and are not claimed as complete by this receipt."
+}

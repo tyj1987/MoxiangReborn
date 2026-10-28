@@ -1,5 +1,6 @@
--- Reset GameSrv password and ensure mixed mode auth works
-ALTER LOGIN [GameSrv] WITH PASSWORD = 'w8j2f@Z0H7#Xl', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
+-- Reset GameSrv password and ensure mixed mode auth works.  Provide the
+-- value through a protected SQLCMD variable; never commit a real password.
+ALTER LOGIN [GameSrv] WITH PASSWORD = '$(GameSrvPassword)', CHECK_POLICY = OFF, CHECK_EXPIRATION = OFF;
 GO
 ALTER LOGIN [GameSrv] ENABLE;
 GO

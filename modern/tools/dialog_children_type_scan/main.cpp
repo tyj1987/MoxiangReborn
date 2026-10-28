@@ -12,8 +12,28 @@
 
 int main(int argc, char** argv) {
     namespace fs = std::filesystem;
-    fs::path playdh_root = (argc >= 2) ? fs::path(argv[1])
-                                        : fs::path("C:/moxiang/modern/data/PlayDH");
+    fs::path playdh_root;
+    if (argc >= 2) {
+        playdh_root = fs::path(argv[1]);
+    } else {
+        std::error_code ec;
+        auto cursor = fs::current_path(ec);
+        for (int depth = 0; !ec && !cursor.empty() && depth < 8; ++depth) {
+            for (const auto& candidate : {
+                     cursor / "modern" / "data" / "PlayDH",
+                     cursor / "data" / "PlayDH",
+                     cursor / "PlayDH"}) {
+                if (fs::is_directory(candidate, ec)) {
+                    playdh_root = candidate;
+                    break;
+                }
+            }
+            if (!playdh_root.empty()) break;
+            const auto parent = cursor.parent_path();
+            if (parent == cursor) break;
+            cursor = parent;
+        }
+    }
     const auto dir = playdh_root / "Image" / "InterfaceScript";
     if (!fs::is_directory(dir)) {
         std::cerr << "missing: " << dir << "\n";

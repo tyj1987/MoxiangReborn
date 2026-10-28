@@ -227,6 +227,30 @@ TEST_F(CCheckBoxTest, ToggleOnDisabledCheckBoxIsNoOp) {
     EXPECT_FALSE(d->IsChecked());
 }
 
+TEST_F(CCheckBoxTest, PointerClickTogglesAndDispatchesCallback) {
+    std::uint32_t callbackWe = 0;
+    auto d = std::make_unique<cCheckBox>();
+    d->Init(10, 20, 30, 20, nullptr, nullptr, nullptr,
+            [&callbackWe](std::int32_t, void*, std::uint32_t we) {
+                callbackWe = we;
+            }, 77);
+    EXPECT_EQ(d->ActionEvent(15, 25, cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonDown));
+    EXPECT_EQ(d->ActionEvent(15, 25, 0),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::LButtonClick));
+    EXPECT_TRUE(d->IsChecked());
+    EXPECT_EQ(callbackWe, kWeChecked);
+}
+
+TEST_F(CCheckBoxTest, PointerDragOutCancelsWithoutToggle) {
+    auto d = std::make_unique<cCheckBox>();
+    d->Init(10, 20, 30, 20, nullptr, nullptr, nullptr, nullptr, 77);
+    d->ActionEvent(15, 25, cWindow::MouseFlagLButton);
+    EXPECT_EQ(d->ActionEvent(100, 100, 0),
+              static_cast<std::uint32_t>(cWindow::WindowEvent::Null));
+    EXPECT_FALSE(d->IsChecked());
+}
+
 TEST_F(CCheckBoxTest, ToggleOnDisabledCheckBoxDoesNotChangeState) {
     auto d = std::make_unique<cCheckBox>();
     d->Init(0, 0, 20, 20, nullptr, nullptr, nullptr, nullptr, 0);
@@ -258,13 +282,13 @@ TEST_F(CCheckBoxTest, ActionEventOnEnabledReturnsZero) {
 }
 
 // ---------------------------------------------------------------------------
-// Render (no-op stub)
+// Render safety and text/image adapter path
 // ---------------------------------------------------------------------------
 
-TEST_F(CCheckBoxTest, RenderIsNoOp) {
-    // 1:1 quirk: legacy Render draws checkBoxImage + checkImage
-    // + text. Modern port: Render is a no-op stub (Phase 6.x
-    // render wiring deferred).
+TEST_F(CCheckBoxTest, RenderWithoutImagesIsSafe) {
+    // A dialog may legitimately omit optional checkbox images.  Rendering
+    // still must not crash and text remains an adapter-safe no-op when the
+    // host has not installed a renderer.
     auto d = std::make_unique<cCheckBox>();
     d->Init(0, 0, 20, 20, nullptr, nullptr, nullptr, nullptr, 0);
     d->SetChecked(true);

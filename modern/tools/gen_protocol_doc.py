@@ -24,11 +24,12 @@ import re
 import subprocess
 import sys
 from datetime import datetime
+from pathlib import Path
 
-ROOT = r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）"
-PROTO_H = r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\墨香【源码】\[CC]Header\Protocol.h"
-DOC_OUT = r"D:\墨香全套源代码（源码+资源+客户端+服务端+教程）\docs\MoxianProtocolDoc.md"
-EXE = r"D:\Moxian\modern\build\tools\MoxianProtocolDoc\Release\MoxianProtocolDoc.exe"
+ROOT = str(Path(__file__).resolve().parents[2])
+PROTO_H = str(Path(ROOT) / "墨香【源码】" / "[CC]Header" / "Protocol.h")
+DOC_OUT = str(Path(ROOT) / "docs" / "MoxianProtocolDoc.md")
+EXE = str(Path(ROOT) / "modern" / "build" / "tools" / "MoxianProtocolDoc" / "MoxianProtocolDoc.exe")
 
 
 def run_summary():

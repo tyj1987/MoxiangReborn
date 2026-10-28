@@ -1,6 +1,7 @@
 // mxh/render/dx11/mesh_shaders.cpp
 // HLSL shaders for IDIMeshObject rendering.
 #include "mesh_shaders.hpp"
+#include "mxh/compat/stm_vertex_color.hpp"
 
 #include <d3dcompiler.h>
 
@@ -65,6 +66,72 @@ float4 main(PSInput i) : SV_Target {
         lit = lerp(lit, fogColor.rgb, fog);
     }
     return float4(lit, base.a);
+}
+)";
+
+
+// STM-only vertex-colour variant (legacy CVLSMeshObject path).
+// Original: VLSMeshObject.cpp:154 COLOROP=MODULATE (1x), stage 1 DISABLE
+// (L160), LIGHTING FALSE (L210); CoD3DDevice.cpp:2102-2107 ARG1=TEXTURE,
+// ARG2=DIFFUSE, ALPHAOP=SELECTARG1 (texture alpha only).
+// => rgb = tex.rgb * vcl.rgb, a = tex.a. No N.L. Fog as in kPS_Lit.
+// Two streams: slot 0 = MeshObject::Vertex (unchanged), slot 1 = COLOR0.
+static const char* kVS_StmVcl = R"(
+struct VSInput {
+    float3 pos    : POSITION;
+    float2 uv     : TEXCOORD0;
+    float3 normal : NORMAL;
+    float4 color  : COLOR0;
+};
+struct VSOutput {
+    float4 pos    : SV_Position;
+    float2 uv     : TEXCOORD0;
+    float4 color  : COLOR0;
+    float3 worldP : TEXCOORD2;
+};
+cbuffer CBWorld : register(b0) {
+    row_major float4x4 world;
+};
+cbuffer CBViewProj : register(b1) {
+    row_major float4x4 viewProj;
+};
+VSOutput main(VSInput i) {
+    VSOutput o;
+    float4 wp = mul(float4(i.pos, 1.0), world);
+    o.worldP = wp.xyz;
+    o.pos = mul(wp, viewProj);
+    o.uv = i.uv;
+    o.color = i.color;
+    return o;
+}
+)";
+
+static const char* kPS_StmVcl = R"(
+struct PSInput {
+    float4 pos    : SV_Position;
+    float2 uv     : TEXCOORD0;
+    float4 color  : COLOR0;
+    float3 worldP : TEXCOORD2;
+};
+cbuffer CBLight : register(b0) {
+    float4 ambient;
+    float4 diffuse;
+    float4 lightDir;
+    float4 cameraPos;
+    float4 fogParams;
+    float4 fogColor;
+};
+Texture2D    tex : register(t0);
+SamplerState samp : register(s0);
+float4 main(PSInput i) : SV_Target {
+    float4 base = tex.Sample(samp, i.uv);
+    float3 lit = base.rgb * i.color.rgb;   // D3DTOP_MODULATE (1x)
+    if (fogParams.x > 0.5) {
+        float dist = length(i.worldP - cameraPos.xyz);
+        float fog  = saturate((dist - fogParams.y) / max(fogParams.z - fogParams.y, 0.0001));
+        lit = lerp(lit, fogColor.rgb, fog);
+    }
+    return float4(lit, base.a);            // ALPHAOP SELECTARG1 (texture)
 }
 )";
 
@@ -250,6 +317,37 @@ bool MeshShaders::init(ID3D11Device* device) {
     if (FAILED(device->CreateInputLayout(layout, 3, vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &ilLit)))
         return false;
 
+    // STM vertex-colour variant (non-fatal: renderer falls back to lit PS).
+    {
+        Microsoft::WRL::ComPtr<ID3DBlob> vsVcl, psVcl, vclErr;
+        bool ok = SUCCEEDED(D3DCompile(kVS_StmVcl, strlen(kVS_StmVcl), nullptr, nullptr, nullptr,
+                                       "main", "vs_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+                                       &vsVcl, &vclErr)) &&
+                  SUCCEEDED(D3DCompile(kPS_StmVcl, strlen(kPS_StmVcl), nullptr, nullptr, nullptr,
+                                       "main", "ps_4_0", D3DCOMPILE_OPTIMIZATION_LEVEL3, 0,
+                                       &psVcl, &vclErr));
+        if (ok) {
+            D3D11_INPUT_ELEMENT_DESC vclLayout[] = {
+                { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 20, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                { "COLOR",    0, DXGI_FORMAT_R8G8B8A8_UNORM,  1, 0,  D3D11_INPUT_PER_VERTEX_DATA, 0 },
+            };
+            ok = SUCCEEDED(device->CreateVertexShader(vsVcl->GetBufferPointer(), vsVcl->GetBufferSize(),
+                                                      nullptr, &vsStmVcl)) &&
+                 SUCCEEDED(device->CreatePixelShader(psVcl->GetBufferPointer(), psVcl->GetBufferSize(),
+                                                     nullptr, &psStmVcl)) &&
+                 SUCCEEDED(device->CreateInputLayout(vclLayout, 4, vsVcl->GetBufferPointer(),
+                                                     vsVcl->GetBufferSize(), &ilStmVcl));
+        }
+        if (!ok) {
+            MLOG_ERROR("[mesh-shader] STM vertex-color variant unavailable (stmVclShaderFailed): %s",
+                      vclErr ? static_cast<const char*>(vclErr->GetBufferPointer()) : "create failed");
+            vsStmVcl.Reset(); psStmVcl.Reset(); ilStmVcl.Reset();
+            mxh::compat::stm_vcl_render_diagnostics().shader_failed = true;
+        }
+    }
+
     // 3D solid-color shaders (debug / RenderTri* path). Input = pos3 + packed RGBA.
     static const char* kVS_3DSolid = R"(
 struct VSInput {
@@ -329,6 +427,7 @@ float4 main(PSInput i) : SV_Target {
 
 void MeshShaders::release() {
     vsLit.Reset(); psLit.Reset(); psMultiLight.Reset(); psEffect.Reset(); ilLit.Reset();
+    vsStmVcl.Reset(); psStmVcl.Reset(); ilStmVcl.Reset();
     vs3DSolid.Reset(); ps3DSolid.Reset(); il3DSolid.Reset();
     cbWorld.Reset(); cbViewProj.Reset(); cbLight.Reset();
 }

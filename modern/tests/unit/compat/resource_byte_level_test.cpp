@@ -31,6 +31,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include "../../support/playdh_env.hpp"
 
 namespace fs = std::filesystem;
 
@@ -40,13 +41,27 @@ namespace {
 // parent name in the source. The test working directory is normally below
 // modern/, so checking each ancestor and its immediate children is enough.
 fs::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
     fs::path cwd;
     try { cwd = fs::current_path(); } catch (...) { return {}; }
+    for (const auto& candidate : {
+             cwd / "modern" / "data" / "PlayDH",
+             cwd / "data" / "PlayDH",
+         }) {
+        std::error_code ec;
+        if (fs::is_directory(candidate, ec)) return candidate;
+    }
     for (int depth = 0; !cwd.empty() && depth < 8;
          cwd = cwd.parent_path(), ++depth) {
         std::error_code ec;
         const auto direct = cwd / "PlayDH";
         if (fs::is_directory(direct, ec)) return direct;
+        for (const auto& candidate : {
+                 cwd / "modern" / "data" / "PlayDH",
+                 cwd / "data" / "PlayDH",
+             }) {
+            if (fs::is_directory(candidate, ec)) return candidate;
+        }
         for (fs::directory_iterator it(cwd,
                  fs::directory_options::skip_permission_denied, ec);
              !ec && it != fs::directory_iterator(); it.increment(ec)) {

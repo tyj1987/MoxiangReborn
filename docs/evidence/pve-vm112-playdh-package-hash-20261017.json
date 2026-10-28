@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "kind": "pve-vm112-playdh-package-hash",
+  "capturedAt": "2026-10-17",
+  "vmId": 112,
+  "path": "C:/Moxiang/original/stage-20261015/modern/data/PlayDH/Map.pak",
+  "bytes": 584312358,
+  "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+  "canonicalSha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+  "result": "byte-identical-to-canonical-playdh-map-pak",
+  "decision": "No copy or admission; VM112 package is an exact duplicate of the existing canonical package and does not supply the missing Map17 or Map203 dependencies.",
+  "releaseReady": false
+}

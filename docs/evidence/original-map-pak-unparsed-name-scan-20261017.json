@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-map-pak-unparsed-name-scan",
+  "capturedAt": "2026-10-17",
+  "candidate": {
+    "path": "D:/MX/client/Package/3DData/Map.pak",
+    "bytes": 1135536849,
+    "packageHeader": "different-format-unparsed"
+  },
+  "targets": {
+    "count": 170,
+    "source": "docs/evidence/original-map-pak-exact-entry-scan-20261017.json"
+  },
+  "scan": {
+    "method": "single-pass-memory-mapped-ASCII-alternation",
+    "caseInsensitive": true,
+    "exactFilenameHits": 0
+  },
+  "decision": "No exact Map17 or Map203 texture filename was found in the unparsed candidate; no copy, rename, substitution, or admission performed.",
+  "releaseReady": false
+}

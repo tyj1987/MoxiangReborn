@@ -1,9 +1,13 @@
 #include "mxh/render/EntityScene.hpp"
 
+#include "mxh/render/frustum.hpp"
+#include "mxh/render/EntityFrameStats.hpp"
+
 #include "mxh/compat/chx_model.hpp"
 #include "mxh/compat/anm_motion.hpp"
 #include "mxh/compat/character_appearance_catalog.hpp"
 #include "mxh/compat/monster_catalog.hpp"
+#include "mxh/compat/npc_chx_catalog.hpp"
 #include "mxh/compat/stm_static_model.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/game/item_list_parser.hpp"
@@ -13,12 +17,15 @@
 #include "dx11/mesh_object.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <chrono>
+#include <exception>
 #include <optional>
 #include <limits>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include <d3d11.h>
@@ -27,8 +34,21 @@
 namespace mxh::gx {
 namespace {
 using Microsoft::WRL::ComPtr;
-constexpr float kSceneScale = 0.001f;
-constexpr float kMapCenter = 25.6f;
+constexpr float kSceneScale = kEntitySceneScale;
+// kMapCenter is now sourced from the cached centre pushed by the caller via
+// EntityScene::setMapCenter (defaults to the legacy 25.6f constant for any
+// code path that constructs an EntityScene without a matching TerrainScene
+// — e.g. the standalone unit tests that build placeholders before the
+// terrain is loaded). See mxh::gx::EntityScene::setMapCenter for details.
+
+std::uint32_t entityModelKey(SceneEntityType type,
+                             std::uint16_t kind) noexcept {
+    return (static_cast<std::uint32_t>(type) << 16u) | kind;
+}
+
+const char* entityTypeName(SceneEntityType type) noexcept {
+    return type == SceneEntityType::Npc ? "npc" : "monster";
+}
 
 bool readFile(I4DyuchiFileStorage* storage, const char* name,
               std::vector<std::uint8_t>& bytes) {
@@ -44,11 +64,41 @@ bool readFile(I4DyuchiFileStorage* storage, const char* name,
 
 bool loadTexture(I4DyuchiFileStorage* storage, ID3D11Device* device,
                  const std::string& name, ComPtr<ID3D11ShaderResourceView>& srv) {
-    std::vector<std::uint8_t> encoded;
     if (name.empty()) return false;
-    std::string resolved = dx11::compiledTextureName(name);
-    if (resolved != name && !readFile(storage, resolved.c_str(), encoded)) resolved = name;
-    if (encoded.empty() && !readFile(storage, resolved.c_str(), encoded)) return false;
+    // Character MOD files use the original TGA/TIF material names while the
+    // runtime profile stores the compiled DDS sibling.  Keep the original
+    // name as a fallback (some legacy profiles really do ship the source
+    // texture), but try every supported compiled spelling before failing.
+    std::vector<std::string> candidates;
+    candidates.push_back(name);
+    const auto compiled = dx11::compiledTextureName(name);
+    if (compiled != name) candidates.push_back(compiled);
+    std::string extension = name.size() >= 4 ? name.substr(name.size() - 4) : std::string{};
+    std::transform(extension.begin(), extension.end(), extension.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (extension == ".tif") {
+        auto dds = name;
+        dds.replace(dds.size() - 4, 4, ".dds");
+        candidates.push_back(std::move(dds));
+    }
+    // A small number of converted assets retain the historical duplicated
+    // extension (for example foo.tga.tga); normalize that spelling too.
+    for (const auto& suffix : {std::string{".tga.tga"}, std::string{".tif.tif"}}) {
+        if (name.size() >= suffix.size() &&
+            std::equal(suffix.rbegin(), suffix.rend(), name.rbegin(),
+                       [](char a, char b) { return std::tolower(static_cast<unsigned char>(a)) ==
+                                                   std::tolower(static_cast<unsigned char>(b)); })) {
+            auto dds = name.substr(0, name.size() - suffix.size()) + ".dds";
+            candidates.push_back(std::move(dds));
+        }
+    }
+    std::vector<std::uint8_t> encoded;
+    for (const auto& candidate : candidates) {
+        if (readFile(storage, candidate.c_str(), encoded)) {
+            break;
+        }
+    }
+    if (encoded.empty()) return false;
     const auto decoded = dx11::loadTextureFromMemory(encoded.data(),
         static_cast<std::uint32_t>(encoded.size()));
     if (decoded.pixels.empty()) return false;
@@ -72,6 +122,20 @@ std::array<float, 3> transformPoint(const std::array<float, 3>& p,
 
 std::array<float, 16> identityMatrix() {
     return {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+}
+
+MATRIX4 makeWorldMatrix(float tx, float ty, float tz, float yaw) {
+    MATRIX4 world = MatrixIdentity();
+    const float cosine = std::cos(yaw);
+    const float sine = std::sin(yaw);
+    world._11 = cosine;
+    world._13 = -sine;
+    world._31 = sine;
+    world._33 = cosine;
+    world._41 = tx;
+    world._42 = ty;
+    world._43 = tz;
+    return world;
 }
 
 std::array<float, 16> multiplyMatrix(const std::array<float, 16>& a,
@@ -116,6 +180,48 @@ std::array<float, 16> composeMotion(const mxh::compat::StmBone& bone,
 
 }
 
+std::size_t chooseSceneMotionIndex(SceneEntityType type, bool player,
+                                   SceneAction action,
+                                   std::size_t motionCount) noexcept {
+    if (motionCount == 0) return 0;
+    std::size_t requested = 0;
+    if (player) {
+        if (action == SceneAction::Moving) requested = 2;       // Peace_Run (3)
+        else if (action == SceneAction::Dead) requested = 25;  // Die_Normal (26)
+    } else if (type == SceneEntityType::Monster) {
+        if (action == SceneAction::Moving) requested = 1;      // Walk (2)
+        else if (action == SceneAction::Attack) requested = 2; // Attack1 (3)
+        else if (action == SceneAction::Dead) requested = 8;   // Die (9)
+    }
+    return requested < motionCount ? requested : 0;
+}
+
+std::uint32_t placeholderArgb(PlaceholderKind kind) noexcept {
+    switch (kind) {
+        case PlaceholderKind::Npc: return 0xFFFFD700u;
+        case PlaceholderKind::Monster: return 0xFFFF4040u;
+        case PlaceholderKind::Player:
+        default: return 0xFF40E0FFu;
+    }
+}
+
+void fillPlaceholderOct(const PlaceholderVisual& visual, VECTOR3 oct[8]) noexcept {
+    if (!oct) return;
+    const float tx = visual.world_x * kEntitySceneScale - kEntityMapCenter;
+    const float ty = visual.world_y * kEntitySceneScale;
+    const float tz = visual.world_z * kEntitySceneScale - kEntityMapCenter;
+    const float r = visual.radius > 0.0f ? visual.radius : 0.5f;
+    const float top = ty + 2.0f * r;
+    oct[0] = {tx - r, ty, tz - r};
+    oct[1] = {tx + r, ty, tz - r};
+    oct[2] = {tx + r, ty, tz + r};
+    oct[3] = {tx - r, ty, tz + r};
+    oct[4] = {tx - r, top, tz - r};
+    oct[5] = {tx + r, top, tz - r};
+    oct[6] = {tx + r, top, tz + r};
+    oct[7] = {tx - r, top, tz + r};
+}
+
 struct EntityScene::Impl {
     struct Model {
         struct AnimatedPart {
@@ -126,7 +232,10 @@ struct EntityScene::Impl {
         std::vector<IDIMeshObject*> meshes;
         std::vector<ComPtr<ID3D11ShaderResourceView>> textures;
         std::vector<AnimatedPart> animated_parts;
-        std::optional<mxh::compat::AnmMotion> idle_motion;
+        std::vector<std::string> motion_files;
+        std::vector<std::optional<mxh::compat::AnmMotion>> motions;
+        std::vector<bool> motion_attempted;
+        std::size_t active_motion = std::numeric_limits<std::size_t>::max();
         std::chrono::steady_clock::time_point animation_started = std::chrono::steady_clock::now();
         bool animation_confirmed = false;
         float visual_scale = 1.0f;
@@ -138,21 +247,83 @@ struct EntityScene::Impl {
     I4DyuchiFileStorage* storage = nullptr;
     ID3D11Device* device = nullptr;
     std::optional<mxh::compat::MonsterCatalog> catalog;
+    std::optional<mxh::compat::NpcChxCatalog> npc_catalog;
     std::array<std::optional<mxh::compat::CharacterAppearanceCatalog>, 2> appearances;
     std::vector<mxh::game::ItemInfo> item_catalog;
-    std::unordered_map<std::uint16_t, std::unique_ptr<Model>> models;
+    std::unordered_map<std::uint32_t, std::unique_ptr<Model>> models;
+    std::unordered_map<std::uint32_t, std::unique_ptr<Model>> effectModels;
+    std::unordered_set<std::uint32_t> failed_models;
     std::unordered_map<std::uint32_t, std::unique_ptr<Model>> playerModels;
     std::vector<SceneEntity> instances;
-    std::optional<ScenePlayer> player;
-
-    Model* loadModel(std::uint16_t kind, const ScenePlayer* playerInfo = nullptr) {
+    std::vector<EffectObject> effect_instances;
+    std::optional<ScenePlayer> local_player;
+    std::vector<ScenePlayer> remote_players;
+    std::optional<Frustum> frustum;
+    std::uint32_t culled_instances = 0;
+    EntityFrameStats frame_stats;
+    // Cached (X, Z) half-extent in scaled world units. Pushed by
+    // setMapCenter() once per frame from TerrainScene::mapCenter() so the
+    // entity / placeholder render path re-centres its vertices by the same
+    // offset the terrain mesh builder subtracts. Defaults to the legacy
+    // 25.6f constant for unit tests that build an EntityScene without
+    // a corresponding TerrainScene (placeholders, snapshot tests, etc.).
+    float map_center_x = kEntityMapCenter;
+    float map_center_z = kEntityMapCenter;
+    std::uint32_t failed_load_count = 0;
+    bool placeholder_rendering_enabled = false;
+    std::unordered_set<std::uint32_t> placeholder_ids;
+    std::vector<PlaceholderVisual> placeholder_visuals;
+    Model* loadModel(std::uint16_t kind,
+                     const ScenePlayer* playerInfo = nullptr,
+                     SceneEntityType type = SceneEntityType::Monster,
+                     std::uint32_t objectId = 0,
+                     std::string_view explicitChx = {}) {
+        const auto modelKey = entityModelKey(type, kind);
+        const bool effectModel = !explicitChx.empty();
         if (playerInfo) {
             if (const auto it = playerModels.find(playerInfo->object_id); it != playerModels.end())
                 return it->second.get();
-        } else if (const auto it = models.find(kind); it != models.end()) return it->second.get();
+        } else if (effectModel) {
+            if (const auto it = effectModels.find(objectId); it != effectModels.end())
+                return it->second.get();
+        } else {
+            if (const auto it = models.find(modelKey); it != models.end())
+                return it->second.get();
+        }
+        if (!effectModel && failed_models.contains(modelKey)) {
+            if (objectId != 0) placeholder_ids.insert(objectId);
+            return nullptr;
+        }
+
+        const auto fail = [&](const char* stage,
+                              const std::string& path = {}) -> Model* {
+            MLOG_WARN("[entity] model unavailable object=%u type=%s kind=%u path=%s stage=%s",
+                      objectId, playerInfo ? "player" : entityTypeName(type),
+                      static_cast<unsigned>(kind), path.c_str(), stage);
+            ++failed_load_count;
+            if (objectId != 0) placeholder_ids.insert(objectId);
+            if (!effectModel) failed_models.insert(modelKey);
+            return nullptr;
+        };
+
         mxh::compat::MonsterVisual playerVisual;
         std::string faceMod, hairMod;
-        const auto* visual = catalog ? catalog->find(kind) : nullptr;
+        const mxh::compat::MonsterVisual* visual = nullptr;
+        if (effectModel) {
+            playerVisual.kind = kind;
+            playerVisual.chx_name = std::string(explicitChx);
+            playerVisual.scale = 1.0f;
+            visual = &playerVisual;
+        } else if (!playerInfo && type == SceneEntityType::Npc) {
+            const auto* chxName = npc_catalog ? npc_catalog->find(kind) : nullptr;
+            if (!chxName) return fail("NpcChxList.lookup");
+            playerVisual.kind = kind;
+            playerVisual.chx_name = *chxName;
+            playerVisual.scale = 1.0f;
+            visual = &playerVisual;
+        } else {
+            visual = catalog ? catalog->find(kind) : nullptr;
+        }
         if (!visual && kind >= 65000u) {
             const auto encoded = static_cast<unsigned>(kind - 65000u);
             const auto gender = std::min(encoded / 25u, 1u);
@@ -161,7 +332,10 @@ struct EntityScene::Impl {
             if (appearances[gender]) {
                 playerVisual.kind = kind;
                 playerVisual.chx_name = appearances[gender]->body.base_object;
-                playerVisual.scale = 1.0f;
+                // Character source meshes are authored in decimetres while
+                // world coordinates are centimetres; the legacy client
+                // applies the corresponding 8x presentation scale here.
+                playerVisual.scale = 8.0f;
                 if (face < appearances[gender]->faces.size())
                     faceMod = appearances[gender]->faces[face];
                 if (hair < appearances[gender]->hairs.size())
@@ -169,19 +343,26 @@ struct EntityScene::Impl {
                 visual = &playerVisual;
             }
         }
-        if (!visual) return nullptr;
+        if (!visual) return fail("visual_catalog.lookup");
+        if (!storage || !renderer) return fail("no_device", visual->chx_name);
         std::vector<std::uint8_t> chxBytes;
-        if (!readFile(storage, visual->chx_name.c_str(), chxBytes)) return nullptr;
+        if (!readFile(storage, visual->chx_name.c_str(), chxBytes))
+            return fail("CHX.read", visual->chx_name);
         const auto chx = mxh::compat::ChxModel::parse(chxBytes);
-        if (!chx) return nullptr;
-        std::optional<mxh::compat::AnmMotion> idleMotion;
-        if (kind >= 65000u && !chx->motions.empty()) {
-            std::vector<std::uint8_t> motionBytes;
-            if (readFile(storage, chx->motions.front().c_str(), motionBytes))
-                idleMotion = mxh::compat::AnmMotion::parse(motionBytes);
-        }
+        if (!chx) return fail("CHX.parse", visual->chx_name);
         auto model = std::make_unique<Model>();
-        model->idle_motion = idleMotion;
+        model->motion_files = chx->motions;
+        model->motions.resize(chx->motions.size());
+        model->motion_attempted.resize(chx->motions.size(), false);
+        if (!model->motion_files.empty()) {
+            std::vector<std::uint8_t> motionBytes;
+            model->motion_attempted[0] = true;
+            if (readFile(storage, model->motion_files.front().c_str(), motionBytes)) {
+                model->motions[0] = mxh::compat::AnmMotion::parse(motionBytes);
+            }
+        }
+        const auto* initialMotion = !model->motions.empty() && model->motions[0]
+            ? &*model->motions[0] : nullptr;
         model->visual_scale = visual->scale;
         auto modFiles = chx->mod_files;
         if (kind >= 65000u) {
@@ -191,22 +372,37 @@ struct EntityScene::Impl {
                 const auto& appearance = *appearances[std::min<unsigned>(playerInfo->gender, 1u)];
                 modFiles = mxh::game::resolve_equipped_character_mods(
                     modFiles, appearance.body.mod_files, item_catalog,
-                    playerInfo->weared_item_idx);
+                playerInfo->weared_item_idx);
+                const auto equipped = std::count_if(
+                    playerInfo->weared_item_idx.begin(),
+                    playerInfo->weared_item_idx.end(),
+                    [](std::uint16_t item) { return item != 0; });
+                MLOG_INFO("[entity] player appearance object=%u gender=%u face=%u hair=%u equipped=%zu resolved_mods=%zu",
+                          objectId, static_cast<unsigned>(playerInfo->gender),
+                          static_cast<unsigned>(playerInfo->face_type),
+                          static_cast<unsigned>(playerInfo->hair_type),
+                          equipped, modFiles.size());
             }
         }
+        if (modFiles.empty()) return fail("CHX.mod_list.empty", visual->chx_name);
+        std::size_t loadedModCount = 0;
         for (const auto& modName : modFiles) {
             std::vector<std::uint8_t> modBytes;
             mxh::compat::StmStaticModel mod;
             std::string error;
             if (!readFile(storage, modName.c_str(), modBytes) ||
-                !mxh::compat::parse_mod(modBytes, mod, &error)) continue;
+                !mxh::compat::parse_mod(modBytes, mod, &error))
+                return fail("MOD.load", modName);
+            ++loadedModCount;
             std::unordered_map<std::uint32_t, std::array<float, 16>> boneWorld;
             std::function<std::array<float, 16>(const mxh::compat::StmBone&)> resolveBone;
             resolveBone = [&](const mxh::compat::StmBone& bone) {
                 if (const auto found = boneWorld.find(bone.index); found != boneWorld.end())
                     return found->second;
-                auto world = idleMotion ? composeMotion(bone, idleMotion->find(bone.name), 0.0f) : bone.transform;
-                if (idleMotion && bone.parent_index != 0xffffffffu) {
+                auto world = initialMotion
+                    ? composeMotion(bone, initialMotion->find(bone.name), 0.0f)
+                    : bone.transform;
+                if (initialMotion && bone.parent_index != 0xffffffffu) {
                     const auto parent = std::find_if(mod.bones.begin(), mod.bones.end(),
                         [&](const auto& value) { return value.index == bone.parent_index; });
                     if (parent != mod.bones.end()) world = multiplyMatrix(world, resolveBone(*parent));
@@ -217,9 +413,13 @@ struct EntityScene::Impl {
             for (const auto& bone : mod.bones) resolveBone(bone);
             const auto materialBase = model->textures.size();
             model->textures.resize(materialBase + mod.materials.size());
-            for (std::size_t i = 0; i < mod.materials.size(); ++i)
-                loadTexture(storage, device, mod.materials[i].texture_name,
-                            model->textures[materialBase + i]);
+            for (std::size_t i = 0; i < mod.materials.size(); ++i) {
+                const auto& material = mod.materials[i];
+                if (!material.texture_name.empty() &&
+                    !loadTexture(storage, device, material.texture_name,
+                                 model->textures[materialBase + i]))
+                    return fail("texture.load", material.texture_name);
+            }
             for (const auto& source : mod.meshes) {
                 if (source.positions.empty() || source.positions.size() > 65535u) continue;
                 std::vector<VECTOR3> positions(source.positions.size());
@@ -279,23 +479,29 @@ struct EntityScene::Impl {
                     if (mesh->InsertFaceGroup(&face)) materials.push_back(group.material_index);
                 }
                 mesh->EndInitialize();
+                if (auto* dxMesh = dynamic_cast<dx11::MeshObject*>(mesh))
+                    dxMesh->setTwoSided(true);
                 for (std::uint32_t group = 0; group < materials.size(); ++group) {
                     const auto texture = materialBase + materials[group];
                     if (texture < model->textures.size())
                         mesh->SetFaceGroupDiffuseSRV(group, model->textures[texture].Get());
                 }
                 model->meshes.push_back(mesh);
-                if (idleMotion && !source.physique.empty()) {
+                if (!source.physique.empty()) {
                     if (auto* dynamicMesh = dynamic_cast<dx11::MeshObject*>(mesh))
                         model->animated_parts.push_back({dynamicMesh, source, mod.bones});
                 }
             }
         }
-        if (model->meshes.empty()) return nullptr;
+        if (loadedModCount != modFiles.size())
+            return fail("MOD.count", visual->chx_name);
+        if (model->meshes.empty()) return fail("MOD.mesh_build", visual->chx_name);
         auto* result = model.get();
         if (playerInfo) playerModels.emplace(playerInfo->object_id, std::move(model));
-        else models.emplace(kind, std::move(model));
-        MLOG_INFO("[entity] original model kind=%u chx=%s meshes=%u bounds=(%.3f,%.3f,%.3f)",
+        else if (effectModel) effectModels.emplace(objectId, std::move(model));
+        else models.emplace(modelKey, std::move(model));
+        MLOG_INFO("[entity] original model object=%u type=%s kind=%u chx=%s meshes=%u bounds=(%.3f,%.3f,%.3f)",
+                  objectId, playerInfo ? "player" : entityTypeName(type),
                   static_cast<unsigned>(kind), visual->chx_name.c_str(),
                   static_cast<unsigned>(result->meshes.size()),
                   result->maximum.x - result->minimum.x,
@@ -304,9 +510,42 @@ struct EntityScene::Impl {
         return result;
     }
 
-    void updateAnimation(Model& model) {
-        if (!model.idle_motion || model.animated_parts.empty()) return;
-        const auto& motion = *model.idle_motion;
+    void updateAnimation(Model& model, SceneEntityType type,
+                         bool player, SceneAction action,
+                         std::optional<std::size_t> forcedMotion = std::nullopt) {
+        if (model.motion_files.empty() || model.animated_parts.empty()) return;
+        auto motionIndex = forcedMotion
+            ? (*forcedMotion < model.motion_files.size() ? *forcedMotion : 0u)
+            : chooseSceneMotionIndex(type, player, action, model.motion_files.size());
+        const auto loadMotion = [&](std::size_t index)
+                -> const mxh::compat::AnmMotion* {
+            if (index >= model.motion_files.size()) return nullptr;
+            if (!model.motion_attempted[index]) {
+                model.motion_attempted[index] = true;
+                std::vector<std::uint8_t> bytes;
+                if (readFile(storage, model.motion_files[index].c_str(), bytes)) {
+                    model.motions[index] = mxh::compat::AnmMotion::parse(bytes);
+                }
+                if (!model.motions[index]) {
+                    MLOG_WARN("[entity] motion unavailable index=%u path=%s",
+                              static_cast<unsigned>(index),
+                              model.motion_files[index].c_str());
+                }
+            }
+            return model.motions[index] ? &*model.motions[index] : nullptr;
+        };
+        const auto* selectedMotion = loadMotion(motionIndex);
+        if (!selectedMotion && motionIndex != 0) {
+            motionIndex = 0;
+            selectedMotion = loadMotion(0);
+        }
+        if (!selectedMotion) return;
+        if (model.active_motion != motionIndex) {
+            model.active_motion = motionIndex;
+            model.animation_started = std::chrono::steady_clock::now();
+            model.animation_confirmed = false;
+        }
+        const auto& motion = *selectedMotion;
         const auto frameCount = motion.last_frame - motion.first_frame + 1u;
         if (frameCount == 0 || motion.frame_speed == 0) return;
         const float seconds = std::chrono::duration<float>(
@@ -365,11 +604,22 @@ struct EntityScene::Impl {
         }
         if (updated && !model.animation_confirmed && frame >= motion.first_frame + 3.0f) {
             model.animation_confirmed = true;
-            MLOG_INFO("[entity] original idle animation active frame=%.2f parts=%u",
-                      frame, static_cast<unsigned>(model.animated_parts.size()));
+            MLOG_INFO("[entity] original animation active motion=%u frame=%.2f parts=%u",
+                      static_cast<unsigned>(motionIndex), frame,
+                      static_cast<unsigned>(model.animated_parts.size()));
         }
     }
 };
+
+namespace {
+bool samePlayerAppearance(const ScenePlayer& left,
+                          const ScenePlayer& right) noexcept {
+    return left.gender == right.gender &&
+           left.face_type == right.face_type &&
+           left.hair_type == right.hair_type &&
+           left.weared_item_idx == right.weared_item_idx;
+}
+}
 
 EntityScene::EntityScene() : impl_(std::make_unique<Impl>()) {}
 EntityScene::~EntityScene() = default;
@@ -385,9 +635,51 @@ bool EntityScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
         if (error) *error = "MonsterList.bin unavailable";
         return false;
     }
-    impl_->catalog = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    // Phase 0 §6.5: parse_bin -> parse_text -> std::stof on a
+    // malformed MonsterList.bin line was observed throwing
+    // std::invalid_argument during entity-scene load (VEH stack
+    // trace in run gfix-20260905-071655-84 showed the top frame
+    // <string>:206 inside std::stof called from
+    // EntityScene::load at entity_scene.cpp:623).  The inner
+    // try/catch (...) inside MonsterCatalog::parse_text is
+    // bypassed when the binary's .text is rebuilt with /Zi +
+    // /DEBUG and the std::stof throw propagates past the catch
+    // handler.  Wrapping the parse_bin call here gives the load
+    // a second safety net so a single bad line can never crash
+    // the client.  If the parse returns nullopt we still return
+    // false, the same as the prior failure path.
+    try {
+        impl_->catalog = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        MLOG_ERROR("[entity] MonsterCatalog::parse_bin threw: %s", ex.what());
+        if (error) *error = std::string("MonsterList.bin parse threw: ") + ex.what();
+        return false;
+    } catch (...) {
+        MLOG_ERROR("[entity] MonsterCatalog::parse_bin threw unknown C++ exception");
+        if (error) *error = "MonsterList.bin parse threw unknown exception";
+        return false;
+    }
     if (!impl_->catalog) {
         if (error) *error = "MonsterList.bin parse failed";
+        return false;
+    }
+    if (!readFile(storage, "Resource/Client/NpcChxList.bin", bytes)) {
+        if (error) *error = "Resource/Client/NpcChxList.bin unavailable";
+        return false;
+    }
+    try {
+        impl_->npc_catalog = mxh::compat::NpcChxCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        MLOG_ERROR("[entity] NpcChxCatalog::parse_bin threw: %s", ex.what());
+        if (error) *error = std::string("NpcChxList.bin parse threw: ") + ex.what();
+        return false;
+    } catch (...) {
+        MLOG_ERROR("[entity] NpcChxCatalog::parse_bin threw unknown C++ exception");
+        if (error) *error = "NpcChxList.bin parse threw unknown exception";
+        return false;
+    }
+    if (!impl_->npc_catalog) {
+        if (error) *error = "Resource/Client/NpcChxList.bin parse failed";
         return false;
     }
     for (unsigned gender = 0; gender < 2; ++gender) {
@@ -418,64 +710,332 @@ bool EntityScene::load(I4DyuchiGXRenderer* renderer, I4DyuchiFileStorage* storag
     }
     MLOG_INFO("[entity] original MonsterList loaded entries=%u",
               static_cast<unsigned>(impl_->catalog->entries().size()));
+    MLOG_INFO("[entity] original NpcChxList loaded entries=%u",
+              static_cast<unsigned>(impl_->npc_catalog->entries().size()));
     return true;
 }
 
-void EntityScene::synchronize(std::span<const SceneEntity> entities) {
-    impl_->instances.assign(entities.begin(), entities.end());
-    for (const auto& entity : impl_->instances) impl_->loadModel(entity.visual_kind);
+void EntityScene::synchronize(const WorldSnapshot& snapshot) {
+    std::unordered_map<std::uint32_t, const ScenePlayer*> previousPlayers;
+    if (impl_->local_player) {
+        previousPlayers.emplace(impl_->local_player->object_id,
+                                &*impl_->local_player);
+    }
+    for (const auto& player : impl_->remote_players) {
+        previousPlayers.emplace(player.object_id, &player);
+    }
+
+    std::unordered_map<std::uint32_t, const ScenePlayer*> nextPlayers;
+    if (snapshot.local_player) {
+        nextPlayers.emplace(snapshot.local_player->object_id,
+                            &*snapshot.local_player);
+    }
+    for (const auto& player : snapshot.remote_players) {
+        nextPlayers.emplace(player.object_id, &player);
+    }
+
+    for (auto it = impl_->playerModels.begin(); it != impl_->playerModels.end();) {
+        const auto next = nextPlayers.find(it->first);
+        const auto previous = previousPlayers.find(it->first);
+        if (next == nextPlayers.end() || previous == previousPlayers.end() ||
+            !samePlayerAppearance(*previous->second, *next->second)) {
+            it = impl_->playerModels.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    impl_->local_player = snapshot.local_player;
+    impl_->remote_players = snapshot.remote_players;
+    impl_->instances = snapshot.entities;
+    impl_->placeholder_visuals.clear();
+    impl_->placeholder_ids.clear();
+
+    for (const auto& entity : impl_->instances) {
+        if (!impl_->loadModel(entity.visual_kind, nullptr, entity.type,
+                              entity.object_id)) {
+            impl_->placeholder_visuals.push_back(PlaceholderVisual{
+                entity.object_id, entity.world_x, entity.world_y,
+                entity.world_z, 0.5f,
+                entity.type == SceneEntityType::Npc
+                    ? PlaceholderKind::Npc
+                    : PlaceholderKind::Monster});
+            if (entity.object_id != 0) {
+                impl_->placeholder_ids.insert(entity.object_id);
+            }
+        }
+    }
+    for (const auto& [objectId, player] : nextPlayers) {
+        const auto kind = static_cast<std::uint16_t>(
+            65000u + std::min<unsigned>(player->gender, 1u) * 25u +
+            std::min<unsigned>(player->face_type, 4u) * 5u +
+            std::min<unsigned>(player->hair_type, 4u));
+        if (!impl_->loadModel(kind, player, SceneEntityType::Monster, objectId)) {
+            impl_->placeholder_visuals.push_back(PlaceholderVisual{
+                objectId, player->world_x, player->world_y, player->world_z,
+                0.5f, PlaceholderKind::Player});
+            if (objectId != 0) impl_->placeholder_ids.insert(objectId);
+        }
+    }
 }
 
-void EntityScene::synchronizePlayer(const ScenePlayer& player) {
-    if (impl_->player && (impl_->player->object_id != player.object_id ||
-        impl_->player->gender != player.gender ||
-        impl_->player->face_type != player.face_type ||
-        impl_->player->hair_type != player.hair_type ||
-        impl_->player->weared_item_idx != player.weared_item_idx)) {
-        impl_->playerModels.erase(impl_->player->object_id);
+void EntityScene::synchronizeEffects(std::span<const EffectObject> effects) {
+    std::unordered_set<std::uint32_t> next_ids;
+    next_ids.reserve(effects.size());
+    for (const auto& effect : effects) next_ids.insert(effect.object_id);
+    for (auto it = impl_->effectModels.begin(); it != impl_->effectModels.end();) {
+        if (!next_ids.contains(it->first)) it = impl_->effectModels.erase(it);
+        else ++it;
     }
-    impl_->player = player;
-    const auto kind = static_cast<std::uint16_t>(65000u + std::min<unsigned>(player.gender, 1u) * 25u +
-        std::min<unsigned>(player.face_type, 4u) * 5u + std::min<unsigned>(player.hair_type, 4u));
-    impl_->loadModel(kind, &player);
+    impl_->effect_instances.assign(effects.begin(), effects.end());
+}
+
+void EntityScene::clearEffects() noexcept {
+    impl_->effect_instances.clear();
+    impl_->effectModels.clear();
 }
 
 void EntityScene::render() {
     if (!impl_->renderer) return;
-    if (impl_->player) {
-        const auto& player = *impl_->player;
+    impl_->culled_instances = 0;
+    impl_->frame_stats.reset();
+    auto& stats = impl_->frame_stats;
+    const auto renderPlayer = [this, &stats](const ScenePlayer& player,
+                                     bool alwaysRender) {
+        // Player is always rendered: it sits at the camera's focal point
+        // and any p-vertex test would put it right on the near plane,
+        // so a strict frustum check risks culling the player out of its
+        // own view. The cost is negligible (one model) compared to the
+        // NPCs.
         const auto kind = static_cast<std::uint16_t>(65000u + std::min<unsigned>(player.gender, 1u) * 25u +
             std::min<unsigned>(player.face_type, 4u) * 5u + std::min<unsigned>(player.hair_type, 4u));
         if (auto* model = impl_->loadModel(kind, &player)) {
-            impl_->updateAnimation(*model);
-            MATRIX4 world = MatrixIdentity();
-            world._41 = player.world_x * kSceneScale - kMapCenter;
-            world._42 = player.world_y * kSceneScale - model->minimum.y;
-            world._43 = player.world_z * kSceneScale - kMapCenter;
+            impl_->updateAnimation(*model, SceneEntityType::Monster,
+                                   true, player.action);
+            const float tx = player.world_x * kSceneScale - impl_->map_center_x;
+            const float ty = player.world_y * kSceneScale - model->minimum.y;
+            const float tz = player.world_z * kSceneScale - impl_->map_center_z;
+            if (!alwaysRender && impl_->frustum) {
+                const float radius = std::max({
+                    std::abs(model->minimum.x), std::abs(model->maximum.x),
+                    std::abs(model->minimum.z), std::abs(model->maximum.z)});
+                const VECTOR3 wmin{tx - radius,
+                                   model->minimum.y + ty,
+                                   tz - radius};
+                const VECTOR3 wmax{tx + radius,
+                                   model->maximum.y + ty,
+                                   tz + radius};
+                if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                    ++impl_->culled_instances;
+                    stats.culled(EntityFrameKind::Player);
+                    return;
+                }
+            }
+            MATRIX4 world = makeWorldMatrix(
+                tx, ty, tz, player.facing_yaw);
             for (auto* mesh : model->meshes) {
                 mesh->SetWorldTransform(&world);
                 impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
             }
+            stats.drawn(EntityFrameKind::Player);
+        } else {
+            stats.skipped(EntityFrameKind::Player);
         }
+    };
+    if (impl_->local_player) {
+        renderPlayer(*impl_->local_player, true);
+    }
+    for (const auto& player : impl_->remote_players) {
+        if (impl_->local_player &&
+            player.object_id == impl_->local_player->object_id) continue;
+        renderPlayer(player, false);
     }
     for (const auto& entity : impl_->instances) {
-        auto* model = impl_->loadModel(entity.visual_kind);
-        if (!model) continue;
-        MATRIX4 world = MatrixIdentity();
-        world._41 = entity.world_x * kSceneScale - kMapCenter;
-        world._42 = entity.world_y * kSceneScale - model->minimum.y;
-        world._43 = entity.world_z * kSceneScale - kMapCenter;
+        auto* model = impl_->loadModel(entity.visual_kind, nullptr,
+                                       entity.type, entity.object_id);
+        const auto frameKind = entity.type == SceneEntityType::Npc
+            ? EntityFrameKind::Npc : EntityFrameKind::Monster;
+        if (!model) {
+            stats.skipped(frameKind);
+            continue;
+        }
+        // World transform is a pure translation (no rotation, no scale),
+        // so the world-space AABB is the local AABB translated by the
+        // (x, y, z) world position. Apply the frustum p-vertex test
+        // before pushing draw calls to the renderer.
+        const float tx = entity.world_x * kSceneScale - impl_->map_center_x;
+        const float ty = entity.world_y * kSceneScale - model->minimum.y;
+        const float tz = entity.world_z * kSceneScale - impl_->map_center_z;
+        if (impl_->frustum) {
+            const float radius = std::max({
+                std::abs(model->minimum.x), std::abs(model->maximum.x),
+                std::abs(model->minimum.z), std::abs(model->maximum.z)});
+            const VECTOR3 wmin{tx - radius, model->minimum.y + ty,
+                               tz - radius};
+            const VECTOR3 wmax{tx + radius, model->maximum.y + ty,
+                               tz + radius};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                stats.culled(frameKind);
+                continue;
+            }
+        }
+        impl_->updateAnimation(*model, entity.type, false, entity.action);
+        MATRIX4 world = makeWorldMatrix(
+            tx, ty, tz, entity.facing_yaw);
         for (auto* mesh : model->meshes) {
             mesh->SetWorldTransform(&world);
             impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0, nullptr, 0, 0, 0, 0);
         }
+        stats.drawn(frameKind);
+    }
+    for (const auto& effect : impl_->effect_instances) {
+        if (effect.chx_name.empty()) continue;
+        auto* model = impl_->loadModel(0, nullptr, SceneEntityType::Monster,
+                                       effect.object_id, effect.chx_name);
+        if (!model) {
+            stats.skipped(EntityFrameKind::Effect);
+            continue;
+        }
+        const float tx = effect.world_x * kSceneScale - impl_->map_center_x;
+        const float ty = effect.world_y * kSceneScale - model->minimum.y;
+        const float tz = effect.world_z * kSceneScale - impl_->map_center_z;
+        if (impl_->frustum) {
+            const float radius = std::max({
+                std::abs(model->minimum.x), std::abs(model->maximum.x),
+                std::abs(model->minimum.z), std::abs(model->maximum.z)});
+            const VECTOR3 wmin{tx - radius, model->minimum.y + ty, tz - radius};
+            const VECTOR3 wmax{tx + radius, model->maximum.y + ty, tz + radius};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                stats.culled(EntityFrameKind::Effect);
+                continue;
+            }
+        }
+        impl_->updateAnimation(*model, SceneEntityType::Monster, false,
+                               SceneAction::Idle,
+                               effect.has_motion_index
+                                   ? std::optional<std::size_t>(effect.motion_index)
+                                   : std::nullopt);
+        const MATRIX4 world = makeWorldMatrix(tx, ty, tz, effect.facing_yaw);
+        for (auto* mesh : model->meshes) {
+            mesh->SetWorldTransform(&world);
+            impl_->renderer->RenderMeshObject(mesh, 0, 0, 255, nullptr, 0,
+                                              nullptr, 0, 0, 0, 0);
+        }
+        stats.drawn(EntityFrameKind::Effect);
+    }
+    if (!impl_->placeholder_rendering_enabled) return;
+    for (const auto& placeholder : impl_->placeholder_visuals) {
+        VECTOR3 oct[8]{};
+        fillPlaceholderOct(placeholder, oct);
+        const auto phKind = placeholder.kind == PlaceholderKind::Npc
+            ? EntityFrameKind::Npc
+            : (placeholder.kind == PlaceholderKind::Monster
+                ? EntityFrameKind::Monster : EntityFrameKind::Player);
+        // The failed model was counted as skipped above; the debug
+        // placeholder pass turns it into drawn/culled instead.
+        stats.unskip(phKind);
+        const bool alwaysRender = impl_->local_player &&
+            placeholder.object_id == impl_->local_player->object_id;
+        if (!alwaysRender && impl_->frustum) {
+            const VECTOR3 wmin{oct[0].x, oct[0].y, oct[0].z};
+            const VECTOR3 wmax{oct[6].x, oct[6].y, oct[6].z};
+            if (!impl_->frustum->intersectsAABB(wmin, wmax)) {
+                ++impl_->culled_instances;
+                stats.culled(phKind);
+                continue;
+            }
+        }
+        impl_->renderer->RenderBox(oct, placeholderArgb(placeholder.kind));
+        stats.drawn(phKind);
     }
 }
 
+void EntityScene::setPlaceholderRenderingEnabled(bool enabled) noexcept {
+    impl_->placeholder_rendering_enabled = enabled;
+}
+
+void EntityScene::setCameraFrustum(std::optional<Frustum> frustum) noexcept {
+    impl_->frustum = std::move(frustum);
+}
+
+void EntityScene::setMapCenter(float world_x, float world_z) noexcept {
+    impl_->map_center_x = world_x;
+    impl_->map_center_z = world_z;
+}
+
 std::uint32_t EntityScene::loadedModelCount() const noexcept {
-    return static_cast<std::uint32_t>(impl_->models.size());
+    return static_cast<std::uint32_t>(impl_->models.size() +
+                                      impl_->effectModels.size());
 }
 std::uint32_t EntityScene::instanceCount() const noexcept {
     return static_cast<std::uint32_t>(impl_->instances.size());
+}
+std::uint32_t EntityScene::playerInstanceCount() const noexcept {
+    return static_cast<std::uint32_t>(impl_->remote_players.size()) +
+           (impl_->local_player ? 1u : 0u);
+}
+std::uint32_t EntityScene::npcInstanceCount() const noexcept {
+    return static_cast<std::uint32_t>(std::count_if(
+        impl_->instances.begin(), impl_->instances.end(),
+        [](const SceneEntity& entity) {
+            return entity.type == SceneEntityType::Npc;
+        }));
+}
+std::uint32_t EntityScene::culledInstanceCount() const noexcept {
+    return impl_->culled_instances;
+}
+const EntityFrameStats& EntityScene::frameStats() const noexcept {
+    return impl_->frame_stats;
+}
+std::uint32_t EntityScene::failedModelCount() const noexcept {
+    return impl_->failed_load_count;
+}
+std::uint32_t EntityScene::unresolvedTextureCount() const noexcept {
+    if (!impl_) return 0;
+    std::uint32_t count = 0;
+    const auto countModel = [&count](const auto& entry) {
+        if (!entry.second) return;
+        count += static_cast<std::uint32_t>(std::count_if(
+            entry.second->textures.begin(), entry.second->textures.end(),
+            [](const auto& texture) { return texture == nullptr; }));
+    };
+    for (const auto& entry : impl_->models) countModel(entry);
+    for (const auto& entry : impl_->playerModels) countModel(entry);
+    return count;
+}
+std::uint32_t EntityScene::placeholderCount() const noexcept {
+    return static_cast<std::uint32_t>(impl_->placeholder_visuals.size());
+}
+std::span<const PlaceholderVisual> EntityScene::placeholders() const noexcept {
+    return impl_->placeholder_visuals;
+}
+
+std::string EntityScene::itemDisplayName(std::uint16_t item_id) const {
+    if (!impl_ || item_id == 0) return {};
+    const auto it = std::find_if(
+        impl_->item_catalog.begin(), impl_->item_catalog.end(),
+        [item_id](const mxh::game::ItemInfo& item) {
+            return item.ItemIdx == item_id;
+        });
+    if (it == impl_->item_catalog.end()) return {};
+    const auto* begin = it->ItemName;
+    const auto* end = std::find(begin, begin + mxh::game::ITEM_MAX_NAME, '\0');
+    return std::string(begin, end);
+}
+
+std::optional<std::uint16_t> EntityScene::itemIconIndex(
+    std::uint16_t item_id) const {
+    if (!impl_ || item_id == 0) return std::nullopt;
+    const auto it = std::find_if(
+        impl_->item_catalog.begin(), impl_->item_catalog.end(),
+        [item_id](const mxh::game::ItemInfo& item) {
+            return item.ItemIdx == item_id;
+        });
+    if (it == impl_->item_catalog.end() || it->Image2DNum == 0) {
+        return std::nullopt;
+    }
+    return it->Image2DNum;
 }
 } // namespace mxh::gx

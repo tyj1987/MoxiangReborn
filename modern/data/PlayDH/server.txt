@@ -1,0 +1,7 @@
+[config]
+name=¥@¬ö¾¥­»
+myip=127.0.0.1
+home=http://www.hktwms.cn
+regs=http://www.hktwms.cn/zhreg.asp
+news=http://www.hktwms.cn/msonewlist.asp
+upup=Resource.zip|http://www.hktwms.cn/Resource.zip

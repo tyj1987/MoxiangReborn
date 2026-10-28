@@ -284,10 +284,50 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
 
     auto* ctx = m_dev->rawContext();
 
+    // Character MODs contain visible interior/back-facing polygons in the
+    // legacy client.  Render only those explicitly marked two-sided, while
+    // retaining normal culling for terrain and static scene geometry.
+    ctx->RSSetState(mesh->twoSided() ? m_dev->rasterizerCullNone()
+                                     : m_dev->rasterizerDefault());
+
     // Effect shader path: check RENDER_TYPE_USE_EFFECT flag.
     if ((dwFlag & RENDER_TYPE_USE_EFFECT) && m_effectPalette) {
         auto* effect = m_effectPalette->getEffect(dwEffectIndex);
         if (effect && effect->bSuccess) {
+            if (!m_meshShaders.psEffect) {
+                MLOG_WARN("[renderer] effect draw rejected: effect pixel shader is unavailable (index=%u)",
+                          static_cast<unsigned>(dwEffectIndex));
+                return FALSE;
+            }
+            // RenderEffect supplies the effect pixel shader and texture, but
+            // the legacy-compatible effect path still relies on the normal
+            // mesh input contract.  Bind the vertex stage explicitly before
+            // entering it; otherwise D3D11 may retain an unrelated input
+            // layout/shader from the previous draw and silently discard the
+            // effect geometry.
+            UINT stride = sizeof(MeshObject::Vertex), offset = 0;
+            ID3D11Buffer* vb = mesh->vertexBuffer();
+            ID3D11Buffer* ib = mesh->indexBuffer();
+            ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+            ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
+            ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
+            ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+            D3D11_MAPPED_SUBRESOURCE effectMapped{};
+            if (SUCCEEDED(ctx->Map(m_meshShaders.cbWorld.Get(), 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &effectMapped))) {
+                const MATRIX4& world = mesh->worldTransform();
+                std::memcpy(effectMapped.pData, &world, sizeof(MATRIX4));
+                ctx->Unmap(m_meshShaders.cbWorld.Get(), 0);
+            }
+            if (SUCCEEDED(ctx->Map(m_meshShaders.cbViewProj.Get(), 0,
+                                   D3D11_MAP_WRITE_DISCARD, 0, &effectMapped))) {
+                const MATRIX4 viewProj = m_dev->viewProjMatrix();
+                std::memcpy(effectMapped.pData, &viewProj, sizeof(MATRIX4));
+                ctx->Unmap(m_meshShaders.cbViewProj.Get(), 0);
+            }
+            ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
+            ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
             mesh->setEffectPalette(m_effectPalette.get());
             mesh->RenderEffect(m_meshShaders.psEffect.Get(), nullptr, effect, 0);
             return TRUE;
@@ -327,20 +367,44 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     UINT stride = sizeof(MeshObject::Vertex), offset = 0;
     ID3D11Buffer* vb = mesh->vertexBuffer();
     ID3D11Buffer* ib = mesh->indexBuffer();
-    ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
     ctx->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
-    ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
     ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
-    // Pick the multi-light PS when there's at least one active dynamic or RT
-    // light — it accumulates per-pixel contributions from up to 8 light slots.
-    // When no lights are active, fall back to the cheaper single-directional PS.
-    const bool needMultiLight = m_meshShaders.psMultiLight &&
-                                (m_rtLightActiveCount > 0 ||
-                                 (pDynList && dwLightNum > 0));
-    ctx->PSSetShader(needMultiLight ? m_meshShaders.psMultiLight.Get()
-                                    : m_meshShaders.psLit.Get(),
-                     nullptr, 0);
+    // STM-only legacy vertex-colour path (CVLSMeshObject): only meshes that
+    // were initialised with MESH_DESC::pVertexColor own a colour stream, so
+    // terrain/entity meshes keep the lit layout/shader below untouched.
+    const bool stmVertexColor = mesh->hasVertexColors() && m_meshShaders.psStmVcl &&
+                                m_meshShaders.vsStmVcl && m_meshShaders.ilStmVcl;
+    if (mesh->hasVertexColors() && !stmVertexColor) {
+        static bool logged = false;
+        if (!logged) {
+            logged = true;
+            MLOG_ERROR("[renderer] STM vertex-color mesh drawn with lit fallback: "
+                       "vcl shader variant unavailable (stmVclShaderFailed)");
+        }
+    }
+    if (stmVertexColor) {
+        ID3D11Buffer* vbs[2] = {vb, mesh->colorBuffer()};
+        UINT strides[2] = {static_cast<UINT>(sizeof(MeshObject::Vertex)),
+                           static_cast<UINT>(sizeof(std::uint32_t))};
+        UINT offsets[2] = {0, 0};
+        ctx->IASetVertexBuffers(0, 2, vbs, strides, offsets);
+        ctx->IASetInputLayout(m_meshShaders.ilStmVcl.Get());
+        ctx->VSSetShader(m_meshShaders.vsStmVcl.Get(), nullptr, 0);
+        ctx->PSSetShader(m_meshShaders.psStmVcl.Get(), nullptr, 0);
+    } else {
+        ctx->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+        ctx->IASetInputLayout(m_meshShaders.ilLit.Get());
+        ctx->VSSetShader(m_meshShaders.vsLit.Get(), nullptr, 0);
+        // Pick the multi-light PS when there's at least one active dynamic or RT
+        // light — it accumulates per-pixel contributions from up to 8 light slots.
+        // When no lights are active, fall back to the cheaper single-directional PS.
+        const bool needMultiLight = m_meshShaders.psMultiLight &&
+                                    (m_rtLightActiveCount > 0 ||
+                                     (pDynList && dwLightNum > 0));
+        ctx->PSSetShader(needMultiLight ? m_meshShaders.psMultiLight.Get()
+                                        : m_meshShaders.psLit.Get(),
+                         nullptr, 0);
+    }
     ctx->VSSetConstantBuffers(0, 1, m_meshShaders.cbWorld.GetAddressOf());
     ctx->VSSetConstantBuffers(1, 1, m_meshShaders.cbViewProj.GetAddressOf());
     ctx->PSSetConstantBuffers(0, 1, m_meshShaders.cbLight.GetAddressOf());
@@ -362,6 +426,11 @@ BOOL __stdcall CoD3DDeviceDX11::RenderMeshObject(IDIMeshObject* pMeshObj, std::u
     // Unbind SRV to avoid D3D11 warnings.
     ID3D11ShaderResourceView* nullSRV = nullptr;
     ctx->PSSetShaderResources(0, 1, &nullSRV);
+    if (stmVertexColor) {
+        ID3D11Buffer* nullVB = nullptr; UINT zero = 0;
+        ctx->IASetVertexBuffers(1, 1, &nullVB, &zero, &zero);
+    }
+    ctx->RSSetState(m_dev->rasterizerDefault());
     return TRUE;
 }
 
@@ -807,14 +876,46 @@ void __stdcall CoD3DDeviceDX11::SetViewFrusturm(VIEW_VOLUME* pViewVolume, CAMERA
 
 void __stdcall CoD3DDeviceDX11::GetSystemStatus(SYSTEM_STATUS* pStatus) {
     if (!pStatus) return;
-    pStatus->dwAvaliableTexMem = 256 * 1024 * 1024;  // 256 MB placeholder
-    pStatus->dwTotalTexMem     = 1024 * 1024 * 1024;
+    pStatus->dwAvaliableTexMem = 0;
+    pStatus->dwTotalTexMem = 0;
     std::strncpy(pStatus->szDeviceType, "DX11", sizeof(pStatus->szDeviceType) - 1);
+    pStatus->szDeviceType[sizeof(pStatus->szDeviceType) - 1] = '\0';
+    if (!m_dev || !m_dev->rawDevice()) return;
+
+    Microsoft::WRL::ComPtr<IDXGIDevice> dxgi_device;
+    if (FAILED(m_dev->rawDevice()->QueryInterface(
+            IID_PPV_ARGS(dxgi_device.GetAddressOf()))) || !dxgi_device) return;
+    Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+    if (FAILED(dxgi_device->GetAdapter(adapter.GetAddressOf())) || !adapter) return;
+
+    DXGI_ADAPTER_DESC desc{};
+    if (SUCCEEDED(adapter->GetDesc(&desc))) {
+        const auto clamp_u32 = [](UINT64 value) {
+            return static_cast<std::uint32_t>(std::min<UINT64>(
+                value, static_cast<UINT64>(UINT32_MAX)));
+        };
+        pStatus->dwTotalTexMem = clamp_u32(desc.DedicatedVideoMemory);
+    }
+
+    Microsoft::WRL::ComPtr<IDXGIAdapter3> adapter3;
+    if (SUCCEEDED(adapter.As(&adapter3)) && adapter3) {
+        DXGI_QUERY_VIDEO_MEMORY_INFO memory{};
+        if (SUCCEEDED(adapter3->QueryVideoMemoryInfo(
+                0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memory))) {
+            const UINT64 available = memory.Budget > memory.CurrentUsage
+                ? memory.Budget - memory.CurrentUsage : 0;
+            pStatus->dwAvaliableTexMem = static_cast<std::uint32_t>(std::min<UINT64>(
+                available, static_cast<UINT64>(UINT32_MAX)));
+        }
+    }
 }
 
 void __stdcall CoD3DDeviceDX11::UpdateWindowSize() {
     if (!m_dev) return;
-    m_dev->updateWindowSize();
+    (void)m_dev->updateWindowSize();
+}
+BOOL __stdcall CoD3DDeviceDX11::TryUpdateWindowSize() {
+    return m_dev && m_dev->updateWindowSize() ? TRUE : FALSE;
 }
 void __stdcall CoD3DDeviceDX11::Present(HWND hWnd) { if (m_dev) m_dev->present(hWnd); }
 
@@ -1365,4 +1466,14 @@ extern "C" HRESULT __stdcall CreateGXRendererInstance(void** ppv) {
     auto* renderer = new mxh::gx::dx11::CoD3DDeviceDX11();
     *ppv = renderer;
     return S_OK;
+}
+
+extern "C" BOOL __stdcall SetGXLogicalScreenSize(
+    mxh::gx::I4DyuchiGXRenderer* renderer,
+    std::uint16_t logicalWidth,
+    std::uint16_t logicalHeight) {
+    auto* dx11 = dynamic_cast<mxh::gx::dx11::CoD3DDeviceDX11*>(renderer);
+    if (!dx11 || logicalWidth == 0 || logicalHeight == 0) return FALSE;
+    dx11->SetLogicalScreenSize(logicalWidth, logicalHeight);
+    return TRUE;
 }

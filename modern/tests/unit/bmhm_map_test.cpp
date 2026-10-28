@@ -3,7 +3,7 @@
 // Test surface:
 //   - synthesize-and-parse: hand-build text blobs, then encrypt/parse
 //   - roundtrip:            encrypt -> parse -> serialize -> re-encrypt -> parse
-//   - real-resource:        decode Map0.bmhm and Map101.bmhm from PlayDH
+//   - real-resource:        decode Map0.bmhm, Map17.bmhm and Map101.bmhm from PlayDH
 //
 // Notes:
 //   - Tests skip the real-resource cases if PlayDH is missing (CI-friendly).
@@ -21,16 +21,28 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include "../support/playdh_env.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 
-// Hardcoded project paths (workspace is fixed).  Use C:\moxiang\ (the
-// canonical project root on this machine); the original D:\Moxian\
-// hardcode was a stale path from a prior mount that no longer exists.
-const std::filesystem::path kRealMap0   = LR"(C:\moxiang\墨香【源码配套资源】\PlayDH\Resource\Map\Map0.bmhm)";
-const std::filesystem::path kRealMap101 = LR"(C:\moxiang\墨香【源码配套资源】\PlayDH\Resource\Map\Map101.bmhm)";
+std::filesystem::path playdh_map(std::string_view name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / "Map" / std::string(name);
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth,
+         root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / "Map" / std::string(name);
+        if (std::filesystem::is_regular_file(candidate)) return candidate;
+    }
+    return {};
+}
+
+const std::filesystem::path kRealMap0 = playdh_map("Map0.bmhm");
+const std::filesystem::path kRealMap17 = playdh_map("Map17.bmhm");
+const std::filesystem::path kRealMap101 = playdh_map("Map101.bmhm");
 
 // Read a file fully into a byte vector.
 std::vector<std::uint8_t> read_file(const std::filesystem::path& p) {
@@ -356,6 +368,25 @@ TEST(BmhmMap, RealMap0) {
     EXPECT_FLOAT_EQ(d.sun_pos_z, -200.0f);
     // *BRIGHT 140 -> ambient = (140,140,140,140) packed as RGBA.
     EXPECT_EQ(d.ambient, (140u << 24) | (140u << 16) | (140u << 8) | 140u);
+}
+
+TEST(BmhmMap, RealMap17) {
+    if (!std::filesystem::exists(kRealMap17)) {
+        GTEST_SKIP() << "Map17.bmhm not found at " << kRealMap17.string();
+    }
+    auto loaded = BmhmMap::load(kRealMap17);
+    ASSERT_TRUE(loaded.has_value());
+    const auto& d = loaded->desc();
+    EXPECT_EQ(loaded->header().version, 20040622u);
+    EXPECT_EQ(loaded->header().type, 30u);
+    EXPECT_EQ(loaded->header().file_size, 284u);
+    EXPECT_STREQ(d.map_file_name, "17.map");
+    EXPECT_STREQ(d.tile_file_name, "Map/17.ttb");
+    EXPECT_STREQ(d.sky_mod, "sky_54_nanju.MOD");
+    EXPECT_EQ(d.bgm_sound_num, 1669u);
+    EXPECT_TRUE(d.fog_enabled);
+    EXPECT_FLOAT_EQ(d.fog_start, 1000.0f);
+    EXPECT_FLOAT_EQ(d.fog_end, 33000.0f);
 }
 
 TEST(BmhmMap, RealMap101) {

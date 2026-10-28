@@ -30,6 +30,10 @@
 
 #include "cDialog.hpp"
 #include "cImage.hpp"  // for ImageRect (1:1 with legacy cImageRect)
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode enum
+
+
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode enum
 
 namespace mxh::ui {
 
@@ -80,6 +84,17 @@ struct InterfaceNode {
     bool alpha_set = false;               // true if #ALPHA was explicit
     std::int32_t font_idx = 0;            // #FONTIDX
     bool font_idx_set = false;            // true if #FONTIDX was explicit
+    std::optional<std::array<std::int32_t, 3>> fg_color;      // #FGCOLOR RGB
+    std::optional<std::array<std::int32_t, 2>> text_xy;       // #TEXTXY x y
+    std::optional<std::int32_t> text_align;                   // #TEXTALIGN: 0 left, 1 right, 2 center
+    std::optional<bool> shadow;                              // #SHADOW
+    std::optional<std::array<std::int32_t, 3>> shadow_color;  // #SHADOWCOLOR RGB
+    std::optional<std::array<std::int32_t, 2>> shadow_text_xy; // #SHADOWTEXTXY x y
+    std::uint16_t grid_cols = 1;
+    std::uint16_t grid_rows = 1;
+    std::optional<WindowRect> init_grid;
+    std::uint16_t grid_border_x = 4;
+    std::uint16_t grid_border_y = 4;
     std::vector<std::unique_ptr<InterfaceNode>> children;
 };
 
@@ -113,8 +128,10 @@ const InterfaceNode* find_root_by_type(const InterfaceScript& script,
 // load the bin via parse_interface_script, then call this to feed the
 // parsed #POINT/#CAPTIONRECT/#ALPHA/#AUTOCLOSE into a real cDialog.
 // Returns true if the node had #POINT, false otherwise.
-// ---------------------------------------------------------------------------
+// M-R7 (G3): 重载接 mode — mode=Low + node.point_low 存在时用 #POINT_ 1:1 行为.
 bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
                          void* basicImage = nullptr);
+bool apply_legacy_layout(cDialog& dlg, const InterfaceNode& node,
+                         void* basicImage, ResolutionMode mode);
 
 }  // namespace mxh::ui

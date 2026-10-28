@@ -43,8 +43,12 @@ QuestState evaluate_quest_state(QuestProgress& progress) noexcept {
     if (progress.state == QuestState::Complete) return QuestState::Complete;
     if (progress.state == QuestState::Rewarded) return QuestState::Rewarded;
     if (progress.state == QuestState::Failed)   return QuestState::Failed;
-    for (auto& s : progress.subs) {
-        if (s.count < s.target) return QuestState::Accepted;
+    std::uint32_t active_stage = std::numeric_limits<std::uint32_t>::max();
+    for (const auto& s : progress.subs) {
+        if (s.count < s.target) active_stage = std::min(active_stage, s.stage);
+    }
+    if (active_stage != std::numeric_limits<std::uint32_t>::max()) {
+        return QuestState::Accepted;
     }
     progress.state = QuestState::Complete;
     return QuestState::Complete;
@@ -74,6 +78,25 @@ QuestRewardResult claim_quest_reward(QuestProgress& progress,
     if (progress.state != QuestState::Complete) return result;
     if (!player.is_active()) {
         result.status = QuestRewardStatus::PlayerInactive;
+        return result;
+    }
+    if (def.money_cost != 0u && player.state().progress.money < def.money_cost) {
+        return result;
+    }
+    for (const auto& cost : def.item_costs) {
+        if (cost.item_idx == 0u || cost.quantity == 0u ||
+            player.count_inventory_item(cost.item_idx) < cost.quantity) {
+            result.status = QuestRewardStatus::MissingItem;
+            return result;
+        }
+    }
+    for (const auto& cost : def.item_costs) {
+        if (!player.remove_inventory_item_by_icon(cost.item_idx, cost.quantity)) {
+            result.status = QuestRewardStatus::MissingItem;
+            return result;
+        }
+    }
+    if (def.money_cost != 0u && !player.spend_money(def.money_cost)) {
         return result;
     }
     const auto money_before = player.state().progress.money;
@@ -136,7 +159,13 @@ std::vector<QuestEventChange> dispatch_quest_event(
         QuestEventChange change;
         change.quest_id = quest.quest_id;
         change.previous_state = quest.state;
+        std::uint32_t active_stage = std::numeric_limits<std::uint32_t>::max();
+        for (const auto& sub : quest.subs) {
+            if (sub.count < sub.target) active_stage = std::min(active_stage, sub.stage);
+        }
         for (auto& sub : quest.subs) {
+            if (active_stage != std::numeric_limits<std::uint32_t>::max() &&
+                sub.stage != active_stage) continue;
             if (sub.kind != event.kind || sub.target_id != event.target_id) continue;
             const auto previous_count = sub.count;
             const auto remaining = std::numeric_limits<std::uint32_t>::max() - sub.count;

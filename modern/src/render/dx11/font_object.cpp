@@ -141,6 +141,14 @@ bool FontObject::initialize(Device* dev, const LOGFONT* lf, std::uint32_t /*dwFl
         return false;
     }
     SelectObject(m_memDC, m_hFont);
+    TEXTMETRIC metrics{};
+    if (!GetTextMetrics(m_memDC, &metrics)) {
+        MLOG_ERROR("[font] GetTextMetrics failed");
+        releaseAtlas();
+        releaseFont();
+        return false;
+    }
+    m_fontAscent = metrics.tmAscent;
 
     m_packCursorX   = 0;
     m_packCursorY   = 0;
@@ -169,6 +177,7 @@ void FontObject::releaseFont() {
         DeleteObject(m_hFont);
         m_hFont = nullptr;
     }
+    m_fontAscent = 0;
 }
 
 FontObject* FontObject::create(Device* dev, const LOGFONT* lf, std::uint32_t dwFlag) {
@@ -324,7 +333,8 @@ BOOL __stdcall FontObject::DrawText(TCHAR* str, std::uint32_t dwLen, RECT* pRect
 
         if (g->width > 0 && g->height > 0) {
             float dx = static_cast<float>(penX + g->bearing_x);
-            float dy = static_cast<float>(penY - g->bearing_y);
+            float dy = static_cast<float>(glyph_top_from_line_top(
+                penY, m_fontAscent, g->bearing_y));
             float dw = static_cast<float>(g->width);
             float dh = static_cast<float>(g->height);
 

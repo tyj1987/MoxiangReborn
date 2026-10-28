@@ -156,6 +156,28 @@ std::uint32_t cTabDialog::ActionEvent(CMouse* /*mouseInfo*/) {
     return 0;
 }
 
+std::uint32_t cTabDialog::ActionEvent(std::int32_t mouseX,
+                                      std::int32_t mouseY,
+                                      std::uint32_t mouseFlags) {
+    if (!isActive() || !isEnabled()) return 0;
+    std::uint32_t event = cDialog::ActionEvent(mouseX, mouseY, mouseFlags);
+    if (mouseFlags & MouseFlagLButton) {
+        for (std::uint8_t i = 0; i < m_bTabNum; ++i) {
+            auto* button = m_ppPushupTabBtn[i].get();
+            if (button && button->PtInWindow(mouseX, mouseY)) {
+                SelectTab(i);
+                return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+            }
+        }
+    }
+    if (m_bSelTabNum < m_ppWindowTabSheet.size() &&
+        m_ppWindowTabSheet[m_bSelTabNum]) {
+        event |= m_ppWindowTabSheet[m_bSelTabNum]->ActionEvent(
+            mouseX, mouseY, mouseFlags);
+    }
+    return event;
+}
+
 void cTabDialog::SelectTab(std::uint8_t idx) {
     // 1:1 with legacy SelectTab(BYTE idx):
     //   if (idx >= m_bTabNum) return;

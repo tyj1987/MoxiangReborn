@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -57,12 +58,10 @@ bool parse_u32(const std::string& tok, std::uint32_t& out) {
 
 bool parse_f32(const std::string& tok, float& out) {
     if (tok.empty()) return false;
-    try {
-        out = std::stof(tok);
-        return true;
-    } catch (...) {
-        return false;
-    }
+    const auto* first = tok.data();
+    const auto* last = first + tok.size();
+    const auto fc = std::from_chars(first, last, out);
+    return fc.ec == std::errc{} && fc.ptr == last;
 }
 
 }  // namespace

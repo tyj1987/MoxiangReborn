@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "generatedUtc": "2026-10-17T07:30:00Z",
+  "sourceHead": "39d9f7d6",
+  "buildDir": "modern/build",
+  "command": "ctest --test-dir modern/build -R 'MxhResourceReference|MoxianClientE2E' --output-on-failure",
+  "total": 6,
+  "passed": 5,
+  "failed": 0,
+  "skipped": 1,
+  "tests": [
+    {
+      "name": "MxhResourceReference.PlayDhFilesMatchReferenceManifest",
+      "status": "passed"
+    },
+    {
+      "name": "MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest",
+      "status": "passed"
+    },
+    {
+      "name": "MxhResourceReference.RecoveredRuntimeServerFilesMatchReferenceManifest",
+      "status": "skipped",
+      "reason": "historical recovered runtime fixture is intentionally absent"
+    },
+    {
+      "name": "MxhResourceReference.CanonicalRootIsExplicitAndDoesNotDependOnTreeOrder",
+      "status": "passed"
+    },
+    {
+      "name": "MoxianClientE2E",
+      "status": "passed"
+    },
+    {
+      "name": "MoxianClientE2EDumpCli",
+      "status": "passed"
+    }
+  ],
+  "resourceLineUnchanged": true,
+  "scope": "targeted current build regression; does not close exact Map17/Map203 texture or HFL/TTB original-resource blockers"
+}

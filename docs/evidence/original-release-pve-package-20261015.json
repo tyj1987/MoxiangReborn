@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "generatedUtc": "2026-10-15T05:07:54.9784379Z",
+  "sourceHead": "0ab64f0d9840e37d6a58393dc74805c8bee83031",
+  "sourceDirty": false,
+  "stage": "C:\\Moxiang\\original\\stage-0ab64f0d-20261015",
+  "package": {
+    "relativePath": "modern/out/packages/original-vm112-release-0ab64f0d-20261015.zip",
+    "bytes": 4009420,
+    "sha256": "0c214f61a35baa9944abf6e38fd903f4e5fb24e44132feb6a0b97f54dce7eab2"
+  },
+  "stageManifest": {
+    "relativePath": "modern/out/packages/original-vm112-release-0ab64f0d-20261015/stage-manifest.json",
+    "bytes": 3506,
+    "sha256": "06ed535bd5a2b66161dbf39f6467b3ddc09ccd286a03bd398f4e566bc578d717"
+  },
+  "releaseBuildEvidence": "docs/evidence/original-release-build-ctest-20261015.json",
+  "resourceProfile": "playdh-current",
+  "resourcePaks": [
+    {
+      "name": "Character.pak",
+      "bytes": 251197062,
+      "sha256": "0bf2d25e072720ae716aca9ebdbc493c469f4477a1820b0054135d86f0d4a3fe"
+    },
+    {
+      "name": "Effect.pak",
+      "bytes": 217392990,
+      "sha256": "76500e0074047456eecc27dad3d2c7a5b184dbb44d33c503331a0d6edb02638a"
+    },
+    {
+      "name": "Map.pak",
+      "bytes": 584312358,
+      "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0"
+    },
+    {
+      "name": "monster.pak",
+      "bytes": 175152479,
+      "sha256": "e1787fa3c600870e576a2372cc97fe9dff2d80d5aff401b2e164b7c924aeb9a7"
+    }
+  ],
+  "listenerPorts": {
+    "login": 16001,
+    "agent": 17001,
+    "map10": 18001,
+    "map12": 18002,
+    "map2": 18003
+  },
+  "writerContract": {
+    "id": "original-vm112-modern-mssql-v1",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "schemaVersion": 1,
+    "resourceProfile": "playdh-current",
+    "resourceManifestSha256": "b651cf0f0ce10476a420c7c64ba04b4b354685cdb3f80ecbcf523a64c95d4c30"
+  },
+  "transferReady": true,
+  "transferStatus": "local-package-ready-pve-transfer-not-run"
+}

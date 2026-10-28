@@ -28,6 +28,8 @@
 
 #include "mxh/game/skill_types.hpp"
 
+#include <algorithm>
+
 namespace mxh::services {
 
 class PlayerStatsServiceImpl final : public IPlayerStatsService {
@@ -88,13 +90,13 @@ public:
 
     float getHpFraction() const noexcept override {
         return m_combat.max_hp == 0 ? 0.0f
-            : static_cast<float>(m_combat.current_hp) /
-              static_cast<float>(m_combat.max_hp);
+            : std::clamp(static_cast<float>(m_combat.current_hp) /
+                         static_cast<float>(m_combat.max_hp), 0.0f, 1.0f);
     }
     float getMpFraction() const noexcept override {
         return m_combat.max_mp == 0 ? 0.0f
-            : static_cast<float>(m_combat.current_mp) /
-              static_cast<float>(m_combat.max_mp);
+            : std::clamp(static_cast<float>(m_combat.current_mp) /
+                         static_cast<float>(m_combat.max_mp), 0.0f, 1.0f);
     }
 
 private:

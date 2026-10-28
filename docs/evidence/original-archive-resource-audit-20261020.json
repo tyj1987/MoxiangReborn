@@ -1,0 +1,58 @@
+{
+  "schema": "moxiang.original.archive.resource.audit.v2",
+  "capturedAt": "2026-10-20T23:40:00+08:00",
+  "sourceHead": "a71568d1deeca3930e94f19bd674472f564d0c7e",
+  "scope": "read-only scan of local archives, isolated copies, and current resource mirrors",
+  "archivesInspected": [
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/original-integration/resource-reconciliation-backup-20261009.zip",
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/unity-candidate-review/unity-vm112-playdh-private-20261009.zip",
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/original-integration/original-vm112-canonical-birth-20261017.zip",
+    "E:/Workspaces/moxiang/audit/2026-10-09-reorg/original-integration/original-vm112-canonical-birth-numericcopy-20261017.zip",
+    "E:/Workspaces/moxiang/artifacts/playdh-historical-overlay/Map.pak",
+    "E:/Workspaces/moxiang/repo/modern/data/PlayDH/Map.pak",
+    "E:/Workspaces/moxiang/worktrees/original-integration/modern/data/PlayDH/Map.pak",
+    "E:/Workspaces/moxiang/worktrees/unity-integration/modern/data/PlayDH/Map.pak"
+  ],
+  "currentVerifiedMissingNames": {
+    "hfl": [],
+    "ttb": []
+  },
+  "removedFromMissingList": {
+    "reason": "These height fields and tile tables are not referenced by the original .map/.stm files. They must not be reported as missing.",
+    "hfl": ["0.hfl", "4.hfl", "23.hfl", "24.hfl", "32.hfl", "33.hfl", "34.hfl", "94.hfl"],
+    "ttb": ["0.ttb", "3.ttb", "4.ttb", "23.ttb", "24.ttb", "32.ttb", "33.ttb", "34.ttb", "94.ttb", "198.ttb"]
+  },
+  "historicalHflCandidates": {
+    "archive": "E:/Workspaces/moxiang/audit/2026-10-09-reorg/original-integration/resource-reconciliation-backup-20261009.zip",
+    "entryCount": 77,
+    "matchingMissingEntries": {
+      "0.hfl": {"bytes": 137030, "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762"},
+      "4.hfl": {"bytes": 137030, "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92"},
+      "23.hfl": {"bytes": 137030, "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894"},
+      "24.hfl": {"bytes": 137030, "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853"},
+      "32.hfl": {"bytes": 137030, "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1"},
+      "33.hfl": {"bytes": 137030, "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c"},
+      "34.hfl": {"bytes": 137030, "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c"},
+      "94.hfl": {"bytes": 137030, "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b"}
+    },
+    "sameBytesAsCurrent": false,
+    "decision": "REJECT_KNOWN_HISTORICAL_HFL_CANDIDATE"
+  },
+  "ttbSearch": {
+    "matchingMissingEntries": [],
+    "decision": "NO_EXACT_MATCH_FOUND"
+  },
+  "monster203Search": {
+    "exactEntry": "Monster_203.bin",
+    "matchingArchives": [],
+    "nearMatchOnly": "Resource/Server/InsDGMonster_203.bin",
+    "decision": "NO_EXACT_MATCH_FOUND"
+  },
+  "mapPakMirrors": {
+    "sha256": "b3b4c8e504877afaa1636f9a9e7ec88f187246a525b0004ea0f5a9268a0effb0",
+    "allMirrorsSameBytes": true,
+    "newExactEntries": false
+  },
+  "decision": "No byte-authenticated exact TTB or Monster_203 source was found. The eight HFL entries are a previously rejected historical candidate and were not extracted or admitted. No active resource tree was modified.",
+  "releaseReady": false
+}

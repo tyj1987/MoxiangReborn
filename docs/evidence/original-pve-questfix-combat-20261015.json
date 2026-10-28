@@ -1,0 +1,91 @@
+{
+  "status": "partial_authoritative_combat_with_quest_rows_preserved",
+  "verifiedAt": "2026-10-15",
+  "line": "original-modern-dx11",
+  "codeCommit": "3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb",
+  "change": "revisioned combat no longer rejects a player solely because quest state is preloaded; kill progress remains in the authoritative transaction path",
+  "build": {
+    "generator": "Visual Studio 17 2022 x64",
+    "configuration": "Release",
+    "targets": ["mxh_login_server", "mxh_agent_server_CHINA", "mxh_map_server_CHINA", "mxh_client_e2e"],
+    "unitTests": {
+      "targeted": 4,
+      "passed": 4,
+      "names": [
+        "RevisionedSkillSpendsMpBeforeMonsterAttackAndRejectsUnsafeTargets",
+        "PreloadedQuestAllowsRevisionedSkillAndAdvancesKillProgress",
+        "LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend",
+        "LethalSkillPublishesFinalRefilledMpToClient"
+      ]
+    }
+  },
+  "clientHarness": {
+    "combatWindowSeconds": "min(max(timeout,30)*3,600)",
+    "reason": "prevents a rare or missing drop from leaving the headless probe running for an unbounded 15x timeout",
+    "releaseBuildSmoke": {
+      "path": "docs/evidence/original-pve-restore-check-20261015-timebound-client.log",
+      "sha256": "dd1c6f87dc10e66759cdf7b6f7898cad933bb3b93ac99a8d98e1b8384e369b42",
+      "bytes": 100053,
+      "exitCode": 0
+    }
+  },
+  "pve": {
+    "host": "192.168.2.244",
+    "ports": {"login": 16001, "agent": 17001, "map": 18001},
+    "database": "MoxiangOriginalTest_20261009",
+    "fixture": {
+      "account": "origpve15",
+      "playerId": 100017,
+      "temporaryEquipment": [11000, 23000, 27000],
+      "temporaryLevel": 53,
+      "questRowsUntouched": true,
+      "expFlag": 16
+    },
+    "observed": {
+      "loginCharSelectGameIn": true,
+      "map10MonsterPopulation": 228,
+      "gameInLevel": 53,
+      "questAnnouncement": "quest id=1 state=1 status=Active - hunt monsters",
+      "authoritativeKills": [50143, 50099],
+      "questProgressCharacterEvents": 4,
+      "itemOrRewardEvents": 3,
+      "fullClientFlow": false,
+      "fullFlowReason": "The current E2E combat loop continued selecting refreshed targets after authoritative kills and did not reach its final pickup/relog assertion before the bounded run was stopped."
+    },
+    "boundedRepeat": {
+      "path": "docs/evidence/original-pve-questfix-combat-attempt6-20261015.log",
+      "sha256": "0c74ddb01f318250954f3558e4c2f63dd615e0eb4a59f79097889e493ec8c00a",
+      "bytes": 341265,
+      "gameIn": true,
+      "authoritativeKillsObserved": 6,
+      "dropObserved": false,
+      "result": "The quest-enabled fixture remained playable through six authoritative kills; this bounded repeat did not observe a natural ground-drop event, so the complete pickup/relog gate remains open."
+    },
+    "evidenceLog": {
+      "path": "docs/evidence/original-pve-questfix-combat-attempt3-20261015.log",
+      "sha256": "b201c1302231296df4f140d72b2080c074a9d9723dfc3a9b79a9c3724c904032",
+      "bytes": 309602
+    },
+    "restoreCheck": {
+      "path": "docs/evidence/original-pve-restore-check-20261015-final.log",
+      "sha256": "160011732f188783349c925754f995ee799921e33009d9bc3cbb8afa43f15a01",
+      "exitCode": 0,
+      "result": "LoginAck, character list, GameInAck and 228 Map10 monsters passed after old Map10 service was restored"
+    },
+    "databaseRestore": {
+      "result": "restored",
+      "character": "level=1 map=10 attrs=12/12/12/12",
+      "state": "money=0 level=1 exp=0 max_level=1 exp_flag=16 level_up_point=0 hp_mp_flag=0",
+      "vitals": "hp=125 shield=245 mp=125 dead=0 initialized=1 revision=1",
+      "equipmentRows": 0,
+      "questRows": "untouched by fixture; baseline quest log/substate retained"
+    },
+    "serviceRestore": {
+      "temporaryTaskRemoved": "MoxiangQuestFixMapOnly3106",
+      "oldMap10TaskStarted": "MoxiangRestoreOriginalMap10_20261015",
+      "oldAgentLoginAndMap12Map2": "left running",
+      "resourceProfile": "playdh-current"
+    }
+  },
+  "interpretation": "This closes the quest-state rejection defect and proves authoritative combat with quest rows present. It does not close the level-1 first-player route or the complete natural-drop/click-pickup/relog GUI gate."
+}

@@ -2,6 +2,9 @@
 // Phase 6.3 — implementation of the modern cDialog widget.
 #include "cDialog.hpp"
 
+#include <unordered_set>
+#include <vector>
+
 namespace mxh::ui {
 
 void cDialog::Init(std::int32_t x, std::int32_t y, std::uint16_t wid,
@@ -100,6 +103,36 @@ cWindow* cDialog::findWindowById(std::int32_t id) const {
             if (cWindow* found = d->findWindowById(id)) {
                 return found;
             }
+        }
+    }
+    return nullptr;
+}
+
+cWindow* cDialog::findWindowByLegacyId(std::string_view id) const {
+    std::vector<cWindow*> pending{const_cast<cDialog*>(this)};
+    std::unordered_set<const cWindow*> seen;
+    while (!pending.empty()) {
+        cWindow* window = pending.back();
+        pending.pop_back();
+        if (!window || !seen.insert(window).second) continue;
+        if (window->legacyId() == id) return window;
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            pending.push_back(window->childAt(i));
+        }
+    }
+    return nullptr;
+}
+
+cWindow* cDialog::findWindowByLegacyFunc(std::string_view func) const {
+    std::vector<cWindow*> pending{const_cast<cDialog*>(this)};
+    std::unordered_set<const cWindow*> seen;
+    while (!pending.empty()) {
+        cWindow* window = pending.back();
+        pending.pop_back();
+        if (!window || !seen.insert(window).second) continue;
+        if (window->legacyFunc() == func) return window;
+        for (std::size_t i = 0; i < window->childCount(); ++i) {
+            pending.push_back(window->childAt(i));
         }
     }
     return nullptr;

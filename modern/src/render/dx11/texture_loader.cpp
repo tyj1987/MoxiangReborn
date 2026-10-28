@@ -225,6 +225,23 @@ LoadedTexture loadTGA(const std::uint8_t* data, std::uint32_t size) {
     return out;
 }
 
+void flipVertical(LoadedTexture& tex) {
+    if (tex.width == 0 || tex.height < 2 ||
+        tex.pixels.size() < static_cast<std::size_t>(tex.width) * tex.height * 4u) {
+        return;
+    }
+    const std::size_t stride = static_cast<std::size_t>(tex.width) * 4u;
+    std::vector<std::uint8_t> row(stride);
+    for (std::uint32_t y = 0; y < tex.height / 2u; ++y) {
+        auto* top = tex.pixels.data() + static_cast<std::size_t>(y) * stride;
+        auto* bot = tex.pixels.data() +
+            static_cast<std::size_t>(tex.height - 1u - y) * stride;
+        std::memcpy(row.data(), top, stride);
+        std::memcpy(top, bot, stride);
+        std::memcpy(bot, row.data(), stride);
+    }
+}
+
 LoadedTexture loadDDS(const std::uint8_t* data, std::uint32_t size) {
     LoadedTexture out;
     constexpr std::uint32_t kDdsMagic = MAKEFOURCC('D', 'D', 'S', ' ');

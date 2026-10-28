@@ -34,12 +34,15 @@
 #include "CCharSelectState.hpp"   // defines LoginResult (shared with CCharSelectState)
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "NetworkEventQueue.hpp"
 
 namespace mxh::client {
 
@@ -114,7 +117,10 @@ public:
     std::uint8_t user_level()    const noexcept { return 0; }  // legacy field; not in 23B ack
     bool        is_ack_received() const noexcept { return m_ackReceived.load(std::memory_order_acquire); }
     bool        is_failed()      const noexcept { return m_failed.load(std::memory_order_acquire); }
-    const std::string& failure_reason() const { return m_failureReason; }
+    std::string failure_reason() const {
+        std::lock_guard<std::mutex> lk(m_mu);
+        return m_failureReason;
+    }
 
     // Phase B.2.2: extract the LoginResult for the next state.  The
     // host calls this right before SetGameState(CharSelect) and feeds
@@ -124,7 +130,39 @@ public:
     // (LoginResult is defined in CCharSelectState.hpp.)
     LoginResult TakeLoginResult();
 
+    // ---- Phase 1 §7.2 protocol-burst test hooks ------------------------
+    // Direct dispatch (skips network recv thread) so the test can slam
+    // the state with synthetic LoginNack / LoginAck packets and verify
+    // fail_with() lands without spinning up a real LoginServer.  Mirrors
+    // the CInGameState::SetDispatchForTest pattern added in commit
+    // a8e194da.  Production code never calls these; they exist purely
+    // so clogin_state_test can drive on_message() without sockets.
+    void SetDispatchForTest(bool enabled) noexcept { m_dispatchEnabledForTest = enabled; }
+    void HandleMessageForTest(const mxh::net::Message& msg) {
+        if (!m_dispatchEnabledForTest) return;
+        on_message({}, msg);
+    }
+
+    // ---- Phase 1 §7.2 login-timeout test hook ----------------------------
+    // Override the application-level LoginAck timeout.  Production code
+    // uses the default 10-second budget; tests set a sub-second budget
+    // to verify the timeout fires when no LoginAck/Nack arrives.  See
+    // CHANGELOG entry "CLoginState login-timeout test hook" (2026-09-06).
+    void SetLoginAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
+        m_loginAckTimeout = t;
+    }
+
+    // Arm the LoginAck deadline as if `RequestLogin` had just been sent.
+    // Tests use this to drive the timeout path without needing a real
+    // DistConnectSuccess (which would touch m_client->send).  Production
+    // code never calls this.
+    void ArmLoginAckDeadlineForTest() noexcept {
+        m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
+    }
+
 private:
+    void handle_message(mxh::net::ConnectionId id, const mxh::net::Message& msg);
+    void handle_disconnect(mxh::net::ConnectionId id, mxh::net::NetError reason);
     void dispatch_login_ack(const LegacyLoginAck& ack);
     void fail_with(const std::string& reason);
 
@@ -141,6 +179,11 @@ private:
     // host's main thread (e.g. B.2.5 E2E poll loop).  std::atomic
     // ensures the host sees updates without UB.
     std::atomic<std::uint32_t> m_authKey    {0};
+    // Phase 1 §7.2: opt-in flag for clogin_state_test to call
+    // on_message() directly.  When false, HandleMessageForTest is a
+    // no-op so a missing test setup cannot accidentally exercise
+    // the dispatch path.  Defaults to false.
+    bool m_dispatchEnabledForTest = false;
     std::atomic<std::uint32_t> m_userIdx    {0};
     std::atomic<std::uint16_t> m_agentPort  {0};
     // m_agentAddr is a std::string; we guard it with m_mu under
@@ -148,11 +191,20 @@ private:
     // lock so the host sees a consistent value.
     mutable std::mutex       m_mu;
     std::string              m_agentAddr;
+    NetworkEventQueue        m_events;
 
     std::atomic<bool>        m_started    {false};
     std::atomic<bool>        m_ackReceived {false};
     std::atomic<bool>        m_failed     {false};
     std::string              m_failureReason;
+
+    // Phase 1 §7.2: application-level LoginAck timeout.  The deadline
+    // is reset by `handle_message` right after `RequestLogin` is sent;
+    // `Process()` polls it on every tick.  Default 10 s, overridable
+    // by `SetLoginAckTimeoutForTest`.  We use steady_clock so a wall-
+    // clock adjustment (e.g. NTP) does not falsely fire the timeout.
+    std::chrono::steady_clock::time_point m_loginAckDeadline{};
+    std::chrono::milliseconds             m_loginAckTimeout{std::chrono::seconds(10)};
 };
 
 } // namespace mxh::client

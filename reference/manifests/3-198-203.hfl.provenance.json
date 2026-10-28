@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "classification": "verified-original",
+  "entries": [
+    {
+      "logicalPath": "Resource/Map/3.hfl",
+      "bytes": 1189592,
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "sourceCandidates": [
+        "D:/MX/client/Package/3DData/Map.pak",
+        "D:/MX/client-legacy/Map.pak",
+        "D:/MoyoI/墨香源启/Map.pak",
+        "D:/MoyoI/��ī��/Map.pak",
+        "D:/02_Dev/Tools/smoke_test/current/smoke_test_full/PlayDH/Map.pak"
+      ],
+      "validation": "byte-identical across five retained original package sources; HFL parser accepted; used-texture audit passed",
+      "releaseReady": true
+    },
+    {
+      "logicalPath": "Resource/Map/198.hfl",
+      "bytes": 1184002,
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "sourceCandidates": [
+        "D:/MX/client/Package/3DData/Map.pak",
+        "D:/MX/client-legacy/Map.pak",
+        "D:/MoyoI/墨香源启/Map.pak",
+        "D:/MoyoI/��ī��/Map.pak",
+        "D:/02_Dev/Tools/smoke_test/current/smoke_test_full/PlayDH/Map.pak"
+      ],
+      "validation": "byte-identical across five retained original package sources; HFL parser accepted; used-texture audit passed",
+      "releaseReady": true
+    },
+    {
+      "logicalPath": "Resource/Map/203.hfl",
+      "bytes": 3685568,
+      "sha256": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8",
+      "sourceContainer": "D:/MX/client/Package/3DData/Map.pak",
+      "sourceContainerSha256": "00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3",
+      "entryEvidence": "Map.pak entry 9741",
+      "validation": "513x513 height field parsed and rendered without truncation",
+      "releaseReady": true
+    }
+  ],
+  "note": "These files are admitted as exact original height fields. They do not supply the still-missing TTB collision tables or any remaining HFL entries."
+}

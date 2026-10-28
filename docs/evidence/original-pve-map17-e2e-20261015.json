@@ -1,0 +1,70 @@
+{
+  "date": "2026-10-15",
+  "line": "original-modern-dx11",
+  "stage": "VM112 C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "resource_profile": "playdh-current",
+  "resource_root": "modern/data/PlayDH",
+  "birth_probe_ports": {
+    "login": 16117,
+    "agent": 17117,
+    "map": 18117,
+    "map_number": 17
+  },
+  "ports": {
+    "login": 16118,
+    "agent": 17118,
+    "map": 18118,
+    "map12": 18119,
+    "map_number": 17
+  },
+  "quest_probe_ports": {
+    "login": 16120,
+    "agent": 17120,
+    "map": 18120,
+    "map12": 18121,
+    "map_number": 17
+  },
+  "accounts": ["m17probe20261015", "m17flow20261015"],
+  "credentials": "not recorded",
+  "client": "MoxianClientE2E Release --no-spawn",
+  "result": "PASS",
+  "steps": {
+    "login_ack": true,
+    "character_list_empty": true,
+    "character_make": true,
+    "character_relist": true,
+    "character_select_map": 17,
+    "game_in_ack": true,
+    "player_id": 100018,
+    "player_level": 1,
+    "player_life": "131/131",
+    "quest_start_ack": true,
+    "quest_id": 1,
+    "quest_incomplete_end_nack": true,
+    "map_change_to_12": true,
+    "map12_game_in_monsters": 216,
+    "map12_game_in_npcs": 31,
+    "map12_route_survives_fresh_game_in": true
+  },
+  "database_cleanup": {
+    "all_probe_accounts_cleaned": true,
+    "account_rows": 0,
+    "identity_rows": 0,
+    "character_rows": 0,
+    "state_rows": 0,
+    "vitals_rows": 0,
+    "equipment_rows": 0,
+    "item_rows": 0,
+    "quest_log_rows": 0,
+    "quest_sub_rows": 0,
+    "skill_rows": 0
+  },
+  "isolated_ports_released": true,
+  "default_services_preserved": [16001, 17001, 18001, 18002, 18003, 26101, 27101, 28101],
+  "limitations": [
+    "This closes the isolated Map17 login/create/select/GameIn protocol gate only.",
+    "Map17 movement, quests, combat, natural drops, pickup, equipment and full relog persistence remain open; the Map17 to Map12 route was verified separately.",
+    "Nine exact Map17 terrain textures are still missing; no replacement assets were admitted.",
+    "Human GUI and visual 1:1 acceptance remain open."
+  ]
+}

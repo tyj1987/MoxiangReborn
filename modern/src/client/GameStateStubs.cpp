@@ -1,9 +1,8 @@
 // mxh/client/GameStateStubs.cpp
-// Phase A.1.7 — implementation of the 9 eGAMESTATE concrete state
-// stubs.  Each method is intentionally a no-op for A.1.7; the real
-// bodies land in A.1.8+ as the corresponding legacy state is ported
-// (CMainTitle first, since the boot-to-login flow is the next thing
-// the user sees after the bootscreen).
+// Shared implementation for the remaining lightweight eGAMESTATE states.
+// Login, character select/create, loading, map change and GameIn have their
+// dedicated implementations; only intentionally inert legacy states use the
+// small lifecycle helper below.
 //
 // The 1:1 surface (Init / Release / Process / BeforeRender /
 // AfterRender) is preserved so the host's CMainGame driver and the
@@ -13,8 +12,11 @@
 // don't override them here.
 
 #include "GameStateStubs.hpp"
+#include "CEngine.hpp"
 
 #include "mxh/log/mlog.hpp"
+
+#include <algorithm>
 
 namespace mxh::client {
 
@@ -40,8 +42,172 @@ MXH_STATE_STUB_IMPL(CIntroReplay)
 // MoxianAgentServer.
 // CGameIn (eGS_GAMEIN = 7) is now CInGameState (Phase B.2.3) —
 // drives the GameIn handshake against MoxianMapServer.
-MXH_STATE_STUB_IMPL(CGameLoading)
-MXH_STATE_STUB_IMPL(CMapChange)
+void CGameLoading::Init(void* param) {
+    SetInitParam(param);
+    m_progress = 0.0f;
+    m_failed = false;
+    m_cancelled = false;
+    m_error.clear();
+    const auto* context = static_cast<const LoadStateContext*>(param);
+    if (!context) {
+        // The network receive thread can publish the GameEntryRequest one
+        // frame after the state transition. Keep the state pending until the
+        // host attaches the coordinator context; failing here races that
+        // legitimate hand-off and strands the client in CharSelect.
+    } else {
+        if (context->total_steps == 0) {
+            m_failed = true;
+            m_error = "loading context has zero steps";
+        } else {
+            m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                    static_cast<float>(context->total_steps), 0.0f, 1.0f);
+        }
+        m_cancelled = context->cancelled;
+        if (!m_cancelled && context->failed) {
+            m_failed = true;
+            m_error = context->error ? context->error : "map loading failed";
+        }
+    }
+    setInitialized(true);
+    MLOG_INFO("CGameLoading::Init progress=%.3f failed=%d", m_progress, m_failed);
+}
+
+void CGameLoading::Start(CEngine* engine) {
+    if (m_failed || m_cancelled) return;
+    if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
+        m_failed = true;
+        m_error = !engine ? "loading requires a client engine"
+                          : "loading requires an explicit PlayDH resource root";
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
+    }
+    if (!m_uiRuntime.empty()) return;
+    std::string error;
+    if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
+                          engine->ui_resolution_mode(), &error)) {
+        m_failed = true;
+        m_error = "loading UI unavailable: " + error;
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
+    }
+    m_uiRuntime.activateAllLoadedDialogs();
+    MLOG_INFO("CGameLoading: loaded real NewLoadDlg.bin UI");
+}
+
+void CGameLoading::Release() {
+    m_uiRuntime.clear();
+    setInitialized(false);
+    MLOG_DEBUG("CGameLoading::Release");
+}
+
+void CGameLoading::Process() {
+    tick();
+    const auto* context = static_cast<const LoadStateContext*>(initParam());
+    if (!context) {
+        // Context is attached by the host after the asynchronous
+        // GameEntryRequest is consumed. A missing context during this frame
+        // is therefore a pending state, not a successful load or an error.
+        return;
+    }
+    // Loading has a terminal state: cancellation or the first failure must
+    // not be overwritten by a late worker callback.
+    if (m_failed || m_cancelled) return;
+    if (context->total_steps == 0) {
+        m_failed = true;
+        m_error = "loading context has zero steps";
+        MLOG_ERROR("CGameLoading: %s", m_error.c_str());
+        return;
+    }
+    m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                            static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    m_uiRuntime.setProgressValue(m_progress);
+    m_cancelled = context->cancelled;
+    if (!m_cancelled && context->failed) {
+        m_failed = true;
+        m_error = context->error ? context->error : "map loading failed";
+    }
+}
+
+void CMapChange::Init(void* param) {
+    SetInitParam(param);
+    m_progress = 0.0f;
+    m_failed = false;
+    m_cancelled = false;
+    m_error.clear();
+    const auto* context = static_cast<const LoadStateContext*>(param);
+    if (!context) {
+        // MapChange uses the same asynchronous transfer hand-off as initial
+        // loading; the host may attach its context on the next frame.
+    } else {
+        if (context->total_steps == 0) {
+            m_failed = true;
+            m_error = "map change context has zero steps";
+        } else {
+            m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                                    static_cast<float>(context->total_steps), 0.0f, 1.0f);
+        }
+        m_cancelled = context->cancelled;
+        if (!m_cancelled && context->failed) {
+            m_failed = true;
+            m_error = context->error ? context->error : "map change failed";
+        }
+    }
+    setInitialized(true);
+    MLOG_INFO("CMapChange::Init progress=%.3f", m_progress);
+}
+
+void CMapChange::Release() {
+    m_uiRuntime.clear();
+    setInitialized(false);
+    MLOG_DEBUG("CMapChange::Release");
+}
+
+void CMapChange::Start(CEngine* engine) {
+    if (m_failed || m_cancelled) return;
+    if (m_uiRuntime.empty() && (!engine || !engine->playdh_root())) {
+        m_failed = true;
+        m_error = !engine ? "map change requires a client engine"
+                          : "map change requires an explicit PlayDH resource root";
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
+    }
+    if (!m_uiRuntime.empty()) return;
+    std::string error;
+    if (!m_uiRuntime.load(*engine->playdh_root(), "NewLoadDlg.bin",
+                          engine->ui_resolution_mode(), &error)) {
+        m_failed = true;
+        m_error = "map change UI unavailable: " + error;
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
+    }
+    m_uiRuntime.activateAllLoadedDialogs();
+    MLOG_INFO("CMapChange: loaded real NewLoadDlg.bin UI");
+}
+
+void CMapChange::Process() {
+    tick();
+    const auto* context = static_cast<const LoadStateContext*>(initParam());
+    if (!context) {
+        return;
+    }
+    // MapChange shares the same terminal-state contract as GameLoading:
+    // once cancelled or failed, late asynchronous results are ignored.
+    if (m_failed || m_cancelled) return;
+    if (context->total_steps == 0) {
+        m_failed = true;
+        m_error = "map change context has zero steps";
+        MLOG_ERROR("CMapChange: %s", m_error.c_str());
+        return;
+    }
+    m_progress = std::clamp(static_cast<float>(context->completed_steps) /
+                            static_cast<float>(context->total_steps), 0.0f, 1.0f);
+    m_uiRuntime.setProgressValue(m_progress);
+    m_cancelled = context->cancelled;
+    if (!m_cancelled && context->failed) {
+        m_failed = true;
+        m_error = context->error ? context->error : "map change failed";
+    }
+}
 MXH_STATE_STUB_IMPL(CMurimNet)
 
 } // namespace mxh::client

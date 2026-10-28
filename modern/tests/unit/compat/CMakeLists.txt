@@ -99,16 +99,37 @@ gtest_add_tests(TARGET mxh_resource_parse_all_bin_tests
 # T1 payload SHA-256 byte-level verification - Phase E1.
 # Verifies modern read_mh_bin() produces payload bytes matching manifest JSON SHA-256s.
 add_executable(mxh_resource_payload_sha256_tests resource_payload_sha256_test.cpp)
-target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE mxh_compat gtest_main bcrypt)
+target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE mxh_compat gtest_main)
+if(WIN32)
+    target_link_libraries(mxh_resource_payload_sha256_tests PRIVATE bcrypt)
+endif()
 target_include_directories(mxh_resource_payload_sha256_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_resource_payload_sha256_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_resource_payload_sha256_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
 
+# Read-only ground-truth dump. Writes only --out:
+#   mxh_payload_dump --dir <resource-dir> [--manifest <json>] --out <file.json>
+add_executable(mxh_payload_dump mxh_payload_dump.cpp)
+target_link_libraries(mxh_payload_dump PRIVATE mxh_compat)
+if(WIN32)
+    target_link_libraries(mxh_payload_dump PRIVATE bcrypt)
+endif()
+target_include_directories(mxh_payload_dump PRIVATE ${CMAKE_SOURCE_DIR}/include)
+
 add_executable(mxh_monster_catalog_tests monster_catalog_test.cpp)
 target_link_libraries(mxh_monster_catalog_tests PRIVATE mxh_compat gtest_main)
+target_compile_definitions(mxh_monster_catalog_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 target_include_directories(mxh_monster_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_monster_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
+
+add_executable(mxh_npc_chx_catalog_tests npc_chx_catalog_test.cpp)
+target_link_libraries(mxh_npc_chx_catalog_tests PRIVATE mxh_compat gtest_main)
+target_include_directories(mxh_npc_chx_catalog_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+include(GoogleTest)
+gtest_add_tests(TARGET mxh_npc_chx_catalog_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit PRE_SHIP_BUILD)
 
 add_executable(mxh_character_appearance_catalog_tests character_appearance_catalog_test.cpp)
 target_link_libraries(mxh_character_appearance_catalog_tests PRIVATE mxh_compat gtest_main)

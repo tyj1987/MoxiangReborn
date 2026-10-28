@@ -1,0 +1,102 @@
+{
+  "date": "2026-10-14",
+  "line": "original",
+  "sourceCommit": "6a56df1c",
+  "package": {
+    "sourceHead": "a089ad6b22e8dc4626a217108429d612554c6726",
+    "sha256": "af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999"
+  },
+  "pve": {
+    "host": "192.168.2.244",
+    "stage": "C:\\Moxiang\\original\\stage-20261014",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "ports": {
+      "login": 16101,
+      "agent": 17101,
+      "map2": 18103
+    }
+  },
+  "lowLevelAttempt": {
+    "map": 10,
+    "character": "dedicated vm112e2e character before fixture",
+    "loginAck": true,
+    "gameInAck": true,
+    "targetLife": 6150,
+    "targetDefence": 541,
+    "observedAttackDamage": "2-4",
+    "lifeChanged": false,
+    "dropObserved": false,
+    "pickupObserved": false,
+    "exit": 2,
+    "interpretation": "A level-1 starter character cannot legitimately kill the Map10 level range; no damage or loot was synthesized."
+  },
+  "fixtureAttempt": {
+    "map": 2,
+    "characterId": 100013,
+    "fixtureContract": "Dedicated test character vm112e2e; character_info and modern progress/vitals were changed in the isolated MSSQL test database, then restored to the captured level-1 values after the run.",
+    "fixtureValues": {
+      "level": 53,
+      "map": 2,
+      "baseGengol": 2000,
+      "baseMinchub": 12,
+      "baseCheryuk": 2000,
+      "baseSimmek": 12,
+      "maxLevel": 53,
+      "hp": 20271,
+      "shield": 8897,
+      "mp": 100
+    },
+    "loginAck": true,
+    "characterList": true,
+    "characterSelect": true,
+    "gameInAck": true,
+    "targetSelected": 50018,
+    "naturalDeath": true,
+    "groundDrop": {
+      "dropId": 90000,
+      "itemId": 8008,
+      "count": 1
+    },
+    "clickPickup": true,
+    "inventoryMoveAck": {
+      "itemId": 8008,
+      "source": 0,
+      "target": 1
+    },
+    "reloginPersistence": true,
+    "aliveCount": "128->126",
+    "exit": 0,
+    "resultSha256": "32EDB936F968ADAEBFB24639BB25E72FD057ABB47C10EBB7CA274AD9D6B04043"
+  },
+  "map10FixtureAttempt": {
+    "map": 10,
+    "characterId": 100013,
+    "targetSelected": 50143,
+    "targetLife": 6150,
+    "naturalDeath": true,
+    "groundDrop": {
+      "dropId": 90000,
+      "itemId": 8008,
+      "count": 1
+    },
+    "clickPickup": true,
+    "inventoryMoveAck": {
+      "itemId": 8008,
+      "source": 0,
+      "target": 1
+    },
+    "reloginPersistence": true,
+    "aliveCount": "228->227",
+    "exit": 0,
+    "resultSha256": "C61AB07DCDFA31C54F84144FC59E6949DBD38CDA8CCA8314CAE8E3343DFDC9C5"
+  },
+  "restoration": {
+    "character": "100013 restored to level=1,map=10,base attributes 12/12/12/12",
+    "progress": "modern_player_state restored to level=1,exp=0,max_level=1,exp_flag=16,level_up_point=0,hp_mp_flag=0",
+    "vitals": "modern_player_vitals restored to hp=0,shield=69,mp=128,dead=1,initialized=1,revision=15",
+    "inventory": "temporary combat item row 8008 removed; original equipment rows 11000/23000/27000 remain",
+    "cleanup": "stage processes stopped by exact stage path; ports 16101,17101,18101,18102,18103 verified free"
+  },
+  "scope": "This closes a real PVE server-authoritative combat/drop/pickup/relogin fixture gate on both Map2 and the target Map10. It does not claim level-1 first-player Map10 balance, human GUI acceptance, full map coverage, or commercial release readiness."
+}

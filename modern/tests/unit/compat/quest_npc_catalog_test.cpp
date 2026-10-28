@@ -1,6 +1,7 @@
 #include "mxh/compat/quest_npc_catalog.hpp"
 
 #include <gtest/gtest.h>
+#include "../../support/playdh_env.hpp"
 
 TEST(QuestNpcCatalog, ParsesLegacyTabSeparatedRow) {
     const auto result = mxh::compat::parse_quest_npc_text(
@@ -18,13 +19,15 @@ TEST(QuestNpcCatalog, ParsesLegacyTabSeparatedRow) {
 
 TEST(QuestNpcCatalog, LoadsRealResourceWithoutErrors) {
     std::filesystem::path path;
-    for (const auto& item : std::filesystem::recursive_directory_iterator(
-             std::filesystem::current_path(),
-             std::filesystem::directory_options::skip_permission_denied)) {
-        if (item.is_regular_file() && item.path().filename() == "questnpclist.bin") {
-            path = item.path();
-            break;
-        }
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        path = *playdh_override / "Resource" / "QuestScript" / "questnpclist.bin";
+    }
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; path.empty() && depth < 8 && !root.empty(); ++depth) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / "QuestScript" / "questnpclist.bin";
+        if (std::filesystem::is_regular_file(candidate)) path = candidate;
+        root = root.parent_path();
     }
     if (path.empty()) GTEST_SKIP() << "PlayDH unavailable";
     const auto result = mxh::compat::load_quest_npc_catalog(path);
@@ -33,5 +36,7 @@ TEST(QuestNpcCatalog, LoadsRealResourceWithoutErrors) {
     EXPECT_GT(result.entries.size(), 50u);
     EXPECT_EQ(mxh::compat::quest_npc_count_for_map(result, 1), 5u);
     EXPECT_EQ(mxh::compat::quest_npc_count_for_map(result, 13), 12u);
-    EXPECT_EQ(mxh::compat::quest_npc_count_for_map(result, 12), 0u);
+    // The canonical PlayDH quest list contains one map-12 entry; the old
+    // assertion of zero came from a different resource revision.
+    EXPECT_EQ(mxh::compat::quest_npc_count_for_map(result, 12), 1u);
 }

@@ -5,6 +5,7 @@
     ttb_tile_table.cpp
     chx_model.cpp
     monster_catalog.cpp
+    npc_chx_catalog.cpp
     character_appearance_catalog.cpp
     chr_motion.cpp
     anm_motion.cpp
@@ -16,6 +17,8 @@
     hfl_height_field.cpp
     stm_static_model.cpp
     image_path_table.cpp
+    map_change_catalog.cpp
+    gx_map_script.cpp
 )
 
 target_include_directories(mxh_compat PUBLIC
@@ -36,12 +39,13 @@ install(TARGETS mxh_compat
 
 add_library(mxh_audio STATIC
     audio/bgm_player.cpp
+    audio/sfx_player.cpp
 )
 target_include_directories(mxh_audio PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_compile_features(mxh_audio PUBLIC cxx_std_20)
 target_link_libraries(mxh_audio PUBLIC mxh_compat mxh_log)
 if(WIN32)
-    target_link_libraries(mxh_audio PRIVATE winmm)
+    target_link_libraries(mxh_audio PRIVATE mfplat mfreadwrite mfuuid xaudio2)
 endif()
 
 # -----------------------------------------------------------------------------
@@ -56,6 +60,7 @@ if(SQLite3_FOUND)
     message(STATUS "SQLite3: provided by vcpkg/system (${SQLite3_VERSION})")
     add_library(mxh_db STATIC
         db_adapter.cpp
+        schema_migration.cpp
         sqlite_adapter.cpp
         db_factory.cpp
         db_thread.cpp
@@ -69,6 +74,7 @@ else()
     message(STATUS "SQLite3: vendored amalgamation (third_party/sqlite)")
     add_library(mxh_db STATIC
         db_adapter.cpp
+        schema_migration.cpp
         sqlite_adapter.cpp
         db_factory.cpp
         db_thread.cpp
@@ -175,6 +181,7 @@ add_library(mxh_server STATIC
     server/character_calc_manager.cpp
     server/player.cpp
     server/player_state.cpp
+    server/original_vitals_store.cpp
     server/monster.cpp
     server/boss_state.cpp
     server/boss_monster.cpp
@@ -429,6 +436,8 @@ target_include_directories(mxh_log PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}              # so log/mlog.cpp finds mlog.hpp
 )
 target_compile_features(mxh_log PUBLIC cxx_std_20)
+# gx_map_script.cpp logs through MLOG. mxh_log does not depend on mxh_compat.
+target_link_libraries(mxh_compat PUBLIC mxh_log)
 
 # -----------------------------------------------------------------------------
 # mxh_memory: High-performance memory pool (Phase 12.4)
@@ -478,11 +487,6 @@ add_subdirectory(ui)
 add_subdirectory(services)
 
 # Phase 6.3: AgentServer 1:1 port — UserTable (legacy CUserTable).
-
-
-
-
-
 
 
 

@@ -4,7 +4,9 @@
 
 #include "ccheckbox.hpp"
 
+#include "cImage.hpp"
 #include "cwindow.hpp"
+#include "TextRender.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -100,11 +102,59 @@ std::uint32_t cCheckBox::ActionEvent(CMouse* /*mouseInfo*/) {
     return we;
 }
 
+std::uint32_t cCheckBox::ActionEvent(std::int32_t mouseX,
+                                     std::int32_t mouseY,
+                                     std::uint32_t mouseFlags) {
+    if (!isEnabled()) {
+        m_pressed = false;
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool inside = PtInWindow(mouseX, mouseY);
+    const bool left = (mouseFlags & MouseFlagLButton) != 0;
+    if (left && inside) {
+        m_pressed = true;
+        return static_cast<std::uint32_t>(WindowEvent::LButtonDown);
+    }
+    if (!left) {
+        const bool clicked = m_pressed && inside;
+        m_pressed = false;
+        if (clicked) {
+            ToggleForTesting();
+            return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
+        }
+    }
+    return static_cast<std::uint32_t>(WindowEvent::Null);
+}
+
 void cCheckBox::Render() {
-    // 1:1 with legacy Render — see legacy code for the full
-    // sprite + font dispatch. Modern port: no-op stub
-    // (Phase 6.x render wiring deferred).
+    if (!isVisible()) return;
     cWindow::Render();
+
+    // The loader supplies real cImage handles for both the checkbox frame and
+    // the checked overlay.  Keep the handles opaque at the ABI boundary, but
+    // render them through the same adapter used by every other UI window.
+    const auto drawImage = [this](void* handle) {
+        if (!handle) return;
+        auto* image = static_cast<cImage*>(handle);
+        image->render(absX(), absY(), width(), height(), 0xFFFFFFFFu, 1);
+    };
+    drawImage(m_CheckBoxImageHandle);
+    if (m_fChecked) drawImage(m_CheckImageHandle);
+
+    if (!m_szCheckBoxText.empty()) {
+        TextRenderRequest request;
+        request.text = m_szCheckBoxText;
+        request.x = absX();
+        request.y = absY();
+        request.width = width();
+        request.height = height();
+        request.left_inset = 20;
+        request.right_inset = 2;
+        request.color = m_dwCheckBoxTextColor;
+        request.font_index = 0;
+        request.align = TextRenderAlign::Left;
+        renderText(request);
+    }
 }
 
 void cCheckBox::SetCheckBoxMsg(const char* msg, std::uint32_t color) {

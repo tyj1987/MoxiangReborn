@@ -408,6 +408,27 @@ TEST(QuestReward, AlreadyRewardedIsIdempotentlyRejected) {
     EXPECT_EQ(claim_quest_reward(progress, def, player, 1000).status, QuestRewardStatus::NotComplete);
 }
 
+TEST(QuestReward, RequiresAndConsumesQuestItemsAtomically) {
+    auto def = make_kill_quest(704, 200, 1);
+    def.item_costs.push_back({147u, 2u});
+    auto progress = start_quest(1, def, 0);
+    complete_quest(progress);
+    mxh::server::PlayerSpawnInfo info;
+    info.player_id = 1;
+    mxh::server::Player player;
+    ASSERT_TRUE(player.initialize(info));
+    ASSERT_TRUE(player.activate());
+    EXPECT_EQ(claim_quest_reward(progress, def, player, 1000).status,
+              QuestRewardStatus::MissingItem);
+    EXPECT_EQ(progress.state, QuestState::Complete);
+    ASSERT_TRUE(player.insert_inventory_item(
+        mxh::game::make_item(90001u, 147u, 0u, 100u, 2u)).has_value());
+    const auto result = claim_quest_reward(progress, def, player, 1000);
+    EXPECT_EQ(result.status, QuestRewardStatus::Granted);
+    EXPECT_EQ(player.count_inventory_item(147u), 0u);
+    EXPECT_EQ(progress.state, QuestState::Rewarded);
+}
+
 // ---- dispatch_quest_event (legacy CQuestManager::AddQuestEvent -> QuestGroup bridge) ----
 using mxh::server::QuestEvent;
 using mxh::server::QuestEventChange;

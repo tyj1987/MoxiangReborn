@@ -1,5 +1,6 @@
 #include "mxh/compat/stm_static_model.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <limits>
 
@@ -11,6 +12,7 @@ constexpr std::size_t kBaseHeaderSize = 324;
 constexpr std::size_t kMeshHeaderSize = 48;
 constexpr std::size_t kFaceHeaderSize = 28;
 constexpr std::size_t kTexturePlaneSize32 = 100;
+constexpr std::size_t kCollisionBoundsSize = 136; // BOUNDING_BOX + sphere/cylinder + index
 
 void fail(std::string* error, const char* message) { if (error) *error = message; }
 
@@ -201,6 +203,54 @@ bool parse_stm_impl(std::span<const std::uint8_t> bytes, StmStaticModel& output,
     }
     output.collision_offset = cursor;
     if (cursor + 4 > bytes.size()) { fail(error, "missing STM collision block"); return false; }
+    std::uint32_t collisionSize = 0;
+    if (!read(bytes, cursor, collisionSize) ||
+        collisionSize > bytes.size() - cursor - 4) {
+        fail(error, "truncated STM collision descriptor"); return false;
+    }
+    // COLLISION_MODEL_DESC starts with one model descriptor, followed by the
+    // object count and one 136-byte descriptor per collision object.  Only the
+    // eight bounding-box vertices are needed by the modern movement query;
+    // triangle planes remain owned by the optional .col sidecar.
+    constexpr std::size_t kModelHeader = kCollisionBoundsSize + 4;
+    if (collisionSize >= kModelHeader) {
+        std::uint32_t objectCollisionCount = 0;
+        const auto countOffset = cursor + 4 + kCollisionBoundsSize;
+        if (!read(bytes, countOffset, objectCollisionCount) ||
+            objectCollisionCount > 65536u) {
+            fail(error, "invalid STM collision object count"); return false;
+        }
+        const auto descriptorsBytes = static_cast<std::size_t>(objectCollisionCount) *
+                                      kCollisionBoundsSize;
+        if (descriptorsBytes > collisionSize - kModelHeader) {
+            fail(error, "truncated STM collision object descriptors"); return false;
+        }
+        output.collision_bounds.reserve(objectCollisionCount);
+        for (std::uint32_t i = 0; i < objectCollisionCount; ++i) {
+            const auto descriptor = cursor + 4 + kModelHeader +
+                                    static_cast<std::size_t>(i) * kCollisionBoundsSize;
+            StmCollisionBounds bounds;
+            bounds.min = {std::numeric_limits<float>::max(),
+                          std::numeric_limits<float>::max(),
+                          std::numeric_limits<float>::max()};
+            bounds.max = {std::numeric_limits<float>::lowest(),
+                          std::numeric_limits<float>::lowest(),
+                          std::numeric_limits<float>::lowest()};
+            for (std::size_t vertex = 0; vertex < 8; ++vertex) {
+                float xyz[3]{};
+                if (!read(bytes, descriptor + vertex * 12, xyz[0]) ||
+                    !read(bytes, descriptor + vertex * 12 + 4, xyz[1]) ||
+                    !read(bytes, descriptor + vertex * 12 + 8, xyz[2])) {
+                    fail(error, "truncated STM collision bounding box"); return false;
+                }
+                for (int axis = 0; axis < 3; ++axis) {
+                    bounds.min[axis] = std::min(bounds.min[axis], xyz[axis]);
+                    bounds.max[axis] = std::max(bounds.max[axis], xyz[axis]);
+                }
+            }
+            output.collision_bounds.push_back(bounds);
+        }
+    }
     return true;
 }
 

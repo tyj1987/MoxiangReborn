@@ -1,0 +1,67 @@
+{
+  "schema": "moxiang.original-client-targeted-tests.v1",
+  "generatedAt": "2026-10-20T21:56:20+08:00",
+  "sourceHead": "d0898e56226dbaa43326b1551c54fc0712dfb319",
+  "branch": "codex/reorg-original-20261009",
+  "build": {
+    "bytes": 6969344,
+    "compiler": "MSVC 14.44.35207 (C:\\BuildTools)",
+    "target": "mxh_client_tests",
+    "directory": "modern/build/gameplay-client-isolated",
+    "executable": "modern/build/gameplay-client-isolated/tests/unit/client/mxh_client_tests.exe",
+    "sha256": "4cc3851c1b083de30a8d7711b26fb2f945f2d00a05a1c91c78369654efd7768c"
+  },
+  "test": {
+    "testsRun": 80,
+    "testsPassed": 80,
+    "log": "modern/out/original-targeted-client-tests-20261020.log",
+    "command": "mxh_client_tests.exe --gtest_filter=CMainGameStateIds.*:CInGameState.*:MonsterLifeAuthority.*:ProtocolBurst.*:ClientUiRuntime.*:InGameUiRuntime.* plus EffectRuntime.*",
+    "suites": {
+      "ProtocolBurst": "passed",
+      "CMainGameStateIds": "passed",
+      "CInGameState": "passed",
+      "MonsterLifeAuthority": "passed",
+      "ClientUiRuntime": "passed",
+      "EffectRuntime": "passed",
+      "InGameUiRuntime": "passed"
+    },
+    "exitCode": 0,
+    "testsFailed": 0,
+    "additionalRuns": [
+      {
+        "exitCode": 0,
+        "testsRun": 32,
+        "filter": "ClientUiRuntime.*",
+        "durationMs": 69,
+        "testsPassed": 32
+      },
+      {
+        "exitCode": 0,
+        "testsRun": 19,
+        "filter": "InGameUiRuntime.*",
+        "durationMs": 451,
+        "testsPassed": 19
+      },
+      {
+        "exitCode": 0,
+        "testsRun": 8,
+        "filter": "EffectRuntime.*",
+        "durationMs": 31355,
+        "testsPassed": 8
+      }
+    ]
+  },
+  "change": {
+    "file": "modern/src/client/CInGameState.cpp",
+    "fixes": [
+      "pre-reserve 256 monster snapshots for burst scene bootstrap",
+      "suppress synchronous per-packet MonsterAdd trace",
+      "remove per-monster heap probe and verbose payload log"
+    ],
+    "regression": "ProtocolBurst.GameInAckThenImmediateMonsterAddProducesNoCrash passes on rebuilt binary"
+  },
+  "limitations": [
+    "This is a targeted gate, not an unfiltered full-suite claim.",
+    "PlayDH resource root is intentionally absent in unit tests and is reported by the test log."
+  ]
+}

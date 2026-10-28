@@ -26,6 +26,7 @@ TEST(SkillManager, DefaultConstructedIsEmpty) {
     SkillManager mgr;
     EXPECT_EQ(mgr.size(), 0u);
     EXPECT_FALSE(mgr.exists(1));
+    EXPECT_FALSE(mgr.effect_names(1).has_value());
 }
 
 TEST(SkillManager, InitLoadsFourDefaultSkills) {

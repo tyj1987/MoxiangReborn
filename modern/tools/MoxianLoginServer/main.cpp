@@ -2,15 +2,15 @@
 
 #include "mxh/crypto/crypto.hpp"
 #include "mxh/db/db_adapter.hpp"
-#include "mxh/db/sqlite_adapter.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/server/server.hpp"
 
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <filesystem>
 #include <iostream>
 #include <memory>
@@ -18,14 +18,8 @@
 #include <thread>
 #include <unordered_map>
 
-// File-based logging for background process diagnostics.
-static std::ofstream g_log;
 static void log_file(const std::string& msg) {
-    if (!g_log.is_open()) {
-        g_log.open("d:/墨香全套源代码（源码+资源+客户端+服务端+教程）/modern/scratch/login_server.log",
-                   std::ios::app);
-    }
-    g_log << msg << std::endl;
+    std::clog << msg << '\n';
 }
 
 namespace {
@@ -34,29 +28,44 @@ struct Args {
     std::uint16_t port = 6001;
     std::string db_backend = "sqlite";  // "sqlite" | "mssql_odbc"
     std::string db_path = "modern/build/runtime/moxian.db";
+    std::string db_env;
+    std::string bind_address = "0.0.0.0";
     std::string agent_addr = "127.0.0.1";
     std::uint16_t agent_port = 7001;
-    bool init_schema = false;
     bool use_legacy = false;  // Phase 7.6: 4DyuchiNET compatibility
     bool use_hsel   = false;  // Phase R-1: HSEL-encrypted legacy session
 };
+
+std::uint16_t parse_port(std::string_view token, const char* option) {
+    unsigned long value = 0;
+    const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
+    if (result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
+        value == 0 || value > 0xffffu) {
+        std::cerr << "invalid " << option << " (expected 1..65535): "
+                  << token << "\n";
+        std::exit(2);
+    }
+    return static_cast<std::uint16_t>(value);
+}
 
 Args parse_args(int argc, char** argv) {
     Args a;
     for (int i = 1; i < argc; ++i) {
         std::string_view s = argv[i];
         if (s == "--port" && i + 1 < argc)
-            a.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+            a.port = parse_port(argv[++i], "--port");
         else if (s == "--db" && i + 1 < argc)
             a.db_path = argv[++i];
+        else if (s == "--db-env" && i + 1 < argc)
+            a.db_env = argv[++i];
         else if (s == "--backend" && i + 1 < argc)
             a.db_backend = argv[++i];
+        else if (s == "--bind-address" && i + 1 < argc)
+            a.bind_address = argv[++i];
         else if (s == "--agent-addr" && i + 1 < argc)
             a.agent_addr = argv[++i];
         else if (s == "--agent-port" && i + 1 < argc)
-            a.agent_port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
-        else if (s == "--init-schema")
-            a.init_schema = true;
+            a.agent_port = parse_port(argv[++i], "--agent-port");
         else if (s == "--legacy")
             a.use_legacy = true;
         else if (s == "--use-hsel")
@@ -65,13 +74,19 @@ Args parse_args(int argc, char** argv) {
             std::cout << "Usage: mxh_login_server [options]\n"
                       << "  --port N          listen port (default 6001)\n"
                       << "  --db PATH         database path (SQLite file or MSSQL DSN)\n"
+                      << "  --db-env NAME     read database path/DSN from an environment variable\n"
                       << "  --backend NAME    'sqlite' (default) or 'mssql_odbc'\n"
-                      << "  --agent-addr ADDR AgentServer address\n"
+                      << "  --bind-address IP listen interface (default 0.0.0.0)\n"
+                      << "  --agent-addr ADDR advertised AgentServer address in LoginAck\n"
                       << "  --agent-port N    AgentServer port\n"
-                      << "  --init-schema     create tables before serving\n"
                       << "  --legacy          enable 4DyuchiNET legacy protocol framing\n"
                       << "  --use-hsel        encrypt the legacy session with the HSEL stream cipher\n";
             std::exit(0);
+        }
+        else {
+            std::cerr << "unknown option: " << s << "\n"
+                      << "use --help for valid options\n";
+            std::exit(2);
         }
     }
     return a;
@@ -127,13 +142,24 @@ struct ReplyQueue {
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
 
+    if (!args.db_env.empty()) {
+        const auto* value = std::getenv(args.db_env.c_str());
+        if (value == nullptr || *value == '\0') {
+            std::cerr << "FATAL: database environment variable is not set: "
+                      << args.db_env << "\n";
+            return 1;
+        }
+        args.db_path = value;
+    }
+
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
 
     std::cout << "[main] Moxian LoginServer (Phase 4 demo)\n"
               << "  port       = " << args.port << "\n"
               << "  db.backend = " << args.db_backend << "\n"
-              << "  db.path    = " << args.db_path << "\n"
+              << "  db.source  = " << (args.db_env.empty() ? "command-line/path" : "environment") << "\n"
+              << "  bind       = " << args.bind_address << "\n"
               << "  agent      = " << args.agent_addr << ":" << args.agent_port << "\n"
               << "  legacy     = " << (args.use_legacy ? "yes (4DyuchiNET)" : "no (modern)") << "\n";
 
@@ -151,45 +177,10 @@ int main(int argc, char** argv) {
     }
     auto cr = db->connect(db_cfg);
     if (!cr) { std::cerr << "FATAL: db connect (backend='" << db_cfg.backend
-                       << "' path='" << db_cfg.path
                        << "'): " << cr.error_message << "\n"; return 1; }
 
-    // 2. Optionally create schema.
-    if (args.init_schema) {
-        const char* schema = R"SQL(
-CREATE TABLE IF NOT EXISTS chr_log_info (
-    id TEXT PRIMARY KEY,
-    pw TEXT NOT NULL,
-    userlevel INTEGER NOT NULL DEFAULT 0,
-    registerdate TEXT,
-    lastlogindate TEXT,
-    lastloginip TEXT,
-    usepoint INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS modern_account_identity (
-    account_id TEXT PRIMARY KEY,
-    user_idx INTEGER NOT NULL UNIQUE
-);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('admin', 'admin', 2);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('test', 'test', 2);
-INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderland', 0);
-)SQL";
-        // The bundled schema uses SQLite-only DDL (INSERT OR IGNORE, no MSSQL
-        // counterpart); only run it when the runtime adapter is actually SQLite.
-        // For MSSQL deployments the schema is created out-of-band by the restore
-        // scripts in scripts/db/.
-        if (auto* sqlite = dynamic_cast<mxh::db::SqliteAdapter*>(db.get())) {
-            auto er = sqlite->exec_multi(schema);
-            if (!er) std::cerr << "WARN: schema init: " << er.error_message << "\n";
-            else std::cout << "[main] schema initialized\n";
-        } else {
-            std::cerr << "WARN: --init-schema skipped: bundled schema uses SQLite-only DDL "
-                      << "(backend='" << db->backend_name() << "'); "
-                      << "create schema out-of-band for non-SQLite backends\n";
-        }
-    }
-
-    // 3. Build reply queue + handler + server.
+    // 2. Build reply queue + handler + server. Schema migrations are a
+    // deployment precondition and are never performed by service processes.
     auto queue = std::make_shared<ReplyQueue>();
 
     mxh::net::TcpServer* server_ptr = nullptr;
@@ -209,14 +200,15 @@ INSERT OR IGNORE INTO chr_log_info (id, pw, userlevel) VALUES ('alice', 'wonderl
     server_ptr = &server;
     mxh::net::ServerConfig scfg;
     scfg.port = args.port;
-    scfg.bind_address = "0.0.0.0";
+    scfg.bind_address = args.bind_address;
     scfg.use_legacy_framing = args.use_legacy;
     auto sr = server.start(scfg);
     if (sr != mxh::net::NetError::Ok) {
         std::cerr << "FATAL: server start: " << mxh::net::to_string(sr) << "\n";
         return 1;
     }
-    std::cout << "[main] LoginServer listening on 0.0.0.0:" << args.port << "\n";
+    std::cout << "[main] LoginServer listening on " << args.bind_address
+              << ":" << args.port << "\n";
 
     // 4. Main loop: drain reply queue + sleep.
     while (g_running.load()) {

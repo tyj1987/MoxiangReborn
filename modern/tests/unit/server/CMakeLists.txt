@@ -3,14 +3,35 @@
 
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
+    item_id_test.cpp
+    player_equipment_stats_test.cpp
+)
+
+include(GoogleTest)
+add_executable(mxh_present_revive_tests present_revive_test.cpp)
+target_link_libraries(mxh_present_revive_tests PRIVATE gtest_main mxh_compat)
+target_include_directories(mxh_present_revive_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_present_revive_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+gtest_add_tests(TARGET mxh_present_revive_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
+add_executable(mxh_original_vitals_store_tests original_vitals_store_test.cpp)
+target_link_libraries(mxh_original_vitals_store_tests PRIVATE mxh_server mxh_db gtest_main)
+target_include_directories(mxh_original_vitals_store_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+gtest_add_tests(TARGET mxh_original_vitals_store_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
 )
 
 target_link_libraries(mxh_server_handler_tests PRIVATE
-    mxh_server mxh_db gtest_main
+    mxh_server mxh_db mxh_client_lib gtest_main
 )
 
 target_include_directories(mxh_server_handler_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
 )
 target_compile_definitions(mxh_server_handler_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
@@ -671,6 +692,7 @@ gtest_add_tests(TARGET mxh_item_drop_tests
 )
 add_executable(mxh_drop_item_tests
     drop_item_test.cpp
+    drop_item_loader_test.cpp
 )
 target_link_libraries(mxh_drop_item_tests PRIVATE
     mxh_server gtest_main

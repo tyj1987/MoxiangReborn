@@ -46,7 +46,7 @@ public:
 
     void present(HWND hWnd);
     void setVSync(BOOL vsync);
-    void updateWindowSize();
+    bool updateWindowSize();
 
     // Viewport + matrices for 3D rendering.
     void setViewFrustum(const VIEW_VOLUME& vv, const CAMERA_DESC& cam,
@@ -60,6 +60,8 @@ public:
     ID3D11Device*           rawDevice()  const { return m_device.Get(); }
     ID3D11DeviceContext*    rawContext() const { return m_context.Get(); }
     ID3D11SamplerState*     samplerPointAddress() const { return m_samplerPoint.Get(); }
+    ID3D11RasterizerState*  rasterizerDefault() const { return m_rasterizerDefault.Get(); }
+    ID3D11RasterizerState*  rasterizerCullNone() const { return m_rasterizerCullNone.Get(); }
     IDXGISwapChain*         rawSwapChain() const { return m_swapChain.Get(); }
     ID3D11RenderTargetView* backBufferRTV() const { return m_backBufferRTV.Get(); }
     ID3D11DepthStencilView* depthStencilView() const { return m_dsv.Get(); }
@@ -71,12 +73,22 @@ public:
     // Explicit screen-space ortho: pixel -> NDC with the row-major
     // convention used by the primitive VS (mul(v, M)).
     void useScreenOrtho() noexcept {
+        const float logicalWidth = m_logicalScreenWidth > 0
+            ? static_cast<float>(m_logicalScreenWidth)
+            : static_cast<float>(m_width);
+        const float logicalHeight = m_logicalScreenHeight > 0
+            ? static_cast<float>(m_logicalScreenHeight)
+            : static_cast<float>(m_height);
         MATRIX4 m = MatrixIdentity();
-        m._11 = 2.0f / static_cast<float>(m_width);
-        m._22 = -2.0f / static_cast<float>(m_height);
+        m._11 = 2.0f / logicalWidth;
+        m._22 = -2.0f / logicalHeight;
         m._41 = -1.0f;
         m._42 = 1.0f;
         m_matViewProj = m;
+    }
+    void setLogicalScreenSize(std::uint16_t width, std::uint16_t height) noexcept {
+        m_logicalScreenWidth = width;
+        m_logicalScreenHeight = height;
     }
     const MATRIX4& billboardMatrix()   const { return m_matBillboard; }
     // 2D screen-space orthographic projection that maps pixel coordinates
@@ -132,6 +144,7 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Texture2D>        m_depthBuffer;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilState> m_depthStateDefault;
     Microsoft::WRL::ComPtr<ID3D11RasterizerState>   m_rasterizerDefault;
+    Microsoft::WRL::ComPtr<ID3D11RasterizerState>   m_rasterizerCullNone;
     Microsoft::WRL::ComPtr<ID3D11BlendState>        m_blendDefault;
     Microsoft::WRL::ComPtr<ID3D11SamplerState>      m_samplerPoint;
     Microsoft::WRL::ComPtr<ID3D11SamplerState>      m_samplerLinear;
@@ -139,6 +152,8 @@ private:
     DISPLAY_TYPE m_displayType = WINDOW_WITH_BLT;
     std::uint16_t m_width  = 0;
     std::uint16_t m_height = 0;
+    std::uint16_t m_logicalScreenWidth = 0;
+    std::uint16_t m_logicalScreenHeight = 0;
     HWND         m_hwnd    = nullptr;
     BOOL         m_vsync  = TRUE;   // vertical sync: TRUE=wait, FALSE=immediate
 

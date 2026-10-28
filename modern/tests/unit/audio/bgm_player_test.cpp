@@ -3,13 +3,22 @@
 #include <gtest/gtest.h>
 
 #include <filesystem>
+#include <limits>
+#include "../../support/playdh_env.hpp"
 
 namespace {
 std::filesystem::path findSoundRoot() {
-    for (const auto& first : std::filesystem::directory_iterator(std::filesystem::current_path())) {
-        if (!first.is_directory()) continue;
-        const auto direct = first.path() / "PlayDH" / "Sound";
-        if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Sound";
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto direct = first.path() / "PlayDH" / "Sound";
+            if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
+        }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
     }
     return {};
 }
@@ -36,10 +45,9 @@ TEST(BgmPlayer, RejectsEffectAndNullSlotsAsBgm) {
     EXPECT_TRUE(player.resolve(1).empty());
 }
 
-// Playback loop verification: confirm play()/stop() drives the player state.
-// On Windows the MCI command succeeds and the player reports the BGM id as
-// current. On non-Windows play() returns false (no MCI) - we treat that as
-// expected behavior so the test suite stays portable.
+// Playback lifecycle verification: confirm play()/stop() drives the player
+// state. Windows uses the production Media Foundation/XAudio2 backend;
+// non-Windows builds intentionally report that native playback is unavailable.
 TEST(BgmPlayer, PlaybackLoopReportsCurrentId) {
     const auto root = findSoundRoot();
     if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
@@ -54,7 +62,7 @@ TEST(BgmPlayer, PlaybackLoopReportsCurrentId) {
     player.stop();
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #else
-    // Non-Windows: player.play() is expected to refuse (MCI is Win32-only).
+    // Non-Windows: native Windows playback is intentionally unavailable.
     EXPECT_FALSE(played);
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #endif
@@ -75,7 +83,7 @@ TEST(BgmPlayer, PlaybackReplacesCurrentBgm) {
     player.stop();
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #else
-    // On non-Windows, play() refuses - the loop is still safe to call repeatedly.
+    // On non-Windows, native playback refuses - repeated calls remain safe.
     EXPECT_FALSE(player.play(1667, &error));
     EXPECT_FALSE(player.play(1663, &error));
 #endif
@@ -88,8 +96,14 @@ TEST(BgmPlayer, VolumeClampIsApplied) {
     ASSERT_TRUE(player.initialize(root));
     player.setVolume(2.5f);   // above max
     player.setVolume(-0.5f);  // below min
-    // If clamp is broken, BgmPlayer will produce an out-of-range MCI volume
-    // and the next play() call will fail; this assertion just guards that
-    // setVolume() is callable without crashing.
+    // This assertion guards that volume updates remain safe before playback.
+    SUCCEED();
+}
+
+TEST(BgmPlayer, NonFiniteVolumeIsSafe) {
+    mxh::audio::BgmPlayer player;
+    player.setVolume(std::numeric_limits<float>::quiet_NaN());
+    player.setVolume(std::numeric_limits<float>::infinity());
+    player.setVolume(-std::numeric_limits<float>::infinity());
     SUCCEED();
 }

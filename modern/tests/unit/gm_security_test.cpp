@@ -91,7 +91,7 @@ TEST(GmRepository, ListsAuthoritativeChatNewestFirst) {
 TEST(GmItemCatalog, LoadsAuthoritativeDeployedItemList) {
     mxh::gm::ItemCatalog catalog;
     std::string error;
-    const std::string path = std::string(MXH_SOURCE_DIR) + "/../deploy/server/Distribute/Resource/ItemList.bin";
+    const std::string path = std::string(MXH_SOURCE_DIR) + "/deploy/server/Distribute/Resource/ItemList.bin";
     ASSERT_TRUE(catalog.load(path, error)) << error;
     EXPECT_GT(catalog.items().size(), 100u);
     EXPECT_NE(catalog.items().front().ItemIdx, 0u);

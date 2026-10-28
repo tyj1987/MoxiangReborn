@@ -9,16 +9,32 @@
 #include "mxh/server/account_moderation.hpp"
 
 #include <cstring>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
+
+namespace {
+void clear_secret(std::string& value) noexcept {
+    volatile char* bytes = value.empty() ? nullptr : value.data();
+    for (std::size_t i = 0; i < value.size(); ++i) bytes[i] = '\0';
+    value.clear();
+}
+
+struct SecretGuard {
+    std::string& value;
+    ~SecretGuard() { clear_secret(value); }
+};
+} // namespace
 
 // Phase 7.6: File-based debug logging (capturable when running as background process).
 static std::ofstream g_dbg_log;
 static void dbg_log(const std::string& msg) {
     if (!g_dbg_log.is_open()) {
-        g_dbg_log.open("d:/墨香全套源代码（源码+资源+客户端+服务端+教程）/modern/scratch/login_debug.log",
-                      std::ios::app);
+        const char* configured = std::getenv("MXH_LOGIN_DEBUG_LOG");
+        if (configured == nullptr || configured[0] == '\0') return;
+        g_dbg_log.open(configured, std::ios::app);
     }
+    if (!g_dbg_log.is_open()) return;
     g_dbg_log << msg << std::endl;
 }
 
@@ -258,19 +274,34 @@ void LoginHandler::handle_login(mxh::net::ConnectionId id,
                                 const mxh::net::Message& msg) {
     if (msg.payload.size() < 4) {
         std::cout << "[Login] payload too short\n";
+        reply_(id, make_login_nack());
         return;
     }
     std::uint16_t id_len = static_cast<std::uint16_t>(msg.payload[0])
                          | (static_cast<std::uint16_t>(msg.payload[1]) << 8);
-    if (msg.payload.size() < std::size_t(2 + id_len + 2)) return;
+    // Keep the parser aligned with account_service's actual limits.  Apart
+    // from rejecting malformed credentials early, this prevents an attacker
+    // from forcing a 65-KB allocation and database lookup with one packet.
+    if (id_len < 3u || id_len > 16u ||
+        msg.payload.size() < std::size_t(2 + id_len + 2)) {
+        std::cout << "[Login] invalid account length\n";
+        reply_(id, make_login_nack());
+        return;
+    }
     std::string user_id(reinterpret_cast<const char*>(msg.payload.data() + 2),
                         id_len);
     std::uint16_t pw_len = static_cast<std::uint16_t>(msg.payload[2 + id_len])
                          | (static_cast<std::uint16_t>(msg.payload[3 + id_len]) << 8);
-    if (msg.payload.size() < std::size_t(2 + id_len + 2 + pw_len)) return;
+    if (pw_len < 8u || pw_len > 16u ||
+        msg.payload.size() < std::size_t(2 + id_len + 2 + pw_len)) {
+        std::cout << "[Login] invalid password length\n";
+        reply_(id, make_login_nack());
+        return;
+    }
     std::string password(reinterpret_cast<const char*>(
                              msg.payload.data() + 2 + id_len + 2),
                          pw_len);
+    SecretGuard password_guard{password};
 
     std::cout << "[Login] RequestLogin id='" << user_id << "'\n";
 
@@ -327,6 +358,7 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
     std::memcpy(pw_buf, msg.payload.data() + 21, 17);
     pw_buf[17] = '\0';
     std::string password(pw_buf);
+    SecretGuard password_guard{password};
     
     std::cout << "[Login] legacy: auth_key=" << auth_key
               << " id='" << user_id << "'\n";
@@ -391,9 +423,17 @@ void LoginHandler::handle_legacy_login(mxh::net::ConnectionId id,
         dbg_log("[handle_legacy_login] reply_ returned OK");
     } else {
         std::cout << "[Login] legacy: auth FAIL for '" << user_id << "'\n";
-        // Send NACK with same header, empty payload
+        // Send NACK with the proper UserConn NACK protocol id (3),
+        // not by copying the client's request header (which is
+        // RequestLogin=1, a C->D direction the client won't match
+        // in its on_message switch and would silently warn forever
+        // instead of failing cleanly).
         mxh::net::Message nack_msg;
-        nack_msg.header = msg.header;
+        nack_msg.header.category = static_cast<std::uint8_t>(
+            mxh::proto::Category::UserConn);
+        nack_msg.header.protocol = static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::NotifyUserLoginNack);
+        nack_msg.header.object_id = 0;
         reply_(id, nack_msg);
     }
 }

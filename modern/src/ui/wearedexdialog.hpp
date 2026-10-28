@@ -61,8 +61,12 @@
 #pragma once
 
 #include "cIconDialog.hpp"
+#include "cIcon.hpp"
+#include "mxh/services/IInventoryService.hpp"
 
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 namespace mxh::ui {
 
@@ -94,6 +98,15 @@ public:
     // DeleteIcon (REAL) + TODO singleton dispatch.
     // Returns true if DeleteIcon succeeded, else false.
     bool DeleteItem(std::uint16_t relPos, cIcon** outIcon);
+
+    void SetInventoryService(const mxh::services::IInventoryService* service) noexcept {
+        m_inventory = service;
+    }
+    void RefreshFromInventoryService();
+
+private:
+    const mxh::services::IInventoryService* m_inventory = nullptr;
+    std::vector<std::unique_ptr<cIcon>> m_owned_icons;
 };
 
 }  // namespace mxh::ui

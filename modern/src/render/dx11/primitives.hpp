@@ -11,6 +11,15 @@ namespace mxh::gx::dx11 {
 
 class Device;
 
+// PrimitiveDrawer's textured color argument is 0xAARRGGBB. The DX11
+// textured input layout reads four bytes as R8G8B8A8, so pack the integer
+// such that its little-endian vertex bytes are R, G, B, A.
+constexpr std::uint32_t pack_argb_for_rgba_vertex(std::uint32_t argb) noexcept {
+    return (argb & 0xFF00FF00u) |
+           ((argb & 0x00FF0000u) >> 16) |
+           ((argb & 0x000000FFu) << 16);
+}
+
 // One-time GPU resource init shared by all primitives.
 struct PrimitiveShaders {
     // 2D solid pipeline: float2 pos + RGBA. Used by drawLine /
@@ -72,7 +81,8 @@ public:
     // Top-down projection: X=screen X, Z=screen Y (same as drawBox).
     void drawGrid(const VECTOR3* quad, std::uint32_t color);
 
-    // Render a screen-space textured quad (used by SpriteObject).
+    // Render a screen-space textured quad (used by SpriteObject and FontObject).
+    // color is 0xAARRGGBB, matching the legacy Draw interface.
     void drawTexturedQuad(ID3D11ShaderResourceView* srv,
                           float x, float y, float w, float h,
                           float u0, float v0, float u1, float v1,

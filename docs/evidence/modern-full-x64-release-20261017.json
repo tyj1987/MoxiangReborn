@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-16T21:05:00Z",
+  "sourceHead": "a948c5a1e44654a20997bfd12846dd2252bad6aa",
+  "branch": "codex/reorg-original-20261009",
+  "scope": "complete modern C++ x64 Release build and CTest sweep",
+  "toolchain": {
+    "generator": "Visual Studio 17 2022",
+    "architecture": "x64",
+    "configuration": "Release",
+    "buildDirectory": "modern/out/build-client-x64-diagnose",
+    "buildCommand": "cmake --build modern/out/build-client-x64-diagnose --config Release -- /m:1 /nr:false",
+    "buildExitCode": 0,
+    "buildLog": {
+      "path": "modern/out/runs/full-build-x64-release-20261017-rerun.log",
+      "sha256": "06a589438130208d383f0206a98310450665435566901c02cb16aa6fb06aadfc"
+    }
+  },
+  "ctest": {
+    "command": "ctest --test-dir modern/out/build-client-x64-diagnose -C Release --output-on-failure -j 4",
+    "registered": 12577,
+    "passed": 12577,
+    "failed": 0,
+    "skipped": 26,
+    "exitCode": 0,
+    "elapsedSeconds": 130.79,
+    "log": {
+      "path": "modern/out/runs/full-ctest-x64-release-20261017.log",
+      "sha256": "9b103179d8e1f49e5b194f7935bef12932a04457520acff74f708fd5c2a4ca29"
+    },
+    "skips": "Explicit external gates only: PVE/MSSQL, recovered runtime/VHD assets, real effect assets, and opt-in Map10 smoke. Skips are not counted as passes."
+  },
+  "status": "pass_with_26_explicit_skips"
+}

@@ -1,10 +1,8 @@
 # T3 5-Stage Side-by-Side Acceptance Workflow
 
-> Status: **modern 5/5 diff=0 against the locked-in modern golden**
-> (2026-08-10). Cross-implementation evidence (modern vs legacy golden)
-> is the next gate; it requires the legacy `SWorking/*` server to be
-> runnable on the same machine. The RC gate (`scripts/commercial-smoke.ps1`)
-> is **GREEN** for the modern side today.
+> Status: modern-only wire regression coverage is available; legacy-vs-modern
+> behavior and player-visible E5 evidence remain open gates. This document is
+> a reproducible runbook, not a release-readiness claim.
 
 This document is the M3 acceptance checklist for the T3 ("五段核心玩法行为一致")
 milestone. It captures the five fixed scenarios, the modern + legacy
@@ -53,31 +51,33 @@ regression.
 ## End-to-end reproduction (modern-only)
 
 ```powershell
-# 1) Clean up any leftover modern servers.
-Get-Process -Name "mxh_*" -ErrorAction SilentlyContinue | Stop-Process -Force
+# 1) Stop only processes recorded by the managed server runner, if present.
+powershell -NoProfile -ExecutionPolicy Bypass -File ..\deploy\scripts\start_modern.ps1 -Mode stop
 
 # 2) Build the three modern servers + the harness (Debug).
-cmake --build C:\moxiang\modern\build --config Debug --target `
+$repoRoot = (Resolve-Path ..).Path
+cmake --build "$repoRoot\modern\build" --config Debug --target `
     mxh_login_server mxh_agent_server mxh_map_server mxh_side_by_side
 
 # 3) Run the 5 scenarios end-to-end (--start launches the three servers,
 #    --timeout 5 caps each scenario at 5 seconds).
-C:\moxiang\modern\build\tools\MoxianSideBySide\Debug\mxh_side_by_side.exe `
+$repoRoot\modern\build\tools\MoxianSideBySide\Debug\mxh_side_by_side.exe `
     --modern-only --modern-legacy --modern-agent-port 7001 `
-    --capture-dir C:\moxiang\modern\scratch\sbs_captures `
-    --modern-server-dir C:\moxiang\modern\build\tools `
+    --capture-dir "$repoRoot\modern\out\runs\sbs\captures" `
+    --modern-server-dir "$repoRoot\modern\build\tools" `
     --start --timeout 5
 
 # 4) Verify the captures match the locked-in golden.
-Get-ChildItem C:\moxiang\modern\scratch\sbs_captures
+$captureDir = "$repoRoot\modern\out\runs\sbs\captures"
+Get-ChildItem $captureDir
 foreach ($f in @("modern_login", "modern_enter_game", "modern_attack", "modern_shop", "modern_quest")) {
-    $a = Get-Content -LiteralPath "C:\moxiang\modern\scratch\sbs_captures\$f.cap" -Encoding UTF8
-    $b = Get-Content -LiteralPath "C:\moxiang\modern\tests\fixtures\sbs_captures_modern\$f.cap" -Encoding UTF8
+    $a = Get-Content -LiteralPath "$captureDir\$f.cap" -Encoding UTF8
+    $b = Get-Content -LiteralPath "$repoRoot\modern\tests\fixtures\sbs_captures_modern\$f.cap" -Encoding UTF8
     if (Compare-Object $a $b) { Write-Error "MISMATCH: $f" } else { Write-Output "OK: $f" }
 }
 
 # 5) Run the unit-test goldens.
-ctest -C Debug --test-dir C:\moxiang\modern\build --timeout 120 -R SideBySideModernGolden -V
+ctest -C Debug --test-dir "$repoRoot\modern\build" --timeout 120 -R SideBySideModernGolden -V
 ```
 
 Expected: 5x `OK: ...` from step 4 and 6/6 tests passing in step 5.
@@ -218,4 +218,3 @@ The current status:
    snapshot diff for the 5 scenarios (E-stage deliverable).
 5. Cross-implementation runbook once the legacy `SWorking/*` is back up
    on the verification host (see "Cross-implementation evidence" above).
-

@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-current-resources-protocol-receipt",
+  "generatedUtc": "2026-10-15T02:11:00Z",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "bc1f7d385befac42f54b9301655acc9e51d51c8f",
+  "stage": {
+    "vmid": 112,
+    "path": "C:\\Moxiang\\original\\stage-20261015",
+    "sourceHead": "21fe351340d5e0ec240d5aef2c0204ca6db49d5d",
+    "stageManifestSha256": "f44982a74ebba1a11a25545129b9e2a6582b91ba802e610498295f0292e0a77d",
+    "resourceManifestSha256": "6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e",
+    "resourceFileCount": 5135,
+    "resourceByteCount": 1688281785,
+    "ports": {
+      "login": 16111,
+      "agent": 17111,
+      "map10": 18111,
+      "map12": 18112,
+      "map2": 18113
+    },
+    "database": "MoxiangOriginalTest_20261009",
+    "databaseHost": "192.168.2.238",
+    "databaseConfig": "protected old stage config reused process-only; not recorded"
+  },
+  "resourceHashes": {
+    "3.hfl": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+    "95.hfl": "fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746",
+    "198.hfl": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+    "203.hfl": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8"
+  },
+  "services": {
+    "started": true,
+    "listenersVerified": true,
+    "processes": [
+      {
+        "name": "map10",
+        "pid": 3500,
+        "port": 18111,
+        "sha256": "0a534bcb46c151c2edc6796bf6521bb5a7b3d648bdd420d7131b7ca3f92f0de7"
+      },
+      {
+        "name": "map12",
+        "pid": 4436,
+        "port": 18112,
+        "sha256": "0a534bcb46c151c2edc6796bf6521bb5a7b3d648bdd420d7131b7ca3f92f0de7"
+      },
+      {
+        "name": "map2",
+        "pid": 296,
+        "port": 18113,
+        "sha256": "0a534bcb46c151c2edc6796bf6521bb5a7b3d648bdd420d7131b7ca3f92f0de7"
+      },
+      {
+        "name": "agent",
+        "pid": 1988,
+        "port": 17111,
+        "sha256": "10ced457a85044c51a39addf95ec585180a06799730ab4ba1711be9585382bb0"
+      },
+      {
+        "name": "login",
+        "pid": 2432,
+        "port": 16111,
+        "sha256": "1a9f5bcbbfc484765d9a1ff5e3964d6cab6b4c75d8043c0395c74168bfc2417b"
+      }
+    ],
+    "stoppedByExactStagePath": true,
+    "portsAfterCleanup": [],
+    "stateManifestRemoved": true
+  },
+  "e2e": {
+    "executable": "modern/out/ctest-current-20261015/tools/MoxianClientE2E/mxh_client_e2e.exe",
+    "command": "mxh_client_e2e --no-spawn --login-host 192.168.2.244 --agent-host 192.168.2.244 --login-port 16111 --agent-port 17111 --map-port 18111 --map12-port 18112 --map-number 10 --account orig1615 --password supplied in process only --timeout 30",
+    "account": "orig1615",
+    "character": "E2E22963800",
+    "chrid": 100016,
+    "level": 1,
+    "map": 10,
+    "monsterPopulation": 228,
+    "exitCode": 0,
+    "steps": [
+      "LoginAck",
+      "AgentConnectSuccess",
+      "CharacterListAck",
+      "CharacterMake",
+      "CharacterSelectAck",
+      "GameInAck",
+      "Map10 monster population 228"
+    ],
+    "log": "modern/out/runs/original-pve-resource-admission-20261015.log",
+    "logSha256": "8ce7cdc1a4368efbfa49cee5d44b38c80c7ec42556b4aded944c6ff56cfda3ef",
+    "logBytes": 99372
+  },
+  "result": "pass",
+  "limitations": [
+    "This is protocol/resource startup evidence; it does not close the level-1 Map10 combat balance gate, full original resource gaps, or human GUI acceptance.",
+    "Exact original missing TTB/HFL remain blocked; UnityNative candidates are isolated by original-ttb-isolation-audit-20261015.json."
+  ]
+}

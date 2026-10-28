@@ -1,0 +1,58 @@
+#pragma once
+
+#include "effect_catalog.hpp"
+
+#include <cstdint>
+#include <vector>
+
+namespace mxh::game {
+
+struct EffectTimelineEvent {
+    std::uint64_t due_ms = 0;
+    std::size_t trigger_index = 0;
+    EffectScriptSummary::Trigger trigger;
+    std::string unit_kind;
+    std::string object_name;
+    std::string sound_name;
+    std::string texture_name;
+    std::array<float, 3> position{};
+    float radius = 0.0f;
+    std::uint32_t color_index = 0;
+    std::uint32_t coordinate = 0;
+    std::uint32_t motion_index = 0;
+    float percent = 0.0f;
+    std::uint32_t duration_ms = 0;
+    std::string damage_kind;
+    std::uint32_t sound_id = 0;
+};
+
+// Deterministic execution clock for a decoded BEFF script.  The caller owns
+// the authoritative tick-per-frame value; no default frame duration is
+// invented here.  `advance` is monotonic and each trigger is emitted once.
+class EffectTimeline {
+public:
+    bool start(const EffectScriptSummary& script,
+               std::uint64_t start_ms,
+               float tick_per_frame_ms) noexcept;
+    std::vector<EffectTimelineEvent> advance(std::uint64_t now_ms) noexcept;
+    void reset() noexcept;
+
+    bool active() const noexcept { return m_active; }
+    std::size_t next_trigger() const noexcept { return m_nextTrigger; }
+    std::uint64_t start_ms() const noexcept { return m_startMs; }
+
+private:
+    struct Scheduled {
+        std::uint64_t due_ms = 0;
+        std::size_t index = 0;
+        EffectScriptSummary::Trigger trigger;
+    };
+    std::vector<Scheduled> m_schedule;
+    std::vector<EffectScriptSummary::Unit> m_units;
+    std::size_t m_nextTrigger = 0;
+    std::uint64_t m_startMs = 0;
+    std::uint64_t m_lastNowMs = 0;
+    bool m_active = false;
+};
+
+} // namespace mxh::game

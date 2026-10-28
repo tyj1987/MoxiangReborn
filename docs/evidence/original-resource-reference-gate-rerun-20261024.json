@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "capturedAtUtc": "2026-10-23T13:39:14.2214513Z",
+  "sourceHead": "ee1a0cfe852f8b1a19a9e82f6e5eb6454487aba4",
+  "command": "ctest --test-dir modern/build/gameplay-client-isolated -R ^(MxhResourceReference\\.|MxhResourceByteLevel\\.|Map10InGameSmoke\\.|MoxianLoginSbsE2E\\.) --output-on-failure -j1",
+  "total": 23,
+  "passed": 21,
+  "failed": 0,
+  "skipped": 2,
+  "log": "E:\\Workspaces\\moxiang\\worktrees\\original-integration\\modern\\out\\runs\\original-resource-reference-gate-rerun-20261024.log",
+  "logSha256": "AB451CA4D85DBA97137DDDC3CC942AB1E4DFF90ADEA9A25EDC21914E0FA93624",
+  "decision": "PASS_WITH_EXPECTED_SKIPS"
+}
+

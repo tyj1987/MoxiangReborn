@@ -84,11 +84,15 @@ TEST(CMsgBox, ClickOkButtonFiresOkCallback) {
              [&](cMsgBox&, cMsgBox::MBResult r, void*) {
                  ++callCount; got = r;
              });
-    // Click in the middle of the OK button (the layout centers the
-    // button at x = 50 + (250-70)/2 = 140, y = 50 + 120 - 24 - 8 = 138).
+    // Click the actual generated button center; this keeps the interaction
+    // test locked to cMsgBox::layoutButtons rather than stale dimensions.
     m.SetActive(true);
-    m.ActionEvent(140 + 35, 138 + 12, cWindow::MouseFlagLButton);
-    m.ActionEvent(140 + 35, 138 + 12, 0);
+    auto* ok = static_cast<cButton*>(m.childAt(0));
+    ASSERT_NE(ok, nullptr);
+    const auto cx = ok->absX() + ok->width() / 2;
+    const auto cy = ok->absY() + ok->height() / 2;
+    m.ActionEvent(cx, cy, cWindow::MouseFlagLButton);
+    m.ActionEvent(cx, cy, 0);
     EXPECT_EQ(callCount, 1);
     EXPECT_EQ(got, cMsgBox::MBResult::Ok);
     EXPECT_TRUE(m.isClosed());

@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -82,12 +83,10 @@ bool parse_i32(const std::string& tok, std::int32_t& out) {
 
 bool parse_f32(const std::string& tok, float& out) {
     if (tok.empty()) return false;
-    try {
-        out = std::stof(tok);
-        return true;
-    } catch (...) {
-        return false;
-    }
+    const auto* first = tok.data();
+    const auto* last = first + tok.size();
+    const auto fc = std::from_chars(first, last, out);
+    return fc.ec == std::errc{} && fc.ptr == last;
 }
 
 // Apply a 12-element AdditiveAttr segment to the SkillInfo.
@@ -441,6 +440,18 @@ SkillListParseResult load_skill_list(const std::string& path) {
                                              + " parse error: " + err;
                     }
                     continue;
+                }
+                if (tokens.size() > 28) {
+                    auto preserve_effect = [](const std::string& value) {
+                        return value == "0" ? std::string{} : value;
+                    };
+                    result.effect_refs.push_back(SkillEffectRefs{
+                        s.SkillIdx,
+                        preserve_effect(tokens[24]),
+                        preserve_effect(tokens[25]),
+                        preserve_effect(tokens[26]),
+                        preserve_effect(tokens[27]),
+                        preserve_effect(tokens[28])});
                 }
                 result.skills.push_back(std::move(s));
             } catch (const std::system_error& e) {

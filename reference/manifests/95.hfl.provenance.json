@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "classification": "verified-original",
+  "logicalPath": "Resource/Map/95.hfl",
+  "sourceContainer": "D:/MX/client/Package/3DData/Map.pak",
+  "sourceContainerBytes": 1135536849,
+  "sourceContainerSha256": "00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3",
+  "entryIndex": 8162,
+  "entryOffset": 316346679,
+  "dataOffset": 316346718,
+  "bytes": 1180468,
+  "sha256": "fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746",
+  "validation": {
+    "hflRender": "passed",
+    "renderEvidence": "audit/2026-10-09-reorg/original-integration/source-map-pak-candidates/95.bmp"
+  },
+  "releaseReady": true
+}

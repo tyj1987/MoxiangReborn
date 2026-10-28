@@ -10,6 +10,8 @@
 
 #include <gtest/gtest.h>
 
+#include <memory>
+
 namespace {
 
 // cPushupButton-like placeholder. cPushupButton is opaque in
@@ -206,6 +208,26 @@ TEST(CComboBox, AddLinkComboBtn) {
     delete btn;
 }
 
+TEST(CComboBox, ParentAttachmentComposesAbsolutePositionAndArrowOffset) {
+    mxh::ui::cWindow parent;
+    parent.Init(301, 125, 197, 180, nullptr, 1);
+
+    auto combo = std::make_unique<mxh::ui::cComboBox>();
+    combo->Init(58, 29, 127, 21, nullptr, 2);
+    auto* comboPtr = combo.get();
+
+    auto* button = new mxh::ui::cWindow;
+    button->Init(100, 1, 19, 19, nullptr, 3);
+    comboPtr->Add(button);
+    parent.Add(std::move(combo));
+
+    EXPECT_EQ(comboPtr->absX(), 359);
+    EXPECT_EQ(comboPtr->absY(), 154);
+    EXPECT_EQ(button->absX(), 459);
+    EXPECT_EQ(button->absY(), 155);
+    delete button;
+}
+
 TEST(CComboBox, AddNullBtnIsSafe) {
     mxh::ui::cComboBox c;
     c.Add(nullptr);
@@ -232,10 +254,10 @@ TEST(CComboBox, PtIdxInComboListNoHitReturnsNoHit) {
 TEST(CComboBox, PtIdxInComboListWithItems) {
     // 1:1 with legacy: returns the row index if the click is
     // inside the list rect. The legacy uses m_absPos + m_height
-    // + (i+1) * m_middleHeight for the y-check. With absX=0
-    // absY=0, listWid=100, m_middleHeight=20:
-    //   row 0: y in [30, 50)  (height=30, then 1*20=50)
-    //   row 1: y in [50, 70)
+    // + top cap + i * m_middleHeight for the y-check. With absX=0
+    // absY=0, listWid=100, top=10, m_middleHeight=20:
+    //   row 0: y in (40, 60)
+    //   row 1: y in (60, 80)
     mxh::ui::cComboBox c;
     c.Init(0, 0, 100, 30, nullptr, 1);
     c.InitComboList(100, nullptr, 10, nullptr, 20, nullptr, 10, nullptr);
@@ -243,10 +265,20 @@ TEST(CComboBox, PtIdxInComboListWithItems) {
     c.AddItem({"row0"});
     c.AddItem({"row1"});
     c.AddItem({"row2"});
-    EXPECT_EQ(c.PtIdxInComboList(50, 35), 0u);  // row 0
-    EXPECT_EQ(c.PtIdxInComboList(50, 55), 1u);  // row 1
-    EXPECT_EQ(c.PtIdxInComboList(50, 75), 2u);  // row 2
+    EXPECT_EQ(c.PtIdxInComboList(50, 45), 0u);  // row 0
+    EXPECT_EQ(c.PtIdxInComboList(50, 65), 1u);  // row 1
+    EXPECT_EQ(c.PtIdxInComboList(50, 85), 2u);  // row 2
     EXPECT_EQ(c.PtIdxInComboList(50, 100), 4u); // no hit
+}
+
+TEST(CComboBox, PtIdxInComboListCapsAreNotSelectable) {
+    mxh::ui::cComboBox c;
+    c.Init(0, 0, 100, 30, nullptr, 1);
+    c.InitComboList(100, nullptr, 10, nullptr, 20, nullptr, 10, nullptr);
+    c.AddItem({"row0"});
+    EXPECT_EQ(c.PtIdxInComboList(50, 35), 2u);  // top cap
+    EXPECT_EQ(c.PtIdxInComboList(50, 55), 0u);  // row
+    EXPECT_EQ(c.PtIdxInComboList(50, 70), 2u);  // bottom cap
 }
 
 TEST(CComboBox, ListMouseCheckLeftDownSetsCurSelectedIdx) {
@@ -259,7 +291,7 @@ TEST(CComboBox, ListMouseCheckLeftDownSetsCurSelectedIdx) {
     c.SetMaxLine(10);
     c.AddItem({"first"});
     c.AddItem({"second"});
-    c.ListMouseCheck(50, 55, /*leftDown*/true);
+    c.ListMouseCheck(50, 65, /*leftDown*/true);
     EXPECT_EQ(c.GetCurSelectedIdx(), 1);
     EXPECT_EQ(c.GetComboText(), "second");
 }
@@ -274,7 +306,7 @@ TEST(CComboBox, ListMouseCheckHoverOnlySetsOverIdx) {
     c.AddItem({"first"});
     c.AddItem({"second"});
     c.SetCurSelectedIdx(-1);
-    c.ListMouseCheck(50, 35, /*leftDown*/false);
+    c.ListMouseCheck(50, 45, /*leftDown*/false);
     EXPECT_EQ(c.GetCurSelectedIdx(), -1);
     EXPECT_EQ(c.GetOverIdx(), 0);
 }
@@ -289,4 +321,45 @@ TEST(CComboBox, ListMouseCheckNoHitResetsSelection) {
     c.SetCurSelectedIdx(0);
     c.ListMouseCheck(50, 9999, /*leftDown*/true);
     EXPECT_EQ(c.GetCurSelectedIdx(), -1);
+}
+
+TEST(CComboBox, PointerClickOpensAndSelectsDropdownRow) {
+    mxh::ui::cComboBox c;
+    c.Init(10, 10, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.AddItem({"second", 0xffffffffu, 0});
+    EXPECT_FALSE(c.IsDropdownOpen());
+    c.ActionEvent(20, 15, mxh::ui::cWindow::MouseFlagLButton);
+    EXPECT_TRUE(c.IsDropdownOpen());
+    c.ActionEvent(20, 35, mxh::ui::cWindow::MouseFlagLButton);
+    EXPECT_FALSE(c.IsDropdownOpen());
+    EXPECT_EQ(c.GetCurSelectedIdx(), 0);
+    EXPECT_EQ(c.GetComboText(), "first");
+}
+
+TEST(CComboBox, PointerHoverTracksOpenRowAndDisabledCloses) {
+    mxh::ui::cComboBox c;
+    c.Init(0, 0, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.ActionEvent(5, 5, mxh::ui::cWindow::MouseFlagLButton);
+    c.ActionEvent(5, 25, 0);
+    EXPECT_EQ(c.GetOverIdx(), 0);
+    c.SetEnabled(false);
+    c.ActionEvent(5, 25, 0);
+    EXPECT_FALSE(c.IsDropdownOpen());
+}
+
+TEST(CComboBox, OutsideClickDismissesDropdown) {
+    mxh::ui::cComboBox c;
+    c.Init(10, 10, 80, 20);
+    c.InitComboList(80, nullptr, 4, nullptr, 20, nullptr, 4, nullptr);
+    c.AddItem({"first", 0xffffffffu, 0});
+    c.ActionEvent(20, 15, mxh::ui::cWindow::MouseFlagLButton);
+    ASSERT_TRUE(c.IsDropdownOpen());
+    EXPECT_EQ(c.ActionEvent(200, 200, mxh::ui::cWindow::MouseFlagLButton),
+              static_cast<std::uint32_t>(mxh::ui::cWindow::WindowEvent::LButtonClick));
+    EXPECT_FALSE(c.IsDropdownOpen());
+    EXPECT_EQ(c.GetOverIdx(), -1);
 }

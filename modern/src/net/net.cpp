@@ -5,11 +5,13 @@
 // Moxian server demo; production should switch to IOCP/io_uring.
 
 #include "mxh/net/net.hpp"
+#include "mxh/net/packet_trace.hpp"
 
 #include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <mutex>
@@ -26,6 +28,7 @@ using socklen_t = int;
 #  include <arpa/inet.h>
 #  include <fcntl.h>
 #  include <netinet/in.h>
+#  include <poll.h>
 #  include <sys/socket.h>
 #  include <unistd.h>
 using SOCKET = int;
@@ -78,6 +81,48 @@ WsaGuard& wsa_guard() {
     return g;
 }
 
+// Login/Agent/Map traffic includes ordered bursts of small legacy frames.
+// With Nagle enabled, a sender can wait for delayed ACKs between those
+// frames even though its application queue is already full.  The socket
+// option applies to each connected endpoint, not to the listening socket.
+bool enable_tcp_nodelay(SOCKET socket) {
+    const int enabled = 1;
+    return setsockopt(socket, IPPROTO_TCP, TCP_NODELAY,
+                      reinterpret_cast<const char*>(&enabled),
+                      sizeof(enabled)) == 0;
+}
+
+bool bound_blocking_send(SOCKET socket) {
+#ifdef _WIN32
+    const DWORD timeout_ms = 10000;
+    return setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO,
+                      reinterpret_cast<const char*>(&timeout_ms),
+                      sizeof(timeout_ms)) == 0;
+#else
+    const timeval timeout{10, 0};
+    return setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO,
+                      reinterpret_cast<const char*>(&timeout),
+                      sizeof(timeout)) == 0;
+#endif
+}
+
+void wake_socket(SOCKET socket) {
+#ifdef _WIN32
+    ::shutdown(socket, SD_BOTH);
+#else
+    ::shutdown(socket, SHUT_RDWR);
+#endif
+}
+
+thread_local const TcpServer* current_server_thread = nullptr;
+
+struct ServerThreadScope {
+    explicit ServerThreadScope(const TcpServer* server)
+        : previous(current_server_thread) { current_server_thread = server; }
+    ~ServerThreadScope() { current_server_thread = previous; }
+    const TcpServer* previous;
+};
+
 }  // namespace
 
 // ============================================================================
@@ -90,7 +135,20 @@ struct Connection {
     std::atomic<bool> active{true};
     std::atomic<bool> ready_for_reap{false};
     std::atomic<bool> disconnect_notified{false};
+    // on_connect may be initializing handler-owned encryption state while
+    // another thread requests shutdown. Its on_disconnect must wait until
+    // that callback has returned.
+    std::atomic<bool> connect_callback_complete{false};
+    std::atomic<bool> shutdown_requested{false};
     IEncryptor* encryptor = nullptr;
+    std::mutex encryptor_mu;
+    std::mutex send_order_mu; // cipher advancement and queue insertion share order
+
+    void invalidate_encryptor() {
+        std::lock_guard<std::mutex> lock(encryptor_mu);
+        active.store(false);
+        encryptor = nullptr;
+    }
 
     // Phase 10e: Per-connection async send queue + dedicated sender thread.
     // Decouples callers (drain_to / handler threads) from blocking I/O.
@@ -101,6 +159,25 @@ struct Connection {
     std::vector<std::vector<std::uint8_t>> send_queue;  // serialized frames
     std::thread             sender_thread;
     std::thread             recv_thread;
+
+    void request_shutdown() {
+        invalidate_encryptor();
+        send_cv.notify_all();
+        if (!shutdown_requested.exchange(true) && sock != INVALID_SOCKET)
+            wake_socket(sock);
+    }
+
+    // The socket remains open while either I/O thread can use its numeric
+    // handle. Reaper/stop close it only after joining both threads.
+    void close_after_join() {
+        std::lock_guard<std::mutex> lock(send_mu);
+        if (sock != INVALID_SOCKET) {
+            closesocket(sock);
+            sock = INVALID_SOCKET;
+        }
+    }
+
+    ~Connection() { close_after_join(); }
 };
 
 // ============================================================================
@@ -116,6 +193,7 @@ struct TcpServer::Impl {
     std::mutex connections_mu;
     std::atomic<std::uint64_t> next_id{1};
     std::atomic<bool> stopping{false};
+    std::atomic<bool> stop_cleanup_started{false};
 
     void reap_inactive_connections() {
         std::vector<std::shared_ptr<Connection>> retired;
@@ -131,22 +209,13 @@ struct TcpServer::Impl {
             }
         }
         for (auto& conn : retired) {
-            conn->send_cv.notify_one();
+            conn->request_shutdown();
             if (conn->sender_thread.joinable()) conn->sender_thread.join();
             if (conn->recv_thread.joinable()) conn->recv_thread.join();
+            conn->close_after_join();
         }
     }
 
-    void close_connection_locked(std::uint64_t id) {
-        auto it = connections.find(id);
-        if (it == connections.end()) return;
-        if (it->second->sock != INVALID_SOCKET) {
-            closesocket(it->second->sock);
-            it->second->sock = INVALID_SOCKET;
-        }
-        it->second->active.store(false);
-        it->second->send_cv.notify_one();
-    }
 };
 
 // ============================================================================
@@ -193,18 +262,46 @@ NetError TcpServer::start(const ServerConfig& cfg) {
 
     running_.store(true);
     impl_->stopping.store(false);
+    impl_->stop_cleanup_started.store(false);
 
-    impl_->accept_thread = std::thread([this]() {
+    impl_->accept_thread = std::thread([this, listen_socket = impl_->listen_sock]() {
+        ServerThreadScope thread_scope(this);
         while (!impl_->stopping.load()) {
+#ifdef _WIN32
+            fd_set readable;
+            FD_ZERO(&readable);
+            FD_SET(listen_socket, &readable);
+            timeval wait{0, 100000};
+            const int ready = ::select(0, &readable, nullptr, nullptr, &wait);
+#else
+            pollfd readable{listen_socket, POLLIN, 0};
+            const int ready = ::poll(&readable, 1, 100);
+#endif
+            if (ready == 0) continue;
+            if (impl_->stopping.load()) break;
+            if (ready < 0) continue;
             sockaddr_in client_addr{};
             socklen_t len = sizeof(client_addr);
-            SOCKET client = accept(impl_->listen_sock,
+            SOCKET client = accept(listen_socket,
                                     reinterpret_cast<sockaddr*>(&client_addr), &len);
             if (client == INVALID_SOCKET) {
                 if (impl_->stopping.load()) break;
                 continue;
             }
-
+            if (impl_->stopping.load()) {
+                closesocket(client);
+                break;
+            }
+            if (!enable_tcp_nodelay(client)) {
+                std::cerr << "[net] TCP_NODELAY failed on accepted socket\n";
+                closesocket(client);
+                continue;
+            }
+            if (!bound_blocking_send(client)) {
+                std::cerr << "[net] SO_SNDTIMEO failed on accepted socket\n";
+                closesocket(client);
+                continue;
+            }
             char ip_str[64] = {};
             inet_ntop(AF_INET, &client_addr.sin_addr, ip_str, sizeof(ip_str));
             std::string remote = ip_str;
@@ -230,14 +327,19 @@ NetError TcpServer::start(const ServerConfig& cfg) {
             // dropped with Disconnected.
             {
                 std::lock_guard<std::mutex> lk(impl_->connections_mu);
-                impl_->connections[id] = std::move(conn);
+                impl_->connections[id] = conn;
             }
-            if (!handler_.on_connect(cid, remote)) {
+            const bool accepted = handler_.on_connect(cid, remote);
+            conn->connect_callback_complete.store(true);
+            if (!accepted || impl_->stopping.load() || !conn->active.load()) {
+                conn->request_shutdown();
+                if (!conn->disconnect_notified.exchange(true))
+                    handler_.on_disconnect(cid, NetError::Disconnected);
                 {
                     std::lock_guard<std::mutex> lk(impl_->connections_mu);
                     impl_->connections.erase(id);
                 }
-                closesocket(client);
+                conn->close_after_join();
                 continue;
             }
 
@@ -245,6 +347,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
             if ((std::size_t)impl_->worker_threads.size() <
                 (std::size_t)impl_->cfg.worker_thread_count) {
                 impl_->worker_threads.emplace_back([this, id]() {
+                    ServerThreadScope thread_scope(this);
                     // Each worker thread handles multiple connections
                     // (round-robin in production; for demo we use 1:1).
                 });
@@ -258,6 +361,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                 std::lock_guard<std::mutex> lk(impl_->connections_mu);
                 auto* c_ptr = impl_->connections.at(id).get();
                 c_ptr->sender_thread = std::thread([this, c_ptr]() {
+                    ServerThreadScope thread_scope(this);
                     while (c_ptr->active.load()) {
                         std::vector<std::vector<std::uint8_t>> batch;
                         {
@@ -270,6 +374,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                             batch.swap(c_ptr->send_queue);
                         }
                         for (auto& frame : batch) {
+                            if (!c_ptr->active.load()) goto sender_exit;
                             int total = static_cast<int>(frame.size());
                             int sent = 0;
                             while (sent < total) {
@@ -277,7 +382,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                                     reinterpret_cast<const char*>(frame.data() + sent),
                                     total - sent, 0);
                                 if (n <= 0) {
-                                    c_ptr->active.store(false);
+                                    c_ptr->request_shutdown();
                                     goto sender_exit;
                                 }
                                 sent += n;
@@ -285,36 +390,54 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                         }
                     }
                 sender_exit:
-                    // Close socket (sole owner — recv thread no longer closes).
-                    std::lock_guard<std::mutex> slk(c_ptr->send_mu);
-                    if (c_ptr->sock != INVALID_SOCKET) {
-                        closesocket(c_ptr->sock);
-                        c_ptr->sock = INVALID_SOCKET;
-                    }
+                    c_ptr->request_shutdown();
                 });
             }
 
+            // Keep the connection alive even if the reaper removes its map
+            // entry before the new recv thread is scheduled to run.
+            std::shared_ptr<Connection> recv_connection;
+            {
+                std::lock_guard<std::mutex> lk(impl_->connections_mu);
+                recv_connection = impl_->connections.at(id);
+            }
             // Handle this connection's recv on a new thread — track it so stop() can join.
-            std::thread t([this, id, remote]() {
-                Connection* c = nullptr;
+            std::thread t([this, id, remote, recv_connection]() {
+                ServerThreadScope thread_scope(this);
+                Connection* c = recv_connection.get();
                 {
-                    std::lock_guard<std::mutex> lk(impl_->connections_mu);
-                    auto it = impl_->connections.find(id);
-                    if (it == impl_->connections.end()) return;
-                    c = it->second.get();
+                    std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                    if (c->active.load())
+                        c->encryptor = handler_.encryptor_for(ConnectionId{id});
                 }
-                c->encryptor = handler_.encryptor_for(ConnectionId{id});
 
                 std::vector<std::uint8_t> buffer(impl_->cfg.recv_buffer_size);
                 std::vector<std::uint8_t> carryover;
 
                 while (!impl_->stopping.load() && c->active.load()) {
-                    int n = recv(c->sock, reinterpret_cast<char*>(buffer.data()),
-                                 static_cast<int>(buffer.size()), 0);
+                    // Windows shutdown() does not reliably interrupt a recv
+                    // that was already blocked on another thread. Poll for
+                    // readability so stop/disconnect can end this thread
+                    // without closing a handle still in use.
+#ifdef _WIN32
+                    fd_set readable;
+                    FD_ZERO(&readable);
+                    FD_SET(c->sock, &readable);
+                    timeval wait{0, 100000};
+                    const int ready = ::select(0, &readable, nullptr, nullptr, &wait);
+#else
+                    pollfd readable{c->sock, POLLIN, 0};
+                    const int ready = ::poll(&readable, 1, 100);
+#endif
+                    if (ready == 0) continue;
+                    if (impl_->stopping.load() || !c->active.load()) break;
+                    int n = ready < 0 ? -1 : recv(c->sock,
+                        reinterpret_cast<char*>(buffer.data()),
+                        static_cast<int>(buffer.size()), 0);
                     if (n <= 0) {
-                        if (!c->disconnect_notified.exchange(true)) {
-                            handler_.on_disconnect(ConnectionId{id}, NetError::Disconnected);
-                        }
+                        // Complete outstanding cipher calls before the handler
+                        // releases its cipher. Do not hold this lock in callbacks.
+                        c->request_shutdown();
                         break;
                     }
 
@@ -323,7 +446,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                                      buffer.begin() + n);
 
                     // Debug: log raw received bytes
-                    if (impl_->cfg.use_legacy_framing) {
+                    if (impl_->cfg.use_legacy_framing && packet_trace_enabled()) {
                         std::cerr << "[net] recv " << n << " bytes, carryover=" << carryover.size() << " hex:";
                         for (int i = 0; i < n && i < 64; ++i)
                             fprintf(stderr, " %02x", buffer[i]);
@@ -369,7 +492,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                             // only, leaving the parsed header fields as
                             // encrypted bytes. Symmetric with TcpServer::send
                             // which encrypts the whole msg_body.
-                            if (c->encryptor) c->encryptor->decrypt(msg_body);
+                            {
+                                std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                                if (!c->active.load()) break;
+                                if (c->encryptor) c->encryptor->decrypt(msg_body);
+                            }
 
                             MsgHeader h{};
                             h.checksum  = msg_body[0];
@@ -404,7 +531,11 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                                                carryover.end());
                             
                             // Optional decryption.
-                            if (c->encryptor) c->encryptor->decrypt(msg.payload);
+                            {
+                                std::lock_guard<std::mutex> lock(c->encryptor_mu);
+                                if (!c->active.load()) break;
+                                if (c->encryptor) c->encryptor->decrypt(msg.payload);
+                            }
                             
                             handler_.on_message(ConnectionId{id}, msg);
                             
@@ -418,10 +549,10 @@ NetError TcpServer::start(const ServerConfig& cfg) {
                     }
                 }
 
-                // Cleanup: mark inactive and wake sender thread.
-                // Sender thread is responsible for closing the socket.
-                c->active.store(false);
-                c->send_cv.notify_one();
+                // Wake any blocked send before the reaper joins the threads.
+                c->request_shutdown();
+                if (!c->disconnect_notified.exchange(true))
+                    handler_.on_disconnect(ConnectionId{id}, NetError::Disconnected);
                 std::cerr << "[net] recv thread conn=" << id << " exiting\n";
             });
             bool orphaned = false;
@@ -442,6 +573,7 @@ NetError TcpServer::start(const ServerConfig& cfg) {
     // Join completed connection threads during normal operation. Retaining
     // them until stop() leaks two Windows thread handles per connection.
     impl_->reaper_thread = std::thread([this]() {
+        ServerThreadScope thread_scope(this);
         while (!impl_->stopping.load()) {
             impl_->reap_inactive_connections();
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -453,39 +585,43 @@ NetError TcpServer::start(const ServerConfig& cfg) {
 
 void TcpServer::stop() {
     if (!running_.load()) return;
+    // A handler may call stop() on an accept/recv thread. It can request
+    // shutdown, but the external owner must call stop() again to join it.
+    if (current_server_thread == this) {
+        impl_->stopping.store(true);
+        return;
+    }
+    if (impl_->stop_cleanup_started.exchange(true)) return;
     impl_->stopping.store(true);
 
-    // Phase 10e: Wake all sender threads so they notice active==false and exit.
-    std::vector<ConnectionId> stop_disconnects;
-    {
-        std::lock_guard<std::mutex> lk(impl_->connections_mu);
-        for (auto& [_, conn] : impl_->connections) {
-            conn->active.store(false);
-            if (!conn->disconnect_notified.exchange(true)) {
-                stop_disconnects.push_back(ConnectionId{conn->id});
+    auto shutdown_connections = [&](bool notify) {
+        std::vector<ConnectionId> stop_disconnects;
+        {
+            std::lock_guard<std::mutex> lk(impl_->connections_mu);
+            for (auto& [_, conn] : impl_->connections) {
+                conn->request_shutdown();
+                if (notify && conn->connect_callback_complete.load() &&
+                    !conn->disconnect_notified.exchange(true)) {
+                    stop_disconnects.push_back(ConnectionId{conn->id});
+                }
             }
-            conn->send_cv.notify_one();
         }
-    }
-    for (const auto id : stop_disconnects) {
-        handler_.on_disconnect(id, NetError::Disconnected);
-    }
+        ServerThreadScope callback_scope(this);
+        for (const auto id : stop_disconnects)
+            handler_.on_disconnect(id, NetError::Disconnected);
+    };
 
-    // Close listen socket so accept() unblocks.
+    // First wake I/O without notifying handlers: accept may still be inside
+    // on_connect, including a reentrant HSEL key-delivery send. After accept
+    // exits, handler-owned state can be released by on_disconnect safely.
+    shutdown_connections(false);
+    if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
     if (impl_->listen_sock != INVALID_SOCKET) {
         closesocket(impl_->listen_sock);
         impl_->listen_sock = INVALID_SOCKET;
     }
+    shutdown_connections(true);
 
-    // Close all client sockets so recv() calls unblock immediately.
-    {
-        std::lock_guard<std::mutex> lk(impl_->connections_mu);
-        for (auto& [id, conn] : impl_->connections) {
-            if (conn->sock != INVALID_SOCKET) closesocket(conn->sock);
-        }
-    }
-
-    if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
     if (impl_->reaper_thread.joinable()) impl_->reaper_thread.join();
 
     // Phase 10e + R-1 fix: move the per-connection threads out and join
@@ -514,6 +650,7 @@ void TcpServer::stop() {
     }
     {
         std::lock_guard<std::mutex> lk(impl_->connections_mu);
+        for (auto& [_, conn] : impl_->connections) conn->close_after_join();
         impl_->connections.clear();
     }
 
@@ -559,10 +696,18 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
                         msg.payload.data(), msg.payload.size());
         }
     }
-    if (c->encryptor) c->encryptor->encrypt(msg_body);
+    std::lock_guard<std::mutex> order_lock(c->send_order_mu);
+    {
+        std::lock_guard<std::mutex> lock(c->encryptor_mu);
+        if (!c->active.load()) return NetError::Disconnected;
+        if (c->encryptor) {
+            const auto result = c->encryptor->encrypt(msg_body);
+            if (result != NetError::Ok) return result;
+        }
+    }
 
     // Debug: log raw send bytes
-    if (impl_->cfg.use_legacy_framing) {
+    if (impl_->cfg.use_legacy_framing && packet_trace_enabled()) {
         std::cerr << "[net] send msg_body size=" << msg_body.size() << " hex:";
         for (std::size_t i = 0; i < msg_body.size() && i < 64; ++i)
             fprintf(stderr, " %02x", msg_body[i]);
@@ -577,10 +722,12 @@ NetError TcpServer::send(ConnectionId id, const Message& msg) {
         out[0] = static_cast<std::uint8_t>(len & 0xFF);
         out[1] = static_cast<std::uint8_t>((len >> 8) & 0xFF);
         std::memcpy(out.data() + 2, msg_body.data(), msg_body.size());
-        std::cerr << "[net] send wire size=" << out.size() << " hex:";
-        for (std::size_t i = 0; i < out.size() && i < 64; ++i)
-            fprintf(stderr, " %02x", out[i]);
-        fprintf(stderr, "\n");
+        if (packet_trace_enabled()) {
+            std::cerr << "[net] send wire size=" << out.size() << " hex:";
+            for (std::size_t i = 0; i < out.size() && i < 64; ++i)
+                fprintf(stderr, " %02x", out[i]);
+            fprintf(stderr, "\n");
+        }
     } else {
         out = std::move(msg_body);
     }
@@ -614,8 +761,19 @@ NetError TcpServer::broadcast(const Message& msg) {
 }
 
 void TcpServer::disconnect(ConnectionId id) {
-    std::lock_guard<std::mutex> lk(impl_->connections_mu);
-    impl_->close_connection_locked(id.value);
+    bool notify = false;
+    {
+        std::lock_guard<std::mutex> lk(impl_->connections_mu);
+        auto it = impl_->connections.find(id.value);
+        if (it == impl_->connections.end()) return;
+        it->second->request_shutdown();
+        notify = it->second->connect_callback_complete.load() &&
+                 !it->second->disconnect_notified.exchange(true);
+    }
+    if (notify) {
+        ServerThreadScope callback_scope(this);
+        handler_.on_disconnect(id, NetError::Disconnected);
+    }
 }
 
 std::size_t TcpServer::connection_count() const noexcept {
@@ -659,9 +817,21 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
     // implementation previously ignored it and failed after one connect().
     // Retry with a fresh socket until the deadline so transient accept-backlog
     // or ephemeral-port pressure does not abort a commercial login flow.
+    std::string bind_ip = cfg.bind_address;
+    if (bind_ip.empty()) {
+        if (const char* env = std::getenv("MXH_BIND_IP")) bind_ip = env;
+    }
     const auto deadline = std::chrono::steady_clock::now() + cfg.connect_timeout;
     do {
         impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (impl_->sock != INVALID_SOCKET && !bind_ip.empty()) {
+            sockaddr_in local{};
+            local.sin_family = AF_INET;
+            local.sin_port = 0;
+            if (inet_pton(AF_INET, bind_ip.c_str(), &local.sin_addr) == 1) {
+                ::bind(impl_->sock, reinterpret_cast<sockaddr*>(&local), sizeof(local));
+            }
+        }
         if (impl_->sock != INVALID_SOCKET &&
             ::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
                 != SOCKET_ERROR) {

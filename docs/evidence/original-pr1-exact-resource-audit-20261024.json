@@ -1,0 +1,198 @@
+{
+  "schema": "moxiang.original.pr1.exact-resource-audit.v1",
+  "capturedAt": "2026-10-24",
+  "prRef": "b038ce40d17790ca9e28ce37cc9f8446de480106",
+  "remoteRef": "refs/pull/1/head",
+  "scope": "read-only comparison of PR #1 tree against current exact-resource gates",
+  "hfl": [
+    {
+      "path": "Resource/Map/0.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+      "knownRejectedArchiveSha256": "f5345bb8ef1584363510ee0d95df7bb7774f8c34d2344e4a3cff4401b2090762",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/4.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+      "knownRejectedArchiveSha256": "05f1783a3075cb988613ba00b7fb021722c2b32b8ba9eb718495caffaf191a92",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/23.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+      "knownRejectedArchiveSha256": "caa9c1ec2e22a08c4c26d41ceb45492d16209d8c336a9754cfb4b3b092ce2894",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/24.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+      "knownRejectedArchiveSha256": "0d1d28372b276c2bbf1f0c5a23a196306e368777d786337e07c847718c21c853",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/32.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+      "knownRejectedArchiveSha256": "d31d94dff9a21b7b479ec496c8e5c678282f444f808027e5469083e0ad1613a1",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/33.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+      "knownRejectedArchiveSha256": "6ba8184fdbcce38b7e4a2303a85b505b7b891cbb68c84a4c137bd83c2762d99c",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/34.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+      "knownRejectedArchiveSha256": "e061b5da58d9421493d8c0cc2566a0127e9ecc33b70b91e887b41c31eff96a6c",
+      "matchesRejectedArchive": true
+    },
+    {
+      "path": "Resource/Map/94.hfl",
+      "present": true,
+      "bytes": 137030,
+      "sha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+      "knownRejectedArchiveSha256": "3e35fe1f2af4f177b70d9eba6997559ca4fdcb76f09e6710022132e8237c342b",
+      "matchesRejectedArchive": true
+    }
+  ],
+  "ttb": [
+    {
+      "path": "Resource/Map/0.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/3.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/4.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/23.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/24.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/32.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/33.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/34.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/94.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    },
+    {
+      "path": "Resource/Map/198.ttb",
+      "present": false,
+      "bytes": null,
+      "sha256": null,
+      "unityNativeSha256": null,
+      "matchesUnityNativeDerived": false
+    }
+  ],
+  "monster203": {
+    "present": false,
+    "sha256": null
+  },
+  "map17Textures": {
+    "tile_17_mou_a_01.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_02.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_03.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_04.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_05.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_06.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_07.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_08.dds": {
+      "present": false,
+      "sha256": null
+    },
+    "tile_17_mou_a_09.dds": {
+      "present": false,
+      "sha256": null
+    }
+  },
+  "decision": "NO_EXACT_SOURCE_ADMITTED"
+}

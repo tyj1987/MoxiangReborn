@@ -91,6 +91,8 @@ public:
     // 1:1 with legacy cGuageBar overrides.
     void SetAbsXY(std::int32_t x, std::int32_t y) noexcept;
     std::uint32_t ActionEvent() noexcept;
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
     void Render() override;
 
     // ----- test / inspection helpers (not in legacy) -----

@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "kind": "original-pve-current-combat-drop-pickup-receipt",
+  "capturedUtc": "2026-10-14T20:24:33.2737790Z",
+  "sourceCommit": "4684379b5930582d1990a9f95c3816196d9845b3",
+  "sourceDirty": false,
+  "clientExecutable": "modern/out/ctest-current-20261015/tools/MoxianClientE2E/mxh_client_e2e.exe",
+  "clientExecutableSha256": "a0984b8487bedfe58b9748277eca72bc51bbe4bc468b3c407ba0063576847c9c",
+  "pve": {
+    "host": "192.168.2.244",
+    "databaseHost": "192.168.2.238",
+    "database": "MoxiangOriginalTest_20261009",
+    "stage": "C:\\Moxiang\\original\\stage-20261015",
+    "ports": {
+      "login": 16001,
+      "agent": 17001,
+      "map10": 18001
+    }
+  },
+  "fixture": {
+    "account": "origcombat15",
+    "password": "process-only; not stored",
+    "playerId": 100018,
+    "character": "Combat161015",
+    "level": 53,
+    "baseAttributes": [
+      2000,
+      12,
+      2000,
+      12
+    ],
+    "temporaryEquipment": [
+      11000,
+      23000,
+      27000
+    ],
+    "cleanup": "account, character, modern state/vitals/equipment/items/quest/skill rows removed after run"
+  },
+  "run": {
+    "command": "mxh_client_e2e --no-spawn --backend mssql_odbc --login-host 192.168.2.244 --login-port 16001 --agent-port 17001 --map-number 10 --account origcombat15 --password supplied in process only --character-name Combat161015 --exercise-combat --timeout 180",
+    "loginAck": true,
+    "characterList": true,
+    "characterSelect": true,
+    "gameInAck": true,
+    "map": 10,
+    "monsters": "228->227",
+    "initialLife": 20271,
+    "target": 50143,
+    "targetInitialLife": 6150,
+    "serverAuthoritativeHit": true,
+    "lifeChanged": true,
+    "naturalDrop": {
+      "dropId": 90000,
+      "itemId": 50015,
+      "count": 1
+    },
+    "clickPickup": true,
+    "inventoryMoveAck": {
+      "source": 0,
+      "target": 1,
+      "itemId": 50015
+    },
+    "reloginPersistence": true,
+    "exitCode": 0
+  },
+  "log": {
+    "path": "docs/evidence/original-pve-combat-current-20261015.log",
+    "sha256": "4c0c4228964a6c11a1af9b502cc1301d5b9aad33953f3d3ed7d21f8d66e0f5fc"
+  },
+  "restoration": {
+    "temporaryAccountRows": 0,
+    "temporaryCharacterRows": 0,
+    "player100017": "restored level=1,map=10,baseAttributes=12/12/12/12,state level=1 exp=0 money=0,vitals hp=125 shield=245 mp=125 dead=0 revision=1",
+    "dbQuery": "read-back via CT930 non-SA sqlcmd after cleanup",
+    "releaseReady": false,
+    "remainingGates": [
+      "真人GUI战斗和资源呈现",
+      "完整原版资源覆盖与商业许可",
+      "全地图/经济/社交覆盖",
+      "稳定性与双路线商业验收"
+    ]
+  }
+}

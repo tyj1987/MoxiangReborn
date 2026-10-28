@@ -1,0 +1,42 @@
+{
+  "schema": "moxiang.original.vm112.canonical-birth-stage.v1",
+  "generatedAt": "2026-10-17T09:05:00+08:00",
+  "pve": {
+    "host": "192.168.2.200",
+    "vm": 112,
+    "guest": "MOXIANG-SERVER",
+    "management": "SSH to PVE host -> qm guest exec"
+  },
+  "stage": {
+    "path": "C:\\Moxiang\\original\\stage-canonical-birth-20261017",
+    "sourceHead": "4edd6642a17c317b94044d9621b2beccfd32fa75",
+    "packageSha256": "afe09f6b8d9ea9fb3d64d01f4c5e8d16ff6a687ea01a292f111785643dd523e8",
+    "resourceFiles": 5136,
+    "resourceBytes": 1689474757,
+    "map17HflBytes": 1192972,
+    "resourceProfile": "playdh-current",
+    "transfer": "PASS",
+    "extract": "PASS"
+  },
+  "plan": {
+    "command": "start_current_vm112.ps1 -DatabaseHost 192.168.2.238 -EnableMap17 -Map17Port 18004",
+    "result": "PASS",
+    "ports": [
+      16001,
+      17001,
+      18001,
+      18002,
+      18003,
+      18004
+    ],
+    "map17Enabled": true,
+    "startsProcesses": false,
+    "databaseWrite": "NOT_PERFORMED"
+  },
+  "boundary": {
+    "defaultOriginalPortsUntouched": true,
+    "unityPortsUntouched": true,
+    "existingDefaultServicesStopped": false,
+    "reason": "Default original and Unity services already own their ports; the isolated candidate uses the same writer contract and was not started concurrently."
+  }
+}

@@ -3,8 +3,19 @@
 #include <mxh/server/item_sell_side_effect.hpp>
 
 #include <gtest/gtest.h>
+#include <limits>
 
 using namespace mxh::server;
+
+TEST(ItemSellSideEffect, SellPayoutUsesAuthoritativePrice) {
+    ASSERT_EQ(sell_payout(125u, 3u), 375u);
+    EXPECT_FALSE(sell_payout(0u, 1u).has_value());
+    EXPECT_FALSE(sell_payout(125u, 0u).has_value());
+}
+
+TEST(ItemSellSideEffect, SellPayoutRejectsOverflow) {
+    EXPECT_FALSE(sell_payout(std::numeric_limits<std::uint32_t>::max(), 2u).has_value());
+}
 
 TEST(ItemSellOutcome, ZeroRtWithValidNpcIsSuccess) {
     EXPECT_EQ(classify_item_sell_outcome(0, true),

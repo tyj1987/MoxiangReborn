@@ -77,8 +77,17 @@ public:
     // Hit test: returns the row index under (x, y) or -1.
     int PtIdxInRow(std::int32_t x, std::int32_t y) const noexcept;
 
-    // Render placeholder.
-    void Render() override {}
+    // Coordinate input used by quest/chat/shop list dialogs.  A left-button
+    // click latches the hit row and returns the legacy click event; pointer
+    // movement is routed to children without changing selection.
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
+    std::uint32_t ActionKeyboardEvent(std::int32_t key,
+                                      std::int32_t ch) override;
+    bool OnMouseWheel(std::int32_t wheelDelta) noexcept;
+
+    // Render visible rows through the shared text adapter.
+    void Render() override;
 
     void SetAutoScroll(bool v) noexcept           { m_autoScroll = v; }
     bool IsAutoScroll() const noexcept            { return m_autoScroll; }

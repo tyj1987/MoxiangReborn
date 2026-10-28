@@ -209,8 +209,10 @@ std::optional<AiGroupList> parse_ai_group_list(std::string_view text) noexcept {
 }
 
 std::optional<AiGroupList> load_ai_group_list_bin(
-    const std::filesystem::path& path) noexcept {
-    const auto file = mxh::compat::read_mh_bin(path);
+    const std::filesystem::path& path,
+    std::string_view resource_profile_id) noexcept {
+    const auto file = mxh::compat::read_server_mh_bin(
+        path, resource_profile_id);
     if (!file.ok()) return std::nullopt;
     const auto* data = reinterpret_cast<const char*>(file.value.data.data());
     return parse_ai_group_list(std::string_view(data, file.value.data.size()));

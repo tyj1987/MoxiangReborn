@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-pve-map10-updated-resource-playability",
+  "capturedAtUtc": "2026-10-19T13:39:09.521641+00:00",
+  "sourceHead": "647d43bb06633001b8f445bef09df26f65954faa",
+  "clientBuild": "modern/build-clean-debug-20261015/tools/MoxianClientE2E/Release/mxh_client_e2e.exe",
+  "clientSha256": "b66a1d77fb72311784b276f6da38b9217aab4d1384f9068f4cec9d796c1e03e4",
+  "stage": "C:\\Moxiang\\original\\stage-map203-testdb-20261017",
+  "databaseHost": "192.168.2.238",
+  "database": "MoxiangOriginalTest_20261009",
+  "package": {
+    "sha256": "fa91cf475bd68f10cb6b280cb16c085f74130b0195091773da54eb9689d908b5",
+    "bytes": 6243344,
+    "resourceFiles": 5297,
+    "resourceBytes": 1691253485
+  },
+  "ports": {
+    "login": 16217,
+    "agent": 17217,
+    "map10": 18210,
+    "map12": 18212,
+    "map2": 18213
+  },
+  "e2e": {
+    "exitCode": 0,
+    "account": "map10pkg19",
+    "passwordRecorded": false,
+    "steps": "login,character-list,character-select,gamein",
+    "map": 10,
+    "monsterPopulation": 228,
+    "logBytes": 198088,
+    "logSha256": "4093feb2d6d414559ee73beb38f7fc21c969fbadbdba17af0161ad9635dd1db1"
+  },
+  "cleanup": {
+    "accountRows": 0,
+    "characterRows": 0,
+    "playerStateRows": 0,
+    "playerItemRows": 0,
+    "accountIdentityRows": 0,
+    "isolatedProcessesRemaining": 0,
+    "defaultPortsUntouched": true
+  },
+  "result": "pass",
+  "limitations": [
+    "This is headless protocol/GameIn evidence; GUI, visual/audio parity, full map coverage and long-run stability remain open.",
+    "Map203 remains blocked by the exact server AIGroup resource gate in original-map203-runtime-resource-gate-20261017.json."
+  ]
+}

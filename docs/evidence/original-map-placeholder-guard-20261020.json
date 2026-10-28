@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-map-placeholder-guard",
+  "capturedAt": "2026-10-20T12:45:00+08:00",
+  "sourceHead": "d40e7364f0fc701e0c365cdb184c598e7d602a22",
+  "command": "python modern/tools/audit_map_dependencies.py MAP modern/data/PlayDH --build-dir modern/out/build-client-x64-diagnose --json",
+  "helperTests": {
+    "misnamedMap0": true,
+    "map10Allowed": true,
+    "map17DifferentFamily": true
+  },
+  "mapAudits": {
+    "10": {
+      "exitCode": 0,
+      "report": {
+        "map": 10,
+        "hfl_source": "pak",
+        "hfl_used_texture_count": 13,
+        "pak_entry_count": 4403,
+        "loose_root_entry_count": 211,
+        "missing_texture_count": 0,
+        "missing": [],
+        "known_map10_placeholder": false
+      }
+    },
+    "17": {
+      "exitCode": 1,
+      "report": {
+        "map": 17,
+        "hfl_source": "loose",
+        "hfl_used_texture_count": 42,
+        "pak_entry_count": 4403,
+        "loose_root_entry_count": 211,
+        "missing_texture_count": 9,
+        "missing": [
+          "tile_17_mou_a_01.dds",
+          "tile_17_mou_a_02.dds",
+          "tile_17_mou_a_03.dds",
+          "tile_17_mou_a_04.dds",
+          "tile_17_mou_a_05.dds",
+          "tile_17_mou_a_06.dds",
+          "tile_17_mou_a_07.dds",
+          "tile_17_mou_a_08.dds",
+          "tile_17_mou_a_09.dds"
+        ],
+        "known_map10_placeholder": false
+      }
+    },
+    "203": {
+      "exitCode": 0,
+      "report": {
+        "map": 203,
+        "hfl_source": "loose",
+        "hfl_used_texture_count": 161,
+        "pak_entry_count": 4403,
+        "loose_root_entry_count": 211,
+        "missing_texture_count": 0,
+        "missing": [],
+        "known_map10_placeholder": false
+      }
+    }
+  },
+  "decision": "PASS: Map10 remains valid; known misnamed Map10 HFL candidates are rejected; Map17 reports its 9 exact missing textures; Map203 reports zero missing textures.",
+  "releaseReady": false
+}

@@ -52,6 +52,42 @@ TEST(CEditBox, InsertCharAppendsAndMovesCaret) {
     EXPECT_EQ(e.caretPos(), 3u);
 }
 
+TEST(CEditBox, Utf8CodepointsInsertNavigateAndDeleteAsUnits) {
+    cEditBox e;
+    e.InitEditbox(200, 32);
+    e.SetFocus(true);
+    e.ActionKeyboardEvent(0, 0x4E2D); // 中
+    e.ActionKeyboardEvent(0, 0x6587); // 文
+    EXPECT_EQ(e.editText(), "\xE4\xB8\xAD\xE6\x96\x87");
+    EXPECT_EQ(e.caretPos(), 6u);
+
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Left), 0);
+    EXPECT_EQ(e.caretPos(), 3u);
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Back), 0);
+    EXPECT_EQ(e.editText(), "\xE6\x96\x87");
+    EXPECT_EQ(e.caretPos(), 0u);
+
+    e.ActionKeyboardEvent(static_cast<std::int32_t>(Key::Delete), 0);
+    EXPECT_TRUE(e.editText().empty());
+}
+
+TEST(CEditBox, SetEditTextDoesNotLeaveTruncatedUtf8Sequence) {
+    cEditBox e;
+    e.InitEditbox(200, 4); // three payload bytes: less than two CJK chars
+    e.SetEditText("\xE4\xB8\xAD\xE6\x96\x87");
+    EXPECT_EQ(e.editText(), "\xE4\xB8\xAD");
+    EXPECT_EQ(e.caretPos(), 3u);
+}
+
+TEST(CEditBox, SecretDisplayMasksOneGlyphPerUtf8Codepoint) {
+    cEditBox e;
+    e.InitEditbox(200, 32);
+    e.SetEditText("A" "\xE4\xB8\xAD" "\xE6\x96\x87");
+    e.SetSecret(true);
+    EXPECT_EQ(e.displayText(), "***");
+    EXPECT_EQ(e.editText(), "A" "\xE4\xB8\xAD" "\xE6\x96\x87");
+}
+
 TEST(CEditBox, BackspaceDeletesCharBeforeCaret) {
     cEditBox e;
     e.Init(0, 0, 100, 30, &g_basicImage, &g_focusImage);
@@ -174,6 +210,17 @@ TEST(CEditBox, SetEditTextReplacesContent) {
     e.SetEditText("hello world");
     EXPECT_EQ(e.editText(), "hello world");
     EXPECT_EQ(e.caretPos(), 11u);
+}
+
+TEST(CEditBox, ClearEditTextSecureErasesSecretBuffer) {
+    cEditBox e;
+    e.InitEditbox(160, 32);
+    e.SetSecret(true);
+    e.SetEditText("sensitive-password");
+    ASSERT_EQ(e.editText(), "sensitive-password");
+    e.ClearEditTextSecure();
+    EXPECT_TRUE(e.editText().empty());
+    EXPECT_TRUE(e.displayText().empty());
 }
 
 TEST(CEditBox, SetEditTextRespectsCapacity) {

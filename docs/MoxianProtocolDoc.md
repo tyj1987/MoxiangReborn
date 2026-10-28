@@ -2,6 +2,8 @@
 
 > Auto-generated from `Protocol.h` on 2026-07-16
 
+> 2026-10-09 核验提示：这是历史生成文档，不是当前客户端与服务端的协议兼容证明。注释中的枚举不占编号；已确认原 Item 的 Buy 为 19–21、MonsterObtainNotify 为 32，现代实现的对应编号和消息语义不同。准确边界及迁移门禁见 [ITEM_PROTOCOL_COMPATIBILITY.md](ITEM_PROTOCOL_COMPATIBILITY.md)。原始参考头文件保持不变。
+
 **Generation tool**: `modern/tools/MoxianProtocolDoc/` (C++) + `modern/tools/gen_protocol_doc.py` (this Python wrapper)
 
 **Tool status**: MoxianProtocolDoc `--summary` works; `--output <md>` crashes with STATUS_STACK_BUFFER_OVERRUN on the full 92KB Protocol.h. This doc uses `--summary` + Python-side enum extraction as a stable interim format.
@@ -180,7 +182,7 @@ The full per-enum value breakdown (3,458 individual `MP_*` constants) is generat
 To regenerate one enum at a time, you can manually split Protocol.h and call:
 
 ```bash
-D:\Moxian\modern\build\tools\MoxianProtocolDoc\Release\MoxianProtocolDoc.exe <single-enum.h> --output <output.md>
+<repo-root>\modern\build\tools\MoxianProtocolDoc\MoxianProtocolDoc.exe <single-enum.h> --output <output.md>
 ```
 
 Or fix the C++ tool's generateMarkdown() bug (likely an O(N×M) nested loop that explodes for 124×64) and re-run the full generation.
@@ -193,4 +195,3 @@ Or fix the C++ tool's generateMarkdown() bug (likely an O(N×M) nested loop that
 - Network struct definitions: `墨香【源码】\[CC]Header\CommonStruct.h`
 - Client-side message handlers: `墨香【源码】\[Client]MH\MHNetworkMsgParser.cpp`
 - Server-side message handlers: `墨香【源码】\[Server]Agent\AgentNetworkMsgParser.cpp` + `墨香【源码】\[Server]Map\MapNetworkMsgParser.cpp` + `墨香【源码】\[Server]Distribute\DistributeNetworkMsgParser.cpp`
-

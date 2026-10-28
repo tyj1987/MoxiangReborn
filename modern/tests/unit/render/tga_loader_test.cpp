@@ -196,3 +196,46 @@ TEST(TgaLoader, RLEPackAndUnpackRoundtrip) {
         EXPECT_EQ(p[3], 0xff) << "A mismatch at " << i;
     }
 }
+
+// 2026-09-07 visual polish: validate the round-trip that
+// CoD3DDeviceDX11::CaptureScreen relies on.  CaptureScreen maps the
+// back buffer into a LoadedTexture, calls saveTGA on it, and writes
+// the resulting bytes to disk.  We assert that loadTGA can recover
+// the original RGBA pixels from a saveTGA-encoded buffer -- the
+// minimal property that any reasonable CaptureScreen replacement
+// must preserve, and the most we can verify without a live D3D11
+// device.
+TEST(TgaSaveRoundTrip, EncodeDecodeMatchesInput) {
+    using mxh::gx::dx11::saveTGA;
+    LoadedTexture src;
+    src.width  = 4;
+    src.height = 3;
+    src.bps    = 32;
+    src.pixels.resize(src.width * src.height * 4);
+    // Distinct RGBA pattern so any swap is detectable.
+    for (std::uint32_t i = 0; i < src.pixels.size() / 4; ++i) {
+        src.pixels[i * 4 + 0] = static_cast<std::uint8_t>((i * 13 + 7) & 0xff);
+        src.pixels[i * 4 + 1] = static_cast<std::uint8_t>((i * 17 + 3) & 0xff);
+        src.pixels[i * 4 + 2] = static_cast<std::uint8_t>((i * 19 + 11) & 0xff);
+        src.pixels[i * 4 + 3] = 0xff;
+    }
+    auto encoded = saveTGA(src);
+    ASSERT_FALSE(encoded.empty());
+    // First three bytes are the TGA header marker.
+    EXPECT_EQ(encoded[0], 0);
+    EXPECT_EQ(encoded[1], 0);
+    EXPECT_EQ(encoded[2], 2);  // uncompressed true-color
+    auto round = loadTGA(encoded.data(), static_cast<std::uint32_t>(encoded.size()));
+    EXPECT_EQ(round.width, src.width);
+    EXPECT_EQ(round.height, src.height);
+    ASSERT_EQ(round.pixels.size(), src.pixels.size());
+    for (std::size_t i = 0; i < src.pixels.size(); ++i) {
+        EXPECT_EQ(round.pixels[i], src.pixels[i]) << "pixel byte mismatch at " << i;
+    }
+}
+
+TEST(TgaSaveRoundTrip, EmptyTextureReturnsEmpty) {
+    using mxh::gx::dx11::saveTGA;
+    LoadedTexture empty;
+    EXPECT_TRUE(saveTGA(empty).empty());
+}

@@ -1,6 +1,11 @@
 // mxh/ui/cListCtrl.cpp
 // Phase 6.5 — implementation of the modern cListCtrl widget.
 #include "cListCtrl.hpp"
+#include "cImage.hpp"
+#include "TextRender.hpp"
+
+#include <algorithm>
+#include <cstdlib>
 
 namespace mxh::ui {
 
@@ -33,6 +38,72 @@ void cListCtrl::InitListCtrlImage(void* headImage, std::uint8_t headLineHeight,
     m_overImage      = overImage;
     m_headLineHeight = headLineHeight;
     m_bodyLineHeight = bodyLineHeight;
+}
+
+void cListCtrl::Render() {
+    if (!isVisible()) return;
+    cWindow::Render();
+
+    const auto drawImage = [](void* handle, std::int32_t x, std::int32_t y,
+                              std::int32_t w, std::int32_t h) {
+        if (!handle || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(handle)->render(x, y, w, h);
+    };
+    const auto headerH = static_cast<std::int32_t>(m_headLineHeight);
+    const auto rowH = m_bodyLineHeight > 0
+        ? static_cast<std::int32_t>(m_bodyLineHeight) : 16;
+    const auto originX = absX();
+    const auto originY = absY();
+    if (headerH > 0) drawImage(m_headImage, originX, originY, width(), headerH);
+
+    std::int32_t columnX = originX + m_marginLeft;
+    for (const auto& column : m_columns) {
+        if (!column.header.empty()) {
+            TextRenderRequest request;
+            request.text = column.header;
+            request.x = columnX;
+            request.y = originY;
+            request.width = column.width;
+            request.height = headerH > 0 ? headerH : rowH;
+            request.color = column.headerColor;
+            request.font_index = 0;
+            request.align = TextRenderAlign::Left;
+            renderText(request);
+        }
+        columnX += column.width;
+    }
+
+    const int visible = m_linePerPage > 0 ? static_cast<int>(m_linePerPage)
+                                          : static_cast<int>(m_rows.size());
+    const int begin = std::clamp(m_topItemIdx, 0, static_cast<int>(m_rows.size()));
+    const int end = std::min(static_cast<int>(m_rows.size()), begin + visible);
+    for (int row = begin; row < end; ++row) {
+        const auto y = originY + headerH + (row - begin) * rowH;
+        if (row == m_selectedRowIdx && m_selectOption == 1)
+            drawImage(m_overImage, originX, y, width(), rowH);
+        else if (row == m_overRowIdx && m_selectOption == 0)
+            drawImage(m_overImage, originX, y, width(), rowH);
+        else
+            drawImage(m_bodyImage, originX, y, width(), rowH);
+
+        const auto& data = m_rows[static_cast<std::size_t>(row)];
+        columnX = originX + m_marginLeft;
+        for (std::size_t col = 0; col < m_columns.size(); ++col) {
+            if (col < data.texts.size() && !data.texts[col].empty()) {
+                TextRenderRequest request;
+                request.text = data.texts[col];
+                request.x = columnX;
+                request.y = y + m_marginTop;
+                request.width = m_columns[col].width;
+                request.height = rowH;
+                request.color = col < data.colors.size() ? data.colors[col] : 0xFF000000u;
+                request.font_index = 0;
+                request.align = TextRenderAlign::Left;
+                renderText(request);
+            }
+            columnX += m_columns[col].width;
+        }
+    }
 }
 
 void cListCtrl::SetColumns(std::vector<Column> cols) {
@@ -126,16 +197,20 @@ std::uint32_t cListCtrl::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
     if (!isEnabled() || !isVisible()) {
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
-    const std::uint16_t row = PtIdxInRow(mouseX, mouseY);
-    if (row <= m_linePerPage) {
-        m_overRowIdx = static_cast<std::int32_t>(row);
+    const std::uint16_t visibleRow = PtIdxInRow(mouseX, mouseY);
+    const bool insideRow = visibleRow < m_linePerPage;
+    const std::int32_t row = insideRow
+        ? m_topItemIdx + static_cast<std::int32_t>(visibleRow)
+        : -1;
+    if (insideRow && row >= 0 && row < static_cast<std::int32_t>(m_rows.size())) {
+        m_overRowIdx = row;
     } else {
         m_overRowIdx = -1;
     }
     // Click: select the row + invoke the click callback.
     if (mouseFlags & MouseFlagLButton) {
-        if (row <= m_linePerPage) {
-            m_selectedRowIdx = static_cast<std::int32_t>(row);
+        if (insideRow && row >= 0 && row < static_cast<std::int32_t>(m_rows.size())) {
+            m_selectedRowIdx = row;
             if (m_onClick) m_onClick(*this, m_selectedRowIdx, m_userdata);
             return static_cast<std::uint32_t>(WindowEvent::LButtonClick);
         }
@@ -144,6 +219,39 @@ std::uint32_t cListCtrl::ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
         return static_cast<std::uint32_t>(WindowEvent::Null);
     }
     return static_cast<std::uint32_t>(WindowEvent::MouseMove);
+}
+
+std::uint32_t cListCtrl::ActionKeyboardEvent(std::int32_t key,
+                                             std::int32_t /*ch*/) {
+    if (!isEnabled() || !isVisible() || !hasFocus() || m_rows.empty()) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const int visible = std::max(1, static_cast<int>(m_linePerPage));
+    int selected = m_selectedRowIdx;
+    if (selected < 0) selected = m_topItemIdx;
+    if (key == 38) --selected;             // VK_UP
+    else if (key == 40) ++selected;        // VK_DOWN
+    else if (key == 33) selected -= visible; // VK_PRIOR
+    else if (key == 34) selected += visible; // VK_NEXT
+    else return static_cast<std::uint32_t>(WindowEvent::Null);
+    selected = std::clamp(selected, 0, static_cast<int>(m_rows.size()) - 1);
+    m_selectedRowIdx = selected;
+    if (selected < m_topItemIdx) m_topItemIdx = selected;
+    if (selected >= m_topItemIdx + visible) m_topItemIdx = selected - visible + 1;
+    return static_cast<std::uint32_t>(WindowEvent::KeyDown);
+}
+
+bool cListCtrl::OnMouseWheel(std::int32_t wheelDelta) noexcept {
+    if (!isEnabled() || !isVisible() || wheelDelta == 0) return false;
+    // Win32 can coalesce multiple detents into one message (for example
+    // +/-240). Preserve that distance instead of silently dropping input.
+    constexpr std::int32_t kWheelDelta = 120;
+    const auto detents = std::max<std::int32_t>(
+        1, std::abs(wheelDelta) / kWheelDelta);
+    const int step = wheelDelta > 0 ? -detents : detents;
+    const int oldTop = m_topItemIdx;
+    SetTopItemIdx(m_topItemIdx + step);
+    return oldTop != m_topItemIdx;
 }
 
 } // namespace mxh::ui

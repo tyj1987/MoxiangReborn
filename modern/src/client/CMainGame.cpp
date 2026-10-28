@@ -8,6 +8,7 @@
 
 #include "CMainGame.hpp"
 #include "CEngine.hpp"
+#include "mxh/log/mlog.hpp"
 
 #include <cassert>
 #include <utility>
@@ -37,6 +38,7 @@ void CMainGame::Init(void* /*hMainWnd*/) {
     m_bPauseRender = false;
     m_nCurStateNum = GameStateId::End;
     m_nNextStateNum = GameStateId::End;
+    m_pNextStateInitParam = nullptr;
     m_pCurrentGameState = nullptr;
 
     // Phase B.2.1: install the state-change callback on the engine so
@@ -67,6 +69,12 @@ void CMainGame::Release() {
     m_pCurrentGameState = nullptr;
     m_ppGameState = {};
     m_pEngine.reset();
+}
+
+void CMainGame::PrepareForProcessExit() noexcept {
+    if (m_pCurrentGameState) {
+        m_pCurrentGameState->PrepareForProcessExit();
+    }
 }
 
 void CMainGame::RegisterState(GameStateId id, std::unique_ptr<CGameState> state) {
@@ -105,6 +113,7 @@ void CMainGame::SetGameState(GameStateId state, void* pStateInitParam,
     // destructor ran on its members.  We preserve that.
     m_nNextStateNum  = state;
     m_bChangeState   = true;
+    m_pNextStateInitParam = pStateInitParam;
 
     // Stash the param on the next state so its Init() can pick it up
     // when the swap happens.  The legacy engine passed the param
@@ -127,12 +136,22 @@ void CMainGame::Process() {
     // the top of Process() so any in-flight work in the old state
     // completed before the new state took over.
     if (m_bChangeState) {
+        // Phase 0 §6.5 heap probe: tag every state boundary with
+        // a GetProcessMemoryInfo snapshot so the post-mortem MLOG
+        // timeline can show whether memory grows monotonically
+        // across the GameLoading -> GameIn transition.  The
+        // repeated 0xE06D7363 throw with a moving site (stof ->
+        // ComPtr::operator= -> deque::_Tidy) is the signature of
+        // heap exhaustion, so we need an annotated WS/peak
+        // trace to confirm or rule it out.
+        MLOG_HEAP("state_pre_release");
         // Release the current state.  If the target state is End, we
         // also null the current pointer to indicate "no state" (the
         // engine's "end the game" signal in the legacy code).
         if (m_pCurrentGameState && m_pCurrentGameState->isInitialized()) {
             m_pCurrentGameState->Release();
         }
+        MLOG_HEAP("state_post_release");
         // Borrow the new state from the slot table. We do NOT
         // unique_ptr::reset(next) because the slot's unique_ptr also
         // owns the same pointer — that would lead to a double-free at
@@ -156,11 +175,14 @@ void CMainGame::Process() {
                 // that need to receive a param (e.g. CMainTitle
                 // needs the server list) set it via a public setter
                 // after SetGameState returns.
-                next->Init(nullptr);
+                next->SetInitParam(m_pNextStateInitParam);
+                next->Init(m_pNextStateInitParam);
                 next->setInitialized(true);
             }
         }
+        MLOG_HEAP("state_post_init");
         m_bChangeState = false;
+        m_pNextStateInitParam = nullptr;
     }
 
     if (!m_bEndGame && m_pCurrentGameState) {

@@ -157,6 +157,8 @@ public:
 
     void InitTab(std::uint8_t tabNum);
     std::uint32_t ActionEvent(CMouse* mouseInfo);
+    std::uint32_t ActionEvent(std::int32_t mouseX, std::int32_t mouseY,
+                              std::uint32_t mouseFlags) override;
     void SetAbsXY(std::int32_t x, std::int32_t y) noexcept;
     void SetActive(bool val) noexcept override;
     void SetAlpha(std::uint8_t al);

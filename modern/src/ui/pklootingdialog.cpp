@@ -120,17 +120,17 @@ void cPKLootingDialog::InitPKLootDlg(std::int32_t dwID, std::int32_t x,
     (void)m_pStcTarget;   // would SetStaticText(pTargetPlayer->GetObjectName())
     clearSelection();
 
-    // Pre-fill the loot grid with placeholder icons. The legacy
-    // allocates a real cIcon per cell with image id 90 (default
-    // item). Modern port uses a placeholder pointer; the engine
-    // will replace it with a real cIcon* when wired.
+    // Pre-fill the loot grid with concrete icon instances. Resource image
+    // binding is intentionally injected later, but cells never contain
+    // invalid tagged pointers.
     if (m_pIGDItem) {
+        m_lootIcons.clear();
         for (std::uint16_t i = 0; i < PKLOOTING_ITEM_NUM; ++i) {
-            // reinterpret_cast to a tagged pointer; tests verify the
-            // cell is in use but don't dereference the icon.
-            auto* placeholder = reinterpret_cast<class cIcon*>(
-                static_cast<std::uintptr_t>(i + 1));
-            m_pIGDItem->AddIcon(i, placeholder);
+            auto icon = std::make_unique<cIcon>();
+            icon->InitIcon(0, 0, 40, 40, nullptr, 0, static_cast<int>(i + 1));
+            auto* raw = icon.get();
+            m_lootIcons.push_back(std::move(icon));
+            m_pIGDItem->AddIcon(i, raw);
         }
     }
 

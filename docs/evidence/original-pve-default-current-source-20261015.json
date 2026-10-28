@@ -1,0 +1,23 @@
+{
+  "schema": "moxiang-original-pve-receipt/v1",
+  "lane": "original",
+  "sourceHead": "f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469",
+  "stage": "C:\\Moxiang\\original\\stage-f264e8af-20261015",
+  "previousStagePreserved": "C:\\Moxiang\\original\\stage-20261015",
+  "packageSha256": "972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5",
+  "database": "MoxiangOriginalTest_20261009",
+  "databaseHost": "192.168.2.238",
+  "ports": {"login": 16001, "agent": 17001, "map10": 18001, "map12": 18002, "map2": 18003},
+  "results": {
+    "oldOriginalProcessesStoppedByExactPath": true,
+    "unityProcessesUntouched": true,
+    "loginAck": true,
+    "map10GameIn": true,
+    "map10Monsters": 228,
+    "changeMapAck": 12,
+    "map12Relog": true,
+    "exitCode": 0
+  },
+  "runtimeState": "current-source original stack remains running on VM112 default ports for the next client test window",
+  "log": "original-pve-default-current-source-20261015.log"
+}

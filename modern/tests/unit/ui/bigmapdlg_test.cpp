@@ -132,6 +132,15 @@ TEST(BigMapDlg, HeroIconIsSeparateFromIconTable) {
     EXPECT_EQ(dialog.icon_count(), 0u);
 }
 
+TEST(BigMapDlg, ClearIconsRemovesWorldAndHeroMarkers) {
+    cBigMapDlg dialog;
+    dialog.AddHeroIcon(1, 10, 20);
+    dialog.AddIcon(BigMapIconKind::Etc, 2, 30, 40);
+    dialog.ClearIcons();
+    EXPECT_EQ(dialog.icon_count(), 0u);
+    EXPECT_FALSE(dialog.hero_icon().has_value());
+}
+
 TEST(BigMapDlg, ProcessRunsEvenWithoutIcons) {
     cBigMapDlg dialog;
     dialog.Process();

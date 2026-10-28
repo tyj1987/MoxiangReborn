@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace mxh::compat {
@@ -50,7 +51,21 @@ enum class MhError {
     InvalidHeader,
     UnsupportedVersion,
     CrcMismatch,
+    // The current PlayDH server profile uses a size-prefixed opaque container
+    // which is not the classic MHFileEx wire format.  Keep it explicit so a
+    // caller cannot mistake an undecoded payload for valid game data.
+    UnsupportedOpaqueServerProfile,
+    // Installed Resource .bin container (same family as obfuscated .map).
+    // The reader refuses this shape. It does not strip the header or decode
+    // the body. Result::message contains "obfuscated container".
+    ObfuscatedContainer,
 };
+
+// Detect the current PlayDH server container without attempting to decode it.
+// Layout: [uint32 total_file_size][opaque payload].  This is deliberately
+// separate from the classic reader until its transform is recovered exactly.
+[[nodiscard]] bool is_size_prefixed_opaque_server_profile(
+    std::span<const std::uint8_t> bytes) noexcept;
 
 // Decode a .bin file from disk into a freshly allocated byte buffer.
 // The returned vector contains the decrypted (raw) payload bytes.
@@ -61,22 +76,74 @@ struct MhFile {
     std::uint32_t crc2 = 0;
 };
 
+// Raw container for the current PlayDH server variant.  This API deliberately
+// performs no transform: it exposes the bytes after the size prefix so a
+// future decoder can be implemented and verified independently from the
+// classic MHFileEx reader.  It must never be passed to gameplay parsers as
+// decoded text.
+struct OpaqueServerContainer {
+    std::uint32_t total_size = 0;
+    std::vector<std::uint8_t> payload;
+};
+
 // Result<T> for value-or-error pattern (compatible with old-style API).
 template <typename T>
 struct Result {
     T value;
     MhError error = MhError::Ok;
+    // Populated for MhError::ObfuscatedContainer. Contains the phrase
+    // "obfuscated container". Empty for every other error.
+    std::string message;
 
     [[nodiscard]] bool ok() const noexcept { return error == MhError::Ok; }
     [[nodiscard]] explicit operator bool() const noexcept { return ok(); }
 };
+
+// Decode the current server-size-prefixed-opaque-v1 container. The
+// container has a 20-byte profile header followed by an AIGroup text body
+// encrypted with an eight-byte repeating XOR key. The key is recovered from
+// the format's mandatory "$Group 1" preamble and the decoded body is
+// structurally validated before it is exposed to gameplay parsers.
+[[nodiscard]] Result<std::vector<std::uint8_t>> decode_opaque_server_payload(
+    std::span<const std::uint8_t> payload) noexcept;
 
 // Sniff first 12 bytes: returns true if it looks like a .bin file.
 // Heuristic: version is 1 (most common), type is one of {0,1,2,3,4}, file_size is plausible.
 [[nodiscard]] bool is_mh_bin(std::span<const std::uint8_t> bytes) noexcept;
 
 // Load a .bin file from disk, performing XOR decryption.
+// Default path is the mainline reader, including the R-17 branch for any
+// file of at least 5 bytes whose first little-endian uint32 equals the
+// file size. This overload never returns MhError::ObfuscatedContainer.
 [[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path);
+
+// Same reader with an explicit resource profile. Profile ids match
+// read_server_mh_bin and ClientSettings::resource_profile_id.
+//   empty or sworking-2008-reference: identical to read_mh_bin (R-17 included).
+//   playdh-current: a file of at least 20 bytes whose first little-endian
+//     uint32 equals the file size is refused as MhError::ObfuscatedContainer.
+//     The message contains "obfuscated container". The bytes after the
+//     length are not stripped or decoded. Every other file uses read_mh_bin.
+//   any other id: MhError::UnsupportedVersion.
+// The installed container and R-17 share the size prefix. The profile
+// argument is the only selector. There is no structural heuristic on the
+// default path. This library does not read the environment or any global
+// config to choose a profile. Existing callers stay on read_mh_bin(path).
+[[nodiscard]] Result<MhFile> read_mh_bin(const std::filesystem::path& path,
+                                         std::string_view profile_id);
+
+// Profile-aware server resource entry point. The current PlayDH server
+// profile uses its recovered opaque AIGroup transform; the 2008 reference
+// profile uses the recovered MHFileEx layout, including R-17. Profiles
+// remain explicit and are never silently substituted. The installed-client
+// refusal is read_mh_bin(path, "playdh-current"), not this server decoder.
+[[nodiscard]] Result<MhFile> read_server_mh_bin(
+    const std::filesystem::path& path, std::string_view profile_id);
+
+// Read the raw size-prefixed payload of a server profile without decoding it.
+// Returns UnsupportedOpaqueServerProfile when the structural marker is absent.
+[[nodiscard]] Result<OpaqueServerContainer> read_opaque_server_container(
+    const std::filesystem::path& path);
 
 // Save raw bytes to .bin file (with the XOR encryption applied).
 [[nodiscard]] MhError write_mh_bin(const std::filesystem::path& path,

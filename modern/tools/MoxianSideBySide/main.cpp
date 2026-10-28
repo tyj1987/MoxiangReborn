@@ -40,13 +40,15 @@ struct Args {
     std::string legacy_exe;
     std::string modern_exe;
     std::string modern_server_dir;
+    std::string resource_root;
     int legacy_port = 6001;
     int legacy_agent_port = 7001;
     int legacy_map_port = 6001;
     int modern_port = 16001;
     int modern_agent_port = 17001;
     int modern_map_port = 18001;
-    std::string capture_dir = "modern/scratch/sbs_captures";
+    int map_num = 10;
+    std::string capture_dir = "modern/out/runs/side-by-side-captures";
     int timeout_sec = 10;
     bool start_processes = false;
     bool modern_legacy = false;
@@ -70,12 +72,14 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--legacy-exe")  a.legacy_exe  = next("--legacy-exe");
         else if (s == "--modern-exe")  a.modern_exe  = next("--modern-exe");
         else if (s == "--modern-server-dir") a.modern_server_dir = next("--modern-server-dir");
+        else if (s == "--resource-root") a.resource_root = next("--resource-root");
         else if (s == "--legacy-port") a.legacy_port = std::stoi(next("--legacy-port"));
         else if (s == "--legacy-agent-port") a.legacy_agent_port = std::stoi(next("--legacy-agent-port"));
         else if (s == "--legacy-map-port") a.legacy_map_port = std::stoi(next("--legacy-map-port"));
         else if (s == "--modern-port") a.modern_port = std::stoi(next("--modern-port"));
         else if (s == "--modern-agent-port") a.modern_agent_port = std::stoi(next("--modern-agent-port"));
         else if (s == "--modern-map-port") a.modern_map_port = std::stoi(next("--modern-map-port"));
+        else if (s == "--map") a.map_num = std::stoi(next("--map"));
         else if (s == "--capture-dir") a.capture_dir = next("--capture-dir");
         else if (s == "--timeout")     a.timeout_sec = std::stoi(next("--timeout"));
         else if (s == "--start")       a.start_processes = true;
@@ -93,6 +97,17 @@ bool parse_args(int argc, char** argv, Args& a) {
         }
     }
     return true;
+}
+
+std::string discover_playdh_root() {
+    for (auto root = std::filesystem::current_path(); !root.empty();
+         root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH";
+        std::error_code ec;
+        if (std::filesystem::is_directory(candidate, ec)) return candidate.string();
+        if (root == root.root_path()) break;
+    }
+    return {};
 }
 
 int endpoint_port(mxh::tools::sidebyside::ReplayEndpoint endpoint,
@@ -117,6 +132,22 @@ struct ServerLaunch {
     std::string executable;
     std::vector<std::string> args;
 };
+
+std::string find_server_binary(const std::string& root,
+                               const char* module,
+                               const char* filename) {
+    const std::filesystem::path base(root);
+    for (const auto& candidate : {
+             base / module / filename,
+             base / module / "Debug" / filename}) {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(candidate, ec))
+            return candidate.string();
+    }
+    // Return the conventional path so CreateProcess reports the useful
+    // missing-binary error when neither layout exists.
+    return (base / module / filename).string();
+}
 
 ChildProcess start_process(const ServerLaunch& launch) {
     ChildProcess child;
@@ -269,27 +300,46 @@ int main(int argc, char** argv) {
     ChildProcess modern_agent;
     ChildProcess modern_map;
     if (a.start_processes) {
+        if (a.resource_root.empty()) a.resource_root = discover_playdh_root();
         if (!a.legacy_exe.empty()) {
             legacy_login = start_process({a.legacy_exe, {}});
         }
         if (!a.modern_server_dir.empty()) {
-            const auto loginPath = a.modern_server_dir + "/MoxianLoginServer/Debug/mxh_login_server.exe";
-            const auto agentPath = a.modern_server_dir + "/MoxianAgentServer/Debug/mxh_agent_server_CHINA.exe";
-            const auto mapPath   = a.modern_server_dir + "/MoxianMapServer/Debug/mxh_map_server_CHINA.exe";
+            const auto loginPath = find_server_binary(
+                a.modern_server_dir, "MoxianLoginServer", "mxh_login_server.exe");
+            const auto agentPath = find_server_binary(
+                a.modern_server_dir, "MoxianAgentServer", "mxh_agent_server_CHINA.exe");
+            const auto mapPath = find_server_binary(
+                a.modern_server_dir, "MoxianMapServer", "mxh_map_server_CHINA.exe");
             ServerLaunch ml{loginPath, {}};
-            if (a.modern_legacy) ml.args.push_back("--legacy");
+            if (a.modern_legacy || a.modern_only) ml.args.push_back("--legacy");
             ml.args.push_back("--port"); ml.args.push_back(std::to_string(a.modern_port));
-            ml.args.push_back("--init-schema");
             ml.args.push_back("--agent-addr"); ml.args.push_back("127.0.0.1");
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
+            const bool login_only = a.scenario == "login";
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
                                                 "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
-if (a.modern_legacy) ma_args.push_back("--legacy");
+if (a.modern_legacy || a.modern_only) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
-            ServerLaunch mm{mapPath, {"--port", std::to_string(a.modern_map_port), "--map", "12", "--dev-stub-caster"}};
+            std::vector<std::string> mm_args = {
+                "--port", std::to_string(a.modern_map_port), "--map",
+                std::to_string(a.map_num),
+                "--dev-stub-caster"};
+            if (a.modern_legacy || a.modern_only) mm_args.push_back("--legacy");
+            if (!a.resource_root.empty()) {
+                mm_args.push_back("--resource-root");
+                mm_args.push_back(a.resource_root);
+                const auto server_root = std::filesystem::path(a.resource_root) /
+                                         "Resource" / "Server";
+                mm_args.push_back("--server-resource-root");
+                mm_args.push_back(server_root.string());
+            }
+            ServerLaunch mm{mapPath, std::move(mm_args)};
             modern_login = start_process(ml);
-            modern_agent = start_process(ma);
-            modern_map   = start_process(mm);
+            if (!login_only) {
+                modern_agent = start_process(ma);
+                modern_map   = start_process(mm);
+            }
         } else if (!a.modern_exe.empty()) {
             ServerLaunch ml{a.modern_exe, {}};
             if (a.modern_legacy) ml.args.push_back("--legacy");
@@ -299,7 +349,9 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
         std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         const bool modernOk = a.modern_server_dir.empty()
             ? (a.modern_exe.empty() || modern_login.started)
-            : (modern_login.started && modern_agent.started && modern_map.started);
+            : (modern_login.started &&
+               (a.scenario == "login" ||
+                (modern_agent.started && modern_map.started)));
         const bool legacyOk = a.legacy_exe.empty() || legacy_login.started;
         if (!modernOk || !legacyOk) {
             std::cerr << "sbs: failed to spawn processes legacy_ok="
@@ -352,8 +404,12 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
             mxh::tools::sidebyside::save_capture(legacyTrace, legacyPath);
         }
         mxh::tools::sidebyside::save_capture(modernTrace, modernPath);
-        const auto diffs = mxh::tools::sidebyside::diff_traces(legacyTrace, modernTrace, options);
-        const bool missingTrace = legacyTrace.empty() || modernTrace.empty();
+        const bool has_expected_trace = !a.modern_only || !a.golden_path.empty();
+        const auto diffs = has_expected_trace
+            ? mxh::tools::sidebyside::diff_traces(legacyTrace, modernTrace, options)
+            : std::vector<mxh::tools::sidebyside::PacketDiff>{};
+        const bool missingTrace = has_expected_trace &&
+            (legacyTrace.empty() || modernTrace.empty());
         std::cout << "  expected=" << legacyTrace.size() << " modern="
                   << modernTrace.size() << " diff=" << diffs.size();
         if (missingTrace) std::cout << " missing_trace=true";

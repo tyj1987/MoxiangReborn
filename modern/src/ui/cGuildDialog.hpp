@@ -98,6 +98,7 @@ public:
     const std::string& UnionName()  const noexcept           { return m_unionName; }
     std::uint8_t       GuildLevel() const noexcept           { return m_guildLevel; }
     std::uint8_t       MemberNum()  const noexcept           { return m_memberNum; }
+    cListDialog* MemberList() const noexcept { return m_memberList; }
 
     // Constants
     static constexpr std::uint8_t kShowModeMember = 0;
@@ -111,6 +112,15 @@ private:
     std::string   m_unionName;
     std::uint8_t  m_guildLevel = 0;
     std::uint8_t  m_memberNum  = 0;
+
+    // Runtime controls resolved from the shipped Guild.bin tree.
+    cListDialog* m_memberList = nullptr;
+    cStatic*     m_guildNameControl = nullptr;
+    cStatic*     m_guildLevelControl = nullptr;
+    cStatic*     m_masterNameControl = nullptr;
+    cStatic*     m_memberNumControl = nullptr;
+    cStatic*     m_locationControl = nullptr;
+    cStatic*     m_unionNameControl = nullptr;
 
     // Member list.
     std::vector<MemberInfo> m_members;

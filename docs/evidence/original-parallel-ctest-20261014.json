@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "utc": "2026-10-14T12:00:00Z",
+  "sourceCommit": "8f64314d78bf17b00baddeca8bac0b683efbc850",
+  "buildDirectory": "modern/build-commercial-check-20261010",
+  "configuration": "Release",
+  "command": "ctest -C Release -j 8",
+  "total": 12574,
+  "passed": 12574,
+  "failed": 0,
+  "skipped": 16,
+  "exitCode": 0,
+  "log": "modern/out/runs/original-ctest-release-fixed-20261014.log",
+  "logSha256": "cd822e2f46b8fba14372cdb038e2522c1e10a83aa6d23ecc38b66752a86418fe",
+  "parallelFixtureFix": "MapHandlerTest temporary BIN paths now use monotonic timestamp plus atomic sequence; MapHandlerTest group 77/77 passed under -j8.",
+  "scope": "local code and fixture regression only; PVE, MSSQL, GUI, commercial resource coverage remain separate gates"
+}

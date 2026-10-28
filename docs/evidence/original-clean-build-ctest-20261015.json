@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "capturedUtc": "2026-10-15T03:00:00Z",
+  "sourceCommitBeforeEvidence": "afb56564987b4ec7f004975bd4203f23e4ca4753",
+  "buildDirectory": "modern/build-clean-debug-20261015",
+  "configure": {
+    "generator": "Visual Studio 17 2022",
+    "architecture": "x64",
+    "configuration": "Debug",
+    "toolchain": "C:/BuildTools/VC/Tools/MSVC/14.44.35207",
+    "result": "configured"
+  },
+  "build": {
+    "command": "cmake --build modern/build-clean-debug-20261015 --config Debug --parallel 8",
+    "result": "passed",
+    "notes": "Independent VS build completed after the disk-capacity cleanup; server handlers, portal and RenderDemo binaries were generated."
+  },
+  "test": {
+    "command": "ctest -j 8 -C Debug --test-dir modern/build-clean-debug-20261015 --output-on-failure",
+    "total": 12577,
+    "passed": 12577,
+    "failed": 0,
+    "skipped": 14,
+    "exitCode": 0,
+    "realSeconds": 81.03,
+    "log": "modern/out/runs/original-full-ctest-clean-20261015-parallel.log",
+    "logSha256": "0A3CE6468E9D24245A5A9167B353F3D85FF8969C4756BFF6542E7E3F6645B655",
+    "skippedTests": [16, 638, 713, 983, 1028, 1032, 1033, 1034, 3128, 3691, 3695, 3697, 6491, 6787]
+  },
+  "scope": "Local current-source regression only; skipped tests remain explicit PVE/MSSQL/legacy-resource gates. This does not close original 1:1 resource gaps or GUI/human acceptance.",
+  "releaseReady": false
+}

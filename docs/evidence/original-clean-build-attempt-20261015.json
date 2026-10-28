@@ -1,0 +1,34 @@
+{
+  "schema": "moxiang.evidence.original.clean-build-attempt.v1",
+  "date": "2026-10-15",
+  "worktreeHead": "aec004501a7cf52537fef304b6aa5d29b3a619be",
+  "configure": {
+    "generator": "Visual Studio 17 2022",
+    "architecture": "x64",
+    "toolchain": "C:/BuildTools/VC/Tools/MSVC/14.44.35207",
+    "result": "configured"
+  },
+  "build": {
+    "configuration": "Debug",
+    "result": "failed-disk-full",
+    "error": "MSVC could not write compiler/PDB files: No space left on device",
+    "targetsBuiltBeforeFailure": [
+      "mxh_login_server",
+      "mxh_agent_server_CHINA",
+      "mxh_agent_server_JAPAN",
+      "mxh_render_demo",
+      "mxh_server_handler_tests"
+    ]
+  },
+  "cleanup": {
+    "path": "E:/Workspaces/moxiang/worktrees/original-integration/modern/build-clean-debug-20261015",
+    "verifiedWithinWorktree": true,
+    "symlinkOrJunction": false,
+    "deletedFiles": 8443,
+    "deletedBytes": 8334342126,
+    "existsAfter": false,
+    "freeBytesAfter": 8355311616
+  },
+  "result": "clean-build-blocked-by-disk-capacity",
+  "scope": "reproducible build and cleanup evidence; source and existing build outputs were not deleted"
+}

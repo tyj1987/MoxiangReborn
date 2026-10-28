@@ -9,7 +9,7 @@ visual-smoke.ps1 — M-R0 视觉基线
   5. hud-only   — gamein + HP/MP/QuickSlot 显示
   6. inventory  — gamein + I 键开 Inventory
 
-每状态截 1 张 .tga + 1 张 .png（同一帧），存到 modern/docs/screenshots/baseline/
+每状态截 1 张 .tga + 1 张 .png（同一帧），存到 modern/out/runs/visual-smoke/<run-id>/
 
 usage:
   pwsh -File scripts/visual-smoke.ps1
@@ -23,14 +23,26 @@ param(
     [string]$Username = 'visualsmoke',
     [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
-    [switch]$SkipServerStart
+    [string]$LoginHost = '127.0.0.1',
+    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [string]$DbCfg = '',
+    [string]$SqlHost = '192.168.2.203',
+    [string]$SqlDatabase = 'Moxiang',
+    [string]$SqlUser = 'sa',
+    [string]$SqlPassword = '',
+    [string]$SqlOdbcDriver = 'SQL Server',
+    [switch]$SkipServerStart,
+    [switch]$SkipRegister,
+    [switch]$ExistingCharacter
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
-$clientExe = Join-Path $buildRoot 'tools\MoxianClient\Debug\mxh_client.exe'
+$clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 
 if (-not (Test-Path -LiteralPath $clientExe)) {
@@ -39,7 +51,7 @@ if (-not (Test-Path -LiteralPath $clientExe)) {
 
 # 截图输出目录
 $runId = [Guid]::NewGuid().ToString('N').Substring(0, 8)
-$runRoot = Join-Path $repoRoot "modern\docs\restoration-plan\baseline\$runId"
+$runRoot = Join-Path $repoRoot "modern\out\runs\visual-smoke\$runId"
 New-Item -ItemType Directory -Force -Path $runRoot | Out-Null
 $logDir = Join-Path $runRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
@@ -61,6 +73,11 @@ $hudOnlyFrame = $null
 $inventoryFrame = $null
 
 try {
+    $remoteLogin = ($LoginHost -ne '127.0.0.1' -and $LoginHost -ne 'localhost')
+    if (-not $SkipServerStart -and $remoteLogin) {
+        Write-Host "[visual-smoke] LoginHost=$LoginHost — skipping local server spawn" -ForegroundColor Cyan
+        $SkipServerStart = $true
+    }
     if (-not $SkipServerStart) {
         Write-Host "[visual-smoke] starting modern servers..." -ForegroundColor Cyan
         & $serverScript -Mode start -Backend sqlite -DataDir $dataDir -MapNumber $MapNumber 2>&1
@@ -69,12 +86,48 @@ try {
     }
 
     # 注册账号（visualsmoke 之前不存在，auth 会 FAIL 卡在 connect）
-    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\Debug\mxh_db_tool.exe'
-    if (Test-Path -LiteralPath $dbTool) {
-        Write-Host "[visual-smoke] registering account $Username..." -ForegroundColor Cyan
-        $dbCfg = "sqlite;path=" + (Join-Path $dataDir 'login.db')
-        Write-Host "[visual-smoke] registering account $Username (db=$dbCfg)..." -ForegroundColor Cyan
-        $Password | & $dbTool register --db $dbCfg $Username 2>&1
+    # Remote LoginHost talks to VM 100, whose DSN is live MSSQL — do not
+    # register into a throwaway local sqlite file the servers never read.
+    $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+    if ($SkipRegister) {
+        Write-Host "[visual-smoke] account registration skipped by explicit -SkipRegister" -ForegroundColor Yellow
+    } elseif (Test-Path -LiteralPath $dbTool) {
+        if ([string]::IsNullOrWhiteSpace($DbCfg)) {
+            if ($remoteLogin) {
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    $SqlPassword = $env:MXH_SQL_PASSWORD
+                }
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    throw "remote LoginHost=$LoginHost requires -DbCfg or MXH_SQL_PASSWORD; credentials are never read from scratch files"
+                }
+                if ([string]::IsNullOrWhiteSpace($SqlPassword)) {
+                    throw "remote LoginHost=$LoginHost requires -DbCfg or MXH_SQL_PASSWORD to register on live MSSQL"
+                }
+                $DbCfg = "backend=mssql_odbc;host=$SqlHost;database=$SqlDatabase;user=$SqlUser;password=$SqlPassword;encrypt=no;trust_server_certificate=yes;odbc_driver=$SqlOdbcDriver"
+            } else {
+                # Keep registration in the same SQLite database started by
+                # start_modern.ps1 for a self-contained local smoke run.
+                $DbCfg = "sqlite;path=" + (Join-Path $dataDir 'moxian.db')
+            }
+        }
+        $dbCfgLog = [regex]::Replace($DbCfg, 'password=[^;]*', 'password=***')
+        Write-Host "[visual-smoke] registering account $Username (db=$dbCfgLog)..." -ForegroundColor Cyan
+        # Native stdin from a PowerShell pipeline can be UTF-16. The DB tool
+        # validates an ASCII password byte-for-byte, so redirect an explicit
+        # ASCII fixture instead (matching gui-client-smoke.ps1).
+        $registerInput = Join-Path $runRoot 'register.stdin'
+        try {
+            [System.IO.File]::WriteAllText(
+                $registerInput, "$Password`n", [System.Text.Encoding]::ASCII)
+            $register = Start-Process -FilePath $dbTool `
+                -ArgumentList @('register', '--db', $DbCfg, $Username) `
+                -RedirectStandardInput $registerInput -NoNewWindow -Wait -PassThru
+            if ($register.ExitCode -ne 0) {
+                throw "Visual smoke test account registration failed with exit code $($register.ExitCode)"
+            }
+        } finally {
+            Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
+        }
     } else {
         Write-Host "[visual-smoke] db tool not found, skipping register: $dbTool" -ForegroundColor Yellow
     }
@@ -82,9 +135,10 @@ try {
     # 状态 1-4: 5 状态自动截（connect/login/charselect/charmake/gamein）
     # 状态 5-6: 不带 --exit-after-gamein，停留一段时间，让外部触发 HUD 切换
     $arguments = @(
-        '--login-host', '127.0.0.1',
-        '--login-port', '16001',
-        '--map-port', '18001',
+        '--login-host', $LoginHost,
+        '--login-port', [string]$LoginPort,
+        '--agent-port', [string]$AgentPort,
+        '--map-port', [string]$MapPort,
         '--username', $Username,
         '--password', $Password,
         '--auto-login',
@@ -93,10 +147,12 @@ try {
         '--save-frame', $frame,
         '--state-frames-dir', $stateFramesDir,
         '--smoke-settle-frames', '20',
-        '--exit-after-gamein'
+        '--exit-after-gamein',
+        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
     )
+    if ($remoteLogin) { $arguments += '--use-hsel' }
 
-    Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=40" -ForegroundColor Cyan
+    Write-Host "[visual-smoke] launching MoxianClient with smoke-settle-frames=20" -ForegroundColor Cyan
     $client = Start-Process -FilePath $clientExe -ArgumentList $arguments `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
 
@@ -111,7 +167,9 @@ try {
     Write-Host "[visual-smoke] MoxianClient exit code = $exitCode"
 
     # 验证基础 5 状态（login / charselect / charmake / gamein）
-    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir
+    $frameVerifyArgs = @($stateFramesDir)
+    if ($ExistingCharacter) { $frameVerifyArgs += '--permissive' }
+    & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') @frameVerifyArgs
     if ($LASTEXITCODE -ne 0) {
         throw "5-state frames verification failed"
     }
@@ -140,7 +198,11 @@ try {
     # 当前阶段先标 SKIP，等 M-R4 完成真实 cDialog 树后回来填
 
     Write-Host ""
-    Write-Host "VISUAL_SMOKE_PARTIAL PASS (5/6 states captured)" -ForegroundColor Green
+    if ($ExistingCharacter) {
+        Write-Host "VISUAL_SMOKE_PARTIAL PASS (4/5 states captured; charmake skipped for existing character)" -ForegroundColor Green
+    } else {
+        Write-Host "VISUAL_SMOKE_PARTIAL PASS (5/6 states captured)" -ForegroundColor Green
+    }
     Write-Host "Output: $runRoot"
     Write-Host "TODO: hud-only + inventory states require M-R4 dialog tree or SendInput injection"
 } finally {

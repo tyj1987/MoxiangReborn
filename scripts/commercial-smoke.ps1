@@ -4,6 +4,62 @@ param(
     [switch]$SkipMssql,
     [switch]$SkipGui
 )
+
+function Test-CommercialSmokeHostAtLeast74 {
+    param($Version)
+    if ($null -eq $Version) { return $false }
+    $major = 0
+    $minor = 0
+    try {
+        $major = [int]$Version.Major
+        $minor = [int]$Version.Minor
+    } catch {
+        return $false
+    }
+    if ($major -gt 7) { return $true }
+    if ($major -eq 7 -and $minor -ge 4) { return $true }
+    return $false
+}
+
+function Invoke-CommercialSmokeGuiClient {
+    param(
+        [string]$BuildDir,
+        $HostVersion,
+        [scriptblock]$Runner,
+        [string]$ScriptRoot
+    )
+    # HostVersion is the seam tests use to simulate Windows PowerShell 5.1.
+    # Production passes $PSVersionTable.PSVersion. Below 7.4 this returns
+    # before the GUI smoke script is started. There is no pwsh relaunch and
+    # no fixed-port fallback.
+    $message = '[ERROR] commercial-smoke requires PowerShell 7.4+ (pwsh) for -EphemeralLocalServer; run it with pwsh 7.4+'
+    if (-not (Test-CommercialSmokeHostAtLeast74 -Version $HostVersion)) {
+        Write-Host $message
+        return [pscustomobject]@{
+            ExitCode = 1
+            Invoked = $false
+            Message = $message
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($ScriptRoot)) { $ScriptRoot = $PSScriptRoot }
+    if ($null -ne $Runner) {
+        & $Runner -File (Join-Path $ScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir -EphemeralLocalServer
+        return [pscustomobject]@{
+            ExitCode = 0
+            Invoked = $true
+            Message = ''
+        }
+    }
+    & (Join-Path $PSScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir -EphemeralLocalServer
+    $code = 0
+    if ($null -ne $LASTEXITCODE) { $code = [int]$LASTEXITCODE }
+    return [pscustomobject]@{
+        ExitCode = $code
+        Invoked = $true
+        Message = ''
+    }
+}
+
 $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $PSScriptRoot '..\modern\build' }
 $ctest = Join-Path $BuildDir 'CTestTestfile.cmake'
@@ -39,7 +95,7 @@ $e2eExe = Join-Path $BuildDir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
 if ($SkipMssql) {
     Write-Host "MSSQL_E2E SKIPPED (explicit -SkipMssql; external prerequisite not satisfied)" -ForegroundColor Yellow
 } elseif (Test-Path -LiteralPath $e2eExe) {
-    & $e2eExe --backend mssql_odbc --init-schema
+    & $e2eExe --login-host 127.0.0.1 --backend mssql_odbc --init-schema
     if ($LASTEXITCODE -ne 0) {
         throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
     }
@@ -57,9 +113,10 @@ if ($SkipMssql) {
 if ($SkipGui) {
     Write-Host "GUI_CLIENT_SMOKE SKIPPED (explicit -SkipGui)" -ForegroundColor Yellow
 } else {
-    & (Join-Path $PSScriptRoot 'gui-client-smoke.ps1') -BuildDir $BuildDir
-    if ($LASTEXITCODE -ne 0) {
-        throw "GUI client smoke failed with exit code $LASTEXITCODE"
+    $guiResult = Invoke-CommercialSmokeGuiClient -BuildDir $BuildDir -HostVersion $PSVersionTable.PSVersion
+    if (-not $guiResult.Invoked) { exit $guiResult.ExitCode }
+    if ($guiResult.ExitCode -ne 0) {
+        throw "GUI client smoke failed with exit code $($guiResult.ExitCode)"
     }
 }
 

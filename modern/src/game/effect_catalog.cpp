@@ -1,0 +1,265 @@
+#include "mxh/game/effect_catalog.hpp"
+
+#include "mxh/compat/pack_file.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
+#include "mxh/log/mlog.hpp"
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cctype>
+#include <fstream>
+#include <sstream>
+
+namespace mxh::game {
+namespace {
+
+std::string lower(std::string_view value) {
+    std::string out(value);
+    std::transform(out.begin(), out.end(), out.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return out;
+}
+
+void scan_script(EffectScriptSummary& summary,
+                 std::span<const std::uint8_t> bytes) {
+    summary.decoded_size = bytes.size();
+    const std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    std::istringstream in(text);
+    std::string line;
+    while (std::getline(in, line)) {
+        const auto trim = [&line]() {
+            const auto first = line.find_first_not_of(" \t\r");
+            if (first == std::string::npos) return std::string{};
+            const auto last = line.find_last_not_of(" \t\r");
+            return line.substr(first, last - first + 1);
+        }();
+        if (!summary.units.empty() && !trim.empty() && trim.front() == '#') {
+            std::istringstream fields(trim);
+            std::string directive;
+            fields >> directive;
+            std::string value;
+            std::getline(fields, value);
+            const auto first = value.find_first_not_of(" \t");
+            if (first != std::string::npos) value.erase(0, first);
+            if (directive != "#NEWEFFECTUNIT" && directive != "#TRIGGER" &&
+                directive != "#MAXEFFECTUNIT" && directive != "#MAXTRIGGER") {
+                summary.units.back().properties.emplace_back(
+                    std::move(directive), std::move(value));
+            }
+        }
+        if (trim.rfind("#MAXEFFECTUNIT", 0) == 0) {
+            std::istringstream fields(trim.substr(14));
+            fields >> summary.effect_unit_count;
+        } else if (trim.rfind("#MAXTRIGGER", 0) == 0) {
+            std::istringstream fields(trim.substr(12));
+            fields >> summary.trigger_count;
+        } else if (trim.rfind("#NEWEFFECTUNIT", 0) == 0) {
+            std::istringstream fields(trim);
+            std::string directive;
+            EffectScriptSummary::Unit unit;
+            std::string ignored_bool;
+            fields >> directive >> unit.index >> unit.kind >> ignored_bool;
+            if (!unit.kind.empty()) summary.units.push_back(std::move(unit));
+        } else if (trim.rfind("#SOUNDNUM", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().sound_id;
+        } else if (trim.rfind("#POSITION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().position[0]
+                   >> summary.units.back().position[1]
+                   >> summary.units.back().position[2];
+        } else if (trim.rfind("#RADIUS", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(7));
+            fields >> summary.units.back().radius;
+        } else if (trim.rfind("#COLORINDEX", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().color_index;
+        } else if (trim.rfind("#COORDINATE", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().coordinate;
+        } else if (trim.rfind("#MOTION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(7));
+            fields >> summary.units.back().motion_index;
+        } else if (trim.rfind("#PERCENT", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(8));
+            fields >> summary.units.back().percent;
+        } else if (trim.rfind("#DURATION", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(9));
+            fields >> summary.units.back().duration_ms;
+        } else if (trim.rfind("#DAMAGEKIND", 0) == 0 && !summary.units.empty()) {
+            std::istringstream fields(trim.substr(11));
+            fields >> summary.units.back().damage_kind;
+        } else if (trim.rfind("#TRIGGER", 0) == 0) {
+            std::istringstream fields(trim);
+            std::string directive;
+            EffectScriptSummary::Trigger trigger;
+            fields >> directive >> trigger.time_token >> trigger.unit >> trigger.kind;
+            if (!trigger.kind.empty()) summary.triggers.push_back(std::move(trigger));
+        } else if (trim.rfind("#OBJECTNAME", 0) == 0 ||
+                   trim.rfind("#SOUNDNAME", 0) == 0 ||
+                   trim.rfind("#TEXTURE", 0) == 0) {
+            std::istringstream fields(trim);
+            std::string directive;
+            std::string dependency;
+            fields >> directive >> dependency;
+            if (!dependency.empty()) {
+                summary.dependencies.push_back(dependency);
+                if (!summary.units.empty()) {
+                    auto& unit = summary.units.back();
+                    if (directive == "#OBJECTNAME") unit.object_name = dependency;
+                    else if (directive == "#SOUNDNAME") unit.sound_name = dependency;
+                    else if (directive == "#TEXTURE") unit.texture_name = dependency;
+                }
+            }
+        }
+    }
+    summary.decoded = summary.effect_unit_count != 0 || summary.trigger_count != 0;
+}
+
+void scan_effect_list(std::vector<EffectListEntry>& out,
+                      std::span<const std::uint8_t> bytes) {
+    const std::string text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    std::istringstream in(text);
+    std::string line;
+    while (std::getline(in, line)) {
+        const auto tab = line.find('\t');
+        if (tab == std::string::npos) continue;
+        std::uint32_t id = 0;
+        const auto idText = std::string_view(line).substr(0, tab);
+        const auto parsed = std::from_chars(idText.data(), idText.data() + idText.size(), id);
+        if (parsed.ec != std::errc{} || parsed.ptr != idText.data() + idText.size()) continue;
+        auto name = line.substr(tab + 1);
+        while (!name.empty() && (name.back() == '\r' || name.back() == ' ' || name.back() == '\t')) name.pop_back();
+        if (name.empty() || name == "NULL") continue;
+        out.push_back({id, std::move(name)});
+    }
+}
+
+bool is_effect_name(std::string_view name, bool& beff, bool& befl) {
+    const auto dot = name.find_last_of('.');
+    if (dot == std::string_view::npos) return false;
+    const auto ext = lower(name.substr(dot));
+    beff = ext == ".beff";
+    befl = ext == ".befl";
+    // Effect.pak stores the compiled effect dependency closure as MOD/CHX/
+    // ANM beside any BEFF/BEFL scripts.  Keep those entries in the same
+    // catalog so a runtime resolver can load the complete closure.
+    return beff || befl || ext == ".mod" || ext == ".chx" || ext == ".anm";
+}
+
+} // namespace
+
+bool EffectCatalog::load(const std::filesystem::path& root, std::string* error) {
+    m_assets.clear();
+    m_beffCount = m_beflCount = m_packedCount = m_looseCount = 0;
+    m_decodedBeffCount = m_invalidBeffCount = 0;
+    m_scripts.clear();
+    m_maleEffects.clear();
+    m_femaleEffects.clear();
+    if (!std::filesystem::exists(root)) {
+        if (error) *error = "effect resource root does not exist";
+        return false;
+    }
+
+    const auto pakPath = root / "Effect.pak";
+    if (std::filesystem::exists(pakPath)) {
+        const auto pack = mxh::compat::PackFile::open(pakPath);
+        if (!pack) {
+            const auto shown = pakPath.string();
+            MLOG_WARN("[effect] failed to open '%s': unsupported header / not a pak",
+                      shown.c_str());
+            if (error) *error = "Effect.pak is not a valid PackFile";
+            return false;
+        }
+        for (const auto& entry : pack->entries()) {
+            bool beff = false;
+            bool befl = false;
+            if (!is_effect_name(entry.name, beff, befl)) continue;
+            m_assets.push_back({entry.name, pakPath, entry.size, true});
+            if (beff) ++m_beffCount;
+            if (befl) ++m_beflCount;
+            ++m_packedCount;
+        }
+    }
+
+    std::error_code ec;
+    for (std::filesystem::recursive_directory_iterator it(root, ec), end;
+         it != end && !ec; it.increment(ec)) {
+        if (!it->is_regular_file()) continue;
+        const auto path = it->path();
+        if (lower(path.extension().string()) != ".beff" &&
+            lower(path.extension().string()) != ".befl") continue;
+        bool beff = false;
+        bool befl = false;
+        const auto name = path.filename().string();
+        if (!is_effect_name(name, beff, befl)) continue;
+        m_assets.push_back({name, path, static_cast<std::size_t>(it->file_size()), false});
+        if (beff) ++m_beffCount;
+        if (befl) ++m_beflCount;
+        ++m_looseCount;
+    }
+
+    if (m_assets.empty()) {
+        if (error) *error = "no BEFF or BEFL effect assets found";
+        return false;
+    }
+
+    // BEFF files are classic MHFileEx resources. Decode only the loose
+    // scripts, where the canonical bytes and profile are unambiguous; packed
+    // MOD/CHX/ANM entries remain dependency assets for the renderer.
+    for (const auto& asset : m_assets) {
+        if (asset.packed || lower(std::filesystem::path(asset.name).extension().string()) != ".beff") {
+            continue;
+        }
+        EffectScriptSummary summary;
+        summary.name = asset.name;
+        const auto decoded = mxh::compat::read_mh_bin(asset.source);
+        if (!decoded.ok()) {
+            ++m_invalidBeffCount;
+            m_scripts.push_back(std::move(summary));
+            continue;
+        }
+        scan_script(summary, decoded.value.data);
+        if (summary.decoded) ++m_decodedBeffCount;
+        else ++m_invalidBeffCount;
+        m_scripts.push_back(std::move(summary));
+    }
+
+    for (const auto& [file, target] :
+         std::array<std::pair<const char*, std::vector<EffectListEntry>*> , 2>{
+             std::pair{"List_M.befl", &m_maleEffects},
+             std::pair{"List_W.befl", &m_femaleEffects}}) {
+        const auto path = root / "Resource" / "EffectScript" / file;
+        if (!std::filesystem::exists(path)) continue;
+        const auto decoded = mxh::compat::read_mh_bin(path);
+        if (decoded.ok()) scan_effect_list(*target, decoded.value.data);
+    }
+    return true;
+}
+
+const EffectAsset* EffectCatalog::find(std::string_view name) const noexcept {
+    const auto wanted = lower(name);
+    for (const auto& asset : m_assets) {
+        if (lower(asset.name) == wanted) return &asset;
+    }
+    return nullptr;
+}
+
+const EffectScriptSummary* EffectCatalog::script(std::string_view name) const noexcept {
+    const auto wanted = lower(name);
+    for (const auto& summary : m_scripts) {
+        if (lower(summary.name) == wanted) return &summary;
+    }
+    return nullptr;
+}
+
+const std::string* EffectCatalog::effect_name(std::uint32_t id, bool female) const noexcept {
+    const auto& entries = female ? m_femaleEffects : m_maleEffects;
+    const auto it = std::find_if(entries.begin(), entries.end(),
+        [id](const EffectListEntry& entry) { return entry.id == id; });
+    return it == entries.end() ? nullptr : &it->name;
+}
+
+} // namespace mxh::game

@@ -1,6 +1,8 @@
 // cIconDialog.cpp — modern implementation of 墨香 cIconDialog.
 
 #include "cIconDialog.hpp"
+#include "cIcon.hpp"
+#include "cImage.hpp"
 
 namespace mxh::ui {
 
@@ -9,6 +11,29 @@ cIconDialog::~cIconDialog() {
     // Cell data is owned (no need to delete icon pointers — those are
     // owned by the calling code; this mirrors the legacy SAFE_DELETE on
     // the cell array, not on the icons themselves).
+}
+
+void cIconDialog::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+    const auto drawImage = [](void* image, int x, int y, int w, int h) {
+        if (!image || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(image)->render(x, y, w, h);
+    };
+    for (std::size_t i = 0; i < m_cells.size(); ++i) {
+        const auto& cell = m_cells[i];
+        if (cell.relW <= 0 || cell.relH <= 0) continue;
+        const int x = absX() + cell.relX;
+        const int y = absY() + cell.relY;
+        drawImage(m_iconCellBGImage, x, y, cell.relW, cell.relH);
+        if (static_cast<std::int32_t>(i) == m_curSelCellPos)
+            drawImage(m_dragOverBGImage, x, y, cell.relW, cell.relH);
+        if (cell.inUse && cell.icon) {
+            auto* icon = static_cast<cIcon*>(cell.icon);
+            icon->SetAbsXY(x, y);
+            icon->Render();
+        }
+    }
 }
 
 void cIconDialog::SetCellNum(std::uint16_t num) {
@@ -34,8 +59,11 @@ bool cIconDialog::PtInCell(std::int32_t x, std::int32_t y) const noexcept {
         const std::int32_t x0 = absX() + c.relX;
         const std::int32_t y0 = absY() + c.relY;
         if (x < x0 || y < y0) continue;
-        if (x > x0 + c.relW) continue;
-        if (y > y0 + c.relH) continue;
+        // Match the renderer's rectangle semantics: the right/bottom edge is
+        // exclusive. This prevents a click exactly on a shared border from
+        // being accepted by both adjacent inventory cells.
+        if (x >= x0 + c.relW) continue;
+        if (y >= y0 + c.relH) continue;
         return true;
     }
     return false;
@@ -49,8 +77,8 @@ bool cIconDialog::GetPositionForXYRef(std::int32_t x, std::int32_t y,
         const std::int32_t x0 = absX() + c.relX;
         const std::int32_t y0 = absY() + c.relY;
         if (x < x0 || y < y0) continue;
-        if (x > x0 + c.relW) continue;
-        if (y > y0 + c.relH) continue;
+        if (x >= x0 + c.relW) continue;
+        if (y >= y0 + c.relH) continue;
         pos = i;
         return true;
     }
@@ -99,14 +127,30 @@ cIcon* cIconDialog::GetIconForIdx(std::uint16_t idx) const {
 }
 
 void cIconDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
-    // Legacy: shift only the icons that aren't world-anchored (bOnlyLink = false).
-    // The legacy code does this via cIcon::SetAbsXY on the icon object; since
-    // cIcon is opaque to our modern port, we record the dialog-relative
-    // delta here. A follow-up that wires cIconSprite can apply the shift.
     const std::int32_t dx = x - absX();
     const std::int32_t dy = y - absY();
-    (void)dx; (void)dy;
+    // Legacy: shift only icons that are not world-anchored (bOnlyLink=false).
+    // cIcon is now a concrete cWindow, so preserve its actual position when
+    // the dialog is moved instead of waiting for a later render pass.
+    for (auto& cell : m_cells) {
+        if (!cell.icon || cell.onlyLink) continue;
+        cell.icon->SetAbsXY(cell.icon->absX() + dx, cell.icon->absY() + dy);
+    }
     cDialog::SetAbsXY(x, y);
+}
+
+void cIconDialog::SetActive(bool v) noexcept {
+    cDialog::SetActive(v);
+    for (auto& cell : m_cells) {
+        if (cell.icon) cell.icon->SetActive(v);
+    }
+}
+
+void cIconDialog::SetDisable(bool v) noexcept {
+    cDialog::SetDisable(v);
+    for (auto& cell : m_cells) {
+        if (cell.icon) cell.icon->SetDisable(v);
+    }
 }
 
 } // namespace mxh::ui

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "kind": "original-resource-candidate-scan",
+  "capturedAt": "2026-10-17",
+  "sourceBranch": "codex/reorg-original-20261009",
+  "sourceHead": "cc83b66a49de1710292ad32a2616f983d7ca3cd6",
+  "newExactSource": {
+    "path": "D:/MX/client/Package/3DData/Map.pak",
+    "sha256": "00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3",
+    "map203TextureCount": 161,
+    "map203TextureBytes": 1778728,
+    "validation": "all 161 DDS 128x128 DXT1; Map203 HFL dependency audit 0 missing"
+  },
+  "remainingExactBlockers": {
+    "hfl": 22,
+    "ttb": 18,
+    "map17MissingUsedTextures": 9,
+    "map203MissingTextures": 0
+  },
+  "decision": "ADMITTED_EXACT_MAP203_TEXTURES",
+  "releaseReady": false
+}

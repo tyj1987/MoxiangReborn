@@ -1,11 +1,10 @@
 // mxh/client/CEngine.hpp
-// Phase A.1.6 — minimal CEngine stub.
+// Modern CEngine runtime coordinator.
 //
 // 1:1 port of the legacy CEngine class (墨香【源码】\[Client]MH\Engine.h)
-// which glues the renderer, network, audio, and input layers.  A.1.6
-// ships an empty CEngine so CMainGame's unique_ptr<CEngine> compiles;
-// A.1.6+ fills it in with the real BaseNetwork + 4Dyuchi renderer +
-// Miles Sound + FreeImage handles.
+// which glues the renderer, network, audio, and input layers.  The modern
+// implementation keeps ownership explicit: the host owns the renderer while
+// CEngine owns the persistent AgentSession and state-transfer boundary.
 //
 // Modern port notes:
 //   * The legacy CEngine owned the HWND and was the place every
@@ -14,32 +13,39 @@
 //     during WinMain after CreateWindow() returns.
 //   * m_pRenderer (I4DyuchiGXRenderer*) is borrowed — the host owns
 //     the renderer.  We don't take a refcount.
-//   * m_pNetwork is a forward-declared pointer to the future
-//     BaseNetwork wrapper; A.1.6 leaves it nullptr until the network
-//     layer is wired in (A.3).
+//   * Network lifetime is represented by AgentSession, which survives
+//     Title -> CharSelect -> GameLoading -> GameIn transitions.
 //   * Phase B.2.1: RequestStateChange() is the indirect hook that
 //     game states (e.g. CLoginState) use to trigger a state transition
 //     without holding a back-pointer to CMainGame (which would create
 //     a header cycle).  The callback is installed by CMainGame::Init
 //     and forwards to SetGameState() with the int -> GameStateId cast.
 //   * Phase B.2.2: SetPendingTransfer / TakePendingTransfer is a
-//     single-slot std::any bridge that lets an outgoing state hand
-//     a typed payload (e.g. LoginResult) to the next state without
-//     a back-reference.  Consumers should std::any_cast to the exact
-//     type they expect; mismatched type returns an empty any.
+//     single-slot typed variant that lets an outgoing state hand a payload
+//     (e.g. LoginResult) to the next state without a back-reference.
 #pragma once
 
 #include <cstdint>
+#include <algorithm>
+#include <filesystem>
 #include <functional>
-#include <any>
+#include <optional>
+#include <variant>
 #include <utility>
 
 #include "mxh/render/IRenderer.hpp"
+#include "mxh/ui/resolution_mode.hpp"
+#include "AgentSession.hpp"
+#include "StateTransfer.hpp"
 
 namespace mxh::client {
 
 class CEngine {
 public:
+    enum class AudioCue : std::uint8_t { Attack, Skill, UiClick, Pickup };
+    using AudioEventFn = std::function<void(AudioCue)>;
+    using SpatialAudioEventFn = std::function<void(AudioCue, float)>;
+    using SoundEventFn = std::function<void(std::uint32_t, float)>;
     CEngine() = default;
     ~CEngine() = default;
 
@@ -55,10 +61,28 @@ public:
     void SetRenderer(mxh::gx::I4DyuchiGXRenderer* r) noexcept { m_pRenderer = r; }
     mxh::gx::I4DyuchiGXRenderer* GetRenderer() const noexcept { return m_pRenderer; }
 
-    // Lifecycle.  Init is called once at startup; Release once at
-    // shutdown.  Both are stubs in A.1.6.
+    // M-R7.1 (G3 bug fix 2026-08-20): host sets the PlayDH resource
+    // root once.  Game states (CCharSelectState / CCharMake) read it
+    // to load their cDialog trees from <root>/Image/InterfaceScript/.
+    void SetPlaydhRoot(std::filesystem::path p) noexcept { m_playdhRoot = std::move(p); }
+    const std::optional<std::filesystem::path>& playdh_root() const noexcept {
+        return m_playdhRoot;
+    }
+
+    void SetUiResolutionMode(mxh::ui::ResolutionMode mode) noexcept {
+        m_uiResolutionMode = mode;
+    }
+    mxh::ui::ResolutionMode ui_resolution_mode() const noexcept {
+        return m_uiResolutionMode;
+    }
+
+    // Lifecycle. Init is called once at startup; Release once at shutdown.
     void Init()    { m_bInitialized = true; }
-    void Release() { m_bInitialized = false; m_pRenderer = nullptr; }
+    void Release() {
+        m_agentSession.disconnect();
+        m_bInitialized = false;
+        m_pRenderer = nullptr;
+    }
     bool isInitialized() const noexcept { return m_bInitialized; }
 
     // ---------------------------------------------------------------------
@@ -80,20 +104,47 @@ public:
     // the next state.  Set overwrites; Take returns and clears.  Both
     // sides type-check with std::any_cast.
     // ---------------------------------------------------------------------
-    void SetPendingTransfer(std::any v) { m_pendingTransfer = std::move(v); }
-    std::any TakePendingTransfer() {
-        std::any out;
-        out.swap(m_pendingTransfer);
+    void SetPendingTransfer(StateTransfer value) { m_pendingTransfer = std::move(value); }
+    StateTransfer TakePendingTransfer() {
+        StateTransfer out = std::move(m_pendingTransfer);
+        m_pendingTransfer = std::monostate{};
         return out;
     }
-    bool has_pending_transfer() const noexcept { return m_pendingTransfer.has_value(); }
+    bool has_pending_transfer() const noexcept {
+        return !std::holds_alternative<std::monostate>(m_pendingTransfer);
+    }
+    template <class T>
+    bool pending_transfer_is() const noexcept {
+        return std::holds_alternative<T>(m_pendingTransfer);
+    }
+
+    AgentSession& agent_session() noexcept { return m_agentSession; }
+    const AgentSession& agent_session() const noexcept { return m_agentSession; }
+    void SetAudioEventFn(AudioEventFn fn) noexcept { m_audioEventFn = std::move(fn); }
+    void EmitAudio(AudioCue cue) const { if (m_audioEventFn) m_audioEventFn(cue); }
+    void SetSpatialAudioEventFn(SpatialAudioEventFn fn) noexcept { m_spatialAudioEventFn = std::move(fn); }
+    void EmitAudioAt(AudioCue cue, float distance) const {
+        if (m_spatialAudioEventFn) m_spatialAudioEventFn(cue, std::max(0.0f, distance));
+        else EmitAudio(cue);
+    }
+    void SetSoundEventFn(SoundEventFn fn) noexcept { m_soundEventFn = std::move(fn); }
+    void EmitSoundAt(std::uint32_t sound_id, float distance) const {
+        if (m_soundEventFn) m_soundEventFn(sound_id, std::max(0.0f, distance));
+    }
 
 private:
     void*                           m_hWnd         = nullptr;
     mxh::gx::I4DyuchiGXRenderer*    m_pRenderer    = nullptr;
     bool                            m_bInitialized = false;
+    std::optional<std::filesystem::path> m_playdhRoot;
+    mxh::ui::ResolutionMode m_uiResolutionMode =
+        mxh::ui::ResolutionMode::Low800x600;
     StateChangeFn                   m_stateChangeFn;
-    std::any                        m_pendingTransfer;
+    StateTransfer                   m_pendingTransfer;
+    AgentSession                    m_agentSession;
+    AudioEventFn                    m_audioEventFn;
+    SpatialAudioEventFn             m_spatialAudioEventFn;
+    SoundEventFn                    m_soundEventFn;
     // m_pNetwork, m_pAudio, m_pInput land in A.1.6+ when those layers
     // are wired in.  Kept out of A.1.6 to keep the surface minimal.
 };

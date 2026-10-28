@@ -1,4 +1,32 @@
 cmake_minimum_required(VERSION 3.20)
+# M-R7 (G3) / 2026-08-20: CMake 3.31.6 + MSVC + Ninja bug — CMakeCCompiler.cmake.in
+# / CMakeCXXCompiler.cmake.in template 不含 @CMAKE_C_COMPILE_OBJECT@ / @CMAKE_CXX_COMPILE_OBJECT@
+# 占位符, 写出来的 CMakeFiles/<ver>/CMakeCCompiler.cmake 没这两个变量,
+# Generate 阶段报 "Missing variable CMAKE_C_COMPILE_OBJECT". 显式 set 跟 Windows-MSVC.cmake
+# line 379 一样的 MSVC compile rule, 让 Cmake 1:1 复制到 compiler file.
+# 这是 build 1:1 行为, 跟老 moxian toolchain 一致.
+# CMake's compiler file omits CMAKE_<LANG>_COMPILE_OBJECT (see the comment
+# above). The rule has to be set before project(). Windows keeps the MSVC
+# /Fo form. Other hosts get the GNU/Clang -o form; the MSVC flags are not
+# valid there.
+if(NOT DEFINED CMAKE_C_COMPILE_OBJECT)
+  if(WIN32)
+    set(CMAKE_C_COMPILE_OBJECT
+      "<CMAKE_C_COMPILER>  /nologo <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  else()
+    set(CMAKE_C_COMPILE_OBJECT
+      "<CMAKE_C_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+  endif()
+endif()
+if(NOT DEFINED CMAKE_CXX_COMPILE_OBJECT)
+  if(WIN32)
+    set(CMAKE_CXX_COMPILE_OBJECT
+      "<CMAKE_CXX_COMPILER>  /nologo /TP <DEFINES> <INCLUDES> <FLAGS> /Fo<OBJECT> /Fd<TARGET_COMPILE_PDB> /FS -c <SOURCE>")
+  else()
+    set(CMAKE_CXX_COMPILE_OBJECT
+      "<CMAKE_CXX_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>")
+  endif()
+endif()
 project(MoxianReborn
     VERSION 0.1.0
     DESCRIPTION "Moxian (DarkStory) - Modernized source tree"
@@ -46,7 +74,9 @@ add_subdirectory(tools/MoxianPacker)
 add_subdirectory(tools/MoxianGMTool)
 add_subdirectory(tools/MoxianMapEditor)
 add_subdirectory(tools/MoxianAutoPatcher)
+add_subdirectory(tools/MoxianLauncher)
 add_subdirectory(tools/MoxianProtocolDoc)
 add_subdirectory(tools/MoxianSideBySide)
 add_subdirectory(tools/dialog_children_type_scan)
 add_subdirectory(tools/MoxianPortal)
+add_subdirectory(tools/MxDumpInspect)

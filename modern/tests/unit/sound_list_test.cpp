@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <string>
+#include "../support/playdh_env.hpp"
 
 TEST(SoundList, ParsesLegacyFieldsAndNullSentinel) {
     const std::string payload =
@@ -33,14 +34,22 @@ TEST(SoundList, RejectsNonSequentialIndex) {
 
 TEST(SoundList, LoadsRealPlayDhSoundListWhenAvailable) {
     std::filesystem::path path;
-    for (const auto& first : std::filesystem::directory_iterator(std::filesystem::current_path())) {
-        if (!first.is_directory()) continue;
-        const auto direct = first.path() / "PlayDH" / "Sound" / "SoundList.bin";
-        if (std::filesystem::exists(direct)) { path = direct; break; }
-        const auto nested = first.path() / "Sound" / "SoundList.bin";
-        if (first.path().filename() == "PlayDH" && std::filesystem::exists(nested)) {
-            path = nested; break;
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
+        path = *playdh_override / "Sound" / "SoundList.bin";
+    }
+    auto root = std::filesystem::current_path();
+    for (int level = 0; path.empty() && level < 8; ++level) {
+        for (const auto& first : std::filesystem::directory_iterator(root)) {
+            if (!first.is_directory()) continue;
+            const auto direct = first.path() / "PlayDH" / "Sound" / "SoundList.bin";
+            if (std::filesystem::exists(direct)) { path = direct; break; }
+            const auto nested = first.path() / "Sound" / "SoundList.bin";
+            if (first.path().filename() == "PlayDH" && std::filesystem::exists(nested)) {
+                path = nested; break;
+            }
         }
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
     }
     if (path.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
     mxh::compat::SoundList list;

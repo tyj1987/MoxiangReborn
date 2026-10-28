@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "utc": "2026-10-14T13:12:00Z",
+  "sourceCommit": "873ef4008adccf03c91a66526f1b5ab6bbc78e3f",
+  "packageSha256": "e179ed644600ad871dab633e413b0007ce3230ab6715186e1ea34c82fba9d7e4",
+  "surface": "Original PlayDH Map10 monster drop tables",
+  "resource": {
+    "path": "modern/data/PlayDH/Resource/MonsterList.bin",
+    "parser": "MonsterCatalog::parse_bin",
+    "map10Kinds": [
+      { "kind": 102, "itemListIds": [304, 305, 306], "dropRatesPer10000": [4800, 650, 669, 1, 3880], "maxItemCount": 1 },
+      { "kind": 103, "itemListIds": [307, 308, 309], "dropRatesPer10000": [4800, 650, 669, 1, 3880], "maxItemCount": 1 },
+      { "kind": 104, "itemListIds": [310, 311, 312], "dropRatesPer10000": [4200, 640, 659, 1, 4500], "maxItemCount": 1 },
+      { "kind": 105, "itemListIds": [313, 314, 315], "dropRatesPer10000": [5400, 660, 679, 1, 3260], "maxItemCount": 1 }
+    ]
+  },
+  "serverLoad": {
+    "map10": { "monsterDropTables": 1230, "monsterDropEntries": 3016 },
+    "map2": { "monsterDropTables": 1230, "monsterDropEntries": 3016 },
+    "evidence": "PVE MapServer startup logs from the current deployment"
+  },
+  "combatEvidence": {
+    "map2": { "passed": true, "dropObserved": true, "pickupObserved": true, "relogPersistence": true, "logSha256": "89ebf497445d865e9ecb505e4338b3e18230279dcafd975c1ecc36e66b5b35e9" },
+    "map10": { "passed": false, "hitObserved": true, "lifeChangeObserved": true, "dropObserved": false, "pickupObserved": false, "interpretation": "The acceptance window did not observe a natural item drop. Kinds 102/103 allocate 650+669+1 = 1320 per 10000 to item rolls (13.2% across three item slots, with the server's selected outcome still subject to canonical table semantics); no missing table or parser failure was observed." , "logSha256": "612b54e840bfd7e55407b405d32587cb0015239d4924faaebd90c885ede7f4b5" }
+  },
+  "releaseReady": false,
+  "interpretation": "The canonical Map10 MonsterList and MonsterDropItemList load successfully and the current client receives authoritative combat effects. The single Map10 run is not evidence of a missing resource; a longer multi-kill PVE sample is still required before closing the original Map10 natural-drop gate."
+}

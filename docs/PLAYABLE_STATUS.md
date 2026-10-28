@@ -1,0 +1,280 @@
+2026-10-24 | 原版资源引用检查改为只警告、不失败。`modern/tools/resource_reference_gate.py` 扩展现有 MxhResourceReference 门禁：`derive` 只在持有原版文件的 ROG 上从 `.map` / `.stm`（以及被引用的 `.hfl`）读出真实文件名，写入 `reference/manifests/original-resource-references.json`，不把原版资源字节提交进仓库；CI 只对照这份清单做 `check`，默认退出码 0。唯一改为失败的开关是 `MXH_RESOURCE_REF_STRICT=1`。清单尚未在 ROG 上生成时结论是 `no conclusion`，不是通过。HFL 0、4、23、24、32、33、34、94 与 TTB 0、3、4、23、24、32、33、34、94、198 未被原版引用，不再记为缺失。Map17 的 `tile_17_mou_a_01..09.tga`、`test4`、`Monster_203.bin` 属于“原版引用了但原文件不存在”，只作信息，不是缺陷。下文 2026-10-20 把 `.dds` 搜索写成结论的记录用错了扩展名，也用错了包：工作区 PlayDH/Map.pak 头只有 4192 项，不是原版 `D:\MX\client\Package\3DData\Map.pak`（读到 EOF 为 11267 项）。2026-10-21 用 `.tga` 在原版包和全部磁盘上复核仍然没有这些文件，所以“原文件不存在”成立。
+
+2026-10-24 | 原版 checkout `codex/reorg-original-20261009` / HEAD `b5d68366c5a1fb429fdb832342412f6dced7c377` 重新构建 Release `mxh_client_e2e` 成功，二进制 SHA-256 `67267a652883f1370205c9e73383126049be8cc70096848d1f5516c9e7570466`。同一 CMake source/build 目录全量 CTest **12,579 项、0 失败、16 项显式跳过**，退出码 0，用时 156.10 秒。完整日志位于工作区审计目录 [`2026-10-24-original-full-ctest-b5d6836.log`](../../audit/2026-10-24-original-full-ctest-b5d6836.log)，SHA-256 `DA15C5A5DCE02C1521631E7CD7A23F951A3FEBA27BC3DEB485214DEE95376C1B`。构建后工作树仍干净。本次仅做本机客户端构建/测试；CT932 隔离库未写入。16 项跳过保持为未验证，不计作通过。组合“战斗→自然掉落→拾取→装备→重登”仍未用该最新二进制重跑，真人 GUI、level 1 首战平衡、原版精确资源及完整玩法门禁仍打开。
+
+2026-10-24 | 原版当前候选在 CT932 隔离副本完成 Map10 战斗/掉落/拾取/背包/重登子门禁，绑定服务端与客户端提交 `d1481931f2dae214af3d26f8927afa5253cf3fc2`。本机 `MoxianClientE2E --no-spawn --use-hsel --exercise-combat` 真实进入 Map10，面对目标 `50143`（初始生命 6,150）收到 39 次有效权威伤害并击杀，地图怪物数 `228→227`，自然掉落 `8009`，点击拾取和背包 `MoveAck` 成功；GameOut 后再次 GameIn 从 CT932 MSSQL 读回 `8009`，退出码 0。战后只读 DB 查询看到经验 1,447、生命/护盾和新增物品行；随后事务性恢复临时等级/属性/生命/背包，战后复核与战前快照一致（level 1、12/12/12/12、HP 131/shield 251/MP 128、装备 11000/23000/27000、原 3 个物品行，临时任务/技能/授权行为 0）。所有写入只在 onboot=0 的 CT932 克隆库，CT930 未改。基线、日志与结构化回执见 [`original-current-stage-ct932-combat-baseline-20261024.json`](evidence/original-current-stage-ct932-combat-baseline-20261024.json)、[`original-current-stage-ct932-combat-20261024.log`](evidence/original-current-stage-ct932-combat-20261024.log)、[`original-current-stage-ct932-combat-20261024.json`](evidence/original-current-stage-ct932-combat-20261024.json)。
+
+2026-10-24 | 原版当前客户端提交 `2b3667875db04c1fe49f98ec5c683239a0540172` 在同一 VM112/CT932 隔离 stage 完成装备位协议与持久化门禁。Release 客户端 SHA-256 `67267a652883f1370205c9e73383126049be8cc70096848d1f5516c9e7570466` 以 HSEL 连接 `36101/37101/38101`，Map10 收到 228 个怪物；角色 `100005` 的武器 DBIdx `700003` / item `11000` 从装备位置 `81` 移入背包 `0`，再回装备位置 `81`，两次都收到服务端 MoveAck。GameOut 后新 GameIn 从服务端读取回同一 DBIdx、item 和外观槽。退出码 0；本机 `mxh_client_all_tests` 与 `MoxianClientE2EDumpCli` 2/2 通过。日志和结构化回执见 [`original-current-stage-ct932-equip-final-20261024.log`](evidence/original-current-stage-ct932-equip-final-20261024.log) 与 [`original-current-stage-ct932-equipment-20261024.json`](evidence/original-current-stage-ct932-equipment-20261024.json)。这次是 headless 测试，不是真人 GUI；独立装备门禁使用初始武器，尚未证明“同一场战斗掉落物拾取后装备”的组合场景。战斗验收器已在该提交中串入相同装备 helper，仍需用最新客户端再跑组合门禁。
+
+此次战斗使用隔离临时 53 级角色状态与首发装备，只证明该轮运行在克隆 MSSQL 上的权威伤害、自然掉落、拾取和背包持久化链；独立装备操作门禁已另行通过，但这条战斗回执本身未串联装备步骤。仍不证明 1 级首战平衡、真人 GUI、全地图覆盖、精确资源完整、Unity 终验或商业发布。CT932 的单只怪物可能需在下一轮前等待重生或重启候选 stage；服务端候选仍运行在独立端口。
+
+2026-10-24 | 原版当前候选在 PVE 隔离副本完成真实协议闭环子门禁，绑定提交 `d1481931f2dae214af3d26f8927afa5253cf3fc2`。当前包 SHA-256 `4587c50c93ef64755e5966f9e436f181292c62d98587919cc7d5bd99192b36ab`，`playdh-current` 资源 **5,297 个文件 / 1,691,253,485 字节**全量 SHA/大小复核无缺失、错误或多余文件。包部署到 VM112 独立 stage `stage-ct932-20261024-r2`，仅使用 `36101/37101/38101/38102/38103`；五个监听器均来自该 stage，原版/Unity 默认端口未改。数据库使用 `onboot=0` 的 CT932 克隆 `MoxiangOriginalRestoreAudit_20261024`，schema 4；CT930 源实例保持运行。ODBC 实际查询使用 `Encrypt=yes`、`TrustServerCertificate=no` 和证书 SAN `moxiang-db-recovery-20261009`，TLS 校验通过。
+
+本机 Release `MoxianClientE2E --no-spawn` 以隔离测试账号完成 LoginAck、角色列表、建角/重列、选角、Map10 GameInAck，读取 **228 个怪物**；数据库只读回查确认测试角色 `E2Ect932b` / `chrid=100004` 存在。协议日志及结构化回执见 [`original-current-protocol-e2e-ct932-20261024.log`](evidence/original-current-protocol-e2e-ct932-20261024.log) 和 [`original-current-stage-ct932-protocol-20261024.json`](evidence/original-current-stage-ct932-protocol-20261024.json)。完整 Release CTest **12,579 通过、0 失败、14 显式跳过**；跳过项保留在回执中，另见本机完整日志 SHA。此次首次默认账号探针因恢复库没有 E2E 测试账号而返回 LoginNack；随后只在 CT932 克隆中建立唯一测试账号，未对 CT930 做写入。
+
+此结果只关闭当前提交的 PVE 服务包、严格数据库 TLS 契约和 Map10 登录/建角/GameIn 协议子门禁，不代表真人 GUI、战斗/自然掉落/点击拾取/装备/重登持久化、精确原版缺失资源、全功能覆盖或商业发布通过。GitLab 当前候选分支已到 `d1481931`；本次核对时 GitHub 镜像分支仍为 `8a3974a1`，尚未同步本次提交。
+
+2026-10-24 | PVE 隔离数据库恢复验收：CT930 `moxiang-db-recovery-20261009` 保持运行；先做文件系统 freeze/thaw 快照，再复制到独立、`onboot=0` 的 CT932（192.168.2.237），所有 SQL 写入仅发生在副本。原版 R17 与 Unity v6b `.bak` 的 `RESTORE HEADERONLY`、`RESTORE VERIFYONLY WITH CHECKSUM` 均通过，均以新数据库名恢复且不使用 `REPLACE`；两库 `DBCC CHECKDB` 通过。原版 R17 备份从 schema 1 运行当前原版 42 条 MSSQL schema 语句后达到 schema 4 / 21 表；Unity v6b 经当前 Unity 33 条语句后维持 schema 1 / 22 表。两边 `character_info`、`chr_log_info` 行数未变；`modern_player_state` 插入—查询—回滚均为事务内 1 行、回滚后 0 行。CT930 源端后置只读查询仍为 schema 4 / 21 表，两个原始 `.bak` 哈希也保持不变。初次 HEADERONLY 权限错误为 SQL 262/3013（缺少 `CREATE DATABASE`），只重置了 CT932 副本的 SA 密码；未重置源登录、未改源数据库权限。结构化回执见 [`pve-isolated-sql-backup-restore-20261024.json`](evidence/pve-isolated-sql-backup-restore-20261024.json)。此结果关闭的是备份恢复和当前 schema 兼容子门禁，不代表当前服务器包已部署到 PVE，也不代表真人 GUI 可玩/持久化验收通过。
+
+2026-10-24 | 原版当前代码基线 `41b4022b` 在 MSVC 19.44 / VS 2022 Developer PowerShell 下重建成功；全量 CTest 共 **12,579 项：12,565 通过、0 失败、14 跳过**，耗时 87.46 秒。两项客户端 E2E 均命中各自验收正则并计为通过；14 个跳过项为数据库、受保护资源和历史二进制/加密样本门禁，未计入通过。回执与逐项跳过清单见 [`original-full-ctest-20261024-current-head.json`](evidence/original-full-ctest-20261024-current-head.json)。
+
+2026-10-24 | PVE 双线只读数据库烟测：VM112 的 QGA 正常，原版 5 个与 Unity 6 个服务进程仍在独立目录运行；当前 stage 源码分别为 `3f355242` 与 `699d1ddf`，均早于本机已验收候选。CT105（192.168.2.105）SQL Server active/enabled，但不是 VM112 查询目标；实际端点 192.168.2.238:1433 属于运行中的 CT930 `moxiang-db-recovery-20261009`。该容器内可见多份原版/Unity `.bak`，文件哈希已盘点，但尚未验证备份头、CHECKSUM 或恢复可用性。两条 ODBC 查询均通过且只读：`MoxiangOriginalTest_20261009` 有 21 张表、schema 4；`MoxiangUnityTest_20261009` 有 22 张表、schema 1；两库均存在 `modern_player_state` 与 `modern_schema_version`。原版 stage manifest 却声明 schema 1，而当前原版源码要求 schema 4，部署元数据不一致；Unity schema 1 与当前 Unity 初始化版本一致。此结果只证明连通性和可读 schema，不证明业务写入/持久化，也不构成当前源码部署验收。未执行写入或迁移；下一步须在隔离副本核对 writer contract、恢复与真实业务读写。回执及哈希见 [`pve-vm112-dual-database-readonly-smoke-20261024.json`](evidence/pve-vm112-dual-database-readonly-smoke-20261024.json)、两份原始 JSONL 和 [`pve-vm112-current-service-identity-20261024.json`](evidence/pve-vm112-current-service-identity-20261024.json)。
+
+2026-10-23 | 原版资源/登录隔离门禁在当前提交 `be72f1f9` 重跑：`MoxianLoginSbsE2E`、`MxhResourceByteLevel`、`MxhResourceReference` 共 23 项，21 项通过、0 失败、2 项显式跳过；跳过项均记录了缺少完整 Release 夹具或恢复归档的原因。回执见 [`original-resource-reference-gate-20261023.json`](evidence/original-resource-reference-gate-20261023.json)。
+
+2026-10-23 | 原版 side-by-side 登录联调修复并重新构建：修正测试从 `tools/MoxianSideBySide` 推导服务端根目录的层级，移除登录服不支持的 `--init-schema` 参数；`MoxianLoginSbsE2E.*` **2/2 通过**，现代登录服在 `26101` 接受 loopback 探针且日志无未知参数。回执见 [`original-login-sbs-current-20261023.json`](evidence/original-login-sbs-current-20261023.json)。这仍是本机 side-by-side 门禁，不替代 PVE MSSQL、真人 GUI 全链或商业发布验收。
+
+2026-10-20 | 原版当前构建重新执行客户端 UI/协议/效果定向回归，共 **80/80 通过**：`CMainGameStateIds`、`CInGameState`、`MonsterLifeAuthority`、`ProtocolBurst`、`ClientUiRuntime`、`InGameUiRuntime`、`EffectRuntime`。运行目录固定为隔离构建目录，避免 PlayDH 相对路径误判；证据见 [`original-client-targeted-tests-current-20261020.json`](evidence/original-client-targeted-tests-current-20261020.json)。同轮对保全的 Map.pak/monster.pak 做了内部名称扫描，精确 `tile_17_mou_a_01..09.dds` 与 `Monster_203.bin` 均无命中；仅发现不等价的 `tile_17_nanju`/`tile_110_mou` 家族和客户端 `l203` 视觉文件，均未准入原版线。回执见 [`original-pak-missing-resource-audit-20261020.json`](evidence/original-pak-missing-resource-audit-20261020.json)。2026-10-24 更正：这次 `.dds` 搜索用了错误扩展名和错误的工作区 Map.pak（头 4192 项），不是原版 `D:\MX\client\Package\3DData\Map.pak`（读到 EOF 为 11267 项）；2026-10-21 以 `.tga` 复核后“原文件不存在”仍然成立，且只作信息、不是缺失缺陷。见文首。
+
+2026-10-20 | 原版分支 `75f5001b6a4d9abd1a248acf29b9620e206feae1` 已提交并推送 GitLab：重建后的 `mxh_client_tests` 定向客户端门禁共 61 项通过（`CMainGameStateIds`、`CInGameState`、`MonsterLifeAuthority`、`ProtocolBurst`、`ClientUiRuntime`、`EffectRuntime`）。`CInGameState` 为 Map10 批量 MonsterAdd 预留 256 个快照容量，并抑制逐包同步日志与逐怪堆探针，修复旧构建中误报的堆损坏/高频日志超时风险。证据见 [`original-client-targeted-tests-current-20261020.json`](evidence/original-client-targeted-tests-current-20261020.json)。这是本机定向工程门禁，不替代完整 CTest、PVE MSSQL、真人 GUI、精确原版资源或商业发布验收。
+
+2026-10-20 | 已只读审计 GitLab 的全部现用分支和历史资源路径：缺失 HFL 没有新的精确字节来源，缺失 TTB 只有 UnityNative 派生覆盖，`Monster_203.bin` 仍只有不等价的 `InsDGMonster_203.bin` 近似文件；没有复制或准入任何候选。回执见 [`original-remote-ref-resource-history-audit-20261020.json`](evidence/original-remote-ref-resource-history-audit-20261020.json)，原版 1:1 资源门禁保持 `releaseReady=false`。
+2026-10-20 | 对 23 份本机/归档 `Dealitem.bin` 做了同一 MHFile 解码复核：D:\MX 两份头部长度无效，D:\MoyoI 两份无法形成可解析目录且 Map10 行数为 0，其余副本与当前 canonical 同一哈希、Map10 行数仍为 0；没有可安全准入的 Map10 Dealer 来源。见 [`original-dealitem-source-scan-20261020.json`](evidence/original-dealitem-source-scan-20261020.json)，商店门禁继续阻塞。
+2026-10-20 | 重新对 C:\moxiang、E:\Workspaces\moxiang、E:\Workspaces\artifacts、D:\MX、D:\MoyoI、D:\03_Data 做了不跟随 Junction 的精确文件名扫描：8 个缺失 HFL 只命中已知 137030 字节生成占位，10 个缺失 TTB 只命中 UnityNative 派生覆盖，Map17 的 9 个 `tile_17_mou_a_*.dds` 仍无物理命中；未复制或准入任何候选。见 [`original-resource-index-scan-20261020.json`](evidence/original-resource-index-scan-20261020.json)，原版 1:1 门禁仍为 `releaseReady=false`。
+
+2026-10-20 | 原版当前提交 `c812703d` 的远端 GUI 视觉烟测已在本机真实 DX11 客户端完成：使用 VM112 `192.168.2.244:16001/17001/18001`、现有角色 `origpve15` 和 `playdh-current`，Login、CharacterSelect、Map10 GameIn、原版 BGM `1667/1670`、SFX manifest、玩家与 228 个怪物均有帧和日志证据，客户端退出码 0；状态帧校验 4/5 通过，`charmake` 因现有角色路径按设计跳过。回执见 [`original-pve-gui-visual-smoke-20261020.json`](evidence/original-pve-gui-visual-smoke-20261020.json)。这关闭的是远端 GUI 进入地图子门禁，不等于完整真人 GUI、战斗/掉落点击拾取、准确原版资源或商业发布；`releaseReady=false` 保持不变。
+
+2026-10-20 | Unity 分线当前提交 `80dbc7da` 的完整 EditMode 回归为 291 项（278 通过、0 失败、13 显式跳过）；私有 Map17 URP 图形诊断在 DX11 PlayMode 真实帧中 1/1 通过，角色和 6 个怪物实际渲染。回执分别为 Unity 工作树 `docs/evidence/unity-editmode-current-20261020.json`、`docs/evidence/unity-map17-active-urp-preview-20261020.json`。这是重制线隔离证据，不提升原版资源门禁，也不替代 Unity 真人 Player/PVE/许可终审。
+
+2026-10-20 | 原版地图资源审计新增占位族保护：当前提交 `d40e7364` 会拒绝结构合法但实际引用 `tile_10-*` 的误命名 HFL。Map10 审计通过，Map17 明确保留 9 个准确纹理缺口，Map203 0 缺失通过；回执见 [`original-map-placeholder-guard-20261020.json`](evidence/original-map-placeholder-guard-20261020.json)。
+2026-10-20 | 当前 Release E2E 连接 VM112 原版三服并成功进入 Map10 GameIn，但真实战斗诊断确认可用账号 `origpve15` 为 1 级且无武器，初始攻击仅造成 1 点并在目标护盾耗尽后持续超时；历史高等级账号 `origcombat15` 当前登录失败。没有把这次失败当作掉落/拾取通过，完整日志哈希、账号状态和下一闸门见 [`original-pve-combat-fixture-diagnosis-20261020.json`](evidence/original-pve-combat-fixture-diagnosis-20261020.json)。
+
+2026-10-20 | GitLab 历史分支 `codex/sync-moxiang-20261001` 的 8 个缺失 HFL 候选已逐个解析：均为 `16x16`/`256x256`/`37` 纹理表并引用 `tile_10-*`，属于已知 Map10 占位族；该分支没有准确 TTB 或 `Monster_203.bin`。未复制、未合并，原版 1:1 资源门禁保持不变。回执见 [`original-remote-resource-candidate-audit-20261020.json`](evidence/original-remote-resource-candidate-audit-20261020.json)。
+
+2026-10-20 | Follow-camera 远端采集已修正为同时开启实体渲染；当前提交 `ff3b76d8` 在 VM112 Map10 日志确认玩家 `woman.chx`、Map10 怪物 `L105.chx`、原版动画、BGM `1667/1670`、SFX manifest 和 228 个怪物，状态帧/地形帧通过。实体像素校验仍因旧固定中心裁剪失败，保持 PARTIAL；回执见 [`original-pve-gui-state-frames-20261020-r3.json`](evidence/original-pve-gui-state-frames-20261020-r3.json)。
+
+2026-10-20 | 远端采集入口已固定为非 loopback 的 VM112 地址，并支持显式 `-FollowCamera`；当前提交 `6f13bad9` 重新捕获 Map10 状态帧，宽松状态校验、地形校验通过，实体校验仍只因旧版固定中心裁剪未通过，日志确认玩家 `woman.chx`、原版 BGM `1667/1670`、SFX manifest 与 228 个怪物。最新回执见 [`original-pve-gui-state-frames-20261020-r2.json`](evidence/original-pve-gui-state-frames-20261020-r2.json)。
+
+2026-10-20 | 当前提交 `94440a70bbd24841ba5bac82eab84d98ebd25a5a` 重新运行原版针对性回归：schema migration、MapHandler 路由/GameIn、权威移动与坐标持久化、战斗/死亡、自然掉落/拾取、背包/装备、商店、任务、revisioned 技能/生命值以及客户端 E2E/Dump CLI 共 86/86 通过；VM112 writer contract 6/6、工程治理检查通过。证据见 [`original-targeted-regression-20261020.json`](evidence/original-targeted-regression-20261020.json)。这些是宿主工程和契约门禁，不替代 VM112 MSSQL 业务写入、真人 GUI 全链、准确原版资源或稳定性验收。
+
+2026-10-20 | 当前原版提交 `3929291a8e446b831c3b05deb22512ed161fb9d6` 已在 VM112 隔离 MSSQL stage 完成坐标持久化子门禁：Map10 初始 `(25000,25000)` 移动到 `(25800,25400)`，GameOut 后重登与数据库回读一致，Map10 GameIn 228 个怪物，退出码 0。服务 schema 4、写入契约和 vitals 约束均通过；隔离端口已释放。回执见 [`original-pve-position-persistence-20261020.json`](evidence/original-pve-position-persistence-20261020.json)。这不是真人 GUI 全链或商业发布结论。
+
+2026-10-20 | 当前 Debug 客户端通过修正后的远端采集脚本连接 VM112 默认原版服务，完成真实 Login/CharacterSelect/GameIn GUI 路线并捕获 `state-connect/login/charselect/gameloading/gamein` 与 Map10 地形帧；日志确认原版 BGM `1667/1670`、SFX manifest、玩家 `woman.chx`、228 个怪物和 `GUI_SMOKE_PASS`。状态帧宽松校验与地形帧校验通过；现有实体像素脚本因固定中心裁剪未通过，不能把它写成完整视觉验收。回执见 [`original-pve-gui-state-frames-20261020.json`](evidence/original-pve-gui-state-frames-20261020.json)。
+
+2026-10-20 | 当前原版分支已绑定 VM112 Map17 真实 MSSQL 首发闭环、默认 PVE Map10 Debug 可视捕获和 481 项 Debug 回归全通过。可视与回归回执分别见 [`original-gui-map10-capture-20261020.json`](evidence/original-gui-map10-capture-20261020.json)、[`original-debug-unit-regression-20261020.json`](evidence/original-debug-unit-regression-20261020.json)。当前状态仍不等于真人 GUI 全链或商业发布。
+
+2026-10-20 | 当前原版提交 `15d5fcef208f338a9e86fe60b28affbef72db093` 的 Release `mxh_client_e2e` 在本机隔离 SQLite 三服链路完成真实 Map17 首发路线：1 级角色带原始首发装备 `11000/23000/27000`，收到 216 个怪物，完成权威攻击、目标死亡、自然掉落 `item=50108`、点击拾取、背包移动和 GameOut 后重登库存回读，退出码 0。回执见 [`original-local-map17-starter-combat-20261020.json`](evidence/original-local-map17-starter-combat-20261020.json)。这是当前源码的本机 headless 子门禁，不替代 VM112 MSSQL、真人 GUI、Map17 九个准确纹理、完整 1:1 资源或商业发布验收。
+
+2026-10-19 | 当前原版提交 `dda3a2ea442796f6477b6dd5eb85a381e992ccc2` 在 VM112 隔离 stage 完成真实 MSSQL Map10→Map12 回归：登录、建角、重列、Map10 GameIn（228 怪物）、权威切图、Map12 新 GameIn（228 怪物）和地图号持久化全部通过；测试账号、孤立行、进程和 stage 均已清理，默认端口保持运行。回执见 [`original-pve-mapchange-current-20261019.json`](evidence/original-pve-mapchange-current-20261019.json)。
+2026-10-19 | 原版 VM112 资源镜像门禁真实通过：包 `36008e0d51659a7ff423fcc382dd7f73a9ecbad8b43920e0b00635a1528c8681` 镜像后核验 5,297 文件 / 1,691,253,485 字节，并确认 Map10/12/2 精确服务端 AIGroup；回执见 [`original-vm112-resource-mirror-gate-20261019.json`](evidence/original-vm112-resource-mirror-gate-20261019.json)。
+2026-10-19 | Map203 新 stage 已使用提交 `16f09967681f3f3c1e944348f2ecd7e8e101dd82` 的启动前资源预检：在任何 `Start-Process` 前明确阻断缺失 `Monster_203.bin`，隔离端口为空且默认端口未触碰。回执见 [`original-map203-runtime-resource-gate-20261019-r2.json`](evidence/original-map203-runtime-resource-gate-20261019-r2.json)。
+2026-10-19 | Map203 资源包在独立 VM112 stage 上完成更新后的 Map10 真实回归：当前 E2E 五步全通过，GameIn 收到 228 个怪物，测试账号/角色行和隔离进程均清理，默认端口未触碰。回执见 [`original-pve-map10-updated-resource-playability-20261019.json`](evidence/original-pve-map10-updated-resource-playability-20261019.json)。
+2026-10-17 | Map203 更新资源包已通过 VM112 隔离 stage 传输：包 SHA-256 `fa91cf475bd68f10cb6b280cb16c085f74130b0195091773da54eb9689d908b5`，资源 5,297 文件 / 1,691,253,485 字节，预检通过；真实启动在 `Monster_203.bin` 缺失处按保护逻辑阻断，新增只读检查 `modern/tools/audit_map_server_resources.py 203` 同样返回缺失，默认端口未触碰。回执见 [`original-map203-runtime-resource-gate-20261017.json`](evidence/original-map203-runtime-resource-gate-20261017.json)。
+2026-10-17 | 当前原版提交 `0eb971250bf8b71d7be040d1333d3fb30be8fede` 已完成出生地图路由修复：注册 Map17 路由时建角写入 Map17，无对应路由时安全回退配置默认地图。`mxh_server_handler_tests` 162/162、商业 smoke 35/35 通过；MSSQL 与真人 GUI 仍显式跳过。证据见 [`original-canonical-birth-map-route-20261017.json`](evidence/original-canonical-birth-map-route-20261017.json)。资源缺口与 1 级首战门禁仍未关闭。
+
+# 可玩状态与分线验收
+2026-10-17 | 原版 Map203 精确资源门禁取得实质进展：从与已认证 `203.hfl` 同源的 `D:/MX/client/Package/3DData/Map.pak` 提取并校验 161 个 `tile_201a-*` DDS，源包 SHA-256 `00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3`，全部为 128×128 DXT1；`audit_map_dependencies.py 203` 返回 `missing_texture_count=0`。清单已扩展为 5,297 文件 / 1,691,253,485 字节。回执见 [`original-map203-texture-admission-20261017.json`](evidence/original-map203-texture-admission-20261017.json) 与 [`original-map203-textures.provenance.json`](../reference/manifests/original-map203-textures.provenance.json)。剩余原版精确资源阻塞为 HFL 22、TTB 18、Map17 使用纹理 9。
+2026-10-17 | 原版资源准入提交 `647d43bb06633001b8f445bef09df26f65954faa` 重新执行 `commercial-smoke.ps1`：35 项中 34 通过、0 失败、1 项部署 manifest 因构建未携带部署包而按环境跳过；MSSQL 与 GUI 均按显式参数跳过。结构化回执见 [`original-commercial-smoke-20261017-r2.json`](evidence/original-commercial-smoke-20261017-r2.json)，不能据此关闭完整商业、MSSQL 或真人 GUI 门禁。
+2026-10-17 | 原版隔离 stage `C:\\Moxiang\\original\\stage-numericcopy-birth-20261017-fixed` 已用真实 MSSQL `MoxiangOriginalNumericCopy_20261009` 完成登录、Map17 建角/重登、任务开始与未完成回退、Map17→Map12 换图持久化、权威战斗→自然掉落→点击拾取→背包移动→重登、4 个 quick-slot 技能效果，以及 Map12 Dealer `53` 的 18 项商店目录、余额扣减、购买物品 `11040` 与重登库存回读。包 SHA-256 为 `7a144af16e79831bfc39c00f28ab3d2501cc9c609bca650ce3a424f6c490ce20`；资源清单 5,136 文件、1,689,474,757 字节。测试结束已恢复角色 Map17、余额 74，删除临时商店物品和技能 fixture。结构化回执见 [`original-pve-fixed-stage-playability-20261017.json`](evidence/original-pve-fixed-stage-playability-20261017.json)。
+
+上述是无头协议验收，不能替代真人 GUI 输入、视觉/音频对照、完整 1:1 资源、全地图经济社交覆盖或 24 小时稳定性。最新本地商业 smoke 为 35/35 通过，`MSSQL_E2E` 与 GUI 仍按显式外部门禁单独记录。
+
+2026-10-17 | 原版当前 `modern/build` 构建目录定向回归：资源引用与 E2E 目标共 6 项，5 通过、0 失败、1 个历史恢复 fixture 按预期跳过；`MoxianClientE2E` 和 dump CLI 均通过。证据见 [`docs/evidence/original-targeted-regression-20261017.json`](evidence/original-targeted-regression-20261017.json)。该回归不关闭 Map17/Map203 精确纹理及 HFL/TTB 原版资源缺口。
+
+
+2026-10-17 | 以当前原版提交 `90b190c82701385b4409169c542be2c3f9484659` 重新扫描 C:/Moxiang、C:/backup、C:/CodexData、D:/MX、D:/MoyoI、D:/03_Data、E:/Workspaces/moxiang 和 E:/Workspaces/artifacts：相关 HFL/TTB 文件 2020 个，Map17 `tile_17_mou_a_01..09.dds` 命中 0 个，Map203 的 161 个 `tile_201a-*` 纹理命中 0 个；18 个缺失 HFL/TTB 名称只对应已知占位或 UnityNative 派生副本。没有复制或准入任何候选，原版精确资源门禁仍为 HFL 22、TTB 18、Map17 9、Map203 161。证据见 [`docs/evidence/original-resource-candidate-scan-20261017.json`](evidence/original-resource-candidate-scan-20261017.json)。
+
+## 2026-10-15 当前源码阶段：Map10→Map12 与商店闭环
+
+本次回执绑定原版提交 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469` 与隔离阶段 `C:\Moxiang\original\stage-f264e8af-20261015`，不再把旧 `stage-20261015` 的 `21fe3513` 二进制当作当前源码运行证据。新阶段通过 QGA 传输并校验包 SHA-256 `972550c6eda59e064655b94c6d6d6de4623f408d392b174f65cbff182fdbcdc5`，使用 `playdh-current` 的 5,135 个资源文件。
+
+随后已按精确进程路径停止旧原版 `stage-20261015`，保留其目录作为回滚证据；当前源码阶段已提升到 VM112 默认原版端口 `16001/17001/18001/18002/18003`，Unity 端口与进程未触碰。默认端口切换收据见 [`original-pve-default-current-source-20261015.json`](evidence/original-pve-default-current-source-20261015.json)。
+
+真实 MSSQL PVE 收据完成 Map10 GameIn（228 个怪物）→Map12 ChangeMapAck→Map12 GameIn（18 个 NPC，Dealer `52/53`）→目录 18 项→购买物品 `11040`→断开重登后库存仍为 1，退出码 0。购买前先用受控金钱 fixture 证明余额不足返回 `BuyNack`，再注入 100,000 金钱完成成功路径；地图、金钱与临时购买行随后恢复/删除，隔离端口 `16211/17211/18211/18212/18213` 全部释放。结构化收据见 [`original-pve-current-source-shop-map12-20261015.json`](evidence/original-pve-current-source-shop-map12-20261015.json)、[`original-pve-current-source-mapchange-20261015.json`](evidence/original-pve-current-source-mapchange-20261015.json)，失败分类收据见 [`original-pve-shop-current-source-map12-no-money-20261015.json`](evidence/original-pve-shop-current-source-map12-no-money-20261015.json)。
+
+这关闭了当前源码在 PVE 上的 Map10→Map12 路由、Dealer 发现、商店目录、余额拒绝、购买入包和重登持久化子门禁。Map10 仍没有原始 Dealer 行，不能把 Map12 的商店 NPC 解释为 Map10 1:1 资源完成；真人 GUI、全地图资源、完整经济/社交系统和商业发布门禁仍保持 PARTIAL。
+
+## 2026-10-15 当前源码阶段：Map10 战斗→掉落→拾取→重登闭环复核
+
+同一 VM112 默认端口和当前源码 stage 使用可回滚战斗夹具（level 53、装备 `11000/23000/27000`，临时移除任务行以满足当前权威战斗事务前置）完成 LoginAck、角色选角、GameIn、Map10 目标 `50143` 命中与生命变化、自然掉落 `item=8008`、点击拾取、背包 `MoveAck source=0 target=1`、GameOut 后重登持久化；怪物数量 `228→227`，退出码 0。结构化回执见 [`original-pve-default-current-source-combat-20261015.json`](evidence/original-pve-default-current-source-combat-20261015.json)，完整日志见同名 `-equipped-20261015.log`。
+
+测试后角色 `100017` 已恢复为 level 1、Map10、基础属性 12/12/12/12、生命 125、护盾 245、MP 125、无装备/物品，任务日志 1 行与子目标 8 行均恢复。无装备负对照只收到 Skill 广播而没有权威伤害，见 `original-pve-default-current-source-combat-20261015.log`；因此这次闭环不能升级为 1 级新玩家首战平衡或商业完成。当前源码提交为 `2c33c6adb895853fa676856f22f433f13031354a`，运行包仍绑定 `f264e8af5afa4f6e5f6636dcb8a5f8d2f38ca469` stage。
+
+## 2026-10-15 原版 Map10 商店资源缺口回执（历史阻塞仍有效）
+
+在同一 VM112 原版 Map10 真实进入游戏并枚举 NPC 时，没有发现 canonical Dealer，因此 Map10 商店目录请求和购买动作没有发送，进程以退出码 2 结束。回执 [`original-pve-shop-current-20261015.json`](evidence/original-pve-shop-current-20261015.json) 与日志 [`original-pve-shop-current-20261015.log`](evidence/original-pve-shop-current-20261015.log) 保留了这一失败证据；没有发生余额或背包写入。Map12 商店链已在顶部当前源码回执中独立通过。
+
+该结果把商店链明确定位为 Map10 运行时 NPC/资源缺口：需要先恢复与原版一致的 Dealer，再验证目录、扣款、入包和重登持久化，不能把工程级商店单测当作 PVE 商业验收。对工作区内 16 份 `Dealitem.bin` 的字节和解码内容复核显示它们全部为同一 SHA-256，且没有任何 Map10 行；来源审计见 [`original-dealitem-map10-provenance-audit-20261015.json`](evidence/original-dealitem-map10-provenance-audit-20261015.json)。因此当前不能用 Map12 或原创 NPC 冒充原版 Map10 资源。
+
+## 2026-10-15 原版当前提交任务开始与未完成回执
+
+在 VM112 当前原版 stage 使用隔离账号 `origpve15` 进入 Map10，收到 228 个怪物后从 canonical QuestScript 选择任务 1。客户端真实发送任务开始请求并收到 `Quest StartAck`，状态为 `Active - hunt monsters`；随后发送未满足目标的结束请求，收到 `EndNack`，状态恢复为 `Not complete`，退出码 0。结构化回执与完整日志见 [`original-pve-quest-current-20261015.json`](evidence/original-pve-quest-current-20261015.json) 和 [`original-pve-quest-current-20261015.log`](evidence/original-pve-quest-current-20261015.log)。
+
+这关闭了当前原版任务开始、状态同步和未完成结束恢复子门禁；任务目标完成/奖励领取、经济与商店、真人 GUI、完整原始资源及商业发布仍保持 PARTIAL。本回执没有把未完成任务误报为奖励完成。
+
+## 2026-10-15 原版 Map10→Map12 切图持久化回归
+
+当前原版 VM112 stage 使用真实 MSSQL 账号 `origpve15` 完成 Map10 GameIn（228 个怪物）后发送权威 `ChangeMapSyn`，收到 Map12 `ChangeMapAck`，进入 Map12 后读到 228 个怪物和 2 个 NPC；断开并重新 GameIn 仍落在 Map12，退出码 0。测试结束后将该专用角色的持久化地图恢复为 Map10，并通过 CT930 非 SA 查询回读。证据见 [`original-pve-mapchange-current-20261015.json`](evidence/original-pve-mapchange-current-20261015.json) 和 [`original-pve-mapchange-current-20261015.log`](evidence/original-pve-mapchange-current-20261015.log)。
+
+这关闭了当前原版 PVE 的 Map10→Map12 权威路由与重登位置持久化子门禁；完整地图覆盖、真人 GUI、缺失原始资源和商业发布门禁仍保持 PARTIAL。
+
+## 2026-10-15 原版当前提交 Map10 战斗闭环回归
+
+在 VM112 当前原版 stage `C:\Moxiang\original\stage-20261015` 上，使用隔离测试账号 `origcombat15` 和临时等级 53 角色 `Combat161015`，当前 Release `MoxianClientE2E` 真实完成 LoginAck、角色列表/选角、Map10 GameInAck、服务端权威攻击、目标死亡、自然掉落、点击拾取、背包 `MoveAck` 以及断开后的重登持久化。Map10 怪物数量由 `228` 降至 `227`，目标 `50143` 初始生命 `6150`，掉落 `drop=90000,item=50015,count=1`，退出码 0。测试账号、角色、状态、生命、装备、物品、任务和技能临时行已删除；原有角色 `100017` 回读为 level=1、Map10、基础属性 12/12/12/12、生命 125、护盾 245、MP 125、dead=0、revision=1。完整日志和结构化回执见 [`original-pve-combat-current-20261015.log`](evidence/original-pve-combat-current-20261015.log) 与 [`original-pve-combat-current-20261015.json`](evidence/original-pve-combat-current-20261015.json)。
+
+这次回归关闭了当前原版服务包在真实 MSSQL PVE 上的 Map10 权威战斗→自然掉落→点击拾取→背包写入→重登回读子门禁；它仍不等于真人 GUI 验收、1 级新玩家首战平衡、完整原始资源、全地图/经济/社交覆盖或商业发布就绪。
+
+## 2026-10-15 VM112 当前原版运行回执
+
+VM112 已恢复隔离的原版 modern 三服/多地图阶段：`16001/17001/18001`，以及 Map12/Map2 的 `18002/18003`；Unity 阶段独立使用 `26101/27101/28101`。真实 `MoxianClientE2E --no-spawn` 使用专用账号 `origpve15` 完成 LoginAck、角色列表、建角、重列、选角和 Map10 GameIn，收到 **228 个怪物** 与 NPC `554/572`，玩家生命 `125/125`，退出码 0。当前 stage manifest SHA-256 为 `f44982a74ebba1a11a25545129b9e2a6582b91ba802e610498295f0292e0a77d`，服务包源提交为 `21fe351340d5e0ec240d5aef2c0204ca6db49d5d`；日志 SHA-256 为 `76e0fc6eb7dcad7da3840266d0b563755d12ed302cacf2f000bf01d1a0551888`。结构化回执见 [`original-pve-headless-20261015.json`](evidence/original-pve-headless-20261015.json)。这是原版协议与 GameIn 工程通过，仍需真人 GUI、战斗/掉落/拾取持久化、完整原始资源和商业发布验收。
+
+## 2026-10-15 当前原版资源准入与 PVE 协议回执
+
+本次原版资源准入回执绑定服务包提交 `36e3b33f20518a04edfc44f7c5ccc0017808f02b`；当前分支继续在 GitLab `codex/reorg-original-20261009` 上快进维护。VM112 独立 stage `C:\Moxiang\original\stage-20261015` 已用当前服务二进制和 PlayDH 资源启动五服端口 `16111/17111/18111/18112/18113`；远端核验为 **5,135 文件 / 1,688,281,785 字节**，资源 manifest SHA-256 为 `6b994c106ff068ad03fcbad7b21f28ff78715a8427d0480acb255d598689754e`。`3.hfl`、`95.hfl`、`198.hfl`、`203.hfl` 的远端哈希均与本地准入清单一致；Map.pak 的嵌入资源审计见 [`original-map-pak-resource-audit-20261015.json`](evidence/original-map-pak-resource-audit-20261015.json)。
+
+资源格式回归脚本已适配当前 Resource Explorer 输出格式，并真实核验 7 个 PAK 的条目数、MonsterList/ItemList 元数据及两个代表性条目提取；结构化回执为 [`original-resource-format-verify-20261015.json`](evidence/original-resource-format-verify-20261015.json)。
+
+真实 `MoxianClientE2E --no-spawn` 已通过 LoginAck、AgentConnect、建角、选角、GameInAck 和 Map10 **228 个怪物**；退出码 0，日志回执为 [`original-pve-resource-admission-20261015.json`](evidence/original-pve-resource-admission-20261015.json)，日志 SHA-256 为 `8ce7cdc1a4368efbfa49cee5d44b38c80c7ec42556b4aded944c6ff56cfda3ef`。测试账号密码只在进程内使用，没有写入证据。完成后仅按 stage 路径精确停止五个进程，五个隔离端口均已释放。
+
+UnityNative 中与原版缺失项重名的 10 个 TTB 已逐项拒绝进入原版 1:1 线：它们全部是 `native-authored-development-only`、`releaseReady=false` 的派生数据；原版对应路径仍为空。边界回执为 [`original-ttb-isolation-audit-20261015.json`](evidence/original-ttb-isolation-audit-20261015.json)。这次 PVE 回执只关闭当前资源包的启动与协议/GameIn 子门禁；1 级 Map10 战斗平衡、自然战斗掉落/拾取、完整原始资源覆盖、真人 GUI 和商业发布仍未闭合。
+
+
+## 2026-10-14 原版 PVE 隔离实例复核
+
+最新复核（绑定原版提交 `f1fa3211e3cd132d09166555b140f0f22d8f458b`）：在 VM112 已保全的 `stage-20261014` 上，通过受控 WinRM 会话启动隔离端口 `16101/17101/18101/18102/18103`，真实 Release `MoxianClientE2E` 以 `mxh_s1010` 完成 LoginAck、Agent、角色列表/重列、角色选择和 Map12 GameInAck，退出码 0；技能 1817、任务 238、物品 9887、NPC 106 均加载成功。结构化回执为 `docs/evidence/original-pve-current-stage-20261014.json`，日志 SHA-256 为 `86DCBC9B3A4E8D82B8BA5B26E996F7F0FA336F3AA63A010B9274017E6B1E73C9`。同次 Map10 门禁没有通过：角色 `100012` 在库中持久化于 Map12，因此没有把 Map12 的成功误报成 Map10 228 怪物闭环。当前 stage 源仍为 `a089ad6b`，尚未部署 `f1fa3211` 服务包；真人 GUI、Map10 fixture、战斗/掉落/拾取/装备/换图重登和完整资源准入仍是开放门禁。
+
+当前原版工作树提交为 `6a56df1c`，本轮 PVE 服务包由其父提交 `a089ad6b22e8dc4626a217108429d612554c6726` 构建，新增的 `MoxianClientE2E` 端口参数（`--login-port/--agent-port/--map-port/--map12-port`）则由当前提交构建并通过默认端口 CTest、非默认 `--dump-cli` 解析和远端运行。Visual Studio Release 全量 CTest 重新运行 **12,574/12,574 通过**，总耗时 72.89 秒；17 项明确因 PVE、MSSQL、旧资源或显式外部门禁跳过，未将 Skip 计为通过。
+
+本轮将 Release 包 `original-vm112-release-20261014-r2.zip`（SHA-256 `af2b64960f41ea530a59aa6d30a6ed6bc6eeaa778e95f17e5ce62bd4fb5b0999`）部署到 VM112 的独立 stage `C:\Moxiang\original\stage-20261014`，没有替换旧服务。该 stage 使用 PlayDH 资源 **5,132 文件、1,682,222,623 字节**；补入的 `Resource/Map/95.hfl` SHA-256 为 `fbc336eb9b73a55f50979d4e2678bd760479d69cf49217a5ae268332dbed1746`。manifest SHA-256 为 `d73369562c67e7107211f00fd1f640fbbcb9be32c037fa7876ef6c5ce156e4e6`。
+
+隔离三服实际运行于 `16101/17101/18101`（另起 `18102/18103` 供 Map12/Map2 路由），程序哈希分别为 Login `81355002596f3e93be809ba9150e6b10a9b406f031b20a08ae0f57a3f0b431da`、Agent `03ea891dddf2c75f48af5f8e03d3d8c83b6bb87cc0060ff8b7aae149f4cbba16`、Map `c42dcf2fa468fd8127d8c64b369c9dbf3f981158046dfbae6e6c5de442bdf646`。远端 `MoxianClientE2E --no-spawn` 以真实 GUI 状态类完成 LoginAck、Agent CharacterList、角色重列、CharacterSelect、Map10 GameInAck 和 228 个怪物实例接收，退出码 0；MSSQL 使用 CT930 的 `MoxiangOriginalTest_20261009`，schema/query 只读检查退出码 0，预检读到 13 个角色行。测试结束后仅停止本轮 stage 的精确进程并确认五个隔离端口均无监听；旧 VM100/VM112 服务、Unity 服务和主工作区未触碰。
+
+这关闭了“原版 Release 工程 + PVE MSSQL + 远端协议/GameIn”子门禁，但仍不等于真人 GUI 的自然战斗、掉落点击拾取、装备、切图重登或完整 1:1 资源验收。逐项摘要见 `docs/evidence/original-pve-vm112-20261014.json`。
+
+## 2026-10-14 原版 PVE 真实战斗闭环
+
+本轮先以新建的 1 级角色在 Map10 执行真实战斗门禁，服务器确实收到攻击并扣减护盾，但目标防御 541、角色伤害仅 2–4，目标生命未变化，未产生掉落，退出码 2。该结果确认首个玩家路径存在等级/地图前置缺口，不能通过降低怪物强度或伪造伤害掩盖。
+
+随后在同一隔离 MSSQL 测试库为专用角色 `100013` 建立可回滚的合法高等级测试 fixture，先在原始 Map2、再在目标 Map10 执行真实攻击、死亡、自然掉落、点击拾取、背包移动与重登。两次 LoginAck、角色选择、GameInAck、目标死亡、地面掉落 `item=8008`、拾取、`MoveAck source=0 target=1` 和重登持久化全部通过；Map2 怪物数量由 128 降至 126，Map10 由 228 降至 227，客户端均退出码 0。测试结束后恢复角色、进度、生命值和临时物品行，五个隔离端口均无监听；没有停止旧服务或修改 canonical 资源。完整回执见 `docs/evidence/original-pve-combat-20261014.json`。
+
+这关闭了“原版服务端权威战斗→自然掉落→点击拾取→背包写入→重登回读”的 PVE fixture 子门禁；1 级新玩家在 Map10 的合理首战路线、真人 GUI、装备视觉、切图位置持久化、全地图和商业发布仍保持 PARTIAL。
+
+历史基线（2026-10-10）：当时没有任何一条线通过“首个可玩”验收；历史运行记录已归档。当前结论以本文件顶部的最新回执为准；定义见下方 E0–E5，门禁见 [VERIFICATION_MATRIX.md](VERIFICATION_MATRIX.md)。执行总览见 [重整状态](REORGANIZATION_STATUS.md)，旧状态恢复位置见 [历史证据索引](HISTORICAL_EVIDENCE_INDEX.md)。
+
+## 2026-10-11 最新工程校准
+
+在原版提交 `1b5983d7` 的 VS Release 全量构建后，`ctest --test-dir modern/build-vs-rebuild -C Release --output-on-failure -j 4` 共注册 **12,574** 项，**12,574/12,574 通过**，退出码 0；其中 17 项因外部 MSSQL、PVE、旧资源或显式环境变量门禁而跳过。此前大量 `Not Run` 是未生成 VS 多配置目标，本次已完整构建后消除；回执与原始日志见 `audit/2026-10-09-reorg/original-integration/ctest-full-release-20261011.json` 和 `.log`。这只证明工程测试基线健康，不能替代 PVE 数据库、真实 GUI、完整资源许可和商业发布验收。
+
+## 当前校准（2026-10-11）
+
+当前原版候选分支为 `b762668e`（GitLab `codex/reorg-original-20261009`），服务端单测重新运行 **161/161 通过**，包含自然死亡/掉落/拾取、商店金额持久化、任务和装备重登场景。该结果仍是宿主工程证据；本次端口复核仅确认原版 `16001/17001/18001` 可达，Unity `26101/27101/28101` 不可达，不能把旧文档中的“全部端口可达”继续视为当前事实。PVE 原版修复包 `r16b` 尚未部署，真人 GUI 的自然战斗、掉落拾取、切图和重登闭环仍未通过。
+
+当前提交 `b762668e` 上的 Visual Studio Release CTest `MoxianClientE2E` 重新运行通过 **2/2**（协议 E2E 与 dump CLI，退出码 0）；可执行文件 SHA-256 为 `1b63d4aa0d2612b7ddf5ae75167b9903ad64d897c71d91379d18820ffd777157`，回执见 `audit/2026-10-09-reorg/original-integration/original-e2e-20261011.json`。这仍是本机隔离服务测试，不替代 PVE MSSQL 与真人 GUI 验收。
+
+同一 Release 构建按玩法范围重跑服务端 CTest **125/125 通过**，覆盖路由、Map10 实体、战斗/死亡、自然掉落、近距离拾取、商店、任务、装备和重登；回执为 `audit/2026-10-09-reorg/original-integration/server-playability-ctest-20261011.json`。这显著扩大了工程级闭环证据，但仍不替代 PVE MSSQL 的真实写入和真人 GUI 全链验收。
+
+当前候选包所用的 DB 工具与测试目标已从同一 VS Release 构建生成；`mxh_db_tests.exe` 运行 **35/39 通过、4 跳过、0 失败**。通过项覆盖 SQLite 持久化、DB 线程、schema migration、真实资源解析和 ODBC 负面连接；4 项跳过均明确要求外部 MSSQL 凭据/实例，回执见 `audit/2026-10-09-reorg/original-integration/db-tests-20261011.json`。未把跳过项计为数据库业务验收通过。
+
+本轮最新原版工程基线为提交 `2894804e`：revisioned 玩家使用消耗品时，生命值 CAS、物品扣除、任务进度和背包写入在同一事务中完成；商店购买、丢弃、出售、UseSyn、背包移动/装备栏校验、任务开始持久化、重登恢复和完成奖励防重复领取场景均已启用并通过。击杀任务进度现在会在 revisioned 战斗提交后继续推进，不再因已有任务而拒绝击杀。独立客户端默认端点已统一为 PVE `192.168.2.244`，可通过 `MXH_LOGIN_HOST` 或显式 `--login-host` 覆盖，不再隐式回落 loopback。PVE VM112 的 16001、17001、18001、18002、18003 端口当前可达。上述证据只关闭工程子项，不关闭真人 GUI、完整地图、切图重登或商业发布门禁。
+
+2026-10-10 在重新生成的 Visual Studio 2022 x64 构建目录 `modern/build-vs-rebuild` 中补齐掉落测试目标 `mxh_drop_item_tests`；`DropTableRegistryTest` 与加载器相关测试共 28 项通过（CTest `-I 3092,3119 -C Debug`），`mxh_monster_ext_tests` 直接运行 24/24 通过。此前旧 NMake 构建目录缺少这些可执行文件，不能再将其 `Not Run` 结果视为测试失败。该证据仍属于工程级掉落逻辑验证，尚不替代 PVE 自然击杀掉落、点击拾取和数据库持久化验收。
+
+同一构建目录重新编译 `mxh_client`、`MoxianLauncher` 与 `mxh_client_e2e`；`MoxianClientE2E` 1/1 通过（12.70 秒）。一次按名称筛选的 CTest 因其他目标未生成而出现 `Not Run`，已与实际断言失败区分，不作为回归结论。
+
+随后补建并直接运行 `mxh_server_handler_tests.exe`：161/161 通过，包含自然死亡通知、地面掉落、近距离拾取、写入失败回滚、并发拾取、经验奖励、商店扣款/入包、SQLite 商店价格与金额持久化、任务开始持久化、装备创建/卸下/重登和地图路由场景；当前没有 Disabled 测试。该结果证明当前服务端测试路径一致，但不替代 PVE 数据库和真人 GUI 验收。
+
+## 当前结论
+
+- **原版候选线**：GitLab457/CI746，PVE3565/r12；r14/e244正常Launcher→登录→选角→Map10与HUD字色通过。r12正常建角有DB读回，r13有跨客户端Move广播。本地r15b玩家互见/换图时序、r16死亡移动及fae实际启动wrapper修复独立通过；r16b未部署。复活、NPC/任务、自然战斗、掉落拾取、装备、切图、位置持久化与真人验收仍未闭合。
+- **玩法候选及缺口**：`94d6bd0f` 恢复有来源的基础属性和普通装备计算；新角色四属性为12，旧NULL/partial和装备读取失败在创建Actor前拒绝，禁止回填。独立审查、全新x86构建、服务133/游戏251/schema5/守卫4/纯客户端342项通过；真实MSSQL隔离副本两遍迁移、边界与契约负面测试通过，旧行保持原值。后续 `45701197` 只调整逐包日志并重新完成相关构建/回归。完整技能伤害、正常战斗、自然掉落、点击拾取、装备、切图和重登全链尚未通过。
+- **Unity候选线**：GitLabad0e096b/CI748；PVE v6b/server84d3a0c5，两轮228/228与既有角色DB回查通过，建角跳过。修复fixture后的handler实际195/195通过，3禁用未运行。Player42fe79dd/core39836319重新构建，真实GUI正常登录、选角、Map10地形及原地复活后HP37/125，窗口正常关闭exit0。角色/怪物在全图概览中不可辨认，正诊断；战斗/拾取与45项地图发布缺口仍未闭合。
+- 工具驱动 GUI 或自动化测试只证明对应操作和环境；不等于用户本人验收。两线证据不可互相继承，Unity 测试也不能替代原版对照。
+
+## E0–E5 证据等级
+
+| 等级 | 含义 | 本身不能证明 |
+|---|---|---|
+| E0 | 文件或包字节已记录并有 SHA-256 | 内容语义正确 |
+| E1 | 格式已解码且字段覆盖完整 | 运行时可用 |
+| E2 | 运行时对象已实例化且无缺失依赖 | 正确渲染或交互 |
+| E3 | 运行时确实渲染或播放该资源 | 正确玩家动作及状态变化 |
+| E4 | 正确玩家动作触发资源及状态变化 | 与真实旧版一致且经人工审查 |
+| E5 | 真实旧版对照通过并完成人工审查 | RC 稳定性或发布准备 |
+
+## 首个可玩验收边界
+
+原版线至少需要在受控 PVE 环境中完成登录、角色创建/选择、进入 Map10、可辨认地形与角色、HUD、移动、战斗和掉落闭环，并完成真人可见检查；同时保留服务端权威和数据库结果。Unity 线需在独立 PVE Unity 实例和闭合资源依赖下完成相同核心闭环，并单独通过 Unity 画面与交互审查。无缺资源、无替身占位、无协议/玩法语义漂移。单项测试、GUI 脚本或宿主 CTest 均不关闭整体验收。
+
+任何 G 门禁 PASS 都须在矩阵中绑定本轮提交/工作树、命令或操作、结果和证据文件；缺少任一关键证据时保持 PARTIAL、未通过或未运行。
+## 2026-10-14 当前提交 PVE 可玩子门禁
+
+原版当前提交 `3bf8192065635394893d2df0b7a847aada201d53` 已在 VM112 隔离 stage 通过真实 Release 协议验收：Map10 专用测试角色收到 **228 个怪物**，Map12 既有角色完成 GameInAck，登录、Agent、角色列表、建角/选角和资源加载均通过。Map10/Map12 日志及包、服务哈希见 [`original-pve-f1fa-stage-20261014.json`](evidence/original-pve-f1fa-stage-20261014.json)。专用账号/角色已清理，旧 stage、默认端口和旧服务已恢复。
+
+这只是 PVE 协议与初始实体门禁；真人 GUI 全链、权威战斗、自然掉落、点击拾取、装备、切图、重登持久化和完整原版资源仍未闭合，`releaseReady=false`。
+
+## 2026-10-14 当前提交战斗验收
+
+当前原版服务包在 PVE Map2 通过真实战斗、掉落、点击拾取、背包移动和重登持久化；Map10 已证明权威攻击与生命变化，但本次没有自然掉落，仍保持失败状态。专用 fixture 已删除，证据见 [`original-pve-f1fa-combat-20261014.json`](evidence/original-pve-f1fa-combat-20261014.json)。
+## 2026-10-15 当前校准
+
+本轮状态以以下提交和证据为准，旧段落仅作历史定位：
+
+- 原版工作树 `codex/reorg-original-20261009` 当前提交 `ffa9e97bc341e477259ff55840237e4af8b32ceb`，此前 `f1fcd852` 已修复 CTest 客户端资源工作目录；完整 Release CTest 为 **12,574/12,574 通过、0 失败、14 显式跳过**，回执见 [`original-ctest-current-20261015.json`](evidence/original-ctest-current-20261015.json)。
+- 原版 VM112 隔离 stage `stage-20261015` 使用当前构建、PlayDH **5,135 文件 / 1,688,281,785 字节**，并纳入来源核验通过的 `Resource/Map/3.hfl`、`95.hfl`、`198.hfl`、`203.hfl`。真实远端流程完成登录、建角、GameIn、Map10 的 228 个怪物和服务器权威技能事件；装备攻击范围为 29–35，Map10 目标防御 541，1 级角色每击 2–3 点且生命不变。这是合法的等级/地图前置门槛，未伪造伤害或掉落；证据见 [`original-pve-starter-equipment-regression-20261015.json`](evidence/original-pve-starter-equipment-regression-20261015.json) 和 [`original-resource-admission-20261015.json`](evidence/original-resource-admission-20261015.json)。现有高等级 fixture 已通过 Map10 战斗、自然掉落、点击拾取和重登持久化，首个玩家路径仍需按原始等级路线补齐。
+- Unity 工作树 `codex/reorg-unity-20261009` 当前提交 `ffac1084c415e31c9cd533dc1caf107ec9480248`；EditMode **279 总计 / 266 通过 / 0 失败 / 13 跳过**，商业 smoke **35/35 通过**，回执见 [`unity-commercial-regression-20261015.json`](../unity-integration/docs/evidence/unity-commercial-regression-20261015.json)。三组公开资源已经隔离接入并通过哈希/许可检查，但仍是 `releaseReady=false`。
+- 两线仍保持独立工作树、构建目录和资源目录；旧 stage、旧服务和原版 PlayDH 未被替换。当前未闭合门禁：原版缺失的 TTB/HFL 资源、首个玩家完整 GUI 战斗路线、全地图/经济/社交覆盖、Unity PVE MSSQL 与人工 GUI/最终美术验收，以及双线稳定性和清理回归。
+
+任何完成声明必须绑定当前提交、资源摘要、实际运行证据和人工验收；历史通过记录不自动继承。
+
+## 2026-10-15 任务状态战斗修复复核
+
+原版提交 `3106ec4efbd6d82eb0f4c1cc60bf53d29f5817cb` 已修复 revisioned 战斗在存在任务状态时被提前拒绝的问题。VM112 的受控高等级 fixture 保留任务行，真实客户端收到任务公告、Map10 228 个怪物，并完成目标 `50143`、`50099` 的服务器权威击杀；角色事件和物品/奖励事件均有日志证据。测试结束后 CT930 恢复角色、生命、状态和装备，旧 Map10 服务复位后再次通过登录/选角/GameIn 烟测。回执：[`original-pve-questfix-combat-20261015.json`](evidence/original-pve-questfix-combat-20261015.json)。
+
+当前仍是 `PARTIAL`：本轮 E2E 循环没有到达最终点击拾取/重登断言，且 fixture 仍为高等级和首发装备。不能据此宣称 1 级新玩家路线、自然掉落持久化、完整 GUI 或商业完成。
+
+### 2026-10-15 新账号首战门禁
+
+全新账号已完成真实建角与原始首发装备写入，但当前 `--default-map 10` 仅能在 Map10 对目标 `50143` 造成护盾伤害，无法改变目标生命；这不是装备保存失败，而是测试默认与原始首战路线尚未证明一致。回执 `original-pve-fresh-starter-combat-20261015.json`。清理已验证，无临时账号残留。
+
+### 2026-10-15 Map17 HFL 资源收口
+
+原版 `Map.pak` 实际包含并已恢复准确 `17.hfl`；当前资源阻塞从 23 个 HFL 收窄到 22 个 HFL，Map17 进入九个已使用纹理待恢复状态。Map17 运行闭环仍未执行。
+
+### 2026-10-15 Map17 隔离出生协议通过
+
+在 VM112 原版 stage `stage-f264e8af-20261015` 上，临时端口 `16117/17117/18117` 使用真实 Release `MoxianClientE2E --no-spawn` 完成 LoginAck、空角色列表、CharacterMake、重列、Map17 选角和 GameInAck；随后用 `16118/17118/18118/18119` 完成 Map17 任务 1 的 StartAck/未完成 EndNack、Map17→Map12 的 ChangeMapAck、Map12 GameInAck 和新 GameIn 重登路由。玩家 `100018` 为 1 级、生命 `131/131`、Map17 首次进入成功，Map12 读回包含 216 个怪物和 31 个 NPC。两个探针账号、角色、状态、生命、装备、物品、任务和技能行均已清理为 0，临时端口已释放，`16001/17001/18001/18002/18003` 与 Unity `26101/27101/28101` 保持不变。结构化回执见 [`original-pve-map17-e2e-20261015.json`](evidence/original-pve-map17-e2e-20261015.json)。
+
+这只关闭了 Map17 的登录、建角、选角、首次 GameIn、任务开始/未完成拒绝以及 Map17→Map12 路由子门禁；九个准确地形纹理、移动、战斗、自然掉落、拾取、装备、完整重登持久化、真人 GUI 和视觉 1:1 仍未闭合。
+
+## 2026-10-17 原版工程基线复核（当前整合线）
+
+当前 `codex/reorg-original-20261009` 工作树保持干净；在 Visual Studio 2022 x64 Release 支持路径重新构建并运行 `mxh_client_tests`，**355 项中 349 通过、0 失败、6 项明确跳过，退出码 0**。跳过项仅依赖外部 PlayDH、PVE 三服或显式 Map10 smoke 环境变量；没有把 Skip 计为通过。可执行文件、日志哈希与命令见 [`modern-client-x64-regression-20261017.json`](evidence/modern-client-x64-regression-20261017.json)。
+
+旧 `modern-targeted-tests-20261017.json` 记录的 `0xC0000374` 来自旧 Win32/NMake 构建路径；当前项目文档和构建入口要求 VS2022 x64，当前支持路径不再复现该崩溃。旧记录保留作历史诊断证据，不作为当前客户端门禁结论。
+
+同一 x64 Release 构建已补齐 `mxh_client`、Launcher、三服、数据库工具、资源浏览器和 E2E 工具；本地 SQLite 三服链 `MoxianClientE2E` **1/1 通过**。PVE 人工入口的 PlanOnly 检查确认只连接 `192.168.2.244:16001/17001/18001`，不会启动本机服务或数据库；完整人工 GUI 仍需操作者在实际桌面完成，回执见 [`modern-client-x64-build-20261017.json`](evidence/modern-client-x64-build-20261017.json)。
+
+同一 source-bound x64 Release 目录随后完成全目标编译和完整 CTest：**12,577/12,577 实际执行用例通过、0 失败、26 项明确 Skip，退出码 0**，总耗时 130.79 秒。Skip 仅对应 PVE/MSSQL、恢复运行时资源、真实特效资源和显式 Map10 smoke 门禁；回执与构建日志哈希见 [`modern-full-x64-release-20261017.json`](evidence/modern-full-x64-release-20261017.json)。
+
+
+## 2026-10-20 Map10 战斗、掉落、拾取与重登持久化复测
+
+本次结果绑定原版提交 `d6dbbe92513a846933abb8e0f582b2e81e7684f8` 和 VM112 `192.168.2.244:16001/17001/18001`。在 CT930 隔离库 `MoxiangOriginalTest_20261009` 中，仅对角色 `100017` 写入临时等级 53、装备和已归一化 `exp_flag=16` 夹具；真实 `MoxianClientE2E --no-spawn --use-hsel --exercise-combat --timeout 240` 退出码 0，完成 LoginAck、角色列表/选角、Map10 GameIn（228 个怪物）、服务端权威攻击、目标 `50099` 死亡、自然掉落 `drop=90000/item=8008/count=1`、点击拾取、背包 MoveAck（0→1）和 GameOut 后重新 GameIn 的物品持久化。完整日志与哈希见 [`original-pve-combat-fixture-complete-20261020.json`](evidence/original-pve-combat-fixture-complete-20261020.json)。
+
+复测前一次 GameInNack 已定位为临时夹具 `exp_flag=0`，服务端拒绝未归一化进度属于预期保护行为；修正夹具后没有修改 PlayDH 或原始资源。测试结束已恢复角色、生命、进度、装备、物品、任务和技能相关表；归一化快照哈希 `eb11908ebec05aa8bbefa04ef3d80a63eb396cad798086ec9dffdf816634468` 与恢复后完全一致。该证据关闭的是隔离 headless Map10 战斗子门禁，不关闭真人 GUI、原资源 1:1 缺口、全地图/经济/社交覆盖、Unity 独立验收或商业发布门禁；`releaseReady=false` 保持不变。
+2026-10-20 | 原版 GUI 验收新增受控 `-ExerciseCombat` 路径：客户端通过现有窗口点选/点击处理选择最近活怪、按投影坐标重复攻击，观察权威死亡、自然掉落，再以投影坐标点击拾取并核对背包数量；默认运行不启用。新客户端构建成功，输入/掉落相关 CTest 105/105 通过。VM112 已用隔离临时账号执行到真实 GameLoading，但 GameIn 返回地图服务器不可用，未产生战斗通过；临时账号、角色和状态已清理，因此真人战斗/掉落/拾取门禁保持未关闭。回执见 [`original-gui-combat-smoke-automation-20261020.json`](evidence/original-gui-combat-smoke-automation-20261020.json)。
+
+2026-10-20 | 原版隔离 GUI 栈复测已完成真实建角与 Map10 GameIn：VM112 临时端口 `36011/37011/38011`、真实 MSSQL、PlayDH 当前资源下，Login、建角、选角、GameIn 和 228 个怪物均通过；旧建角失败根因是遗留 `100018` 的 3 条装备行，已清理后建角成功。GUI 战斗点击也确实发送 Skill StartSyn 并获得权威 2–4 点伤害，但 5096 HP 目标在有界运行内未死亡，未产生掉落/拾取通过。临时账号、角色、装备、状态、生命和端口已清理；回执见 [`original-pve-gui-map10-create-combat-20261020.json`](evidence/original-pve-gui-map10-create-combat-20261020.json)。
+
+2026-10-20 | 原版真实 GUI 战斗闭环已在提交 `d129b9e23295101492621b9df92a2c3cf04e083c` 复测通过：VM112 默认原版服务 `16001/17001/18001`、PlayDH、真实 MSSQL 和窗口客户端完成登录、建角、Map10 GameIn（228 个怪物），通过现有 GUI 投影坐标点选发动权威攻击，目标 `50143` 死亡并自然生成 `drop=90001/item=8002/count=1`，随后 GUI 点击拾取，背包数量 `0→1`。夹具只调整测试账号等级/属性，未改生产掉落或战斗数值；测试账号、角色、物品、装备、状态及账号行已验证清零，默认服务保持运行。回执见 [`original-pve-gui-combat-drop-pickup-20261020.json`](evidence/original-pve-gui-combat-drop-pickup-20261020.json)。这只关闭原版首个 GUI 战斗/自然掉落/拾取子门禁，`releaseReady=false` 仍保持，完整资源、地图/经济/社交覆盖、Unity 独立验收与商业稳定性仍未闭合。
+
+2026-10-20 | 原版真实 GUI 移动子门禁已在提交 `e5beb5c5c9b72ed6434e98642c61dccfe1fcedbe` 通过：VM112 原版默认服务与 PlayDH 下，临时 1 级角色进入 Map10 后由窗口夹具真实调用 `CInGameState::OnKeyEvent` 按住/释放 W，位置从 `(24474,24733)` 收到服务端权威回执变为 `(24474,24832)`，随后正常 `GUI_SMOKE_PASS`。临时账号、角色、状态和物品行已清零，默认三服保持运行；回执见 [`original-pve-gui-movement-20261020.json`](evidence/original-pve-gui-movement-20261020.json)。这只关闭移动子门禁，战斗后的装备/切图/重登 GUI 路径、完整资源与商业稳定性仍未闭合。
+
+2026-10-23 | 原版工作树当前提交 `3b737eb1` 重新执行资源字节、PlayDH 引用、Map10 smoke 与登录侧边并行回归：23 项中 **21 通过、0 失败、2 显式跳过**，退出码 0。回执见 [`evidence/original-resource-reference-gate-20261023-rerun.json`](evidence/original-resource-reference-gate-20261023-rerun.json)。跳过项仍缺完整 Release 夹具与恢复服务端归档，不关闭原版精确缺口、PVE MSSQL 或真人 GUI。
+2026-10-24 | GitHub PR #1 ref `b038ce40d17790ca9e28ce37cc9f8446de480106` 已对当前原版精确资源门禁做只读复核：8 个历史 HFL 候选逐一与已拒绝 archive 字节一致，10 个目标 TTB、9 个 Map17 精确纹理和 `Monster_203.bin` 均未在 PR 树中出现；未复制或准入任何替代资源。回执见 [`evidence/original-pr1-exact-resource-audit-20261024.json`](evidence/original-pr1-exact-resource-audit-20261024.json)，原版 1:1 阻塞保持不变。
+2026-10-24 | 原版当前提交 `b5a0b91d75e946be81e30ae39b56b974dcf3b504` 资源引用/字节回归重新执行：23 项中 21 通过、0 失败、2 项按预期跳过（完整 Release fixture 与 recovered runtime archive 缺失）。回执见 [`evidence/original-resource-reference-gate-20261024.json`](evidence/original-resource-reference-gate-20261024.json)；该结果不关闭原版精确资源、PVE MSSQL、真人 GUI 或商业发布门禁。
+2026-10-24 | 已扫描本地抓取的 18 个 GitLab/GitHub 远端引用：精确 HFL 非占位命中 0、Monster_203.bin 精确路径命中 0、Map17 目标纹理引用命中 0；近名 InsDGMonster_203.bin 和 Unity 派生 TTB 均未准入原版。回执见 [vidence/original-all-remote-resource-ref-scan-20261024.json](evidence/original-all-remote-resource-ref-scan-20261024.json)。
+2026-10-24 | 原版资源引用/字节回归绑定当前提交 410cf7fa：23 项中 21 通过、0 失败、2 项按预期跳过。回执见 [vidence/original-resource-reference-gate-rerun-20261024.json](evidence/original-resource-reference-gate-rerun-20261024.json)。
+2026-10-24 | 原版 modern 当前构建目录完整 CTest 重跑：`12574/12574` 通过、0 失败、14 项显式跳过，退出码 0，实耗 123.94s。跳过项仍集中在真实 MSSQL、部署/参考资源和受保护运行时门禁，不能升级为完整商业可玩验收；回执见 [`original-full-ctest-20261024-rerun.json`](evidence/original-full-ctest-20261024-rerun.json)。
+
+2026-10-24 | 原版 PlayDH 资源覆盖重新审计：当前运行资源根目录 600/600 文件经 modern 解析器通过（`.pak` 7/7，`.bin` 499/501，另 2 个明确为派生解包 payload，BMHM 81/81，BSAD 11/11）；该结果只证明现存文件可解析，不证明 HFL/TTB/Map17/Map203 缺失源资源已恢复。报告 `modern/out/runs/resource-coverage-current-20261024.txt`，结构化回执见 [`original-resource-coverage-20261024.json`](evidence/original-resource-coverage-20261024.json)。
+
+## 2026-10-24 当前原版源码隔离 stage 准备
+
+原版候选 `335f004ee59088348d65b8c78e2235292fc0e350` 已新增明确的数据库 IPv4 与五个 stage 端口契约；包清单、启动参数和运行时数据库配置必须完全一致。9 项 writer-contract 定向测试通过，PowerShell 解析与 `git diff --check` 通过。提交已推送 GitLab 原版候选分支。
+
+在 VM112 新建隔离目录 `C:\Moxiang\original\stage-ct932-20261024`，服务使用 CT932 恢复库 `MoxiangOriginalRestoreAudit_20261024`，端口 `36001/37001/38001/38002/38003`。只读资源比对发现旧运行 stage 少 161 个当前 manifest 文件、共 1,778,728 字节；已有 5,136 个文件 SHA-256 全部匹配，没有额外文件。仅将这 161 个清单内资源补入新目录，全部逐个校验后，PlayDH 恢复到 5,297 个文件、1,691,253,485 字节；没有覆盖已有文件。新包 SHA、资源 overlay SHA 和完整结果见 [`original-current-stage-ct932-planonly-20261024.json`](evidence/original-current-stage-ct932-planonly-20261024.json)。
+
+启动脚本的 plan-only 已绑定当前源码 SHA、数据库名、数据库主机和全部端口并通过，确认不会启动进程。真实启服前，CT932 克隆证书对 `192.168.2.237` 的 TLS 主机名验证失败；克隆 SA 登录诊断也未通过。未放宽 `trust_server_certificate`，未启动候选进程。CT930 与 CT932 SQL 服务均保持 active，VM112 原版/Unity 默认端口保持不变，候选端口未监听。当前 SHA 服务部署、真实登录/玩法、业务写入与重启回读仍未通过。
+
+CT932 的临时 SA 恢复尝试未到交互提示即失败；没有修改 CT930 凭据、数据库 schema 或业务数据，CT932 SQL 服务仍 active。测试凭据未进入仓库。具体边界和失败结果已写入同一结构化证据。

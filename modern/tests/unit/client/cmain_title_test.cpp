@@ -1,5 +1,5 @@
 // mxh/tests/unit/client/cmain_title_test.cpp
-// Unit tests for mxh::client::CMainTitle (Phase A.1.8).
+// Unit tests for mxh::client::CMainTitle.
 //
 // Locks down the 1:1 surface:
 //   * Init reads MHVerInfo.ver and stores the version in
@@ -8,9 +8,11 @@
 //   * OnDisconnect updates the state machine flags (m_bDisconntinToDist,
 //     m_dwDiconWaitTime, m_bWaitConnectToAgent, m_bServerList).
 //   * GetDistAuthKey / GetUserIdx default to 0.
-//   * Process() is a no-op without crashing.
+//   * Process() remains safe across the active title lifecycle.
 
 #include "CMainTitle.hpp"
+#include "CEngine.hpp"
+#include "mxh/ui/cEditBox.hpp"
 
 #include <gtest/gtest.h>
 
@@ -18,10 +20,23 @@
 #include <windows.h>
 #include <cstdio>
 #include <fstream>
+#include "../../support/playdh_env.hpp"
 
 using mxh::client::CMainTitle;
 
 namespace {
+
+std::filesystem::path find_playdh_root() {
+    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
+    auto root = std::filesystem::current_path();
+    for (int level = 0; level < 8; ++level) {
+        const auto candidate = root / "modern" / "data" / "PlayDH";
+        if (std::filesystem::exists(candidate / "Image" / "InterfaceScript")) return candidate;
+        if (!root.has_parent_path() || root.parent_path() == root) break;
+        root = root.parent_path();
+    }
+    return {};
+}
 
 // Write a synthetic MHVerInfo.ver to a known location and remember
 // the cwd so the test can restore it.  CMainTitle's Init reads the
@@ -88,7 +103,7 @@ TEST(CMainTitle, LifecycleTogglesInitialized) {
     EXPECT_FALSE(title.isInitialized());
     title.Init(nullptr);
     EXPECT_TRUE(title.isInitialized());
-    title.Process();     // no-op stub
+    title.Process();
     title.Release();
     EXPECT_FALSE(title.isInitialized());
 }
@@ -126,4 +141,49 @@ TEST(CMainTitle, ServerListDialogAccessorIsNull) {
     title.Init(nullptr);
     EXPECT_EQ(title.GetServerListDialog(), nullptr);
     title.Release();
+}
+
+TEST(CMainTitle, ClearPasswordPreservesAccountAndEditState) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::CEngine engine;
+    engine.SetPlaydhRoot(playdh);
+    CMainTitle title;
+    title.Init(nullptr);
+    title.Start(&engine, "acct", "secret");
+    ASSERT_EQ(title.username(), "acct");
+    ASSERT_EQ(title.password(), "secret");
+    title.clearPassword();
+    EXPECT_EQ(title.username(), "acct");
+    EXPECT_TRUE(title.password().empty());
+    auto* pwd = dynamic_cast<mxh::ui::cEditBox*>(
+        title.ui_runtime().findWindowByLegacyId("MT_PWDEDITBOX"));
+    ASSERT_NE(pwd, nullptr);
+    EXPECT_TRUE(pwd->editText().empty());
+    title.Release();
+}
+
+TEST(CMainTitle, LoginErrorOpensVisibleRetryMessage) {
+    const auto playdh = find_playdh_root();
+    ASSERT_FALSE(playdh.empty());
+    mxh::client::CEngine engine;
+    engine.SetPlaydhRoot(playdh);
+    CMainTitle title;
+    title.Init(nullptr);
+    title.Start(&engine, "acct", "secret");
+    ASSERT_TRUE(title.ui_runtime().isActive());
+    title.OnLoginError(7, 0);
+    EXPECT_EQ(title.username(), "acct");
+    EXPECT_TRUE(title.password().empty());
+    EXPECT_TRUE(title.ui_runtime().hasModal());
+    title.Release();
+}
+
+TEST(CMainTitle, ReleaseClearsPasswordState) {
+    CMainTitle title;
+    title.Init(nullptr);
+    title.Start(nullptr, "acct", "secret");
+    ASSERT_EQ(title.password(), "secret");
+    title.Release();
+    EXPECT_TRUE(title.password().empty());
 }

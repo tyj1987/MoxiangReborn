@@ -37,6 +37,8 @@
 //    inventory uses a single SetDisable on the whole dialog).
 
 #include "cIconGridDialog.hpp"
+#include "cIcon.hpp"
+#include "cImage.hpp"
 
 namespace mxh::ui {
 
@@ -45,6 +47,34 @@ cIconGridDialog::cIconGridDialog() = default;
 cIconGridDialog::~cIconGridDialog() {
     delete[] m_pIconGridCell;
     m_pIconGridCell = nullptr;
+}
+
+void cIconGridDialog::Render() {
+    if (!isVisible()) return;
+    cDialog::Render();
+    if (!m_pIconGridCell) return;
+
+    const auto drawImage = [](void* image, int x, int y, int w, int h) {
+        if (!image || w <= 0 || h <= 0) return;
+        static_cast<cImage*>(image)->render(x, y, w, h);
+    };
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t pos = 0; pos < count; ++pos) {
+        const auto cellX = static_cast<std::uint16_t>(pos % m_nCol);
+        const auto cellY = static_cast<std::uint16_t>(pos / m_nCol);
+        const int x = absX() + m_gridX + static_cast<int>(m_wCellBorderX) * (cellX + 1)
+                    + static_cast<int>(cellX) * m_wCellWidth;
+        const int y = absY() + m_gridY + static_cast<int>(m_wCellBorderY) * (cellY + 1)
+                    + static_cast<int>(cellY) * m_wCellHeight;
+        if (m_bShowGrid) drawImage(m_iconCellBGImage, x, y, m_wCellWidth, m_wCellHeight);
+        if (static_cast<int>(pos) == m_lCurSelCellPos || static_cast<int>(pos) == m_lCurDragOverPos)
+            drawImage(m_dragOverBGImage, x, y, m_wCellWidth, m_wCellHeight);
+        if (m_pIconGridCell[pos].inUse && m_pIconGridCell[pos].icon) {
+            auto* icon = static_cast<cIcon*>(m_pIconGridCell[pos].icon);
+            icon->SetAbsXY(x, y);
+            icon->Render();
+        }
+    }
 }
 
 void cIconGridDialog::Init(std::int32_t x, std::int32_t y,
@@ -84,6 +114,37 @@ void cIconGridDialog::InitGrid(std::int32_t gridX, std::int32_t gridY,
     computeCellRect();
 }
 
+void cIconGridDialog::EnsureGridDimensions(std::uint16_t col,
+                                           std::uint16_t row) {
+    if (col == 0 || row == 0) return;
+    if (m_nCol == col && m_nRow == row && m_pIconGridCell) return;
+    delete[] m_pIconGridCell;
+    m_nCol = col;
+    m_nRow = row;
+    const auto count = static_cast<std::size_t>(m_nCol) * m_nRow;
+    m_pIconGridCell = new cIconGridCell[count];
+    for (std::size_t i = 0; i < count; ++i) {
+        m_pIconGridCell[i].icon = nullptr;
+        m_pIconGridCell[i].inUse = false;
+    }
+    m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_lCurDragOverPos = -1;
+    computeCellRect();
+}
+
+void cIconGridDialog::ClearIcons() noexcept {
+    if (!m_pIconGridCell) return;
+    const auto count = static_cast<std::size_t>(m_nCol) * m_nRow;
+    for (std::size_t i = 0; i < count; ++i) {
+        m_pIconGridCell[i].icon = nullptr;
+        m_pIconGridCell[i].inUse = false;
+    }
+    m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_lCurDragOverPos = -1;
+}
+
 void cIconGridDialog::computeCellRect() noexcept {
     m_cellRect.left   = m_gridX;
     m_cellRect.right  = m_cellRect.left + static_cast<std::int32_t>(m_nCol) * m_wCellWidth
@@ -102,37 +163,48 @@ bool cIconGridDialog::cellInBounds(std::uint16_t cellX, std::uint16_t cellY) con
 }
 
 bool cIconGridDialog::isIconDepend(cIcon* /*icon*/) const noexcept {
-    // See file-level comment (1). Modern cIcon is opaque; we
-    // treat all stored icons as "depend" (matching the legacy
-    // default of IsDepend() = true for any icon added via
-    // AddIcon — the only way to set IsDepend(FALSE) is to manually
-    // flip it on the icon after Add, which the modern port
-    // doesn't do).
+    // AddIcon stores dependent cIcon windows by default, matching legacy
+    // IsDepend() behavior. The modern cIcon exposes the same state directly.
     return true;
 }
 
 void cIconGridDialog::SetAbsXY(std::int32_t x, std::int32_t y) noexcept {
-    // 1:1 with legacy. Compute the delta and apply it to our own
-    // abs (cDialog::SetAbsXY) so the cell rect stays correct.
-    // The legacy also iterates the icons and calls SetAbsXY on
-    // each one — modern cIcon is opaque, so we record the
-    // delta here; the icon cascade lands in 6.6.
+    // 1:1 with legacy. Move dependent icon windows by the same delta before
+    // updating the dialog anchor, so drag/drop and hit-testing observe the
+    // new location immediately rather than only after Render().
+    const std::int32_t dx = x - absX();
+    const std::int32_t dy = y - absY();
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (!cell.icon || !isIconDepend(cell.icon)) continue;
+        cell.icon->SetAbsXY(cell.icon->absX() + dx, cell.icon->absY() + dy);
+    }
     cDialog::SetAbsXY(x, y);
 }
 
 void cIconGridDialog::SetActive(bool val) noexcept {
-    // 1:1 with legacy. cDialog::SetActiveRecursive already cascades
-    // through children. The legacy additionally iterates dependent
-    // icons — modern cIcon is opaque, so we just record the
-    // selection reset and skip the icon cascade.
+    // cDialog handles normal children; grid icons live in cells, so cascade
+    // the active state explicitly.
     if (!isEnabled()) return;
     cDialog::SetActive(val);
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (cell.icon && isIconDepend(cell.icon)) cell.icon->SetActive(val);
+    }
     m_lCurSelCellPos = -1;
+    m_pressedCellPos = -1;
+    m_pressedButton = 0;
 }
 
 void cIconGridDialog::SetDisable(bool val) noexcept {
     cDialog::SetDisable(val);
-    // Icon cascade: 6.6 follow-up (modern cIcon is opaque).
+    const auto count = static_cast<std::uint16_t>(m_nRow * m_nCol);
+    for (std::uint16_t i = 0; i < count; ++i) {
+        auto& cell = m_pIconGridCell[i];
+        if (cell.icon && isIconDepend(cell.icon)) cell.icon->SetDisable(val);
+    }
 }
 
 void cIconGridDialog::SetAlpha(std::uint8_t al) noexcept {
@@ -176,8 +248,12 @@ bool cIconGridDialog::GetCellPosition(std::int32_t mouseX, std::int32_t mouseY,
                 + static_cast<int>(m_wCellBorderX) * (i + 1) + static_cast<int>(i) * m_wCellWidth;
             const int cellpY = absY() + m_cellRect.top
                 + static_cast<int>(m_wCellBorderY) * (j + 1) + static_cast<int>(j) * m_wCellHeight;
-            if (cellpX < mouseX && mouseX < cellpX + DEFAULT_CELLSIZE
-                && cellpY < mouseY && mouseY < cellpY + DEFAULT_CELLSIZE) {
+            // Keep the grid hitbox contract consistent with cIconDialog and
+            // the renderer: left/top are inclusive, right/bottom exclusive.
+            // The previous strict comparison left a one-pixel dead zone on
+            // every shared border between adjacent cells.
+            if (mouseX >= cellpX && mouseX < cellpX + DEFAULT_CELLSIZE
+                && mouseY >= cellpY && mouseY < cellpY + DEFAULT_CELLSIZE) {
                 cellX = i;
                 cellY = j;
                 return true;
@@ -303,16 +379,39 @@ bool cIconGridDialog::MoveIcon(std::uint16_t cellX, std::uint16_t cellY, cIcon* 
     return false;
 }
 
-std::uint32_t cIconGridDialog::ActionEvent(std::int32_t /*mouseX*/,
-                                           std::int32_t /*mouseY*/,
-                                           std::uint32_t /*mouseFlags*/) {
-    // 1:1 with legacy cIconGridDialog::ActionEvent. The legacy
-    // dispatches click / drag / dblclick through cbWindowFunc, which
-    // has no modern equivalent (the dispatcher integration lands in
-    // 6.6). For now we expose a no-op stub; the full ActionEvent
-    // behavior (drag, IsDragOverDraw, the cbWindowFunc dispatch)
-    // lands with the 6.6 cWindowManager integration.
-    return 0;
+std::uint32_t cIconGridDialog::ActionEvent(std::int32_t mouseX,
+                                           std::int32_t mouseY,
+                                           std::uint32_t mouseFlags) {
+    std::uint16_t cell = 0;
+    if (!GetPositionForXYRef(mouseX, mouseY, cell)) {
+        if (mouseFlags == 0) {
+            m_pressedCellPos = -1;
+            m_pressedButton = 0;
+        }
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool left = (mouseFlags & MouseFlagLButton) != 0;
+    const bool right = (mouseFlags & MouseFlagRButton) != 0;
+    if (left || right) {
+        m_lCurSelCellPos = static_cast<std::int32_t>(cell);
+        m_pressedCellPos = static_cast<std::int32_t>(cell);
+        m_pressedButton = left ? MouseFlagLButton : MouseFlagRButton;
+        return static_cast<std::uint32_t>(left
+            ? WindowEvent::LButtonDown : WindowEvent::RButtonDown);
+    }
+    if (m_pressedCellPos < 0) {
+        return static_cast<std::uint32_t>(WindowEvent::Null);
+    }
+    const bool same = m_pressedCellPos == static_cast<std::int32_t>(cell);
+    const auto button = m_pressedButton;
+    m_pressedCellPos = -1;
+    m_pressedButton = 0;
+    if (!same) {
+        return static_cast<std::uint32_t>(button == MouseFlagRButton
+            ? WindowEvent::RButtonUp : WindowEvent::LButtonUp);
+    }
+    return static_cast<std::uint32_t>(button == MouseFlagRButton
+        ? WindowEvent::RButtonClick : WindowEvent::LButtonClick);
 }
 
 void cIconGridDialog::SetCellRect(std::int32_t l, std::int32_t t,

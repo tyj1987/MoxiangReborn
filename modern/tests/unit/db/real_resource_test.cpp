@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include <filesystem>
+#include "../../support/playdh_env.hpp"
 
 using namespace mxh;
 using namespace mxh::db;
@@ -17,9 +18,32 @@ using namespace mxh::compat;
 
 namespace {
 
-// Hardcoded project paths (workspace is fixed at D:\Moxian).
-const std::filesystem::path kPlaydhBin = LR"(D:\Moxian\墨香【源码配套资源】\PlayDH\Resource\MonsterList.bin)";
-const std::filesystem::path kPlaydhPak = LR"(D:\Moxian\墨香【源码配套资源】\PlayDH\Effect.pak)";
+std::filesystem::path playdh_resource(const char* name) {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Resource" / name;
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth,
+         root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Resource" / name;
+        if (std::filesystem::is_regular_file(candidate)) return candidate;
+    }
+    return {};
+}
+
+const std::filesystem::path kPlaydhBin = playdh_resource("MonsterList.bin");
+const std::filesystem::path kPlaydhPak = [] {
+    if (const auto playdh_override = mxh::test::playdh_dir_override())
+        return *playdh_override / "Effect.pak";
+    auto root = std::filesystem::current_path();
+    for (int depth = 0; depth < 8 && !root.empty(); ++depth,
+         root = root.parent_path()) {
+        const auto candidate = root / "modern" / "data" / "PlayDH" /
+                               "Effect.pak";
+        if (std::filesystem::is_regular_file(candidate)) return candidate;
+    }
+    return std::filesystem::path{};
+}();
 
 }  // namespace
 

@@ -10,17 +10,129 @@
     item_effects_test.cpp
     sound_list_test.cpp
     audio/bgm_player_test.cpp
+    audio/sfx_player_test.cpp
     hfl_height_field_test.cpp
     stm_static_model_test.cpp
+    map_change_catalog_test.cpp
+    gx_map_script_test.cpp
 )
 
 target_link_libraries(mxh_compat_tests PRIVATE mxh_compat mxh_audio mxh_game gtest_main)
 
 include(GoogleTest)
+
+# MXH_PLAYDH_ROOT contract. Header-only; no game data and no Win32.
+add_executable(mxh_playdh_env_tests
+    playdh_env_test.cpp
+)
+target_link_libraries(mxh_playdh_env_tests PRIVATE gtest_main)
+target_compile_features(mxh_playdh_env_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_playdh_env_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# MoxianClientE2E port base. Header-only; no servers and no Win32.
+add_executable(mxh_e2e_ports_tests
+    e2e_ports_test.cpp
+)
+target_link_libraries(mxh_e2e_ports_tests PRIVATE gtest_main)
+target_compile_features(mxh_e2e_ports_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_e2e_ports_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
-gtest_add_tests(TARGET mxh_compat_tests)
+gtest_add_tests(TARGET mxh_compat_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# STM .vcl vertex-color contract (DX-free). RealMap10VclMatchesStm reads
+# original data read-only from $MXH_ORIGINAL_MAP_DIR and skips otherwise.
+add_executable(mxh_stm_vertex_color_tests stm_vertex_color_test.cpp)
+target_link_libraries(mxh_stm_vertex_color_tests PRIVATE mxh_compat gtest_main)
+gtest_add_tests(TARGET mxh_stm_vertex_color_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
+# 96-byte original pak header. Compiles pack_file.cpp directly so the
+# target does not pull the rest of mxh_compat (DX11 / Win32).
+add_executable(mxh_pack_file_header_tests
+    pack_file_header_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+)
+target_include_directories(mxh_pack_file_header_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_pack_file_header_tests PRIVATE gtest_main)
+target_compile_features(mxh_pack_file_header_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_pack_file_header_tests PRIVATE
+        _CRT_SECURE_NO_WARNINGS)
+endif()
+gtest_add_tests(TARGET mxh_pack_file_header_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pack_file_header_test_list)
+set_tests_properties(${mxh_pack_file_header_test_list} PROPERTIES
+    TIMEOUT 60)
+
+# modern/tools/pak_writer.py output read back by PackFile. The fixture pak
+# is generated from LCG bytes at build time; no original data is used.
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+set(MXH_PAK_WRITER_FIXTURE ${CMAKE_CURRENT_BINARY_DIR}/pak_writer_fixture.pak)
+add_custom_command(
+    OUTPUT ${MXH_PAK_WRITER_FIXTURE}
+    COMMAND Python3::Interpreter -B
+            ${CMAKE_SOURCE_DIR}/tests/unit/tools/make_pak_writer_fixture.py
+            ${MXH_PAK_WRITER_FIXTURE}
+    DEPENDS ${CMAKE_SOURCE_DIR}/tests/unit/tools/make_pak_writer_fixture.py
+            ${CMAKE_SOURCE_DIR}/tools/pak_writer.py
+            ${CMAKE_SOURCE_DIR}/tools/unpack_pak.py
+    VERBATIM)
+add_custom_target(mxh_pak_writer_fixture DEPENDS ${MXH_PAK_WRITER_FIXTURE})
+add_executable(mxh_pak_writer_packfile_tests
+    pak_writer_packfile_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+)
+add_dependencies(mxh_pak_writer_packfile_tests mxh_pak_writer_fixture)
+target_include_directories(mxh_pak_writer_packfile_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_pak_writer_packfile_tests PRIVATE
+    MXH_PAK_WRITER_FIXTURE="${MXH_PAK_WRITER_FIXTURE}")
+target_link_libraries(mxh_pak_writer_packfile_tests PRIVATE gtest_main)
+target_compile_features(mxh_pak_writer_packfile_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_pak_writer_packfile_tests PRIVATE
+        _CRT_SECURE_NO_WARNINGS)
+endif()
+gtest_add_tests(TARGET mxh_pak_writer_packfile_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pak_writer_packfile_test_list)
+set_tests_properties(${mxh_pak_writer_packfile_test_list} PROPERTIES
+    TIMEOUT 60)
+
+# Index-only pak open. Compiles pack_file.cpp and filesystem_file_storage.cpp
+# directly so the target does not link DirectX. Linux uses a tiny COM/Win32
+# stub; that stub is not on the include path of any other target.
+add_executable(mxh_pak_lazy_read_tests
+    pak_lazy_read_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/pack_file.cpp
+    ${CMAKE_SOURCE_DIR}/src/render/filesystem_file_storage.cpp
+    ${CMAKE_SOURCE_DIR}/src/log/mlog.cpp
+)
+target_include_directories(mxh_pak_lazy_read_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+if(NOT WIN32)
+    target_include_directories(mxh_pak_lazy_read_tests BEFORE PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/support/win32_stub)
+endif()
+target_link_libraries(mxh_pak_lazy_read_tests PRIVATE gtest_main)
+target_compile_features(mxh_pak_lazy_read_tests PRIVATE cxx_std_20)
+if(WIN32)
+    target_compile_definitions(mxh_pak_lazy_read_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(mxh_pak_lazy_read_tests PRIVATE psapi)
+endif()
+gtest_add_tests(TARGET mxh_pak_lazy_read_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    TEST_LIST mxh_pak_lazy_read_test_list)
+set_tests_properties(${mxh_pak_lazy_read_test_list} PROPERTIES
+    TIMEOUT 180)
 
 
 # -----------------------------------------------------------------------------
@@ -166,6 +278,8 @@ target_link_libraries(mxh_tools_side_by_side_tests PRIVATE gtest_main)
 target_include_directories(mxh_tools_side_by_side_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/MoxianSideBySide
 )
+target_compile_definitions(mxh_tools_side_by_side_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_tools_side_by_side_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
@@ -234,6 +348,25 @@ set_tests_properties(mxh_dialog_loader_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # -----------------------------------------------------------------------------
+# M-R7 (G3): resolution_mode 头less 单测 — 独立 target, 跟 cDialogLoader
+# 拆开因为 1:1 verify 不需要 LoadAll 全部 dialog (15.bin 一个 file 就够).
+# 验证 7 个 sub-test (apply_legacy_layout 3/4 参数 + LoadOne 接受 mode
+# + wm 模式切换 + detect/mode_size/mode_name 1:1). 42/42 PASS.
+# -----------------------------------------------------------------------------
+add_executable(mxh_resolution_mode_tests
+    ui/resolution_mode_test.cpp
+)
+target_link_libraries(mxh_resolution_mode_tests PRIVATE
+    mxh_ui mxh_compat mxh_log)
+if(MSVC)
+    target_compile_options(mxh_resolution_mode_tests PRIVATE /FS /Z7 /MP1)
+endif()
+add_test(NAME mxh_resolution_mode_tests
+    COMMAND $<TARGET_FILE:mxh_resolution_mode_tests>)
+set_tests_properties(mxh_resolution_mode_tests PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+# -----------------------------------------------------------------------------
 # M-R6.2: cWindowManager focus chain 1:1 验证 (独立 target, 同样避免
 # 跟 mxh_ui_tests 双 main 冲突)
 # -----------------------------------------------------------------------------
@@ -250,3 +383,9 @@ add_test(NAME mxh_window_manager_focus_tests
 set_tests_properties(mxh_window_manager_focus_tests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+# -----------------------------------------------------------------------------
+# 2026-09-07 visual polish — pak_extract (unpack_pak.py) Python unit tests.
+# Self-contained: synthesizes a minimal .pak in a temp directory and exercises
+# the parser end-to-end, so it does not depend on any real PlayDH resource.
+# -----------------------------------------------------------------------------
+add_subdirectory(tools)

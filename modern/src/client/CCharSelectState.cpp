@@ -1,17 +1,85 @@
 // mxh/client/CCharSelectState.cpp
-// Phase B.2.2 — character-select state implementation.
+// Character-select state implementation.
 
 #include "CCharSelectState.hpp"
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 
+#include <algorithm>
 #include <cstring>
+#include <filesystem>
 #include <utility>
 
 #include "mxh/log/mlog.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/ui/cPushupButton.hpp"
+#include "mxh/ui/cWindowManager.hpp"
 
 namespace mxh::client {
+
+std::optional<mxh::gx::ScenePlayer> make_character_preview(
+    const CharacterSlot& slot, float world_x, float world_y, float world_z) {
+    if (!slot.valid || slot.chrid == 0) return std::nullopt;
+    // The legacy character catalogs expose five face/hair variants and two
+    // body profiles.  Reject malformed network data before it reaches the
+    // renderer; an out-of-range index would otherwise select an unrelated
+    // model or trigger a placeholder fallback in EntityScene.
+    if (slot.gender > 1 || slot.face_type > 4 || slot.hair_type > 4) {
+        MLOG_WARN("CCharSelectState: refusing preview with invalid appearance chrid=%u gender=%u face=%u hair=%u",
+                  slot.chrid, static_cast<unsigned>(slot.gender),
+                  static_cast<unsigned>(slot.face_type),
+                  static_cast<unsigned>(slot.hair_type));
+        return std::nullopt;
+    }
+    mxh::gx::ScenePlayer preview;
+    preview.object_id = slot.chrid;
+    preview.gender = slot.gender;
+    preview.face_type = slot.face_type;
+    preview.hair_type = slot.hair_type;
+    preview.weared_item_idx = slot.weared_item_idx;
+    preview.world_x = world_x;
+    preview.world_y = world_y;
+    preview.world_z = world_z;
+    preview.current_life = 1;
+    preview.max_life = 1;
+    preview.action = mxh::gx::SceneAction::Idle;
+    return preview;
+}
+
+bool is_listed_character(std::span<const CharacterSlot> slots,
+                         std::uint32_t chrid) noexcept {
+    return chrid != 0 && std::any_of(
+        slots.begin(), slots.end(),
+        [chrid](const CharacterSlot& slot) {
+            return slot.valid && slot.chrid == chrid;
+        });
+}
+
+CharSelectUiCommand resolve_char_select_ui_command(
+    const ClientUiActivation& activation) noexcept {
+    static constexpr std::string_view kSlotIds[] = {
+        "MT_FIRSTCHOSEBTN", "MT_SECONDCHOSEBTN", "MT_THIRDCHOSEBTN",
+        "MT_FOURTHCHOSEBTN", "MT_FIFTHCHOSEBTN"};
+    for (std::size_t i = 0; i < std::size(kSlotIds); ++i) {
+        if (activation.legacy_id == kSlotIds[i]) {
+            return {CharSelectUiCommandKind::SelectSlot, i};
+        }
+    }
+    if (activation.legacy_id == "MT_ENTERBTN" ||
+        activation.legacy_func == "CS_BtnFuncEnter") {
+        return {CharSelectUiCommandKind::Enter, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncCreateChar") {
+        return {CharSelectUiCommandKind::Create, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncDeleteChar") {
+        return {CharSelectUiCommandKind::Delete, 0};
+    }
+    if (activation.legacy_func == "CS_BtnFuncLogOut") {
+        return {CharSelectUiCommandKind::Logout, 0};
+    }
+    return {};
+}
 
 // -------------------------------------------------------------------------
 // Wire-format helpers (pure functions, unit-tested independently).
@@ -42,6 +110,25 @@ legacy_character_select_syn_payload(std::uint16_t channel) {
     };
 }
 
+std::vector<std::uint8_t>
+legacy_character_remove_syn_payload(std::uint32_t character_id) {
+    return {
+        static_cast<std::uint8_t>(character_id & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 8) & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 16) & 0xFF),
+        static_cast<std::uint8_t>((character_id >> 24) & 0xFF)
+    };
+}
+
+mxh::net::Message legacy_character_disconnect_syn_message() {
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::DisconnectSyn);
+    return out;
+}
+
 std::optional<std::vector<CharacterSlot>>
 parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     // Layout (CHINA locale, no _CRYPTCHECK_):
@@ -52,20 +139,28 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
     // = 889 bytes total.
     if (payload.size() < 4) return std::nullopt;
 
-    // Each BaseObjectInfo slot starts with [chrid: u32][user_id: u32][name...].
-    // We only need chrid per slot.  Reading just the first 4 bytes of each
-    // 35-byte slot is enough; if the slot block would read past the end
-    // we return what we have so far (defensive — the modern server
-    // always writes the full 889B).
+    // Each BaseObjectInfo slot starts with
+    // [chrid: u32][user_id: u32][name: char[17]]...
     constexpr std::size_t kMaxSlots   = 5;
     constexpr std::size_t kBaseOff    = 14;             // after CharNum + Standing
     constexpr std::size_t kSlotSize   = 35;
     constexpr std::size_t kChridOff   = 0;              // within a slot
+    constexpr std::size_t kNameOff    = 8;
+    constexpr std::size_t kNameSize   = 17;
+    constexpr std::size_t kTotalOff   = 189;
+    constexpr std::size_t kTotalSize  = 140;
+
+    std::int32_t advertised_count = 0;
+    std::memcpy(&advertised_count, payload.data(), sizeof(advertised_count));
+    const std::size_t char_count = advertised_count > 0
+        ? std::min<std::size_t>(kMaxSlots,
+                                static_cast<std::size_t>(advertised_count))
+        : 0;
 
     std::vector<CharacterSlot> out(kMaxSlots);
     const std::size_t avail_for_slots = (payload.size() >= kBaseOff
                                          ? payload.size() - kBaseOff : 0);
-    const std::size_t slots_readable  = std::min(kMaxSlots,
+    const std::size_t slots_readable  = std::min(char_count,
                                                 avail_for_slots / kSlotSize);
     for (std::size_t i = 0; i < slots_readable; ++i) {
         const auto base = kBaseOff + i * kSlotSize + kChridOff;
@@ -73,6 +168,29 @@ parse_legacy_character_list_ack(std::span<const std::uint8_t> payload) {
         std::memcpy(&chrid, payload.data() + base, 4);
         out[i].chrid = chrid;
         out[i].valid = (chrid != 0);
+        if (out[i].valid) {
+            const auto* name_begin = payload.data() + base + kNameOff;
+            const auto* name_end = std::find(
+                name_begin, name_begin + kNameSize, std::uint8_t{0});
+            out[i].name.assign(
+                reinterpret_cast<const char*>(name_begin),
+                reinterpret_cast<const char*>(name_end));
+            const auto total = kTotalOff + i * kTotalSize;
+            if (payload.size() >= total + kTotalSize) {
+                out[i].gender = payload[total + 16];
+                out[i].face_type = payload[total + 17];
+                out[i].hair_type = payload[total + 18];
+                for (std::size_t item = 0; item < out[i].weared_item_idx.size(); ++item) {
+                    const auto offset = total + 19 + item * 2;
+                    out[i].weared_item_idx[item] = static_cast<std::uint16_t>(
+                        payload[offset] | (static_cast<std::uint16_t>(payload[offset + 1]) << 8));
+                }
+                out[i].level = static_cast<std::uint16_t>(
+                    payload[total + 40] | (static_cast<std::uint16_t>(payload[total + 41]) << 8));
+                out[i].map_num = static_cast<std::uint16_t>(
+                    payload[total + 42] | (static_cast<std::uint16_t>(payload[total + 43]) << 8));
+            }
+        }
     }
     return out;
 }
@@ -101,6 +219,21 @@ void CCharSelectState::Init(void* /*pInitParam*/) {
 void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     m_pEngine = engine;
     m_useHsel = use_hsel;
+
+    if (engine && engine->playdh_root().has_value() && m_uiRuntime.empty()) {
+        std::string ui_error;
+        if (!m_uiRuntime.load(*engine->playdh_root(), "CharSelectDlg.bin",
+                              engine->ui_resolution_mode(),
+                              &ui_error)) {
+            MLOG_WARN("CCharSelectState: CharSelectDlg.bin load failed: %s",
+                      ui_error.c_str());
+        } else {
+            m_uiRuntime.activateAllLoadedDialogs();
+            if (!m_uiRuntime.setDialogActive("CS_CHARSELECTDLG", true)) {
+                MLOG_WARN("CCharSelectState: CS_CHARSELECTDLG id not found after load");
+            }
+        }
+    }
     if (m_useHsel) {
         m_hsel = std::make_unique<mxh::crypto::HselStreamCipher>();
     }
@@ -109,8 +242,8 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     // SetLoginResult() explicitly, it overrides what was stashed.
     if (m_pEngine && m_pEngine->has_pending_transfer()) {
         auto v = m_pEngine->TakePendingTransfer();
-        if (v.type() == typeid(LoginResult)) {
-            m_login = std::any_cast<LoginResult>(v);
+        if (auto* login = std::get_if<LoginResult>(&v)) {
+            m_login = std::move(*login);
             MLOG_DEBUG("CCharSelectState: pulled LoginResult from engine transfer slot "
                        "(agent=%s:%u, user_idx=%u)",
                        m_login.agent_addr.c_str(),
@@ -120,6 +253,10 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
     }
     if (m_started) return;
     m_started = true;
+    if (!m_pEngine) {
+        fail_with("Start() requires an engine-owned AgentSession");
+        return;
+    }
     if (m_login.agent_addr.empty() || m_login.agent_port == 0) {
         fail_with("Start() called before SetLoginResult() with valid agent address");
         return;
@@ -128,17 +265,16 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
               m_login.agent_addr.c_str(),
               static_cast<unsigned>(m_login.agent_port),
               static_cast<unsigned>(m_login.user_idx));
-    m_client = std::make_unique<mxh::net::TcpClient>(*this);
-    mxh::net::ClientConfig cfg;
-    cfg.remote_address     = m_login.agent_addr;
-    cfg.port               = m_login.agent_port;
-    cfg.use_legacy_framing = true;
-    cfg.use_encryption     = m_useHsel;  // Phase R-1: HSEL agent session
-    cfg.connect_timeout    = std::chrono::milliseconds(3000);
-    auto e = m_client->connect(cfg);
+    auto& session = m_pEngine->agent_session();
+    auto e = mxh::net::NetError::Ok;
+    if (!session.is_connected()) {
+        e = session.connect(m_login.agent_addr, m_login.agent_port, m_useHsel);
+    }
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect to AgentServer failed: ") +
                   mxh::net::to_string(e));
+    } else if (session.is_ready()) {
+        send_list_syn();
     }
 }
 
@@ -150,26 +286,69 @@ mxh::net::IEncryptor* CCharSelectState::encryptor_for(
 void CCharSelectState::Release() {
     MLOG_DEBUG("CCharSelectState::Release");
     m_releasing = true;
-    if (m_client) {
-        if (m_client->is_connected()) m_client->disconnect();
-        m_client.reset();
-    }
     m_characters.clear();
+    m_uiRuntime.clear();
     m_selectedChrid = 0;
     m_selectedMap   = 0;
     m_started       = false;
     m_listReceived  = false;
     m_selectSent    = false;
+    m_removeSent    = false;
+    m_logoutSent    = false;
+    m_listSynSent   = false;
+    m_removeChrid   = 0;
     m_releasing     = false;
     m_failed        = false;
     m_failureReason.clear();
+    // Phase 1 §7.3: clear the application-level timeouts so a re-entry
+    // does not carry a stale deadline from a previous Start().
+    m_listAckDeadline  = {};
+    m_selectAckDeadline = {};
     setInitialized(false);
 }
 
-void CCharSelectState::Process() { tick(); }
+void CCharSelectState::Process() {
+    tick();
+    // Phase 1 §7.2 / §7.3: application-level timeouts for the
+    // CharacterListAck and CharacterSelectAck round-trips.  Mirrors
+    // CLoginState (commit fa74305e).  Polled BEFORE the `if (!m_pEngine)`
+    // guard so a hung-state test (no engine) can still drive the
+    // timeout path through `ArmListAckDeadlineForTest`.
+    if (!m_failed) {
+        const auto now = std::chrono::steady_clock::now();
+        if (m_listAckDeadline != std::chrono::steady_clock::time_point{} &&
+            now >= m_listAckDeadline && !m_listReceived) {
+            fail_with("CharacterListAck timeout (no response from AgentServer)");
+        } else if (m_selectAckDeadline != std::chrono::steady_clock::time_point{} &&
+                   now >= m_selectAckDeadline) {
+            // The select-ack deadline is set ONLY by `send_select_syn`
+            // (production) or `ArmSelectAckDeadlineForTest` (test), both
+            // of which happen *after* the Syn is sent — so the deadline
+            // itself implies "we are waiting for the SelectAck".
+            fail_with("CharacterSelectAck timeout (no response from AgentServer)");
+        }
+    }
+    if (!m_pEngine) return;
+    for (auto& event : m_pEngine->agent_session().events().drain()) {
+        switch (event.kind) {
+            case ClientRuntimeEventKind::Connected:
+                on_connect(event.connection, event.detail);
+                break;
+            case ClientRuntimeEventKind::Message:
+                on_message(event.connection, event.message);
+                break;
+            case ClientRuntimeEventKind::Disconnected:
+                on_disconnect(event.connection, event.network_error);
+                break;
+            case ClientRuntimeEventKind::Error:
+                fail_with(event.detail);
+                break;
+        }
+    }
+}
 
 bool CCharSelectState::is_connected() const noexcept {
-    return m_client && m_client->is_connected();
+    return m_pEngine && m_pEngine->agent_session().is_connected();
 }
 
 bool CCharSelectState::on_connect(mxh::net::ConnectionId id,
@@ -201,8 +380,7 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
     }
     switch (proto) {
         case UserConnProtocol::AgentConnectSuccess: {
-            MLOG_INFO("CCharSelectState: got AgentConnectSuccess (auth_key=%u)",
-                      static_cast<unsigned>(msg.header.object_id));
+            MLOG_INFO("CCharSelectState: got AgentConnectSuccess");
             send_list_syn();
             break;
         }
@@ -214,6 +392,9 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             }
             m_characters  = std::move(*list);
             m_listReceived = true;
+            // Phase 1 §7.3: disarm the CharacterListAck timeout — the
+            // ListAck arrived before the deadline.
+            m_listAckDeadline = {};
             MLOG_INFO("CCharSelectState: CharacterListAck char_count derived from list, "
                       "first valid chrid=%u",
                       static_cast<unsigned>(m_characters.empty()
@@ -221,9 +402,14 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
                                             : (m_characters[0].valid
                                                ? m_characters[0].chrid : 0u)));
             auto_select_first();
+            refresh_character_slot_ui();
             break;
         }
         case UserConnProtocol::CharacterListNack: {
+            // Phase 1 §7.3: disarm the CharacterListAck timeout — the
+            // server responded (with a Nack).  The follow-up fail_with()
+            // also flips m_failed so the Process() poll becomes a no-op.
+            m_listAckDeadline = {};
             fail_with("CharacterListNack received");
             break;
         }
@@ -237,7 +423,48 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             break;
         }
         case UserConnProtocol::CharacterSelectNack: {
+            // Phase 1 §7.3: disarm the CharacterSelectAck timeout.
+            m_selectAckDeadline = {};
             fail_with("CharacterSelectNack received (no matching character in DB)");
+            break;
+        }
+        case UserConnProtocol::CharacterRemoveAck: {
+            apply_character_remove_ack();
+            break;
+        }
+        case UserConnProtocol::CharacterRemoveNack: {
+            std::uint32_t reason = 0;
+            if (msg.payload.size() >= sizeof(reason)) {
+                std::memcpy(&reason, msg.payload.data(), sizeof(reason));
+            }
+            m_removeSent = false;
+            m_removeChrid = 0;
+            const auto message = reason == 3
+                ? "Character cannot be deleted right now."
+                : "Character deletion failed.";
+            const auto message_id = reason == 3 ? 995 : 25;
+            if (!m_uiRuntime.showMessage(message_id, message)) {
+                MLOG_WARN("CCharSelectState: CharacterRemoveNack reason=%u",
+                          static_cast<unsigned>(reason));
+            }
+            break;
+        }
+        case UserConnProtocol::DisconnectAck: {
+            m_logoutSent = false;
+            if (m_pEngine) {
+                m_pEngine->agent_session().disconnect();
+                m_pEngine->RequestStateChange(
+                    static_cast<int>(GameStateId::Title));
+            } else {
+                MLOG_WARN("CCharSelectState: DisconnectAck without engine");
+            }
+            break;
+        }
+        case UserConnProtocol::DisconnectNack: {
+            m_logoutSent = false;
+            if (!m_uiRuntime.showMessage(25, "Logout failed.")) {
+                MLOG_WARN("CCharSelectState: DisconnectNack received");
+            }
             break;
         }
         default:
@@ -267,13 +494,14 @@ void CCharSelectState::on_disconnect(mxh::net::ConnectionId id,
     MLOG_INFO("CCharSelectState::on_disconnect id=%llu reason=%s",
               static_cast<unsigned long long>(id.value),
               mxh::net::to_string(reason));
-    if (!m_releasing && !m_selectSent && !m_failed) {
+    if (!m_releasing && !m_failed) {
         fail_with(std::string("disconnected before CharacterSelectAck: ") +
                   mxh::net::to_string(reason));
     }
 }
 
 void CCharSelectState::send_list_syn() {
+    if (m_listSynSent) return;
     const auto pl = legacy_character_list_syn_payload(
         m_login.user_idx, m_login.dist_auth_key);
     mxh::net::Message out;
@@ -283,18 +511,51 @@ void CCharSelectState::send_list_syn() {
         mxh::proto::UserConnProtocol::CharacterListSyn);
     out.header.object_id = m_login.user_idx;
     out.payload          = pl;
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("send CharacterListSyn failed: ") +
                   mxh::net::to_string(e));
         return;
     }
+    m_listSynSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterListSyn (8B legacy payload)");
+    // Phase 1 §7.3: arm the CharacterListAck timeout.  Disarmed in
+    // the dispatch path when ListAck / ListNack arrives.
+    m_listAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+}
+
+bool CCharSelectState::send_remove_syn(std::uint32_t character_id) {
+    if (!is_connected() || m_removeSent || character_id == 0) return false;
+
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(
+        mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::CharacterRemoveSyn);
+    out.header.object_id = 0;
+    out.payload = legacy_character_remove_syn_payload(character_id);
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_ERROR("CCharSelectState: send CharacterRemoveSyn failed: %s",
+                   mxh::net::to_string(e));
+        return false;
+    }
+    m_removeChrid = character_id;
+    m_removeSent = true;
+    MLOG_INFO("CCharSelectState: sent CharacterRemoveSyn chrid=%u",
+              static_cast<unsigned>(character_id));
+    return true;
 }
 
 void CCharSelectState::auto_select_first() {
-    for (const auto& slot : m_characters) {
+    if (!m_autoSelectForTest) {
+        m_selectedChrid = 0;
+        return;
+    }
+    for (std::size_t index = 0; index < m_characters.size(); ++index) {
+        const auto& slot = m_characters[index];
         if (slot.valid) {
+            m_selectedChrid = slot.chrid;
             SelectCharacter(slot.chrid);
             return;
         }
@@ -308,8 +569,12 @@ void CCharSelectState::auto_select_first() {
 }
 
 void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
-    if (!m_client || !m_client->is_connected()) {
+    if (!is_connected()) {
         fail_with("SelectCharacter: not connected to AgentServer");
+        return;
+    }
+    if (!is_listed_character(m_characters, chrid)) {
+        fail_with("SelectCharacter: character is not present in the current list");
         return;
     }
     if (m_selectSent) {
@@ -325,7 +590,7 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
         mxh::proto::UserConnProtocol::CharacterSelectSyn);
     out.header.object_id = chrid;
     out.payload          = pl;
-    const auto e = m_client->send(out);
+    const auto e = m_pEngine->agent_session().send(out);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("send CharacterSelectSyn failed: ") +
                   mxh::net::to_string(e));
@@ -334,10 +599,183 @@ void CCharSelectState::SelectCharacter(std::uint32_t chrid) {
     m_selectSent = true;
     MLOG_INFO("CCharSelectState: sent CharacterSelectSyn chrid=%u",
               static_cast<unsigned>(chrid));
+    // Phase 1 §7.3: arm the CharacterSelectAck timeout.  Disarmed
+    // in the dispatch path when SelectAck / SelectNack arrives.
+    m_selectAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
+}
+
+bool CCharSelectState::SelectSlot(std::size_t slot_index) noexcept {
+    if (slot_index >= m_characters.size() || !m_characters[slot_index].valid
+        || m_selectSent || m_removeSent) return false;
+    m_selectedChrid = m_characters[slot_index].chrid;
+    refresh_character_slot_ui();
+    return true;
+}
+
+bool CCharSelectState::ConfirmSelection() {
+    if (m_selectedChrid == 0 || m_selectSent) return false;
+    SelectCharacter(m_selectedChrid);
+    return m_selectSent;
+}
+
+bool CCharSelectState::RequestCharacterCreation() {
+    if (!m_pEngine || !m_listReceived) return false;
+    const auto valid_count = static_cast<std::size_t>(std::count_if(
+        m_characters.begin(), m_characters.end(),
+        [](const CharacterSlot& slot) { return slot.valid; }));
+    if (valid_count >= m_characters.size()) return false;
+    m_pEngine->SetPendingTransfer(m_login);
+    m_pEngine->RequestStateChange(static_cast<int>(GameStateId::CharMake));
+    return true;
+}
+
+bool CCharSelectState::RequestCharacterDeletion() {
+    if (m_selectedChrid == 0 || m_selectSent || m_removeSent) return false;
+    const auto character_id = m_selectedChrid;
+    auto selected = std::find_if(
+        m_characters.begin(), m_characters.end(),
+        [character_id](const CharacterSlot& slot) {
+            return slot.valid && slot.chrid == character_id;
+        });
+    if (selected == m_characters.end()) return false;
+
+    std::string prompt = "Delete this character?";
+    if (!selected->name.empty()) prompt = "Delete " + selected->name + "?";
+    return m_uiRuntime.showConfirmation(
+        282, std::move(prompt),
+        [this, character_id](bool confirmed) {
+            if (confirmed) (void)send_remove_syn(character_id);
+        });
+}
+
+bool CCharSelectState::RequestLogout() {
+    if (!is_connected() || m_selectSent || m_removeSent || m_logoutSent) {
+        return false;
+    }
+    auto out = legacy_character_disconnect_syn_message();
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        MLOG_ERROR("CCharSelectState: send DisconnectSyn failed: %s",
+                   mxh::net::to_string(e));
+        return false;
+    }
+    m_logoutSent = true;
+    MLOG_INFO("CCharSelectState: sent DisconnectSyn");
+    return true;
+}
+
+bool CCharSelectState::select_adjacent(int direction) noexcept {
+    if (m_characters.empty()) return false;
+    std::size_t current = m_characters.size();
+    for (std::size_t i = 0; i < m_characters.size(); ++i) {
+        if (m_characters[i].valid &&
+            m_characters[i].chrid == m_selectedChrid) {
+            current = i;
+            break;
+        }
+    }
+    for (std::size_t step = 0; step < m_characters.size(); ++step) {
+        const auto base = current == m_characters.size()
+            ? (direction > 0 ? m_characters.size() - 1 : 0)
+            : current;
+        const auto offset = direction > 0
+            ? step + 1
+            : m_characters.size() - ((step + 1) % m_characters.size());
+        const auto index = (base + offset) % m_characters.size();
+        if (m_characters[index].valid) return SelectSlot(index);
+    }
+    return false;
+}
+
+bool CCharSelectState::handle_ui_activation(
+    const ClientUiActivation& activation) {
+    const auto command = resolve_char_select_ui_command(activation);
+    switch (command.kind) {
+        case CharSelectUiCommandKind::SelectSlot:
+            return SelectSlot(command.slot_index);
+        case CharSelectUiCommandKind::Create:
+            return RequestCharacterCreation();
+        case CharSelectUiCommandKind::Enter:
+            return ConfirmSelection();
+        case CharSelectUiCommandKind::Delete:
+            return RequestCharacterDeletion();
+        case CharSelectUiCommandKind::Logout:
+            return RequestLogout();
+        case CharSelectUiCommandKind::None:
+        default:
+            return false;
+    }
+}
+
+void CCharSelectState::apply_character_remove_ack() {
+    const auto character_id = m_removeChrid != 0
+        ? m_removeChrid : m_selectedChrid;
+    const auto slot = std::find_if(
+        m_characters.begin(), m_characters.end(),
+        [character_id](const CharacterSlot& candidate) {
+            return candidate.valid && candidate.chrid == character_id;
+        });
+    if (slot == m_characters.end()) {
+        MLOG_WARN("CCharSelectState: CharacterRemoveAck for unknown chrid=%u",
+                  static_cast<unsigned>(character_id));
+    } else {
+        *slot = CharacterSlot{};
+    }
+    m_selectedChrid = 0;
+    m_removeChrid = 0;
+    m_removeSent = false;
+    refresh_character_slot_ui();
+}
+
+void CCharSelectState::refresh_character_slot_ui() {
+    static constexpr std::string_view kSlotIds[] = {
+        "MT_FIRSTCHOSEBTN", "MT_SECONDCHOSEBTN", "MT_THIRDCHOSEBTN",
+        "MT_FOURTHCHOSEBTN", "MT_FIFTHCHOSEBTN"};
+    for (std::size_t i = 0; i < std::size(kSlotIds); ++i) {
+        auto* button = dynamic_cast<mxh::ui::cPushupButton*>(
+            m_uiRuntime.findWindowByLegacyId(kSlotIds[i]));
+        if (!button) continue;
+        const bool valid = i < m_characters.size() && m_characters[i].valid;
+        button->SetText(valid ? m_characters[i].name : std::string{});
+        button->SetPushEx(valid && m_characters[i].chrid == m_selectedChrid);
+    }
+}
+
+bool CCharSelectState::OnMouseButton(bool left, bool down,
+                                     std::int32_t x, std::int32_t y) {
+    auto result = m_uiRuntime.onMouseButton(left, down, x, y);
+    if (result.activation) handle_ui_activation(*result.activation);
+    return result.consumed;
+}
+
+bool CCharSelectState::OnMouseMove(std::int32_t x, std::int32_t y) {
+    return m_uiRuntime.onMouseMove(x, y);
+}
+
+bool CCharSelectState::OnKeyEvent(bool down, std::uint32_t key) {
+    if (m_uiRuntime.onKey(down, static_cast<std::int32_t>(key))) {
+        if (auto activation = m_uiRuntime.consumeKeyActivation()) {
+            handle_ui_activation(*activation);
+        }
+        return true;
+    }
+    if (!down) return false;
+    switch (key) {
+        case 0x26u: return select_adjacent(-1); // VK_UP
+        case 0x28u: return select_adjacent(1);  // VK_DOWN
+        case 0x0Du: return ConfirmSelection(); // VK_RETURN
+        default: return false;
+    }
+}
+
+bool CCharSelectState::OnChar(std::uint32_t ch) {
+    return m_uiRuntime.onChar(static_cast<std::int32_t>(ch));
 }
 
 void CCharSelectState::dispatch_select_ack(std::uint16_t map_num) {
     m_selectedMap = map_num;
+    // Phase 1 §7.3: disarm the CharacterSelectAck timeout.
+    m_selectAckDeadline = {};
     MLOG_INFO("CCharSelectState: CharacterSelectAck chrid=%u map_num=%u",
               static_cast<unsigned>(m_selectedChrid),
               static_cast<unsigned>(map_num));
@@ -355,6 +793,12 @@ void CCharSelectState::fail_with(const std::string& reason) {
     if (m_failed) return;
     m_failed = true;
     m_failureReason = reason;
+    // State errors must be visible in the real character-select UI.  The
+    // modal is best-effort so headless/unit hosts still retain the structured
+    // failure reason without requiring a loaded message-box asset.
+    if (!m_uiRuntime.showMessage(9000, reason)) {
+        MLOG_WARN("CCharSelectState: unable to present failure dialog");
+    }
     MLOG_ERROR("CCharSelectState: %s", reason.c_str());
 }
 

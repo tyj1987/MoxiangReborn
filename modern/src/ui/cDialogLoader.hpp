@@ -35,6 +35,9 @@
 #include <string>
 #include <vector>
 
+#include "mxh/ui/cResourceManager.hpp"
+#include "mxh/ui/resolution_mode.hpp"  // M-R7 (G3) resolution_mode 接 mode 参数
+
 namespace mxh::ui {
 
 class cWindowManager;
@@ -93,14 +96,20 @@ public:
     // sprite 装填是 M-R4)。但若 M-R1/M-R2 未装,会记 error 提醒。
     //
     // 失败不抛异常 — 每行 ok=false + error 信息。
+    //
+    // M-R7 (G3) 头less overload: mode 参数控制 #POINT vs #POINT_ low-res 切换.
+    // 默认 mode = kDefaultResolutionMode (High1920x1080) 用 #POINT 1:1 兼容.
+    // 客户端启动时按屏幕尺寸调 detect_from_screen_size 选 mode, 调 OnResolutionChange.
     static std::vector<DialogLoadReport> LoadAll(
         const std::filesystem::path& playdh_root,
-        cWindowManager& wm);
+        cWindowManager& wm,
+        ResolutionMode mode = kDefaultResolutionMode);
 
     // 单文件装载(便于单测和 debug)
     static DialogLoadReport LoadOne(
         const std::filesystem::path& bin_path,
-        cWindowManager& wm);
+        cWindowManager& wm,
+        ResolutionMode mode = kDefaultResolutionMode);
 
     // 报告统计
     static DialogLoadStats Aggregate(const std::vector<DialogLoadReport>& reports);
@@ -113,6 +122,17 @@ public:
     // (loader 是 stateless 静态类, 进程级 singleton 行为 — 老 client
     // 整个生命周期都持有这些 cImage, 不在 dialog 销毁时释放).
     static void SetSpriteLoader(LoadSpriteFn fn, void* ctx) noexcept;
+
+    // Load one image through the legacy hard-path table. Used by widgets
+    // such as cMsgBox whose images are addressed by fixed resource indices
+    // instead of an InterfaceScript node.
+    static cImage* LoadLegacyImage(std::int32_t hard_idx);
+
+    // Load an image addressed by one of the legacy image path tables.  Item
+    // rows store Image2DNum values from image_item_path.bin rather than the
+    // hard-path table used by dialog chrome.
+    static cImage* LoadLegacyPathImage(std::int32_t image_idx,
+                                       PathFileType path_type);
 };
 
 }  // namespace mxh::ui

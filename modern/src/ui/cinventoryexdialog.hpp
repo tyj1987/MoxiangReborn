@@ -1,15 +1,19 @@
 ﻿#pragma once
 #include "mxh/ui/cDialog.hpp"
+#include "mxh/ui/cIcon.hpp"
+#include "mxh/game/item_types.hpp"
 #include "mxh/services/IInventoryService.hpp"
 #include <cstdint>
 #include <optional>
+#include <memory>
 #include <vector>
 namespace mxh::ui {
 struct InventoryItem { std::uint16_t item_id{}; std::int32_t durability{}; bool locked{}; };
 enum class InventoryState : std::uint8_t { Default, Upgrade, Deal };
 class cInventoryExDialog final : public cDialog {
 public:
- static constexpr std::size_t kSlotCount = 60;
+ // ITEM_TOTALINFO carries 80 inventory slots, exposed as four 5x4 tabs.
+ static constexpr std::size_t kSlotCount = mxh::game::SLOT_INVENTORY_NUM;
  cInventoryExDialog();
  void SetMoney(std::uint32_t money) noexcept { m_money=money; }
  std::uint32_t GetMoney() const noexcept { return m_money; }
@@ -29,11 +33,11 @@ public:
  // Refresh the visible 60-slot panel from the live inventory snapshot.
  void RefreshFromInventoryService();
 private:
+ void RefreshVisibleIcons();
  std::vector<std::optional<InventoryItem>> m_slots;
+ std::vector<std::unique_ptr<cIcon>> m_owned_icons;
  std::uint32_t m_money{};
  InventoryState m_state{InventoryState::Default};
  const mxh::services::IInventoryService* m_inventory{};
 };
 }
-
-

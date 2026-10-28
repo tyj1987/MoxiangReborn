@@ -1,9 +1,12 @@
 #pragma once
 
+#include "mxh/compat/monster_catalog.hpp"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <vector>
 
 namespace mxh::server {
@@ -34,6 +37,42 @@ struct DropRateTable {
     std::array<std::uint32_t, DROP_ITEM_KIND_COUNT> rates{};
     std::uint32_t totalRate = 0;
 };
+
+// MonsterList's five category rates and three independent item-list indices.
+// Category rates use the DropItemKind order (no item first), unlike the
+// MonsterList file's money/item1/item2/item3/no-item column order.
+struct MonsterDropProfile {
+    std::array<std::uint32_t, DROP_ITEM_KIND_COUNT> rates{};
+    std::array<std::uint16_t, 3> item_list_ids{};
+    std::uint8_t max_rolls = 0;
+};
+
+struct MonsterDropChoice {
+    DropItemKind kind = DropItemKind::NoItem;
+    std::uint16_t item_list_id = 0;
+};
+
+inline MonsterDropProfile monster_drop_profile_from(
+    const mxh::compat::MonsterVisual& monster) noexcept {
+    // MonsterList stores money/item1/item2/item3/no-item, while the legacy
+    // eDROPITEMKIND enum starts with eNOITEM.
+    return {{monster.drop_rates[4], monster.drop_rates[0],
+             monster.drop_rates[1], monster.drop_rates[2],
+             monster.drop_rates[3]},
+            monster.item_list_ids, monster.max_drop_item_num};
+}
+
+inline bool valid_monster_drop_profile(
+    const MonsterDropProfile& profile) noexcept {
+    std::uint64_t total = 0;
+    for (const auto rate : profile.rates) total += rate;
+    if (total != MAX_DROP_ITEM_PERCENT) return false;
+    for (std::size_t i = 0; i < profile.item_list_ids.size(); ++i) {
+        if (profile.rates[i + static_cast<std::size_t>(DropItemKind::Item1)] != 0 &&
+            profile.item_list_ids[i] == 0) return false;
+    }
+    return true;
+}
 
 struct MonsterDropEntry {
     std::uint16_t itemId = 0;
@@ -107,6 +146,33 @@ inline std::optional<DropItemKind> select_drop_kind(const DropRateTable& table,
             return static_cast<DropItemKind>(index);
     }
     return std::nullopt;
+}
+
+// Plan only the MonsterList category and list-id decisions. The caller owns
+// independent random draws for the item within its selected list and the
+// money amount; this function neither awards rewards nor emits a packet.
+inline std::optional<std::vector<MonsterDropChoice>> select_monster_drop_choices(
+    const MonsterDropProfile& profile, DropRateContext context,
+    std::span<const std::uint32_t> one_based_rolls) {
+    if (!valid_monster_drop_profile(profile) ||
+        one_based_rolls.size() < profile.max_rolls) return std::nullopt;
+    context.baseRates = profile.rates;
+    const auto table = calculate_drop_rates(context);
+    std::vector<MonsterDropChoice> choices;
+    choices.reserve(profile.max_rolls);
+    for (std::size_t i = 0; i < profile.max_rolls; ++i) {
+        const auto kind = select_drop_kind(table, one_based_rolls[i]);
+        if (!kind) return std::nullopt;
+        MonsterDropChoice choice{*kind, 0};
+        if (*kind >= DropItemKind::Item1 && *kind <= DropItemKind::Item3) {
+            choice.item_list_id = profile.item_list_ids[
+                static_cast<std::size_t>(*kind) -
+                static_cast<std::size_t>(DropItemKind::Item1)];
+            if (choice.item_list_id == 0) return std::nullopt;
+        }
+        choices.push_back(choice);
+    }
+    return choices;
 }
 
 inline std::uint32_t monster_drop_money(std::uint32_t minMoney,

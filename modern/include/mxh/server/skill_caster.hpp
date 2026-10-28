@@ -119,4 +119,13 @@ mxh::game::DamageResult skill_caster_calculate_damage(
     const mxh::game::SkillInfo& skill,
     std::mt19937& rng) noexcept;
 
+// Player-versus-monster damage uses the original AttackCalc defence curve.
+// It is kept separate from the historical player/PvP helper above because
+// the latter's subtractive contract is part of the existing wire tests.
+mxh::game::DamageResult skill_caster_calculate_monster_damage(
+    const mxh::game::PlayerCombatStats& attacker,
+    const mxh::game::PlayerCombatStats& defender,
+    const mxh::game::SkillInfo& skill,
+    std::mt19937& rng) noexcept;
+
 }  // namespace mxh::server
