@@ -19,7 +19,7 @@
       "originalFile": "D:\\MX\\database\\mhgame.bak",
       "sha256": "7773fa1da919d2f8b5f18019dbc6e55efd64025edd817fddb923f08e3535126b",
       "procedure": "MP_CHARACTER_CreateCharacter",
-      "conclusion": "CHARACTER_MAP=17 cannot be traced to an original file under D:\\MX from this repository. reference/manifests/playdh-current.sha256.json, reference/manifests/sworking-2008-reference.sha256.json, docs/evidence, and the git history of this JSON do not name a .sql/.bin/.txt path whose field is CHARACTER_MAP. procedureSha256Utf8 and procedureReceiptSha256 identify a recovered database procedure body that is not stored at a D:\\MX path. Resource/Server/LoginPoint.bin (sha256 08f66bb7d4f7eb2b8fa61828c284ed8384a312a8d2809d12399bbfcdb3dc811e in playdh-current.sha256.json) is a login-point table, not the CHARACTER_MAP column."
+      "conclusion": "CHARACTER_MAP=17 traces to D:\\MX\\database\\mhgame.bak (2014-01-13 backup, SoftwareVersion 9.0.5000, sha256 above): stored procedure MP_CHARACTER_CreateCharacter writes literal 17 to TB_CHARACTER.CHARACTER_MAP. Determined on the test machine by read-only byte search plus RESTORE HEADERONLY/FILELISTONLY; no restore; the procedure body stays off-repo. D:\\MX\\src\\database\\MHGAME.bak (2009-12-07, sha256 bcdf836239b9e4f029efb337a262be668c52719692b6846c0a79c54f08570df3) takes CHARACTER_MAP from a caller-supplied parameter and is corroborating only. Default StartArea stays 10 until TYJ-166 (see docs/KNOWN_BUGS.md 2026-10-28)."
     },
     "loginPoint": {
       "source": "Resource/Server/LoginPoint.bin",
