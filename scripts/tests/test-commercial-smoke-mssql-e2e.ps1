@@ -103,6 +103,20 @@ function Assert-True($condition, [string]$message) {
 function Test-PidStillRunning {
     param([int]$ProcessId)
     if ($ProcessId -le 0) { return $false }
+    if (-not $IsWindows) {
+        $statusPath = '/proc/' + $ProcessId + '/status'
+        if (-not (Test-Path -LiteralPath $statusPath)) { return $false }
+        try {
+            foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                if (-not $line.StartsWith('State:')) { continue }
+                $state = $line.Substring(6).Trim()
+                if ($state.StartsWith('Z') -or $state.StartsWith('X')) { return $false }
+                return $true
+            }
+        } catch {
+            return $false
+        }
+    }
     try {
         $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
         if ($null -eq $live) { return $false }
@@ -111,6 +125,21 @@ function Test-PidStillRunning {
     } catch {
         return $false
     }
+}
+
+function Get-ProcStatusField {
+    param(
+        [int]$ProcessId,
+        [string]$Field
+    )
+    $statusPath = '/proc/' + $ProcessId + '/status'
+    if (-not (Test-Path -LiteralPath $statusPath)) { return '' }
+    try {
+        foreach ($line in [IO.File]::ReadLines($statusPath)) {
+            if ($line.StartsWith($Field)) { return $line.Substring($Field.Length).Trim() }
+        }
+    } catch { }
+    return ''
 }
 
 function Stop-TestProcess {
@@ -1150,11 +1179,10 @@ try {
         $childRaw = [IO.File]::ReadAllText($childLog).Trim()
         Assert-True ([int]::TryParse($childRaw, [ref]$pathChildPid) -and $pathChildPid -gt 0) "child PID text was [$childRaw]"
         $childPpid = ''
-        $statusPath = '/proc/' + $pathChildPid + '/status'
-        if (Test-Path -LiteralPath $statusPath) {
-            foreach ($line in [IO.File]::ReadLines($statusPath)) {
-                if ($line.StartsWith('PPid:')) { $childPpid = $line.Substring(5).Trim(); break }
-            }
+        $childState = ''
+        if (-not $IsWindows) {
+            $childPpid = Get-ProcStatusField -ProcessId $pathChildPid -Field 'PPid:'
+            $childState = Get-ProcStatusField -ProcessId $pathChildPid -Field 'State:'
         }
         $ownedLine = ''
         foreach ($line in ($spawnText -split "`n")) {
@@ -1163,9 +1191,12 @@ try {
         $ownedIds = @()
         $ownedPrefix = 'MSSQL_E2E OWNED '
         if ($ownedLine.StartsWith($ownedPrefix)) {
-            $ownedIds = @($ownedLine.Substring($ownedPrefix.Length).Split(',') | Where-Object { $_ -match '^\d+$' })
+            foreach ($token in @($ownedLine.Substring($ownedPrefix.Length).Split(','))) {
+                $pidText = ($token -split ':')[0]
+                if ($pidText -match '^\d+$') { $ownedIds += $pidText }
+            }
         }
-        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid) [$ownedLine]"
+        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid state=$childState) [$ownedLine]"
         Assert-True ($ownedIds -contains [string]$pathChildPid) "owned PID list did not include child $pathChildPid [$ownedLine]"
         Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
     } finally {

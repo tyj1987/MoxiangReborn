@@ -568,11 +568,52 @@ function Stop-CommercialSmokeOwnedProcess {
         $dateMatch = ($StartTicks -gt 0 -and $liveTicks -eq $StartTicks)
         $kernelMatch = ($KernelStart -gt 0 -and $liveKernel -eq $KernelStart)
         if (-not $dateMatch -and -not $kernelMatch) { return }
-        try { $live.Kill() } catch {
-            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        try { $live.Kill() } catch { }
+        try { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+        if (-not (Test-CommercialSmokeWindowsHost)) {
+            $statusPath = '/proc/' + $ProcessId + '/status'
+            $needsKill = $false
+            if (Test-Path -LiteralPath $statusPath) {
+                $state = ''
+                try {
+                    foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                        if ($line.StartsWith('State:')) { $state = $line.Substring(6).Trim(); break }
+                    }
+                } catch { $state = '' }
+                if ($state.Length -gt 0 -and -not $state.StartsWith('Z') -and -not $state.StartsWith('X')) {
+                    $needsKill = $true
+                }
+            }
+            if ($needsKill) {
+                try { & /bin/kill '-9' "$ProcessId" 2>$null } catch { }
+            }
         }
+        Wait-CommercialSmokeOwnedExit -ProcessId $ProcessId
     } catch {
         # Already exited, or the PID was reused between the checks above.
+    }
+}
+
+function Wait-CommercialSmokeOwnedExit {
+    param([int]$ProcessId)
+    for ($i = 0; $i -lt 40; $i++) {
+        if (Test-CommercialSmokeWindowsHost) {
+            $live = $null
+            try { $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue } catch { $live = $null }
+            if ($null -eq $live) { return }
+            try { if ([bool]$live.HasExited) { return } } catch { return }
+        } else {
+            $statusPath = '/proc/' + $ProcessId + '/status'
+            if (-not (Test-Path -LiteralPath $statusPath)) { return }
+            $state = ''
+            try {
+                foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                    if ($line.StartsWith('State:')) { $state = $line.Substring(6).Trim(); break }
+                }
+            } catch { return }
+            if ($state.StartsWith('Z') -or $state.StartsWith('X') -or $state.Length -eq 0) { return }
+        }
+        Start-Sleep -Milliseconds 50
     }
 }
 
@@ -691,7 +732,7 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
         for ($ownedIndex = 0; $ownedIndex -lt $owned.Count; $ownedIndex++) {
             $entry = $owned[$ownedIndex]
             if ($null -eq $entry) { continue }
-            $ownedIds.Add([string]$entry.Id)
+            $ownedIds.Add(([string]$entry.Id) + ':' + ([string]$entry.KernelStart))
         }
         Write-Host ('MSSQL_E2E OWNED ' + ($ownedIds -join ','))
     } finally {
