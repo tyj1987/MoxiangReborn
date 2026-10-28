@@ -21,8 +21,9 @@ Where each step runs
   does not check them. A non-empty hit exits non-zero and writes no
   manifest. Every miss leaves the manifest unchanged. The index is
   ``--client-root``, or ``--source`` when ``--client-root`` is omitted.
-  A path that is not a directory yields an empty index, and the guard
-  does not fail.
+  An explicit ``--client-root`` that does not exist or is not a directory
+  is an argument error before any index is built. Omitting it still falls
+  back to ``--source``.
   ``trim`` removes decoder filesystem paths and ``.py`` paths. It leaves
   ``derivation.localDecoder`` (version, ``sourcePakSha256``, ``decodedMaps``,
   ``keySourceCounts``).
@@ -775,6 +776,18 @@ class LocalDecoderError(ValueError):
     pass
 
 
+class ClientRootError(ValueError):
+    """``--client-root`` was passed and is missing or not a directory."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = Path(path)
+        if not self.path.exists():
+            detail = "does not exist"
+        else:
+            detail = "is not a directory"
+        super().__init__(f"--client-root {detail}: {self.path}")
+
+
 class KnownNoOriginalFound(Exception):
     """A name recorded as having no original file is in the existence index.
 
@@ -934,9 +947,12 @@ def derive(source: Path | None, pak: Path | None = None,
     and the same stem with ``.dds`` is passed to ``locate``. A non-empty
     hit raises ``KnownNoOriginalFound`` before a manifest exists. Every
     miss leaves the returned document identical to a derive that does not
-    perform this check. The index is empty when that root is not a
-    directory, and the guard then does not fail.
+    perform this check. An explicit ``client_root`` that does not exist or
+    is not a directory raises ``ClientRootError`` before either index is
+    built. Omitted ``client_root`` still falls back to ``source``.
     """
+    if client_root is not None and not client_root.is_dir():
+        raise ClientRootError(client_root)
     if local_decoder is not None and pak is None:
         raise LocalDecoderError(
             "--local-decoder requires --pak: local-decoder conclusions must record the "
@@ -1841,7 +1857,8 @@ def main(argv: list[str] | None = None) -> int:
         "--client-root", type=Path, default=None,
         help="originalExists scope (ROG: D:\\MX\\client). Loose files are keyed relative to this "
              "directory and only .pak files under it count. Defaults to --source. "
-             "The known-no-original guard uses this same index.")
+             "The known-no-original guard uses this same index. "
+             "An explicit path that does not exist or is not a directory is an error.")
     derive_parser.add_argument(
         "--pak", type=Path,
         help="original Map.pak (read to EOF, not the 4192-entry worktree pak). "
@@ -1897,6 +1914,8 @@ def main(argv: list[str] | None = None) -> int:
             document = derive(
                 args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder,
                 client_root=args.client_root)
+        except ClientRootError as exc:
+            parser.error(str(exc))
         except KnownNoOriginalFound as exc:
             print(str(exc), file=sys.stderr)
             return 1

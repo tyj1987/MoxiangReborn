@@ -1091,6 +1091,88 @@ class OriginalExistsScopeTests(unittest.TestCase):
             ])
             self.assertNotIn(str(client), stderr)
 
+    def _assert_client_root_argument_error(self, client: Path, output: Path, source: Path) -> None:
+        built: list[str] = []
+        real_parse = gate._build_parse_index
+        real_exists = gate._build_exists_index
+
+        def parse_index(*args, **kwargs):
+            built.append("parse")
+            return real_parse(*args, **kwargs)
+
+        def exists_index(*args, **kwargs):
+            built.append("exists")
+            return real_exists(*args, **kwargs)
+
+        stderr = io.StringIO()
+        stdout = io.StringIO()
+        gate._build_parse_index = parse_index
+        gate._build_exists_index = exists_index
+        try:
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                with self.assertRaises(SystemExit) as caught:
+                    gate.main([
+                        "derive",
+                        "--source", str(source),
+                        "--client-root", str(client),
+                        "--output", str(output),
+                    ])
+        finally:
+            gate._build_parse_index = real_parse
+            gate._build_exists_index = real_exists
+        self.assertEqual(caught.exception.code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(built, [])
+        text = stderr.getvalue()
+        self.assertIn("--client-root", text)
+        self.assertIn(str(client), text)
+        self.assertIn("error:", text)
+
+    def test_missing_client_root_exits_2_and_does_not_create_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            missing = root / "no-such-client"
+            output = root / "out.json"
+            self._assert_client_root_argument_error(missing, output, source)
+            self.assertFalse(output.exists())
+
+    def test_file_client_root_exits_2_and_leaves_output_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            client = root / "not-a-directory"
+            client.write_bytes(b"regular-file")
+            absent = root / "not-written.json"
+            self._assert_client_root_argument_error(client, absent, source)
+            self.assertFalse(absent.exists())
+            output = root / "out.json"
+            sentinel = b"pre-existing-output-bytes\n"
+            output.write_bytes(sentinel)
+            self._assert_client_root_argument_error(client, output, source)
+            self.assertEqual(output.read_bytes(), sentinel)
+
+    def test_omitted_client_root_still_derives_from_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            expected = gate.derive(source, None)
+            output = root / "out.json"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = gate.main([
+                    "derive", "--source", str(source), "--output", str(output)])
+            self.assertEqual(code, 0, stderr.getvalue())
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(output.read_text(encoding="utf-8"), manifest_text(expected))
+
 
 class TrimAndCompareTests(unittest.TestCase):
     def _pair(self, *, via="1.map", exists=True):
