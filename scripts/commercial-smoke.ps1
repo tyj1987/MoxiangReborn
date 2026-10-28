@@ -25,7 +25,11 @@
     environment variable. -MssqlDb does not call the probe.
 
     -MssqlDb is an ODBC or mxh_client_e2e kv connection string. It is
-    passed verbatim to mxh_client_e2e --db. The database= value must
+    passed verbatim to mxh_client_e2e --db. A connection string that
+    contains whitespace or a quote character (" or ') is rejected
+    before connect: Start-Process -ArgumentList does not quote array
+    elements on Windows, so those characters would split --db.
+    The database= value must
     match ^MxE2E_[A-Za-z0-9_]{1,100}$. sqlcmd always runs as
     sqlcmd -E -S <host> for the existence check, DROP, and the
     post-drop check. <host> is the host= value. There is no call
@@ -36,11 +40,13 @@
     \ and an instance name [A-Za-z0-9_]+. A bare machine, a remote
     host, and a port suffix are rejected before connect.
     -SkipMssql together with -MssqlDb is refused.
-    The explicit -MssqlDb path starts mxh_client_e2e with Start-Process
-    -PassThru and remembers that process plus descendants it starts.
-    finally stops only those PIDs, and only while the process is still
-    running with the same StartTime. It does not stop other processes
-    by image name.
+    The explicit -MssqlDb path and the LocalDB path start
+    mxh_client_e2e with Start-Process -PassThru and remember that
+    process plus descendants it starts. Cleanup stops only those
+    PIDs, and only while StartTime still matches (UTC ticks on
+    Windows, boot-relative starttime on Linux). Any fallback after
+    Kill() re-checks that identity immediately before signaling the
+    PID. Cleanup does not stop other processes by image name.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/commercial-smoke.ps1 -MssqlDb "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_RogSmoke;encrypt=no;trust_server_certificate=yes;"
@@ -157,6 +163,19 @@ function Test-CommercialSmokeDatabaseName {
     return [regex]::IsMatch($Name, '^MxE2E_[A-Za-z0-9_]{1,100}$')
 }
 
+function Test-CommercialSmokeConnectionStringLiteral {
+    param([string]$ConnectionString)
+    # Start-Process -ArgumentList joins array elements with spaces and
+    # does not quote them on Windows. Reject the string instead of
+    # trying to quote it.
+    if ([string]::IsNullOrEmpty($ConnectionString)) { return $false }
+    foreach ($ch in $ConnectionString.ToCharArray()) {
+        if ([char]::IsWhiteSpace($ch)) { return $false }
+        if ($ch -eq '"' -or $ch -eq [char]39) { return $false }
+    }
+    return $true
+}
+
 function Test-CommercialSmokeLocalNamedInstance {
     param([string]$Value)
     # Machine is case-insensitive and must be exactly one of the local
@@ -169,6 +188,14 @@ function Test-CommercialSmokeLocalNamedInstance {
 function Resolve-CommercialSmokeMssqlConnection {
     param([string]$ConnectionString)
     $refused = 'MSSQL_E2E REFUSED (connection string rejected before connect; '
+    if (-not (Test-CommercialSmokeConnectionStringLiteral -ConnectionString $ConnectionString)) {
+        return [pscustomobject]@{
+            Ok = $false
+            Server = ''
+            Database = ''
+            Message = $refused + 'whitespace or quote characters are not allowed)'
+        }
+    }
     $segments = Split-CommercialSmokeConnectionSegments -ConnectionString $ConnectionString
     if ($null -eq $segments) {
         return [pscustomobject]@{
@@ -270,8 +297,9 @@ function Resolve-CommercialSmokeMssqlConnection {
 
 function Get-CommercialSmokeSqlCmdPath {
     foreach ($name in @('sqlcmd', 'SQLCMD', 'sqlcmd.exe', 'SQLCMD.EXE')) {
-        $command = Get-Command -Name $name -CommandType Application -ErrorAction SilentlyContinue
-        if ($null -ne $command) { return [string]$command.Source }
+        # Get-Command returns every PATH match. The host runs the first.
+        $command = @(Get-Command -Name $name -CommandType Application -ErrorAction SilentlyContinue)
+        if ($command.Count -gt 0) { return [string]$command[0].Source }
     }
     return ''
 }
@@ -294,6 +322,83 @@ function Get-CommercialSmokeSqlCmdLines {
     return $names.ToArray()
 }
 
+function Format-CommercialSmokeNativeArgumentLine {
+    param([string[]]$ArgumentList)
+    # Windows PowerShell 5.1 has ProcessStartInfo.Arguments (one string)
+    # and no ArgumentList. Quote only arguments that contain whitespace.
+    # A double quote has no safe encoding here; callers must not pass one.
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($argument in @($ArgumentList)) {
+        $text = [string]$argument
+        if ($text.IndexOf('"') -ge 0) {
+            throw 'native argument contains a double quote'
+        }
+        $quote = $false
+        if ($text.Length -eq 0) { $quote = $true }
+        if ($text.IndexOf(' ') -ge 0 -or $text.IndexOf("`t") -ge 0) { $quote = $true }
+        if ($quote) {
+            $parts.Add('"' + $text + '"')
+        } else {
+            $parts.Add($text)
+        }
+    }
+    if ($parts.Count -eq 0) { return '' }
+    return ($parts.ToArray() -join ' ')
+}
+
+function Invoke-CommercialSmokeNative {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList,
+        [switch]$Capture
+    )
+    # Explicit argument array. No array splat and no hashtable splat:
+    # each element is one argv entry, including values that contain spaces.
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    if ($Capture) {
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+    }
+    $nativeArguments = @($ArgumentList)
+    $useList = $false
+    try {
+        if ($null -ne $startInfo.ArgumentList) { $useList = $true }
+    } catch {
+        $useList = $false
+    }
+    if ($useList) {
+        foreach ($argument in $nativeArguments) {
+            [void]$startInfo.ArgumentList.Add([string]$argument)
+        }
+    } else {
+        $startInfo.Arguments = Format-CommercialSmokeNativeArgumentLine -ArgumentList $nativeArguments
+    }
+    $native = New-Object System.Diagnostics.Process
+    $native.StartInfo = $startInfo
+    if (-not $native.Start()) { throw ('failed to start ' + $FilePath) }
+    $stdoutText = ''
+    $stderrText = ''
+    if ($Capture) {
+        $stdoutTask = $native.StandardOutput.ReadToEndAsync()
+        $stderrTask = $native.StandardError.ReadToEndAsync()
+        $null = $native.WaitForExit()
+        $stdoutText = [string]$stdoutTask.GetAwaiter().GetResult()
+        $stderrText = [string]$stderrTask.GetAwaiter().GetResult()
+    } else {
+        $null = $native.WaitForExit()
+    }
+    $nativeCode = 1
+    try { $nativeCode = [int]$native.ExitCode } catch { $nativeCode = 1 }
+    $native.Dispose()
+    return [pscustomobject]@{
+        ExitCode = $nativeCode
+        Stdout = $stdoutText
+        Stderr = $stderrText
+    }
+}
+
 function Invoke-CommercialSmokeSqlCmd {
     param(
         [Parameter(Mandatory = $true)][string]$SqlCmd,
@@ -308,12 +413,13 @@ function Invoke-CommercialSmokeSqlCmd {
             Names = @()
         }
     }
-    $cmdArgs = @('-E', '-S', $Server, '-d', 'master', '-b', '-h-1', '-W', '-w65535', '-Q', $Query)
+    $sqlArgs = @('-E', '-S', $Server, '-d', 'master', '-b', '-h-1', '-W', '-w65535', '-Q', $Query)
     $code = 1
     $output = $null
     try {
-        $output = & $SqlCmd @cmdArgs 2>&1
-        if ($null -ne $LASTEXITCODE) { $code = [int]$LASTEXITCODE }
+        $native = Invoke-CommercialSmokeNative -FilePath $SqlCmd -ArgumentList $sqlArgs -Capture
+        $code = [int]$native.ExitCode
+        $output = @([string]$native.Stdout, [string]$native.Stderr)
     } catch {
         return [pscustomobject]@{
             ExitCode = 1
@@ -541,6 +647,66 @@ function Add-CommercialSmokeOwnedDescendants {
     }
 }
 
+function Test-CommercialSmokeLiveIdentity {
+    param(
+        [int]$ProcessId,
+        [int64]$StartTicks,
+        [int64]$KernelStart = 0
+    )
+    # Platform clock used for a fallback stop: UTC StartTime ticks on
+    # Windows, boot-relative starttime on Linux. A reused PID does not match.
+    if ($ProcessId -le 0) { return $false }
+    if (Test-CommercialSmokeWindowsHost) {
+        if ($StartTicks -le 0) { return $false }
+        $live = $null
+        try { $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue } catch { return $false }
+        if ($null -eq $live) { return $false }
+        try { $live.Refresh() } catch { }
+        $exited = $false
+        try { $exited = [bool]$live.HasExited } catch { return $false }
+        if ($exited) { return $false }
+        $liveTicks = [int64]0
+        try { $liveTicks = [int64]$live.StartTime.ToUniversalTime().Ticks } catch { return $false }
+        if ($liveTicks -le 0) { return $false }
+        return ($liveTicks -eq $StartTicks)
+    }
+    if ($KernelStart -le 0) { return $false }
+    $liveKernel = Get-CommercialSmokeKernelStart -ProcessId $ProcessId
+    if ($liveKernel -le 0) { return $false }
+    return ($liveKernel -eq $KernelStart)
+}
+
+function Stop-CommercialSmokeOwnedProcessFallback {
+    param(
+        [int]$ProcessId,
+        [int64]$StartTicks,
+        [int64]$KernelStart = 0
+    )
+    # Kill() can exit the original process before these PID-based signals.
+    # Re-read identity immediately before each one. Never signal a PID
+    # whose StartTime no longer matches the process this run recorded.
+    if (Test-CommercialSmokeLiveIdentity -ProcessId $ProcessId -StartTicks $StartTicks -KernelStart $KernelStart) {
+        try { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+    }
+    if (Test-CommercialSmokeWindowsHost) { return }
+    $statusPath = '/proc/' + $ProcessId + '/status'
+    $needsKill = $false
+    if (Test-Path -LiteralPath $statusPath) {
+        $state = ''
+        try {
+            foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                if ($line.StartsWith('State:')) { $state = $line.Substring(6).Trim(); break }
+            }
+        } catch { $state = '' }
+        if ($state.Length -gt 0 -and -not $state.StartsWith('Z') -and -not $state.StartsWith('X')) {
+            $needsKill = $true
+        }
+    }
+    if ($needsKill -and (Test-CommercialSmokeLiveIdentity -ProcessId $ProcessId -StartTicks $StartTicks -KernelStart $KernelStart)) {
+        try { & /bin/kill '-9' "$ProcessId" 2>$null } catch { }
+    }
+}
+
 function Stop-CommercialSmokeOwnedProcess {
     param(
         [int]$ProcessId,
@@ -569,25 +735,7 @@ function Stop-CommercialSmokeOwnedProcess {
         $kernelMatch = ($KernelStart -gt 0 -and $liveKernel -eq $KernelStart)
         if (-not $dateMatch -and -not $kernelMatch) { return }
         try { $live.Kill() } catch { }
-        try { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue } catch { }
-        if (-not (Test-CommercialSmokeWindowsHost)) {
-            $statusPath = '/proc/' + $ProcessId + '/status'
-            $needsKill = $false
-            if (Test-Path -LiteralPath $statusPath) {
-                $state = ''
-                try {
-                    foreach ($line in [IO.File]::ReadLines($statusPath)) {
-                        if ($line.StartsWith('State:')) { $state = $line.Substring(6).Trim(); break }
-                    }
-                } catch { $state = '' }
-                if ($state.Length -gt 0 -and -not $state.StartsWith('Z') -and -not $state.StartsWith('X')) {
-                    $needsKill = $true
-                }
-            }
-            if ($needsKill) {
-                try { & /bin/kill '-9' "$ProcessId" 2>$null } catch { }
-            }
-        }
+        Stop-CommercialSmokeOwnedProcessFallback -ProcessId $ProcessId -StartTicks $StartTicks -KernelStart $KernelStart
         Wait-CommercialSmokeOwnedExit -ProcessId $ProcessId
     } catch {
         # Already exited, or the PID was reused between the checks above.
@@ -635,6 +783,73 @@ function Stop-CommercialSmokeOwnedProcesses {
     }
 }
 
+function Get-CommercialSmokeOwnedReportToken {
+    param(
+        $Entry,
+        [bool]$WindowsHost = $(Test-CommercialSmokeWindowsHost)
+    )
+    # Windows identity is UTC StartTime ticks. KernelStart is always 0
+    # there. Linux identity is the boot-relative starttime.
+    if ($null -eq $Entry) { return '0' }
+    if ($WindowsHost) {
+        $ticks = [int64]0
+        try { $ticks = [int64]$Entry.StartTicks } catch { $ticks = [int64]0 }
+        return [string]$ticks
+    }
+    $kernel = [int64]0
+    try { $kernel = [int64]$Entry.KernelStart } catch { $kernel = [int64]0 }
+    return [string]$kernel
+}
+
+function Invoke-CommercialSmokeOwnedExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList
+    )
+    # Record the process this run starts and the descendants it launches.
+    # finally stops only those PIDs, and only when StartTime still matches.
+    $owned = New-Object System.Collections.Generic.List[object]
+    $ownedSeen = @{}
+    $exitCode = 1
+    try {
+        $proc = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -PassThru -NoNewWindow
+        try { $null = $proc.Handle } catch { }
+        Add-CommercialSmokeOwnedProcess -Owned $owned -Seen $ownedSeen -Process $proc
+        $rootId = 0
+        try { $rootId = [int]$proc.Id } catch { $rootId = 0 }
+        # WaitForExit(ms) is the liveness check. HasExited can report a
+        # script as exited before its children have been recorded. If the
+        # wait says the process is gone but /proc/<pid> is still there,
+        # keep scanning so a false exit does not skip its descendants.
+        $falseExits = 0
+        while ($true) {
+            Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+            $exited = $true
+            try { $exited = [bool]$proc.WaitForExit(50) } catch { $exited = $true }
+            $stillThere = $false
+            if (-not (Test-CommercialSmokeWindowsHost) -and $rootId -gt 0) {
+                $stillThere = Test-Path -LiteralPath ('/proc/' + $rootId)
+            }
+            if ($exited -and $stillThere -and $falseExits -lt 200) {
+                $falseExits = $falseExits + 1
+                Start-Sleep -Milliseconds 50
+                continue
+            }
+            if ($exited) { break }
+            $falseExits = 0
+        }
+        Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+        try { $null = $proc.WaitForExit() } catch { }
+        try { $exitCode = [int]$proc.ExitCode } catch { $exitCode = 1 }
+    } finally {
+        try { Stop-CommercialSmokeOwnedProcesses -Owned $owned } catch { }
+    }
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Owned = $owned
+    }
+}
+
 function Invoke-CommercialSmokeExplicitMssqlE2E {
     param(
         [string]$E2eExe,
@@ -643,6 +858,13 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
         [string]$Server,
         [string]$DatabaseName
     )
+    if (-not (Test-CommercialSmokeConnectionStringLiteral -ConnectionString $ConnectionString)) {
+        Write-Host 'MSSQL_E2E REFUSED (connection string rejected before connect; whitespace or quote characters are not allowed)' -ForegroundColor Red
+        return [pscustomobject]@{
+            ExitCode = 1
+            Invoked = $false
+        }
+    }
     $sqlcmd = Get-CommercialSmokeSqlCmdPath
     if ([string]::IsNullOrWhiteSpace($sqlcmd)) {
         Write-Host 'MSSQL_E2E REFUSED (sqlcmd not found; refusing before connect)' -ForegroundColor Red
@@ -690,53 +912,27 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
     $e2eExit = 1
     $dropFailed = $false
     # mxh_client_e2e is the process this run starts. Its descendants are
-    # the server processes it launches. Record PIDs from Start-Process
-    # -PassThru and from that process tree. finally stops only those
-    # PIDs, and only when StartTime still matches. No name-based fallback.
-    $owned = New-Object System.Collections.Generic.List[object]
-    $ownedSeen = @{}
+    # the server processes it launches. Start-Process -PassThru records
+    # that PID and the process tree. Cleanup stops only those PIDs, and
+    # only when StartTime still matches. No name-based fallback.
     try {
         $e2eArgumentLine = '--login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema --db'
         $e2eArguments = @($e2eArgumentLine.Split(' '))
+        # Rejected above when the string contains whitespace or quotes.
+        # Start-Process -ArgumentList does not quote array elements.
         $e2eArguments += $ConnectionString
-        $e2eProcess = Start-Process -FilePath $E2eExe -ArgumentList $e2eArguments -PassThru -NoNewWindow
-        try { $null = $e2eProcess.Handle } catch { }
-        Add-CommercialSmokeOwnedProcess -Owned $owned -Seen $ownedSeen -Process $e2eProcess
-        $rootId = 0
-        try { $rootId = [int]$e2eProcess.Id } catch { $rootId = 0 }
-        # WaitForExit(ms) is the liveness check. HasExited can report a
-        # script as exited before its children have been recorded. If the
-        # wait says the process is gone but /proc/<pid> is still there,
-        # keep scanning so a false exit does not skip its descendants.
-        $falseExits = 0
-        while ($true) {
-            Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
-            $exited = $true
-            try { $exited = [bool]$e2eProcess.WaitForExit(50) } catch { $exited = $true }
-            $stillThere = $false
-            if (-not (Test-CommercialSmokeWindowsHost) -and $rootId -gt 0) {
-                $stillThere = Test-Path -LiteralPath ('/proc/' + $rootId)
-            }
-            if ($exited -and $stillThere -and $falseExits -lt 200) {
-                $falseExits = $falseExits + 1
-                Start-Sleep -Milliseconds 50
-                continue
-            }
-            if ($exited) { break }
-            $falseExits = 0
-        }
-        Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
-        try { $null = $e2eProcess.WaitForExit() } catch { }
-        try { $e2eExit = [int]$e2eProcess.ExitCode } catch { $e2eExit = 1 }
+        $ownedRun = Invoke-CommercialSmokeOwnedExecutable -FilePath $E2eExe -ArgumentList $e2eArguments
+        try { $e2eExit = [int]$ownedRun.ExitCode } catch { $e2eExit = 1 }
         $ownedIds = New-Object System.Collections.Generic.List[string]
-        for ($ownedIndex = 0; $ownedIndex -lt $owned.Count; $ownedIndex++) {
-            $entry = $owned[$ownedIndex]
+        $ownedCount = 0
+        try { $ownedCount = [int]$ownedRun.Owned.Count } catch { $ownedCount = 0 }
+        for ($ownedIndex = 0; $ownedIndex -lt $ownedCount; $ownedIndex++) {
+            $entry = $ownedRun.Owned[$ownedIndex]
             if ($null -eq $entry) { continue }
-            $ownedIds.Add(([string]$entry.Id) + ':' + ([string]$entry.KernelStart))
+            $ownedIds.Add(([string]$entry.Id) + ':' + (Get-CommercialSmokeOwnedReportToken -Entry $entry))
         }
         Write-Host ('MSSQL_E2E OWNED ' + ($ownedIds -join ','))
     } finally {
-        try { Stop-CommercialSmokeOwnedProcesses -Owned $owned } catch { }
         if ($confirmedAbsent) {
             $dropQuery = 'DROP DATABASE [' + $DatabaseName + ']'
             $drop = Invoke-CommercialSmokeSqlCmd -SqlCmd $sqlcmd -Server $Server -Query $dropQuery
@@ -842,17 +1038,16 @@ function Invoke-CommercialSmokeMssqlE2E {
     }
     if (-not [string]::IsNullOrWhiteSpace($E2eExe) -and (Test-Path -LiteralPath $E2eExe)) {
         Write-Host ('MSSQL_E2E EXE ' + $E2eExe)
-        & $E2eExe --login-host 127.0.0.1 --backend mssql_odbc --init-schema
-        if ($LASTEXITCODE -ne 0) {
-            throw "MSSQL single-command E2E failed with exit code $LASTEXITCODE"
+        # Same owned-PID stop as -MssqlDb. Record this process and the
+        # descendants it starts, then stop only those PIDs while the
+        # recorded StartTime still matches. Never select by image name.
+        $localDbArgumentLine = '--login-host 127.0.0.1 --backend mssql_odbc --init-schema'
+        $localDbArguments = @($localDbArgumentLine.Split(' '))
+        $localRun = Invoke-CommercialSmokeOwnedExecutable -FilePath $E2eExe -ArgumentList $localDbArguments
+        if ([int]$localRun.ExitCode -ne 0) {
+            throw "MSSQL single-command E2E failed with exit code $($localRun.ExitCode)"
         }
         Write-Host "MSSQL_E2E PASS (LocalDB, one command)" -ForegroundColor Green
-        # The E2E tool terminates its own server children, but a flake can
-        # leave orphaned mxh_* processes holding the redirected output pipes
-        # open, which keeps this host from exiting.  Clean them up so the
-        # gate always terminates.
-        Get-Process -Name 'mxh_login_server','mxh_agent_server_CHINA','mxh_agent_server_KOR','mxh_map_server_CHINA','mxh_map_server_KOR' -ErrorAction SilentlyContinue |
-            Stop-Process -Force -ErrorAction SilentlyContinue
         return [pscustomobject]@{
             ExitCode = 0
             Invoked = $true
@@ -902,10 +1097,12 @@ $filters = @(
     'LoginSbsE2E.*'
 )
 $pattern = ($filters -join '|')
-$args = @('-C','Debug','--test-dir',$BuildDir,'-R',$pattern,'--output-on-failure')
-if ($RepeatFlaky) { $args += @('--repeat','until-fail:3') }
-& ctest @args
-if ($LASTEXITCODE -ne 0) { throw "Commercial smoke failed with exit code $LASTEXITCODE" }
+$ctestArgs = @('-C','Debug','--test-dir',$BuildDir,'-R',$pattern,'--output-on-failure')
+if ($RepeatFlaky) { $ctestArgs += @('--repeat','until-fail:3') }
+$ctestMatches = @(Get-Command -Name 'ctest' -CommandType Application -ErrorAction SilentlyContinue)
+if ($ctestMatches.Count -eq 0) { throw 'ctest was not found on PATH' }
+$ctestRun = Invoke-CommercialSmokeNative -FilePath ([string]$ctestMatches[0].Source) -ArgumentList $ctestArgs
+if ([int]$ctestRun.ExitCode -ne 0) { throw "Commercial smoke failed with exit code $($ctestRun.ExitCode)" }
 
 # P0 gate: one-command MSSQL full-chain E2E on SQL Server LocalDB.
 # mxh_client_e2e --backend mssql_odbc --init-schema bootstraps the modern
