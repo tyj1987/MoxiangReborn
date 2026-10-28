@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <optional>
 #include <random>
 #include <sstream>
@@ -275,6 +276,7 @@ TEST(MxhResourceReference, CanonicalRootFollowsPlayDhRootOverride) {
         << override_root.path();
     ASSERT_TRUE(override_root.created())
         << "create_directory failed for " << override_root.path();
+    std::cout << "override dir: " << override_root.path().string() << std::endl;
     const std::string override_text = override_root.path().string();
     {
         const ScopedPlayDhRootEnv forced(override_text.c_str());
