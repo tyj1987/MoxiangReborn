@@ -37,7 +37,13 @@ Assert-True ($mainText.Contains('if ($null -ne $exitCode -and $exitCode -ne 0)')
 Assert-True ($mainText.Contains('$clientLoginPort = ''16001''')) 'switch-off login port must stay 16001'
 Assert-True ($mainText.Contains('$clientMapPort = ''18001''')) 'switch-off map port must stay 18001'
 Assert-True ($mainText.Contains('$clientLoginPort = [string]$ephemeralPortPlan.LoginPort')) 'switch-on login port must follow PortBase'
-Assert-True ($mainText.Contains('Get-EphemeralPortInUseViolation -Ports @($ephemeralPortPlan.Ports)')) 'port check must cover the whole PortBase plan'
+Assert-True ($mainText.Contains('Get-EphemeralPortInUseViolation -Ports $boundPorts')) 'port check must cover the listeners the ephemeral spec binds'
+Assert-True ($mainText.Contains('Map17 listen port $($map17Port[0]) is occupied; refusing to fall back to another port')) 'Map17 occupied port must fail without choosing another port'
+Assert-True ($mainText.Contains("INSERT INTO character_info")) 'MapNumber smoke must pre-save the character'
+Assert-True ($mainText.Contains('must not live-create')) 'MapNumber smoke must reject live character creation'
+Assert-True ($mainText.Contains('verify-map17-birth.py')) 'live birth must use the Map17 assertion script'
+Assert-True ($mainText.Contains('if ($LiveCharacterBirth -and $configuredStartArea -eq 17)')) 'Map17 frame script runs only for configured StartArea 17'
+Assert-True ($mainText.Contains('-not $LiveCharacterBirth -and $MapNumber -eq 10 -and $monsterCount -ne 228')) 'Map10 228 threshold must not apply to live birth'
 Assert-True ($mainText.Contains('if ($serverProcess.HasExited)')) 'startup loop must check HasExited'
 Assert-True ($mainText.Contains('EphemeralLocalServer requires PowerShell 7.4 or newer')) 'pwsh 7.4 gate missing'
 Assert-True (-not $mainText.Contains('Get-EphemeralClientEndpointViolation')) 'client fallback intercept must be gone'
@@ -105,7 +111,7 @@ $spec = New-EphemeralServerLaunchSpec `
     -DatabaseDirectory $dir `
     -ProcessEnvironment @{ PATH = 'C:\Program Files\ODBC\170\bin'; MXH_FOG_DISABLE = '1'; MXH_STM_LIGHTING = '1' } `
     -ClientArguments @('--login-host', '127.0.0.1', '--resource-root', 'C:\playdh')
-Assert-True ((@($spec.Processes | ForEach-Object { $_.Name }) -join ',') -eq 'map,agent,login') 'process order must be map, agent, login'
+Assert-True ((@($spec.Processes | ForEach-Object { $_.Name }) -join ',') -eq 'map,agent,login') 'default process order must be map, agent, login'
 $mapArgs = @($spec.Processes[0].Arguments)
 $agentArgs = @($spec.Processes[1].Arguments)
 $loginArgs = @($spec.Processes[2].Arguments)
@@ -117,6 +123,8 @@ Assert-True ($mapArgs[[array]::IndexOf($mapArgs, '--port') + 1] -eq '28001') 'de
 Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--port') + 1] -eq '27001') 'default agent port follows 26001+1000'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--port') + 1] -eq '26001') 'default login port is 26001'
 Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--map-server') + 1] -eq '127.0.0.1:28001') 'agent map endpoint'
+Assert-True ($agentArgs[[array]::IndexOf($agentArgs, '--default-map') + 1] -eq '10') 'default StartArea follows --default-map'
+Assert-True ($agentArgs -notcontains '--start-area') 'default launch must not pass --start-area'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--agent-addr') + 1] -eq '127.0.0.1') 'login advertised agent'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--agent-port') + 1] -eq '27001') 'login must not keep the 7001 agent default'
 Assert-True ($loginArgs[[array]::IndexOf($loginArgs, '--bind-address') + 1] -eq '127.0.0.1') 'login bind'
@@ -197,8 +205,8 @@ Assert-True (@($stdoutLines2 | Where-Object { $_ -eq 'server=local-ephemeral' })
 Remove-Item -LiteralPath $stdoutPath2, $stderrPath2 -Force -ErrorAction SilentlyContinue
 
 $defaultPlan = Resolve-EphemeralPortPlan -Base 26001
-Assert-True ($defaultPlan.LoginPort -eq 26001 -and $defaultPlan.AgentPort -eq 27001 -and $defaultPlan.MapPort -eq 28001) 'default port plan'
-Assert-True ((@($defaultPlan.Ports) -join ',') -eq '26001,27001,28001') 'plan must list login, agent, and map'
+Assert-True ($defaultPlan.LoginPort -eq 26001 -and $defaultPlan.AgentPort -eq 27001 -and $defaultPlan.MapPort -eq 28001 -and $defaultPlan.Map17Port -eq 28003) 'default port plan'
+Assert-True ((@($defaultPlan.Ports) -join ',') -eq '26001,27001,28001') 'default plan lists login, agent, and map'
 
 $customPlan = Resolve-EphemeralPortPlan -Base 26011
 $customDir = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
@@ -215,12 +223,46 @@ $customAgent = @($customSpec.Processes[1].Arguments)
 $customLogin = @($customSpec.Processes[2].Arguments)
 $customMap = @($customSpec.Processes[0].Arguments)
 Assert-True ($customMap[[array]::IndexOf($customMap, '--port') + 1] -eq '28011') 'custom map listen'
+Assert-True ($customAgent -notcontains '--start-area') 'custom default must not pass --start-area'
 Assert-True ($customAgent[[array]::IndexOf($customAgent, '--map-server') + 1] -eq '127.0.0.1:28011') 'custom agent map-server'
+$birthDir = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+$birthSpec = New-EphemeralServerLaunchSpec `
+    -MapExecutable 'C:\build\mxh_map_server_CHINA.exe' `
+    -AgentExecutable 'C:\build\mxh_agent_server_CHINA.exe' `
+    -LoginExecutable 'C:\build\mxh_login_server.exe' `
+    -MapNumber 12 -RegisterMap17 `
+    -ResourceRoot 'C:\playdh' -ServerResourceRoot 'C:\playdh\Resource\Server' `
+    -DatabaseDirectory $birthDir `
+    -ClientArguments @('--login-host', '127.0.0.1', '--login-port', '26001')
+Assert-True ((@($birthSpec.Processes | ForEach-Object { $_.Name }) -join ',') -eq 'map,map17,agent,login') 'explicit Map17 process order'
+$birthMap17 = @($birthSpec.Processes[1].Arguments)
+$birthAgent = @($birthSpec.Processes[2].Arguments)
+Assert-True ($birthMap17[[array]::IndexOf($birthMap17, '--map') + 1] -eq '17') 'map17 listens as map 17'
+Assert-True ($birthMap17[[array]::IndexOf($birthMap17, '--port') + 1] -eq '28003') 'map17 port is 28003'
+Assert-True ($birthAgent[[array]::IndexOf($birthAgent, '--start-area') + 1] -eq '17') 'explicit StartArea is 17'
+Assert-True ($birthAgent[[array]::IndexOf($birthAgent, '--map-server-map') + 1] -eq '17=127.0.0.1:28003') 'agent registers Map17'
+Assert-True ($birthAgent[[array]::IndexOf($birthAgent, '--default-map') + 1] -eq '12') 'primary map stays the default-map route'
 Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-addr') + 1] -eq '127.0.0.1') 'custom login agent address'
 Assert-True ($customLogin[[array]::IndexOf($customLogin, '--agent-port') + 1] -eq '27011') 'custom login agent port'
 Assert-True ($customLogin[[array]::IndexOf($customLogin, '--port') + 1] -eq '26011') 'custom login listen'
 
-foreach ($reservedBase in @(16001, 15001, 14001, 36001, 35001, 34001, 36101, 35101, 34101, 36102, 36103)) {
+# 15999 -> map17 18001, 35999 -> map17 38001. login/agent/map stay off the
+# forbidden listeners, so a reserved-port failure is the map17 port alone.
+$forbiddenListeners = @(16001, 17001, 18001, 36001, 37001, 38001)
+foreach ($map17OnlyBase in @(15999, 35999)) {
+    $derived = [ordered]@{
+        login = $map17OnlyBase
+        agent = $map17OnlyBase + 1000
+        map = $map17OnlyBase + 2000
+        map17 = $map17OnlyBase + 2002
+    }
+    foreach ($name in @('login', 'agent', 'map')) {
+        $port = [int]$derived[$name]
+        Assert-True ($forbiddenListeners -notcontains $port) "base $map17OnlyBase $name port $port is forbidden; this case no longer isolates map17"
+    }
+    Assert-True ($forbiddenListeners -contains [int]$derived.map17) "base $map17OnlyBase map17 port $($derived.map17) is not forbidden"
+}
+foreach ($reservedBase in @(16001, 15001, 14001, 36001, 35001, 34001, 36101, 35101, 34101, 36102, 36103, 15999, 35999)) {
     $reservedMessage = ''
     try {
         Resolve-EphemeralPortPlan -Base $reservedBase | Out-Null

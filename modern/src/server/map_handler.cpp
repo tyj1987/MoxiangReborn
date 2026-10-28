@@ -4070,6 +4070,21 @@ std::size_t MapHandler::install_ai_groups(const AiGroupList& groups) {
     return spawned;
 }
 
+std::optional<MapHandler::MonsterVitalsSnapshot>
+MapHandler::monster_vitals_for_test(std::uint32_t object_id) {
+    std::lock_guard<std::mutex> lock(monsters_mu_);
+    const auto monster = std::find_if(monsters_.begin(), monsters_.end(),
+        [object_id](const mxh::game::MonsterInstance& current) {
+            return current.object_id == object_id;
+        });
+    if (monster == monsters_.end()) return std::nullopt;
+    MonsterVitalsSnapshot snapshot;
+    snapshot.life = monster->current_life;
+    snapshot.shield = monster->current_shield;
+    snapshot.dead = monster->is_dead;
+    return snapshot;
+}
+
 std::size_t MapHandler::monster_count_for_test() {
     std::lock_guard<std::mutex> lk(monsters_mu_);
     return monsters_.size();

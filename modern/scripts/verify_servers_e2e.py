@@ -413,6 +413,8 @@ def main() -> int:
 
     # Spawn servers.  LoginServer uses --init-schema so the test user is
     # already in chr_log_info; the seed user is id="test" pw="test".
+    # The map process is map 12, which is the agent default StartArea.
+    # --map-server registers that map. This probe does not request Map17.
     servers = [
         ServerProc("login",
                     [str(login_exe),
@@ -427,7 +429,8 @@ def main() -> int:
                      "--port", str(AGENT_PORT),
                      "--db", str(db_agent),
                      "--legacy",
-                     "--map-server", f"127.0.0.1:{MAP_PORT}"]),
+                     "--map-server", f"127.0.0.1:{MAP_PORT}",
+                     "--default-map", "12"]),
         ServerProc("map",
                     [str(map_exe),
                      "--port", str(MAP_PORT),

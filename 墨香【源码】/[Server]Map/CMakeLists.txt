@@ -401,7 +401,6 @@ add_executable(MapServer
     # inside `#ifdef _MAPSERVER_`.
     ${_cc_header}/CommonCalcFunc.cpp
     ${_cc_header}/CommonGameFunc.cpp
-    ${_cc_header}/GameResourceManager.cpp
     ${_cc_header}/TargetList/TargetData.cpp
     ${_cc_header}/TargetList/TargetList.cpp
     ${_cc_header}/TargetList/TargetListIterator.cpp
@@ -909,7 +908,6 @@ foreach(locale IN ITEMS KOR JAPAN CHINA HK TL)
         ${_cc_servermodule}/ServerListManager.cpp
         ${_cc_header}/CommonCalcFunc.cpp
         ${_cc_header}/CommonGameFunc.cpp
-        ${_cc_header}/GameResourceManager.cpp
         ${_cc_header}/TargetList/TargetData.cpp
         ${_cc_header}/TargetList/TargetList.cpp
         ${_cc_header}/TargetList/TargetListIterator.cpp

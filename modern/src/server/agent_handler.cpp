@@ -24,6 +24,8 @@
 //   - CharacterAdd/ObjectRemove forwarded to other players
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/start_area_route.hpp"
+#include "mxh/log/mlog.hpp"
 #include "mxh/server/original_vitals_store.hpp"
 #include "mxh/net/packet_trace.hpp"
 
@@ -170,10 +172,14 @@ AgentHandler::AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                            bool use_legacy_framing,
                            bool use_hsel,
                            HselSessionManager::DirectSendFn direct_send,
-                           std::uint16_t default_map_num)
+                           std::uint16_t default_map_num,
+                           std::uint16_t configured_start_area)
     : db_(db), reply_(std::move(reply)),
       use_legacy_framing_(use_legacy_framing),
       default_map_num_(default_map_num),
+      configured_start_area_(configured_start_area == 0
+                                 ? default_map_num
+                                 : configured_start_area),
       use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {}
 
 mxh::net::IEncryptor* AgentHandler::encryptor_for(
@@ -1631,8 +1637,15 @@ void AgentHandler::handle_legacy_character_make(
     std::uint8_t hair_type = data[23];
     // FaceType at offset 24
     std::uint8_t face_type = data[24];
-    // StartArea at offset 25
-    std::uint8_t start_area = data[25];
+    // Client StartArea at offset 25. The stored birth map is the
+    // Agent-configured StartArea (--start-area, else default_map_num).
+    const std::uint8_t client_start_area = data[25];
+    const auto start_area = static_cast<std::uint8_t>(configured_start_area_);
+    if (client_start_area != start_area) {
+        MLOG_INFO("[Agent] client StartArea %u differs from configured StartArea %u",
+                  static_cast<unsigned>(client_start_area),
+                  static_cast<unsigned>(start_area));
+    }
     // bDuplCheck at offset 26 (4B BOOL)
     // WearedItemIdx[10] at offset 30 (20B)
     // StandingArrayNum at offset 50
@@ -1663,6 +1676,27 @@ void AgentHandler::handle_legacy_character_make(
             mxh::proto::UserConnProtocol::CharacterMakeNack);
         reply_(id, m);
         return;
+    }
+
+    // Reject before any character_info write. The configured StartArea is
+    // the birth map. A missing route is not replaced by the client packet
+    // or by another registered map.
+    {
+        const auto birth_route = route_for_map_exact(start_area);
+        const bool birth_route_available = start_area != 0u &&
+            birth_route.client != nullptr && birth_route.connection.valid();
+        if (!birth_route_available) {
+            const auto reason = new_character_start_area_unregistered_message(start_area);
+            std::cerr << "[Agent] " << reason << "\n";
+            MLOG_ERROR("[Agent] %s", reason.c_str());
+            mxh::net::Message m;
+            m.header.category = static_cast<std::uint8_t>(
+                mxh::proto::Category::UserConn);
+            m.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::UserConnProtocol::CharacterMakeNack);
+            reply_(id, m);
+            return;
+        }
     }
 
     // Serialize name validation + ID allocation + insert. The previous random
@@ -1725,16 +1759,8 @@ void AgentHandler::handle_legacy_character_make(
         }
     }
 
-    // The legacy client submits its canonical birth area in StartArea.  Keep
-    // the configured default only as a test/deployment fallback: when the
-    // matching MapServer route is actually registered, persist that exact
-    // birth map so CharacterSelect/GameIn follow the original route instead
-    // of silently sending a new character to the default test map.
-    const auto birth_route = route_for_map_exact(start_area);
-    const bool birth_route_available = start_area != 0u &&
-        birth_route.client != nullptr && birth_route.connection.valid();
-    const auto initial_map_num = birth_route_available
-        ? static_cast<std::uint16_t>(start_area) : default_map_num_;
+    // StartArea was rejected above when its MapServer route was missing.
+    const auto initial_map_num = static_cast<std::uint16_t>(start_area);
 
     // Insert into character_info.
     std::vector<mxh::db::Bind> ins_params = {
