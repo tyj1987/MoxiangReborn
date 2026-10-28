@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <gtest/gtest-spi.h>
 
 #include <cstdint>
 #include <cstdlib>
@@ -196,6 +197,149 @@ const Ref refs[] = {
     {L"MapChange.bin", "66aca3ccca86469e4f8ec1f0dada451fd2422d5c4b0c2698408e56c0101b7048", 9692},
     {L"QuestScript/QuestScript.bin", "82bcdf96770bdf09e8b56e57d48bcffded0169e301967a115cb6336d5e97ba1e", 238478},
 };
+
+// Skip text, size check, then hash check. RecoveredRuntimeServerFilesMatchReferenceManifest
+// and the synthetic fixture test both call this loop.
+template <typename Manifest>
+void compare_runtime_manifest(const fs::path& directory, const Manifest& manifest) {
+    for (const auto& ref : manifest) {
+        const auto path = directory / ref.name;
+        if (!fs::exists(path)) {
+            GTEST_SKIP() << "VHD-recovered runtime resource not installed: " << path.string();
+        }
+        ASSERT_EQ(fs::file_size(path), ref.size) << path.string();
+        EXPECT_EQ(sha256(path), ref.hash) << path.string();
+    }
+}
+
+struct CompareLoopReport {
+    int fatal = 0;
+    int nonfatal = 0;
+    int skipped = 0;
+    std::string messages;
+};
+
+template <typename Manifest>
+CompareLoopReport intercept_compare_runtime_manifest(const fs::path& directory,
+                                                     const Manifest& manifest) {
+    testing::TestPartResultArray parts;
+    {
+        testing::ScopedFakeTestPartResultReporter reporter(
+            testing::ScopedFakeTestPartResultReporter::INTERCEPT_ONLY_CURRENT_THREAD,
+            &parts);
+        compare_runtime_manifest(directory, manifest);
+    }
+    CompareLoopReport report;
+    for (int index = 0; index < parts.size(); ++index) {
+        const testing::TestPartResult& part = parts.GetTestPartResult(index);
+        report.messages += part.message();
+        report.messages.push_back('\n');
+        if (part.fatally_failed()) ++report.fatal;
+        else if (part.nonfatally_failed()) ++report.nonfatal;
+        else if (part.skipped()) ++report.skipped;
+    }
+    return report;
+}
+
+long synthetic_process_id() {
+#ifdef _WIN32
+    return static_cast<long>(_getpid());
+#else
+    return static_cast<long>(::getpid());
+#endif
+}
+
+// Unique temp directory. remove_created() deletes only files this object
+// wrote, then the directory itself when it is empty. It never uses remove_all.
+class SyntheticFixtureDir {
+public:
+    SyntheticFixtureDir() {
+        std::random_device device;
+        std::mt19937_64 rng(device());
+        std::uniform_int_distribution<std::uint64_t> dist;
+        std::ostringstream nonce;
+        nonce << std::hex << synthetic_process_id() << "-" << dist(rng) << dist(rng);
+        path_ = fs::temp_directory_path() / ("mxh-synthetic-fixture-" + nonce.str());
+        std::error_code ec;
+        if (fs::create_directory(path_, ec) && !ec)
+            created_ = true;
+    }
+
+    ~SyntheticFixtureDir() { remove_created(); }
+
+    SyntheticFixtureDir(const SyntheticFixtureDir&) = delete;
+    SyntheticFixtureDir& operator=(const SyntheticFixtureDir&) = delete;
+
+    bool created() const { return created_; }
+    const fs::path& path() const { return path_; }
+
+    bool owns(const fs::path& file) const {
+        const auto needle = file.lexically_normal();
+        for (const auto& created : files_)
+            if (created.lexically_normal() == needle) return true;
+        return false;
+    }
+
+    void track(const fs::path& file) { files_.push_back(file); }
+
+    void remove_created() {
+        if (!created_) return;
+        std::error_code ec;
+        if (!fs::exists(path_, ec)) {
+            created_ = false;
+            files_.clear();
+            return;
+        }
+        const fs::directory_iterator end;
+        std::size_t children = 0;
+        for (fs::directory_iterator it(path_, ec); !ec && it != end; it.increment(ec)) {
+            ++children;
+            if (!owns(it->path())) return;
+        }
+        if (ec || children != files_.size()) return;
+        for (const auto& file : files_)
+            fs::remove(file, ec);
+        files_.clear();
+        if (fs::remove(path_, ec))
+            created_ = false;
+    }
+
+private:
+    fs::path path_;
+    std::vector<fs::path> files_;
+    bool created_ = false;
+};
+
+fs::path write_synthetic_file(SyntheticFixtureDir& dir, const std::string& name,
+                              const std::string& bytes) {
+    const fs::path file = dir.path() / name;
+    std::error_code ec;
+    if (fs::exists(file, ec)) {
+        ADD_FAILURE() << "refusing to write over an existing path " << file.string();
+        return {};
+    }
+    std::ofstream out(file, std::ios::binary);
+    if (!out.is_open()) {
+        ADD_FAILURE() << "failed to create " << file.string();
+        return {};
+    }
+    out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    if (!out.good()) {
+        ADD_FAILURE() << "failed to write " << file.string();
+        return {};
+    }
+    dir.track(file);
+    return file;
+}
+
+void rewrite_synthetic_file(SyntheticFixtureDir& dir, const fs::path& file,
+                            const std::string& bytes) {
+    ASSERT_TRUE(dir.owns(file)) << file.string();
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    ASSERT_TRUE(out.is_open()) << file.string();
+    out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+    ASSERT_TRUE(out.good()) << file.string();
+}
 }
 
 TEST(MxhResourceReference, PlayDhFilesMatchReferenceManifest) {
@@ -237,14 +381,7 @@ TEST(MxhResourceReference, RecoveredRuntimeServerFilesMatchReferenceManifest) {
         {"Monster_12.bin", "5be52f14930a81743b1596694c5d5d3eb39f5fd990371f5cf5cb6642b598d966", 14},
         {"PlayerxMonsterPoint.bin", "32b11dc34ae0b16091c37ce31f0115e4f7aee518801957a4e12a1c1a80c9350d", 6644},
     };
-    for (const auto& ref : runtime_refs) {
-        const auto path = recovered_server_root(root) / ref.name;
-        if (!fs::exists(path)) {
-            GTEST_SKIP() << "VHD-recovered runtime resource not installed: " << path.string();
-        }
-        ASSERT_EQ(fs::file_size(path), ref.size) << path.string();
-        EXPECT_EQ(sha256(path), ref.hash) << path.string();
-    }
+    compare_runtime_manifest(recovered_server_root(root), runtime_refs);
 }
 
 TEST(MxhResourceReference, CanonicalRootIsExplicitAndDoesNotDependOnTreeOrder) {
@@ -286,4 +423,83 @@ TEST(MxhResourceReference, CanonicalRootFollowsPlayDhRootOverride) {
     const char* restored = std::getenv(mxh::test::kPlayDhRootEnv);
     if (saved) EXPECT_STREQ(restored, saved->c_str());
     else EXPECT_EQ(restored, nullptr);
+}
+
+TEST(MxhResourceReference, SyntheticFixtureCompareLoopDetectsMatchAndMismatches) {
+    SyntheticFixtureDir dir;
+    ASSERT_TRUE(dir.created()) << dir.path().string();
+    std::cout << "synthetic fixture dir: " << dir.path().string() << std::endl;
+
+    const std::string alpha = "mxh-synthetic-ref-alpha";
+    const std::string beta = "mxh-synthetic-ref-beta";
+    const std::string gamma = "mxh-synthetic-ref-gamma";
+    const auto alpha_path = write_synthetic_file(dir, "alpha.synth", alpha);
+    const auto beta_path = write_synthetic_file(dir, "beta.synth", beta);
+    const auto gamma_path = write_synthetic_file(dir, "gamma.synth", gamma);
+    ASSERT_FALSE(alpha_path.empty());
+    ASSERT_FALSE(beta_path.empty());
+    ASSERT_FALSE(gamma_path.empty());
+
+    struct SyntheticRef {
+        std::string name;
+        std::string hash;
+        std::uintmax_t size = 0;
+    };
+    const SyntheticRef manifest[] = {
+        {"alpha.synth", sha256(alpha_path), fs::file_size(alpha_path)},
+        {"beta.synth", sha256(beta_path), fs::file_size(beta_path)},
+        {"gamma.synth", sha256(gamma_path), fs::file_size(gamma_path)},
+    };
+    ASSERT_EQ(manifest[0].size, alpha.size());
+    ASSERT_EQ(manifest[1].size, beta.size());
+    ASSERT_EQ(manifest[2].size, gamma.size());
+    for (const auto& ref : manifest) {
+        ASSERT_EQ(ref.hash.size(), 64u) << ref.name << " " << ref.hash;
+    }
+
+    compare_runtime_manifest(dir.path(), manifest);
+    EXPECT_FALSE(testing::Test::IsSkipped());
+    if (testing::Test::HasFailure() || testing::Test::IsSkipped()) return;
+
+    const std::string beta_longer = beta + "X";
+    rewrite_synthetic_file(dir, beta_path, beta_longer);
+    if (testing::Test::HasFailure()) return;
+    ASSERT_EQ(fs::file_size(beta_path), manifest[1].size + 1);
+    const auto size_report = intercept_compare_runtime_manifest(dir.path(), manifest);
+    EXPECT_EQ(size_report.skipped, 0);
+    EXPECT_EQ(size_report.nonfatal, 0);
+    EXPECT_EQ(size_report.fatal, 1);
+    EXPECT_NE(size_report.messages.find(beta_path.string()), std::string::npos) << size_report.messages;
+    EXPECT_NE(size_report.messages.find("Which is: " + std::to_string(manifest[1].size) + "\n"),
+              std::string::npos) << size_report.messages;
+    EXPECT_NE(size_report.messages.find("Which is: " + std::to_string(manifest[1].size + 1) + "\n"),
+              std::string::npos) << size_report.messages;
+
+    rewrite_synthetic_file(dir, beta_path, beta);
+    if (testing::Test::HasFailure()) return;
+    ASSERT_EQ(fs::file_size(beta_path), manifest[1].size);
+    ASSERT_EQ(sha256(beta_path), manifest[1].hash);
+
+    std::string gamma_same_size = gamma;
+    ASSERT_FALSE(gamma_same_size.empty());
+    gamma_same_size.back() = static_cast<char>(gamma_same_size.back() + 1);
+    ASSERT_EQ(gamma_same_size.size(), gamma.size());
+    ASSERT_NE(gamma_same_size, gamma);
+    rewrite_synthetic_file(dir, gamma_path, gamma_same_size);
+    if (testing::Test::HasFailure()) return;
+    ASSERT_EQ(fs::file_size(gamma_path), manifest[2].size);
+    const auto actual_hash = sha256(gamma_path);
+    ASSERT_EQ(actual_hash.size(), 64u);
+    ASSERT_NE(actual_hash, manifest[2].hash);
+    const auto hash_report = intercept_compare_runtime_manifest(dir.path(), manifest);
+    EXPECT_EQ(hash_report.skipped, 0);
+    EXPECT_EQ(hash_report.fatal, 0);
+    EXPECT_EQ(hash_report.nonfatal, 1);
+    EXPECT_NE(hash_report.messages.find(gamma_path.string()), std::string::npos) << hash_report.messages;
+    EXPECT_NE(hash_report.messages.find(actual_hash), std::string::npos) << hash_report.messages;
+    EXPECT_NE(hash_report.messages.find(manifest[2].hash), std::string::npos) << hash_report.messages;
+
+    dir.remove_created();
+    std::error_code ec;
+    EXPECT_FALSE(fs::exists(dir.path(), ec)) << dir.path().string();
 }
