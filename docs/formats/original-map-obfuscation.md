@@ -27,6 +27,7 @@
 - 清单标记：
   - 来自解码 map 的每条引用（含其 `.hfl` / `.stm` 子引用）带 `derivedBy: "local-decoder"`。
   - `derivation.localDecoder = {version, sourcePakSha256, decodedMaps: [{name, sha256}]}`。`sourcePakSha256` 是 `--pak` 文件的 SHA-256，`decodedMaps[].sha256` 是原版（混淆）.map 字节的 SHA-256。
+  - `parsedMapCount` 计每一份已加载的 .map，`decodedMaps` 只计解出的混淆图。`derive` 每读到一份 .map 字节就把 `seen_maps` 加一，写入 `parsedMapCount`；只有本地解码器已加载、`is_obfuscated_map` 为真、且 `decode_map` 返回明文时，才把该图追加进 `decodedMaps`。`is_obfuscated_map` 为假时走明文分支：直接 `parse_map_references`，引用不带 `derivedBy`，也不进入 `decodedMaps`。当前 `reference/manifests/original-resource-references.json` 里 `parsedMapCount` 为 83，`decodedMaps` 为 82，`unparsed` 为空。作为 `via` 出现的 83 张 .map 中，`01_loginpage_01.map` 是唯一不在 `decodedMaps` 里的一张；它的引用已写入 `references`（`via` 为 `01_loginpage_01.map`，例如 `01_Loginpage_01.hfl`、`01_Loginpage_01.stm`），且没有 `derivedBy: "local-decoder"`。按上述分支，这证明该图走了明文解析路径。
   - 插件返回 `None` 的 map 留在 unparsed，reason 为 `obfuscated-map-key-unavailable`（等待 M5 密钥工作）。未用插件时仍为 `obfuscated-map`。解码后仍无节标记的记为 `local-decoder output did not contain HEIGHT_FIELD, STATIC_MODEL or GX_OBJECT`。
   - 清单不得写入明文片段、密钥字节、头部字节或任何可推出密钥的字段。
 - `check`：

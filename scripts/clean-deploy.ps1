@@ -82,6 +82,12 @@
 .PARAMETER SkipGui
     Forward -SkipGui to commercial-smoke (skip GUI client smoke step).
 
+.PARAMETER MssqlDb
+    Optional connection string forwarded to commercial-smoke -MssqlDb.
+    When set, sqllocaldb is not a required prereq. sqlcmd, odbc18, and
+    vcredist stay required for the smoke step. Omit it to keep the
+    LocalDB prerequisite.
+
 .PARAMETER Config
     CMake config (Debug or Release). Default Debug.
 
@@ -123,6 +129,7 @@ param(
     [switch]$SkipSmoke,
     [switch]$SkipBuild,
     [switch]$SkipGui,
+    [string]$MssqlDb = "",
     [switch]$Force,
     [ValidateSet("Debug", "Release")]
     [string]$Config = "Debug",
@@ -212,11 +219,14 @@ function Get-CleanDeployRequiredPrereqNames {
     param(
         [switch]$SkipBuild,
         [switch]$SkipTests,
-        [switch]$SkipSmoke
+        [switch]$SkipSmoke,
+        [string]$MssqlDb = ""
     )
     # cmake and vs2022 are required only when the build step runs.
     # sqlcmd, sqllocaldb, odbc18, and vcredist are required when ctest
     # or commercial-smoke runs (the same set for either step).
+    # -MssqlDb points commercial-smoke at an existing SQL instance, so
+    # sqllocaldb is not required for that run. sqlcmd stays required.
     # git is not required: this script detects it and never invokes it.
     # chocolatey stays optional and is not part of the gate.
     $names = New-Object System.Collections.Generic.List[string]
@@ -229,7 +239,9 @@ function Get-CleanDeployRequiredPrereqNames {
     if (-not $SkipSmoke) { $dataStep = $true }
     if ($dataStep) {
         [void]$names.Add("sqlcmd")
-        [void]$names.Add("sqllocaldb")
+        if ([string]::IsNullOrWhiteSpace($MssqlDb)) {
+            [void]$names.Add("sqllocaldb")
+        }
         [void]$names.Add("odbc18")
         [void]$names.Add("vcredist")
     }
@@ -1418,7 +1430,8 @@ function Invoke-CleanDeploySelfTestChild {
     param(
         [Parameter(Mandatory = $true)][string]$WorkRoot,
         [string[]]$ArgumentList,
-        [hashtable]$Environment
+        [hashtable]$Environment,
+        [string]$ScriptPath = ""
     )
     try {
         $exe = ""
@@ -1431,7 +1444,9 @@ function Invoke-CleanDeploySelfTestChild {
             $exe = (Get-Process -Id $PID).Path
         }
         $quote = [string][char]34
-        $argText = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + $quote + $script:CleanDeployScriptPath + $quote
+        $filePath = $script:CleanDeployScriptPath
+        if (-not [string]::IsNullOrWhiteSpace($ScriptPath)) { $filePath = $ScriptPath }
+        $argText = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + $quote + $filePath + $quote
         foreach ($one in $ArgumentList) {
             $escaped = ([string]$one).Replace($quote, ('\' + $quote))
             $argText = $argText + " " + $quote + $escaped + $quote
@@ -1909,6 +1924,101 @@ function Invoke-CleanDeploySelfTestSkipCases {
     $defaultOk = ($blocked.ExitCode -eq 2) -and ($defaultText.Contains($defaultLine)) -and ($defaultText.Contains("[FAIL] missing prereqs (cmake, vs2022, sqlcmd, sqllocaldb, odbc18, vcredist)"))
     Assert-CleanDeploySelfTest -Name "default run still requires cmake and vs2022" -Condition $defaultOk
 
+    $mssqlConn = "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_SelfTest;encrypt=no;"
+    $mssqlEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "mssql-db-env") -Absent "sqllocaldb,cmake,vs2022,git,chocolatey" -Present "sqlcmd,odbc18,vcredist"
+    $mssqlChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $playFull, "-DryRun", "-SkipBuild", "-SkipTests", "-MssqlDb", $mssqlConn
+    ) -Environment $mssqlEnv
+    $mssqlText = [string]$mssqlChild.Text
+    $mssqlLine = "[INFO] prereqs required for this run: sqlcmd, odbc18, vcredist"
+    $mssqlOk = ($mssqlChild.ExitCode -eq 0) -and ($mssqlText.Contains($mssqlLine)) -and ($mssqlText.Contains("-MssqlDb")) -and ($mssqlText.Contains("database=MxE2E_SelfTest")) -and ($mssqlText.Contains("[WARN] sqllocaldb : MISSING")) -and (-not $mssqlText.Contains("[FAIL] missing prereqs")) -and (-not $mssqlText.Contains("sqllocaldb, odbc18")) -and ($mssqlText.Contains("[SKIP] step 4 build")) -and ($mssqlText.Contains("[SKIP] step 5 ctest"))
+    Assert-CleanDeploySelfTest -Name "MssqlDb dry-run does not require sqllocaldb and forwards the connection string" -Condition $mssqlOk
+
+    $bindRoot = Join-Path $case "mssql-bind"
+    $bindScripts = Join-Path $bindRoot "scripts"
+    New-Item -ItemType Directory -Path $bindScripts -Force | Out-Null
+    $bindDeploy = Join-Path $bindScripts "clean-deploy.ps1"
+    [System.IO.File]::Copy($script:CleanDeployScriptPath, $bindDeploy, $true)
+    $bindStub = Join-Path $bindScripts "commercial-smoke.ps1"
+    $bindRecord = Join-Path $bindScripts "bound-parameters.txt"
+    $bindStubText = @'
+param(
+    [string]$BuildDir = '',
+    [switch]$SkipGui,
+    [string]$MssqlDb = ''
+)
+$lines = New-Object System.Collections.Generic.List[string]
+foreach ($key in ($PSBoundParameters.Keys | Sort-Object)) {
+    $value = $PSBoundParameters[$key]
+    $text = ''
+    if ($value -is [System.Management.Automation.SwitchParameter]) {
+        if ($value.IsPresent) { $text = 'True' } else { $text = 'False' }
+    } else {
+        $text = [string]$value
+    }
+    $lines.Add([string]$key)
+    $lines.Add($text)
+}
+$record = Join-Path $PSScriptRoot 'bound-parameters.txt'
+$utf8 = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllLines($record, $lines.ToArray(), $utf8)
+exit 0
+'@
+    $bindStubText = $bindStubText.Replace("`r`n", "`n")
+    if (-not $bindStubText.EndsWith("`n")) { $bindStubText = $bindStubText + "`n" }
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($bindStub, $bindStubText, $utf8NoBom)
+    $bindConn = "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_BindCheck;encrypt=no;trust_server_certificate=yes;"
+    function Read-CleanDeployBoundParameters {
+        param([string]$Path)
+        $map = @{}
+        if (-not (Test-Path -LiteralPath $Path)) { return $null }
+        $lines = [System.IO.File]::ReadAllLines($Path)
+        for ($i = 0; $i -lt $lines.Length; $i = $i + 2) {
+            $key = [string]$lines[$i]
+            $val = ''
+            if (($i + 1) -lt $lines.Length) { $val = [string]$lines[$i + 1] }
+            $map[$key] = $val
+        }
+        return $map
+    }
+    function Invoke-CleanDeploySmokeBindCase {
+        param(
+            [string[]]$ExtraArgs,
+            [hashtable]$Environment
+        )
+        if (Test-Path -LiteralPath $bindRecord) {
+            Remove-Item -LiteralPath $bindRecord -Force
+        }
+        $bindArgs = @("-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $playFull, "-SkipBuild", "-SkipTests") + @($ExtraArgs)
+        $child = Invoke-CleanDeploySelfTestChild -WorkRoot $bindRoot -ScriptPath $bindDeploy -ArgumentList $bindArgs -Environment $Environment
+        return [pscustomobject]@{
+            Child = $child
+            Bound = (Read-CleanDeployBoundParameters -Path $bindRecord)
+        }
+    }
+    $skipGuiEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "skipgui-bind-env") -Absent "cmake,vs2022,git,chocolatey" -Present "sqlcmd,sqllocaldb,odbc18,vcredist"
+    $skipOnly = Invoke-CleanDeploySmokeBindCase -ExtraArgs @("-SkipGui") -Environment $skipGuiEnv
+    $skipNames = @()
+    if ($null -ne $skipOnly.Bound) { $skipNames = @($skipOnly.Bound.Keys) }
+    $skipOnlyOk = ($skipOnly.Child.ExitCode -eq 0) -and ($skipNames -contains "BuildDir") -and ($skipNames -contains "SkipGui") -and ($skipOnly.Bound["SkipGui"] -eq "True") -and (-not ($skipNames -contains "MssqlDb"))
+    if (-not $skipOnlyOk) { Write-CleanDeploySelfTestChildDetail -Child $skipOnly.Child -Name "SkipGui bind" }
+    Assert-CleanDeploySelfTest -Name "commercial-smoke hashtable splat binds -SkipGui alone" -Condition $skipOnlyOk
+
+    $dbOnly = Invoke-CleanDeploySmokeBindCase -ExtraArgs @("-MssqlDb", $bindConn) -Environment $mssqlEnv
+    $dbNames = @()
+    if ($null -ne $dbOnly.Bound) { $dbNames = @($dbOnly.Bound.Keys) }
+    $dbOnlyOk = ($dbOnly.Child.ExitCode -eq 0) -and ($dbNames -contains "BuildDir") -and ($dbNames -contains "MssqlDb") -and ($dbOnly.Bound["MssqlDb"] -eq $bindConn) -and (-not ($dbNames -contains "SkipGui"))
+    if (-not $dbOnlyOk) { Write-CleanDeploySelfTestChildDetail -Child $dbOnly.Child -Name "MssqlDb bind" }
+    Assert-CleanDeploySelfTest -Name "commercial-smoke hashtable splat binds -MssqlDb alone" -Condition $dbOnlyOk
+
+    $bothBind = Invoke-CleanDeploySmokeBindCase -ExtraArgs @("-SkipGui", "-MssqlDb", $bindConn) -Environment $mssqlEnv
+    $bothNames = @()
+    if ($null -ne $bothBind.Bound) { $bothNames = @($bothBind.Bound.Keys) }
+    $bothOk = ($bothBind.Child.ExitCode -eq 0) -and ($bothNames -contains "BuildDir") -and ($bothNames -contains "SkipGui") -and ($bothBind.Bound["SkipGui"] -eq "True") -and ($bothNames -contains "MssqlDb") -and ($bothBind.Bound["MssqlDb"] -eq $bindConn)
+    if (-not $bothOk) { Write-CleanDeploySelfTestChildDetail -Child $bothBind.Child -Name "SkipGui and MssqlDb bind" }
+    Assert-CleanDeploySelfTest -Name "commercial-smoke hashtable splat binds -SkipGui and -MssqlDb together" -Condition $bothOk
+
     $readyTree = Get-CleanDeploySelfTestTreeText -RootPath $case
     $noSkipTests = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
         "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-SkipBuild"
@@ -2120,7 +2230,7 @@ foreach ($key in @("cmake","git","sqlcmd","sqllocaldb","vcredist","odbc18","choc
     }
 }
 
-$requiredResult = Get-CleanDeployRequiredPrereqNames -SkipBuild:$SkipBuild -SkipTests:$SkipTests -SkipSmoke:$SkipSmoke
+$requiredResult = Get-CleanDeployRequiredPrereqNames -SkipBuild:$SkipBuild -SkipTests:$SkipTests -SkipSmoke:$SkipSmoke -MssqlDb $MssqlDb
 $requiredNames = @()
 if ($null -ne $requiredResult -and $null -ne $requiredResult.Names) {
     $requiredNames = @($requiredResult.Names)
@@ -2227,16 +2337,30 @@ if (-not $SkipSmoke) {
     if (-not (Test-Path -LiteralPath $smokeScript)) {
         Fail "commercial-smoke.ps1 not found at $smokeScript"
     }
-    $smokeArgs = @()
-    if ($SkipGui) { $smokeArgs += "-SkipGui" }
+    # Hashtable splat binds -MssqlDb and -SkipGui. A string array splat
+    # passes those tokens as positional values, so the script parameters
+    # stay unbound.
+    $smokeParams = @{ BuildDir = $buildDir }
+    if ($SkipGui) { $smokeParams.SkipGui = $true }
+    if (-not [string]::IsNullOrWhiteSpace($MssqlDb)) {
+        $smokeParams.MssqlDb = $MssqlDb
+    }
+    $smokeShown = New-Object System.Collections.Generic.List[string]
+    if ($smokeParams.ContainsKey("SkipGui") -and $smokeParams.SkipGui) {
+        $smokeShown.Add("-SkipGui")
+    }
+    if ($smokeParams.ContainsKey("MssqlDb")) {
+        $smokeShown.Add("-MssqlDb")
+        $smokeShown.Add([string]$smokeParams.MssqlDb)
+    }
     if ($DryRun) {
-        Info ('would run: ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs + ')')
+        Info ('would run: ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + ($smokeShown -join ' ') + ')')
     } else {
         if ($script:CleanDeploySupplementExpectedFilled) {
             $smokeBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $buildDir
         }
-        Write-Host ('  > ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs) -ForegroundColor DarkGray
-        & $smokeScript -BuildDir $buildDir $smokeArgs -ErrorAction Stop
+        Write-Host ('  > ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + ($smokeShown -join ' ')) -ForegroundColor DarkGray
+        & $smokeScript @smokeParams
         if ($LASTEXITCODE -ne 0) { Fail ('commercial-smoke failed exit $LASTEXITCODE; exit 5') 5 }
     }
     Ok 'commercial-smoke OK'
