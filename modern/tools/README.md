@@ -94,6 +94,18 @@ so a `.tga` reference hits only a `.tga` entry.
 (`loose:<path>` or `pak:<path>`, forward slashes, empty when missed).
 `check` ignores `originalHit`.
 
+After that index is built, `derive` calls `locate` for every
+`KNOWN_NO_ORIGINAL` name and for the same stem with `.dds`. The `.dds`
+name is the original with its extension replaced (`test4` gains `.dds`).
+Those names are not in `references`, so the reference walk never checks
+them, and storage lookup does not rewrite `.tga` to `.dds` by itself.
+A non-empty hit exits non-zero, prints `name -> hit` (the relative
+`loose:` or `pak:` label only), and does not write the manifest. When
+every lookup misses, the manifest is unchanged. The guard uses the same
+index as `originalExists`: `--client-root`, or `--source` when
+`--client-root` is omitted. A root that is not a directory leaves the
+index empty, and the guard does not fail.
+
 Which maps are parsed is unchanged: casefolded basenames of loose files
 under `--source`, plus basenames of entries in `--pak`. A `.map` that
 exists only in some other pak is not parsed. `parsedMapCount` and
