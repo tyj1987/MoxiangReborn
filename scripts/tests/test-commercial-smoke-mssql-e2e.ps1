@@ -96,8 +96,10 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 '@
 
+$script:AssertPass = 0
 function Assert-True($condition, [string]$message) {
     if (-not $condition) { throw "FAIL: $message" }
+    $script:AssertPass = $script:AssertPass + 1
 }
 
 function Test-PidStillRunning {
@@ -627,20 +629,20 @@ function Assert-SqlCmdTargetsInstance {
     $groups = Get-SqlCmdArgGroups -Log $Log
     Assert-True ($groups.Count -eq $ExpectedCalls) "sqlcmd call count was $($groups.Count), expected $ExpectedCalls, log [$Log]"
     foreach ($group in $groups) {
-        $args = @($group)
+        $sqlArgGroup = @($group)
         $hasE = $false
         $sawS = $false
-        for ($i = 0; $i -lt $args.Count; $i++) {
-            if ($args[$i] -eq '-E') { $hasE = $true }
-            if ($args[$i] -eq '-S') {
+        for ($i = 0; $i -lt $sqlArgGroup.Count; $i++) {
+            if ($sqlArgGroup[$i] -eq '-E') { $hasE = $true }
+            if ($sqlArgGroup[$i] -eq '-S') {
                 $sawS = $true
                 $next = ''
-                if (($i + 1) -lt $args.Count) { $next = [string]$args[$i + 1] }
-                Assert-True ($next -eq $Server) "sqlcmd -S value was [$next], expected [$Server], args [$($args -join ' ')]"
+                if (($i + 1) -lt $sqlArgGroup.Count) { $next = [string]$sqlArgGroup[$i + 1] }
+                Assert-True ($next -eq $Server) "sqlcmd -S value was [$next], expected [$Server], args [$($sqlArgGroup -join ' ')]"
             }
         }
-        Assert-True $hasE "sqlcmd call missing -E, args [$($args -join ' ')]"
-        Assert-True $sawS "sqlcmd call missing -S, args [$($args -join ' ')]"
+        Assert-True $hasE "sqlcmd call missing -E, args [$($sqlArgGroup -join ' ')]"
+        Assert-True $sawS "sqlcmd call missing -S, args [$($sqlArgGroup -join ' ')]"
     }
 }
 
@@ -738,11 +740,24 @@ Assert-True ($functions.Name -contains 'Get-CommercialSmokeOwnedIdentity') 'owne
 $explicitFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeExplicitMssqlE2E' })
 Assert-True ($explicitFn.Count -eq 1) 'explicit MSSQL function missing'
 $explicitBody = $explicitFn[0].Extent.Text
-Assert-True ($explicitBody.Contains('Start-Process')) 'explicit MSSQL path must start the E2E with Start-Process'
-Assert-True ($explicitBody.Contains('-PassThru')) 'explicit MSSQL path must keep the Start-Process process object'
-Assert-True ($explicitBody.Contains('Stop-CommercialSmokeOwnedProcesses')) 'explicit MSSQL finally must stop owned PIDs'
+$ownedExeFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeOwnedExecutable' })
+Assert-True ($ownedExeFn.Count -eq 1) 'owned executable helper missing'
+$ownedExeBody = $ownedExeFn[0].Extent.Text
+Assert-True ($explicitBody.Contains('Invoke-CommercialSmokeOwnedExecutable')) 'explicit MSSQL path must start the owned executable helper'
+Assert-True ($ownedExeBody.Contains('Start-Process')) 'owned helper must start the E2E with Start-Process'
+Assert-True ($ownedExeBody.Contains('-PassThru')) 'owned helper must keep the Start-Process process object'
+Assert-True ($ownedExeBody.Contains('Stop-CommercialSmokeOwnedProcesses')) 'owned helper must stop owned PIDs'
 Assert-True (-not $explicitBody.Contains('Get-Process -Name')) 'explicit MSSQL path must not stop processes by name'
 Assert-True (-not $explicitBody.Contains("Stop-Process -Force -ErrorAction SilentlyContinue`n")) 'explicit MSSQL path must not use an unnamed Stop-Process'
+$mssqlFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeMssqlE2E' })
+Assert-True ($mssqlFn.Count -eq 1) 'MSSQL E2E function missing'
+$mssqlBody = $mssqlFn[0].Extent.Text
+Assert-True ($mssqlBody.Contains('Invoke-CommercialSmokeOwnedExecutable')) 'LocalDB path must stop PIDs through the owned helper'
+Assert-True (-not $mssqlBody.Contains('Get-Process -Name')) 'LocalDB path must not stop processes by name'
+Assert-True (-not $smokeText.Contains('Get-Process -Name')) 'commercial-smoke must not select processes by name'
+Assert-True (-not $smokeText.Contains('$args')) 'commercial-smoke must not assign or splat $args'
+Assert-True (-not $smokeText.Contains('@cmdArgs')) 'sqlcmd must not use array splat'
+Assert-True ($smokeText.Contains('Test-CommercialSmokeLiveIdentity')) 'fallback stop must re-check process identity'
 
 $temp = [IO.Path]::GetTempPath()
 if ([string]::IsNullOrWhiteSpace($temp)) { $temp = [IO.Path]::GetFullPath('.') }
@@ -855,6 +870,30 @@ try {
     $forcedArgs = @(Read-InvokedArgs -Exe $forcedOnBuild.Exe)
     Assert-True ($null -ne $forcedArgs -and ($forcedArgs -join "`n") -eq ($ExpectedArgs -join "`n")) "probe override true args were [$($forcedArgs -join '|')]"
 
+    $localDecoy = $null
+    try {
+        $localDecoyExe = New-MxhServerNamedExe -ProcessName 'mxh_login_server'
+        $localDecoy = Start-Process -FilePath $localDecoyExe -ArgumentList '120' -PassThru -NoNewWindow
+        try { $null = $localDecoy.Handle } catch { }
+        $localDecoyName = ''
+        $localDeadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($localDeadline.ElapsedMilliseconds -lt 5000 -and $localDecoyName -ne 'mxh_login_server') {
+            try { $localDecoy.Refresh() } catch { }
+            $localDecoyName = [string]$localDecoy.ProcessName
+            if ($localDecoyName -ne 'mxh_login_server') { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($localDecoyName -eq 'mxh_login_server') "LocalDB decoy process name was [$localDecoyName]"
+        Assert-True (Test-PidStillRunning -ProcessId $localDecoy.Id) 'LocalDB decoy exited before smoke'
+        $localDecoyBuild = New-BuildDir -WithExe
+        $localDecoyRun = Invoke-Smoke -BuildDir $localDecoyBuild.Build -PathValue $present
+        $localDecoyText = Get-SmokeText $localDecoyRun.Stdout
+        Assert-True ($localDecoyRun.ExitCode -eq 0) "LocalDB decoy smoke exit was $($localDecoyRun.ExitCode); stdout [$localDecoyText] stderr [$($localDecoyRun.Stderr)]"
+        Assert-True ((Count-SmokeLine $localDecoyText $PassLine) -eq 1) "LocalDB decoy run must pass, got [$localDecoyText]"
+        Assert-True (Test-PidStillRunning -ProcessId $localDecoy.Id) 'LocalDB cleanup stopped an unrelated mxh_login_server'
+    } finally {
+        Stop-TestProcess -Process $localDecoy
+    }
+
     Assert-True ($smokeText.Contains('--login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema')) 'explicit E2E must pass ports 26001/27001/28001'
     Assert-True (-not $smokeText.Contains('--map12-port')) 'commercial-smoke must not pass --map12-port without --exercise-mapchange'
     foreach ($forbiddenPort in @('16001', '17001', '18001', '36001', '37001', '38001')) {
@@ -955,6 +994,36 @@ try {
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value 'localhost')) 'bare localhost must be rejected'
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '(local)')) 'bare (local) must be rejected'
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '127.0.0.1')) 'bare 127.0.0.1 must be rejected'
+
+    $quoteFragment = 'whitespace or quote characters are not allowed'
+    Assert-True (Test-CommercialSmokeConnectionStringLiteral -ConnectionString $goodConn) 'connection string without whitespace or quotes must be accepted'
+    $windowsEntry = [pscustomobject]@{ Id = 9; StartTicks = [int64]638000000000000000; KernelStart = [int64]0 }
+    $windowsToken = Get-CommercialSmokeOwnedReportToken -Entry $windowsEntry -WindowsHost $true
+    Assert-True ($windowsToken -eq '638000000000000000') "Windows owned token was [$windowsToken], expected StartTicks"
+    $linuxEntry = [pscustomobject]@{ Id = 9; StartTicks = [int64]11; KernelStart = [int64]22 }
+    $linuxToken = Get-CommercialSmokeOwnedReportToken -Entry $linuxEntry -WindowsHost $false
+    Assert-True ($linuxToken -eq '22') "non-Windows owned token was [$linuxToken], expected KernelStart"
+    $unsafeConnections = @(
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok; encrypt=no',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok;pwd="secret"',
+        "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok;pwd='secret'",
+        "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok;`tencrypt=no"
+    )
+    foreach ($unsafeConn in $unsafeConnections) {
+        Assert-True (-not (Test-CommercialSmokeConnectionStringLiteral -ConnectionString $unsafeConn)) "predicate must reject [$unsafeConn]"
+        $unsafeState = New-SqlCmdState -Root $script:Root -Names $baseNames
+        $unsafeRun = Invoke-Smoke -BuildDir $rejectBuild.Build -PathValue $sqlPath -MssqlDb $unsafeConn -StubEnv $unsafeState.Env
+        $unsafeText = Get-SmokeText $unsafeRun.Stdout
+        Assert-True ($unsafeRun.ExitCode -ne 0) "unsafe connection must be non-zero for [$unsafeConn], exit $($unsafeRun.ExitCode), stdout [$unsafeText], stderr [$($unsafeRun.Stderr)]"
+        Assert-True ($unsafeText.Contains('rejected before connect')) "unsafe connection missing refuse line for [$unsafeConn], got [$unsafeText]"
+        Assert-True ($unsafeText.Contains($quoteFragment)) "unsafe connection missing quote/whitespace fragment for [$unsafeConn], got [$unsafeText]"
+        Assert-True (-not $unsafeText.Contains('PASS')) "unsafe connection must not pass for [$unsafeConn], got [$unsafeText]"
+        Assert-True ((Read-SqlCmdLog -Path $unsafeState.Log).Length -eq 0) "unsafe connection must not call sqlcmd for [$unsafeConn]"
+        Assert-True ($null -eq (Read-InvokedArgs -Exe $rejectBuild.Exe)) "unsafe connection must not invoke E2E for [$unsafeConn]"
+        if (Test-Path -LiteralPath ($rejectBuild.Exe + '.invoked')) {
+            Remove-Item -LiteralPath ($rejectBuild.Exe + '.invoked') -Force
+        }
+    }
 
     $existsState = New-SqlCmdState -Root $script:Root -Names ($baseNames + @('MxE2E_Already'))
     $existsBuild = New-BuildDir -WithExe
@@ -1097,6 +1166,7 @@ try {
     $ownedProc = $null
     $decoyProc = $null
     $quickProc = $null
+    $fallbackProc = $null
     try {
         $ownedProc = Start-Process -FilePath $ownedExe -ArgumentList '60' -PassThru -NoNewWindow
         $decoyProc = Start-Process -FilePath $decoyExe -ArgumentList '60' -PassThru -NoNewWindow
@@ -1127,6 +1197,22 @@ try {
             Assert-True ($kernel -gt 0) "kernel starttime missing for owned pid $($ownedIdentity.Id)"
             Assert-True ([int64]$ownedIdentity.KernelStart -eq $kernel) "identity kernel starttime was $($ownedIdentity.KernelStart), live is $kernel"
         }
+        Assert-True (Test-CommercialSmokeLiveIdentity -ProcessId ([int]$ownedIdentity.Id) -StartTicks ([int64]$ownedIdentity.StartTicks) -KernelStart ([int64]$ownedIdentity.KernelStart)) 'recorded identity must match the live process'
+        Assert-True (-not (Test-CommercialSmokeLiveIdentity -ProcessId ([int]$ownedIdentity.Id) -StartTicks ([int64]1) -KernelStart ([int64]1))) 'a mismatched clock must not match the live process'
+        $fallbackProc = Start-Process -FilePath $ownedExe -ArgumentList '60' -PassThru -NoNewWindow
+        try { $null = $fallbackProc.Handle } catch { }
+        $fallbackIdentity = $null
+        $fallbackDeadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($fallbackDeadline.ElapsedMilliseconds -lt 5000 -and $null -eq $fallbackIdentity) {
+            $fallbackIdentity = Get-CommercialSmokeOwnedIdentity -Process $fallbackProc
+            if ($null -eq $fallbackIdentity) { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($null -ne $fallbackIdentity) 'fallback sleeper identity was not recorded'
+        Stop-CommercialSmokeOwnedProcessFallback -ProcessId ([int]$fallbackIdentity.Id) -StartTicks ([int64]1) -KernelStart ([int64]1)
+        Assert-True (Test-PidStillRunning -ProcessId ([int]$fallbackIdentity.Id)) 'fallback stop must not signal a PID whose identity does not match'
+        Stop-CommercialSmokeOwnedProcessFallback -ProcessId ([int]$fallbackIdentity.Id) -StartTicks ([int64]$fallbackIdentity.StartTicks) -KernelStart ([int64]$fallbackIdentity.KernelStart)
+        $fallbackProc.WaitForExit(5000) | Out-Null
+        Assert-True (-not (Test-PidStillRunning -ProcessId ([int]$fallbackIdentity.Id))) 'fallback stop must signal the PID when identity still matches'
         Stop-CommercialSmokeOwnedProcess -ProcessId $decoyIdentity.Id -StartTicks ([int64]1)
         Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $ownedIdentity.Id; StartTicks = ([int64]1) })
         Assert-True (Test-PidStillRunning -ProcessId $ownedIdentity.Id) 'wrong StartTime must not stop the owned PID'
@@ -1147,6 +1233,7 @@ try {
         Stop-TestProcess -Process $ownedProc
         Stop-TestProcess -Process $decoyProc
         Stop-TestProcess -Process $quickProc
+        Stop-TestProcess -Process $fallbackProc
     }
 
     $pathDecoy = $null
@@ -1198,6 +1285,16 @@ try {
         }
         Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid state=$childState) [$ownedLine]"
         Assert-True ($ownedIds -contains [string]$pathChildPid) "owned PID list did not include child $pathChildPid [$ownedLine]"
+        $childToken = ''
+        if ($ownedLine.StartsWith($ownedPrefix)) {
+            foreach ($token in @($ownedLine.Substring($ownedPrefix.Length).Split(','))) {
+                $pieces = @($token.Split(':'))
+                if ($pieces.Count -ge 2 -and $pieces[0] -eq [string]$pathChildPid) {
+                    $childToken = [string]$pieces[1]
+                }
+            }
+        }
+        Assert-True ($childToken -match '^\d+$' -and [int64]$childToken -gt 0) "owned identity token must be the non-zero clock for pid $pathChildPid [$ownedLine]"
         Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
     } finally {
         Stop-TestProcess -Process $pathDecoy
@@ -1215,3 +1312,4 @@ try {
 
 Write-Output 'PASS: commercial-smoke MSSQL E2E availability'
 Write-Output 'PASS: commercial-smoke -MssqlDb guard'
+Write-Output ('PASS: assertions ' + $script:AssertPass)
