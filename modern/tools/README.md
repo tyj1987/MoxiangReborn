@@ -99,28 +99,29 @@ under `--source`, plus basenames of entries in `--pak`. A `.map` that
 exists only in some other pak is not parsed. `parsedMapCount` and
 `decodedMaps` therefore stay on that older set.
 
-`derive` still writes `derivation.localDecoder` when a plugin is loaded, so
-`check --pak` can verify it. `trim` removes that node and any `.py` decoder
-path. Hash and commit the trimmed file. Do not commit the checked-in
-manifest from this change.
+`derive` still writes `derivation.localDecoder` (`version`,
+`sourcePakSha256`, `decodedMaps` with name and sha256, `keySourceCounts`)
+so `check --pak` can verify it. `trim` leaves that node alone and removes
+decoder filesystem paths and any `.py` path. `pak.path` stays. Do not
+commit the checked-in manifest from this change. The committed manifest
+has 4026 `originalExists: false` rows out of 4674 references.
 
-On ROG only `D:\build-mxr` is writable. Copy the existing local decoder
-plugin (it is not in the repo) to
-`D:\build-mxr\tyj165\local_decoder.py`, then:
+On ROG only `D:\build-mxr` is writable. `--local-decoder` is the existing
+external decoder path used for check153. It is not in this repo.
 
 ```bash
 python3 modern/tools/resource_reference_gate.py derive \
     --source D:/MX/client/Package/3DData \
     --client-root D:/MX/client \
     --pak D:/MX/client/Package/3DData/Map.pak \
-    --local-decoder D:/build-mxr/tyj165/local_decoder.py \
+    --local-decoder <existing external decoder path used for check153> \
     --output D:/build-mxr/tyj165/derive-a.json
 
 python3 modern/tools/resource_reference_gate.py derive \
     --source D:/MX/client/Package/3DData \
     --client-root D:/MX/client \
     --pak D:/MX/client/Package/3DData/Map.pak \
-    --local-decoder D:/build-mxr/tyj165/local_decoder.py \
+    --local-decoder <existing external decoder path used for check153> \
     --output D:/build-mxr/tyj165/derive-b.json
 
 python3 modern/tools/resource_reference_gate.py trim \
@@ -132,15 +133,18 @@ python3 modern/tools/resource_reference_gate.py trim \
     --output D:/build-mxr/tyj165/derive-b.trimmed.json
 ```
 
-`Get-FileHash -Algorithm SHA256` on the two trimmed files must match.
-Then compare the untrimmed derive (it still has `decodedMaps`) to the
-checked-in manifest. `OTHER_FIELD_DIFFS` counts every field except
-`originalExists` and `originalHit`. The report is names and counts only.
+`Get-FileHash -Algorithm SHA256` on the two trimmed files must be equal.
+Acceptance is that hash match, plus this compare printing
+`OTHER_FIELD_DIFFS 0` and `DECODED_MAPS_EQUAL`. The compare counts every
+field except `originalExists` and `originalHit`. It also prints
+`FALSE_BY_EXT`, `FALSE_BY_VIA`, and the nine `tile_17_mou_a_*.tga` values.
+Names and counts only. The checked-in baseline has 4026 false rows out of
+4674 references.
 
 ```bash
 python3 modern/tools/resource_reference_gate.py compare-manifests \
     reference/manifests/original-resource-references.json \
-    D:/build-mxr/tyj165/derive-a.json
+    D:/build-mxr/tyj165/derive-a.trimmed.json
 ```
 
 `check` runs in CI against that manifest. It exits 0 and prints warnings.

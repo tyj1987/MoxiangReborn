@@ -1029,20 +1029,58 @@ class TrimAndCompareTests(unittest.TestCase):
             "knownReferencedNoOriginalFile": [],
         }
 
-    def test_trim_drops_decoder_node_and_path(self):
+    def test_trim_keeps_local_decoder_and_drops_paths(self):
         document = self._pair()
+        document["derivation"]["pak"] = {"path": r"D:\MX\client\Package\3DData\Map.pak"}
         document["derivation"]["localDecoder"] = {
             "version": "synthetic",
-            "decodedMaps": [{"name": "1.map", "sha256": "ab"}],
+            "sourcePakSha256": "ab" * 32,
+            "decodedMaps": [{"name": "1.map", "sha256": "cd" * 32, "keySource": "table-test"}],
+            "keySourceCounts": {"table-test": 1},
+            "loadedFrom": r"D:\secret\local_decoder.py",
         }
-        document["derivation"]["decoderPath"] = r"D:\secret\local_decoder.py"
+        document["derivation"]["decoderPath"] = "/opt/check153/decoder.py"
         trimmed = gate.trim_manifest(document)
         blob = json.dumps(trimmed)
-        self.assertNotIn("localDecoder", blob)
+        self.assertIn("localDecoder", blob)
         self.assertNotIn("local_decoder.py", blob)
+        self.assertNotIn("decoder.py", blob)
         self.assertNotIn("secret", blob)
-        self.assertEqual(trimmed["references"][0]["originalHit"], "loose:a.tga")
+        info = trimmed["derivation"]["localDecoder"]
+        self.assertEqual(set(info), {"version", "sourcePakSha256", "decodedMaps", "keySourceCounts"})
+        self.assertEqual(info["decodedMaps"], [
+            {"name": "1.map", "sha256": "cd" * 32, "keySource": "table-test"},
+        ])
+        self.assertEqual(trimmed["derivation"]["pak"]["path"], r"D:\MX\client\Package\3DData\Map.pak")
         self.assertEqual(manifest_text(trimmed), manifest_text(gate.trim_manifest(trimmed)))
+
+    def test_trim_of_derive_matches_path_free_baseline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pak = root / "Map.pak"
+            pak.write_bytes(build_original_pak([
+                ("1.map", synthetic_xor_map(FAKE_PLAIN_MAP)),
+            ]))
+            plugin = root / "outside" / "fake_decoder.py"
+            plugin.parent.mkdir()
+            plugin.write_text(SOURCED_PLUGIN_SOURCE, encoding="utf-8")
+            leaked = gate.derive(None, pak, local_decoder=gate.load_local_decoder(plugin))
+            info = leaked["derivation"]["localDecoder"]
+            self.assertEqual(set(info), {"version", "sourcePakSha256", "decodedMaps", "keySourceCounts"})
+            baseline = json.loads(json.dumps(leaked))
+            leaked["derivation"]["decoderPath"] = r"D:\secret\local_decoder.py"
+            leaked["derivation"]["localDecoder"]["loadedFrom"] = "/opt/check153/decoder.py"
+            leaked["pluginFile"] = r"C:\tools\plugin.py"
+            trimmed = gate.trim_manifest(leaked)
+            report = gate.compare_manifest_report(baseline, trimmed)
+            self.assertIn("OTHER_FIELD_DIFFS 0\n", report)
+            self.assertIn("DECODED_MAPS_EQUAL\n", report)
+            self.assertNotIn("FALSE_BY_HIT", report)
+            self.assertEqual(
+                trimmed["derivation"]["localDecoder"]["decodedMaps"],
+                baseline["derivation"]["localDecoder"]["decodedMaps"],
+            )
+            self.assertNotIn(".py", json.dumps(trimmed))
 
     def test_compare_reports_hit_fields_separately_from_other_diffs(self):
         old = self._pair(exists=True)
@@ -1052,8 +1090,8 @@ class TrimAndCompareTests(unittest.TestCase):
         self.assertIn("OTHER_FIELD_DIFFS 0\n", text)
         self.assertIn("PARSED_MAP_COUNT old=1 new=1\n", text)
         self.assertIn("DECODED_MAPS_EQUAL\n", text)
-        self.assertIn("FALSE_BY_EXTENSION tga 2\n", text)
-        self.assertIn("FALSE_BY_HIT none 2\n", text)
+        self.assertIn("FALSE_BY_EXT tga 2\n", text)
+        self.assertNotIn("FALSE_BY_HIT", text)
         self.assertIn("FALSE_BY_VIA 1.map 1\n", text)
         self.assertIn("FALSE_BY_VIA 17.map 1\n", text)
         self.assertIn("TILE tile_17_mou_a_01.tga false\n", text)
@@ -1088,7 +1126,8 @@ class TrimAndCompareTests(unittest.TestCase):
             self.assertIn("OTHER_FIELD_DIFFS 0\n", stdout.getvalue())
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(gate.main(["trim", "--input", str(new_path), "--output", str(trimmed_path)]), 0)
-            self.assertNotIn("localDecoder", trimmed_path.read_text(encoding="utf-8"))
+            saved = json.loads(trimmed_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["references"][0]["name"], "a.tga")
 
 
 if __name__ == "__main__":

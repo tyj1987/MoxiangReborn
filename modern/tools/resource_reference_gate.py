@@ -14,8 +14,9 @@ Where each step runs
   ``originalExists`` looks only under ``--client-root`` (loose files keyed
   relative to that root, and every regular ``.pak`` under it). ``--source``
   and ``--pak`` still decide which maps are parsed, the same way as before.
-  Each reference records ``originalHit``. ``trim`` drops ``localDecoder``
-  and any decoder path before a manifest is hashed or committed.
+  Each reference records ``originalHit``. ``trim`` removes decoder
+  filesystem paths and ``.py`` paths. It leaves ``derivation.localDecoder``
+  (version, ``sourcePakSha256``, ``decodedMaps``, ``keySourceCounts``).
 * ``check`` runs in CI and on any checkout. It compares that manifest to the
   checkout. A derivation that has not been run is ``no conclusion``. A
   derivation whose status is ``partial`` is a partial conclusion. Neither
@@ -857,8 +858,8 @@ def derive(source: Path | None, pak: Path | None = None,
     plaintext output is parsed like a plaintext map; only names, the decoder
     version, the --pak SHA-256 and each decoded original .map SHA-256 are
     recorded. References from decoded maps carry ``derivedBy:
-    "local-decoder"``. ``trim_manifest`` removes that node and any decoder
-    path before the file is hashed for commit.
+    "local-decoder"``. ``trim_manifest`` removes decoder filesystem paths
+    and ``.py`` paths. It keeps ``derivation.localDecoder``.
 
     Map names come only from loose files under ``--source`` and from
     ``--pak``, keyed by casefolded basename. Other paks do not add maps.
@@ -1563,36 +1564,94 @@ TILE17_NAMES = tuple(f"tile_17_mou_a_{index:02d}.tga" for index in range(1, 10))
 _DECODER_PATH_KEYS = {"decoderpath", "localdecoderpath", "pluginpath"}
 
 
+def _is_py_path(value: str) -> bool:
+    return value.replace("\\", "/").strip().lower().endswith(".py")
+
+
+def _is_absolute_fs_path(value: str) -> bool:
+    """Drive, UNC, or rooted path. Resource names such as ``a/b.tga`` are not."""
+    text = value.strip()
+    if len(text) >= 3 and text[0].isalpha() and text[1] == ":" and text[2] in "\\/":
+        return True
+    if text.startswith("\\\\") or text.startswith("//"):
+        return True
+    return text.startswith("/")
+
+
 def _is_decoder_path(value: str) -> bool:
-    """A filesystem path of a .py plugin. Reference names are not .py paths."""
-    text = value.replace("\\", "/").strip()
-    if "/" not in text and not text.lower().startswith("d:"):
-        return False
-    return text.lower().endswith(".py")
+    """A decoder filesystem path, including any ``.py`` path."""
+    if _is_py_path(value):
+        return True
+    text = value.replace("\\", "/").lower()
+    return _is_absolute_fs_path(value) and ("decoder" in text or "plugin" in text)
 
 
-def _strip_decoder_paths(node) -> None:
+def _strip_decoder_paths(node, *, keep_pak_path: bool = False) -> None:
+    """Drop decoder paths. ``derivation.localDecoder`` and ``pak.path`` stay."""
     if isinstance(node, dict):
         for key in list(node.keys()):
-            if key == "localDecoder" or key.casefold() in _DECODER_PATH_KEYS:
+            if key == "localDecoder" and isinstance(node[key], dict):
+                _strip_local_decoder(node[key])
+                continue
+            if key == "pak" and isinstance(node[key], dict):
+                _strip_decoder_paths(node[key], keep_pak_path=True)
+                continue
+            if keep_pak_path and key == "path":
+                continue
+            if key.casefold() in _DECODER_PATH_KEYS:
                 node.pop(key, None)
                 continue
             value = node[key]
             if isinstance(value, str) and _is_decoder_path(value):
                 node.pop(key, None)
-            else:
-                _strip_decoder_paths(value)
+                continue
+            _strip_decoder_paths(value)
     elif isinstance(node, list):
+        kept = []
         for item in node:
+            if isinstance(item, str) and _is_decoder_path(item):
+                continue
             _strip_decoder_paths(item)
+            kept.append(item)
+        node[:] = kept
+
+
+def _strip_local_decoder(node: dict) -> None:
+    """Keep version, sourcePakSha256, decodedMaps, and keySourceCounts."""
+    for key in list(node.keys()):
+        if key in {"version", "sourcePakSha256", "keySourceCounts"}:
+            continue
+        if key == "decodedMaps" and isinstance(node[key], list):
+            for row in node[key]:
+                if not isinstance(row, dict):
+                    continue
+                for field in list(row.keys()):
+                    if field in {"name", "sha256", "keySource"}:
+                        continue
+                    value = row[field]
+                    if field.casefold() in _DECODER_PATH_KEYS or (
+                        isinstance(value, str) and _is_decoder_path(value)
+                    ):
+                        row.pop(field, None)
+                    else:
+                        _strip_decoder_paths(value)
+            continue
+        value = node[key]
+        if key.casefold() in _DECODER_PATH_KEYS or (
+            isinstance(value, str) and _is_decoder_path(value)
+        ):
+            node.pop(key, None)
+        else:
+            _strip_decoder_paths(value)
 
 
 def trim_manifest(document: dict) -> dict:
-    """Copy with ``localDecoder`` and decoder paths removed.
+    """Copy with decoder filesystem paths and ``.py`` paths removed.
 
-    Derive still records ``localDecoder`` so ``check --pak`` can verify it.
-    The trimmed document is what gets hashed and, later, committed. Two
-    derives of the same inputs trim to the same bytes.
+    ``derivation.localDecoder`` stays, including ``version``,
+    ``sourcePakSha256``, ``decodedMaps`` (name and sha256), and
+    ``keySourceCounts``. ``check --pak`` reads that node. ``pak.path``
+    stays. Two derives of the same inputs trim to the same bytes.
     """
     trimmed = copy.deepcopy(document)
     _strip_decoder_paths(trimmed)
@@ -1665,7 +1724,6 @@ def compare_manifest_report(old: dict, new: dict) -> str:
         lines.extend(f"DECODED_MAPS_ONLY_OLD {name}" for name in sorted(old_maps - new_maps))
         lines.extend(f"DECODED_MAPS_ONLY_NEW {name}" for name in sorted(new_maps - old_maps))
     by_ext: dict[str, int] = {}
-    by_hit: dict[str, int] = {}
     by_via: dict[str, int] = {}
     for row in new.get("references") or []:
         if not isinstance(row, dict) or row.get("originalExists") is not False:
@@ -1674,18 +1732,9 @@ def compare_manifest_report(old: dict, new: dict) -> str:
         base = _basename(name)
         ext = base.rsplit(".", 1)[-1].casefold() if "." in base else "(none)"
         by_ext[ext] = by_ext.get(ext, 0) + 1
-        hit = str(row.get("originalHit") or "")
-        if hit.startswith("loose:"):
-            kind = "loose"
-        elif hit.startswith("pak:"):
-            kind = "pak"
-        else:
-            kind = "none"
-        by_hit[kind] = by_hit.get(kind, 0) + 1
         via = str(row.get("via") or "") or "(empty)"
         by_via[via] = by_via.get(via, 0) + 1
-    lines.extend(_count_lines("FALSE_BY_EXTENSION", by_ext))
-    lines.extend(_count_lines("FALSE_BY_HIT", by_hit))
+    lines.extend(_count_lines("FALSE_BY_EXT", by_ext))
     lines.extend(_count_lines("FALSE_BY_VIA", by_via))
     by_name: dict[str, dict] = {}
     for row in new.get("references") or []:
@@ -1749,7 +1798,7 @@ def main(argv: list[str] | None = None) -> int:
                               help=f"same switch as {STRICT_ENV}=1; fail on missing files or no conclusion")
 
     trim_parser = sub.add_parser(
-        "trim", help="drop localDecoder and decoder paths; write a hashable manifest")
+        "trim", help="drop decoder filesystem paths; keep derivation.localDecoder")
     trim_parser.add_argument("--input", type=Path, required=True)
     trim_parser.add_argument("--output", type=Path, required=True)
 
@@ -1794,9 +1843,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "trim":
         trimmed = trim_manifest(_load_json(args.input))
         _write_json(args.output, trimmed)
-        if "localDecoder" in json.dumps(trimmed):
-            print("ERROR: trim left a localDecoder node", file=sys.stderr)
-            return 1
         print(f"trimmed {args.output}")
         return 0
 
