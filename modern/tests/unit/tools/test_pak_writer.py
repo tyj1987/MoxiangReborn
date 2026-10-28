@@ -227,13 +227,32 @@ class PakWriterTest(unittest.TestCase):
     def test_checked_in_manifest_is_names_only(self):
         path = Path(__file__).resolve().parents[4] / "reference" / "manifests" / "playdh-supplemental-fill.json"
         doc = json.loads(path.read_text(encoding="utf-8"))
-        self.assertEqual(len(doc["entries"]), 73)
-        self.assertEqual(set(doc["entries"][0]), {"name", "sourcePak", "sha256", "ticket"})
+        entries = doc["entries"]
+        self.assertEqual(len(entries), 194)
+        self.assertTrue(all(set(e) == {"name", "sourcePak", "sha256", "ticket"} for e in entries))
+        # The manifest note keeps pakSha256 null while any entry sha256 is still pending.
         self.assertIn("pakSha256", doc)
+        self.assertIsNone(doc["pakSha256"])
         self.assertEqual(doc["buildPath"], "D:\\build-mxr\\supplement\\zz_supplement.pak")
         self.assertNotIn("(", doc["buildPath"])
-        keys = {pak_writer._basename_key(e["name"]) for e in doc["entries"]}
-        self.assertEqual(len(keys), 73)
+        keys = [pak_writer._basename_key(e["name"]) for e in entries]
+        self.assertEqual(len(keys), len(set(keys)))
+        filled, pending = entries[:73], entries[73:]
+        self.assertEqual(
+            hashlib.sha256(
+                json.dumps(filled, ensure_ascii=False, separators=(",", ":")).encode()
+            ).hexdigest(),
+            "a0c615dd15a40f77fb12e17dbae18d088a8e941d939f199b6f79357971d61aa2",
+        )
+        self.assertTrue(all(isinstance(e["sha256"], str) and len(e["sha256"]) == 64 for e in filled))
+        self.assertEqual(len(pending), 121)
+        self.assertTrue(all(
+            e["ticket"] == "TYJ-153" and e["sha256"] is None and e["sourcePak"] is None
+            for e in pending))
+        self.assertEqual([e["name"] for e in pending], sorted(e["name"] for e in pending))
+        with self.assertRaisesRegex(pak_writer.PakWriteError, "not filled"):
+            pak_writer.write_pak({"entries": pending}, self.src, self.tmp / "pending.pak")
+        self.assertFalse((self.tmp / "pending.pak").exists())
 
     def test_refuses_output_in_git_tree_and_tool_repo(self):
         work = self.tmp / "work"

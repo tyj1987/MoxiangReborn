@@ -3,11 +3,11 @@
   "note": "Names only, no content. The pak is never committed: it is built locally on ROG from the original client Map.pak by pak_writer.py and deploy verifies it against pakSha256. Entry sha256 and pakSha256 are null until that extraction; pak_writer.py refuses to pack an entry whose sha256 is null. Deploy reads buildPath and does not parse the pak description.",
   "pak": "D:\\build-mxr\\supplement\\zz_supplement.pak (built locally on ROG outside any git worktree, never committed); deploy copies it into <PlayDH root>/zz_supplement.pak",
   "buildPath": "D:\\build-mxr\\supplement\\zz_supplement.pak",
-  "pakSha256": "62302d777b7f802693e4f3575f7b79bb751f2614837e9ba14b2287e40be07cb8",
+  "pakSha256": null,
   "format": "96-byte original header (docs/formats/pak.md variant B)",
   "builder": "python3 modern/tools/pak_writer.py --manifest reference/manifests/playdh-supplemental-fill.json --input-dir <extracted> --out D:\\build-mxr\\supplement\\zz_supplement.pak --conflict-root <PlayDH root>",
   "deploy": "verify sha256(D:\\build-mxr\\supplement\\zz_supplement.pak) == pakSha256, then copy it into <PlayDH root>/zz_supplement.pak (PlayDH lives in a git worktree, which pak_writer.py refuses as --out)",
-  "workflow": "Per-ticket commits (TYJ-148..151) change only this file: entry sha256 values and the expected pakSha256. The pak itself is never committed.",
+  "workflow": "Per-ticket commits (TYJ-148..151) change only this file: entry sha256 values and the expected pakSha256. Names added before extraction (TYJ-153) keep entry sha256 and sourcePak null, and pakSha256 null, until the ROG extraction commit fills them. The pak itself is never committed.",
   "acceptance": [
     "pak_writer.py on ROG builds D:\\build-mxr\\supplement\\zz_supplement.pak (outside any worktree) with sha256 == pakSha256, twice, identical; only then is it copied into <PlayDH root>",
     "pak_writer.py --conflict-root <PlayDH root> passes: no basename shared with the 7 PlayDH paks",
@@ -455,6 +455,732 @@
       "sourcePak": "MX/client/Package/3DData/Map.pak",
       "sha256": "ad85e76bc97ce7b7dd60f7195c4811ffebec97ecb97a3cc783a1d56d8df4d730",
       "ticket": "TYJ-151"
+    },
+    {
+      "name": "01.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_FARM_FUNGCHA_001.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_FARM_WATER_001.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_FARM_WATER_002.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_FARM_lake_001.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_bilbord_tree_002.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_dalgal.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_damjaengi.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_fishpost.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_milepost.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_nongjakmul2.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_particle_001.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_001.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_002.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_003.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_004.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_005.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_007.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_008.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_009.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_010.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_011.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_012.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_013.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_014.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_puldem_015.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_raft.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_streetlamp.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_tree_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_tree_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_tree_03.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_tree_04.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_farm_waterfall_ani.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01_smallpungcha.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "01farm_boxline02.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "07_alpa_straw.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "12_weapon_fence.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "15_crack_02.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "15_leaf_00.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "15_leaf_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_A_lamp_0001.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_A_lamp_0004.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_alpha.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_alpha_yu_01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_alpha_yu_02.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_alpha_yu_03.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_bamboo_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_bamboo_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_bamboo_03.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_banner_00_yu.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_clothes_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_clothes_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_clothes_03.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_deco_0001.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_deco_0002.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_fall_00.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_fallenleaves01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_fallenleaves02.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_fence_01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_flower_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_gosu.mod",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_03.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_05.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_06.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_07.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_08.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_lamp_09.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_leaf_gosu_03.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_spider_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_spider_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_statue_01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_tent_00002.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_tent_0001.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_tree_cherry.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "17_water_00.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "210.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "210.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "211_floor00.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "211_screen00.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "211_screen01.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "211_screen02.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "211_screen03.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_Cobweb_01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_brownsmoke_01.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_spiderweb_01.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_spiderweb_02.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_spiderweb_03.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "212_spiderweb_04.TIF",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "231_scroll_00.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "233_etc_03.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "301.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "301.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "302.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "302.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "311.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "311.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "312.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "312.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "341.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "341.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "343.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "343.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "351.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "351.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "353.hfl",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "353.stm",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "95_alpha_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "96_aurora_eff.chr",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "96_land_01_1.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "96_land_01_2.tif",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_01.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_02.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_03.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_04.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_05.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_06.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_07.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "alke01_t_08.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
+    },
+    {
+      "name": "orcver2_stone.MOD",
+      "sourcePak": null,
+      "sha256": null,
+      "ticket": "TYJ-153"
     }
   ]
 }
