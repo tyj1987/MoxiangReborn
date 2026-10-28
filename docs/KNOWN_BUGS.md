@@ -74,6 +74,14 @@
 
 恢复的数据库过程被认为把出生地图写成 17，但 `CHARACTER_MAP=17` 不能追溯到一份原版安装文件。在出现这样的原件之前，默认 StartArea 保持不变：Agent 省略 `--start-area` 时使用 `default_map_num`（`modern/tools/MoxianAgentServer/main.cpp` 里的默认值是 12，调用方可以用 `--default-map` 覆盖）。显式把 StartArea 配成 17 且该地图未注册时，启动失败并写明地图号；建角拒绝未注册的 StartArea，不会再静默落到 Map10。已经保存在 Map10 的角色仍进入 Map10。
 
+### 2026-10-28 原版建角起始地图 17 证据 Refs TYJ-156
+
+原版角色创建的起始地图是 17。证据：originalFile `D:\MX\database\mhgame.bak`（2014-01-13 备份，SoftwareVersion 9.0.5000），sha256 `7773fa1da919d2f8b5f18019dbc6e55efd64025edd817fddb923f08e3535126b`，存储过程 `MP_CHARACTER_CreateCharacter` 向 `TB_CHARACTER.CHARACTER_MAP` 写入字面量地图 17。旁证仅：`D:\MX\src\database\MHGAME.bak`（2009-12-07，SoftwareVersion 9.0.4035），sha256 `bcdf836239b9e4f029efb337a262be668c52719692b6846c0a79c54f08570df3`，过程名相同；该备份里 `CHARACTER_MAP` 来自过程参数（调用方传入），因此不能确定地图号。未还原，也不再追查。以上由 ROG 上的只读字节搜索和 `RESTORE HEADERONLY`/`FILELISTONLY` 确定，没有执行还原。过程体留在 ROG，不在本页复述。
+
+TYJ-156 仍开放。Map17 这一半的结论：代码默认是 12（`modern/tools/MoxianAgentServer/main.cpp:58`）；部署配置传入 10（`deploy/scripts/start_original_vm112.ps1:10` 的 `$MapNumber = 10` 在 `:137` 作为 `--default-map` 传给 Agent；同样 `deploy/scripts/start_current_vm112.ps1:14` 与 `:108`，`scripts/gui-client-smoke.ps1:67` 与 `scripts/gui-client-smoke-ephemeral.ps1:507`，`deploy/scripts/start_modern.ps1:12` 与 `:373`）。StartArea 没有改成 17。这是已知偏差：原版建角由存储过程 `MP_CHARACTER_CreateCharacter` 写入起始地图 17，文件 `D:\MX\database\mhgame.bak`，sha256 前缀 `7773fa1d…126b`。原因：2026-10-28 对完整原版客户端根（全部 pak 与散文件，经资源引用门禁的 exists 索引）直接查找，`tile_17_mou_a_01..09` 的 `.tga` 与 `.dds` 合计 18 项命中为 0。不允许替代美术，因此 Map17 排除在 1:1 GUI 门禁之外，并且只保持可选（`start_original_vm112 -EnableMap17` 默认关闭），记在 TYJ-166。若以后找到原版 `tile_17_mou_a_*` 纹理，再重新评估是否把默认改为 17。TYJ-156 的另一半仍未验收：新角色在 Map10 的首战造成有效伤害并击杀一只怪物。
+
+仓库内没有找到 `MP_CHARACTER_CreateCharacter` 的调用方；现代建角不调用该过程，客户端把 `params.start_area` 写入建角包偏移 25（`modern/src/client/CCharMake.cpp:234`；CHINA 目录唯一 StartArea 选项值为 17，`modern/tests/unit/client/char_make_options_test.cpp:66`），`handle_legacy_character_make` 读取该字节（`modern/src/server/agent_handler.cpp:1642`）但写入 `character_info.start_area` 与 `map_num` 的是配置 StartArea（`--start-area`，否则 `default_map_num`；`modern/src/server/agent_handler.cpp:1643`、`1763`、`1774`、`1777`、`1809`）。
+
 ### 2026-10-15 Map17 原始 HFL 真实恢复
 
 复核发现当前原版 `modern/data/PlayDH/Map.pak` 的第 240 项实际包含 `17.hfl`。已从该原版包提取并按 SHA-256 `727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a` 写入 `Resource/Map/17.hfl`，同步更新 canonical hash manifest。HFL 解析通过，使用的 42 个纹理中仍有 9 个缺失；只恢复了原始高度场，没有引入 Unity 派生或替代纹理。
