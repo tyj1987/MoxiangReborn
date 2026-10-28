@@ -171,6 +171,10 @@ struct CliArgs {
     bool exercise_quest = false; // opt-in live QuestScript accept/claim gate
     bool exercise_skills = false; // opt-in quick-slot skill/effect gate
     bool exercise_mapchange = false; // opt-in cross-map route/load gate
+    // Live birth persists StartArea 17 and uses the Map17 assertion set.
+    // Without this flag, --map-number is the smoke enter map (Map10 smoke
+    // sends StartArea 10 and must not follow the birth route).
+    bool live_birth = false;
     bool exercise_position = false; // opt-in movement/GameOut/relog position gate
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
@@ -265,6 +269,7 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--exercise-quest") a.exercise_quest = true;
         else if (s == "--exercise-skills") a.exercise_skills = true;
         else if (s == "--exercise-mapchange") a.exercise_mapchange = true;
+        else if (s == "--live-birth") a.live_birth = true;
         else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
         else {
@@ -727,6 +732,24 @@ int run_e2e(const CliArgs& cli) {
         procs.back()->spawn_with_args("", map_args);
 
         if (spawn_map17) {
+            SOCKET probe = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (probe == INVALID_SOCKET) {
+                LOG("Map17 listen port %d could not be probed; refusing to fall back to another port",
+                    map17_port);
+                return 1;
+            }
+            sockaddr_in probe_addr{};
+            probe_addr.sin_family = AF_INET;
+            probe_addr.sin_port = htons(static_cast<u_short>(map17_port));
+            probe_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+            const int bind_rc = ::bind(probe, reinterpret_cast<sockaddr*>(&probe_addr),
+                                       sizeof(probe_addr));
+            ::closesocket(probe);
+            if (bind_rc != 0) {
+                LOG("Map17 listen port %d is occupied; refusing to fall back to another port",
+                    map17_port);
+                return 1;
+            }
             procs.push_back(std::make_unique<ServerProc>());
             procs.back()->name = "map17";
             procs.back()->exe = cli.map_exe;
@@ -948,7 +971,12 @@ int run_e2e(const CliArgs& cli) {
             params.body_type  = 0;
             params.hair_type  = 1;
             params.face_type  = 1;
-            params.start_area = 17;
+            params.start_area = cli.live_birth
+                ? static_cast<std::uint8_t>(17)
+                : static_cast<std::uint8_t>(cli.map_number);
+            LOG("[3/5] CharMake start_area=%u (%s)",
+                static_cast<unsigned>(params.start_area),
+                cli.live_birth ? "live-birth Map17" : "smoke enter-map");
             params.height     = 1.0f;
             params.width      = 0.9f;
             // Match the canonical CHINA character-creation defaults from
@@ -1061,6 +1089,17 @@ int run_e2e(const CliArgs& cli) {
     }
     const auto entered_map = chsel2.selected_map();
     LOG("[4/5] character saved map=%u", static_cast<unsigned>(entered_map));
+    if (cli.live_birth) {
+        if (entered_map != 17) {
+            LOG("[4/5] FAIL: live birth saved map=%u, expected 17",
+                static_cast<unsigned>(entered_map));
+            return 2;
+        }
+    } else if (static_cast<int>(entered_map) != cli.map_number) {
+        LOG("[4/5] FAIL: smoke enter-map saved map=%u, expected %d",
+            static_cast<unsigned>(entered_map), cli.map_number);
+        return 2;
+    }
     chsel2.Release();
 
     // ---- Step 5: InGame ----
@@ -1084,7 +1123,14 @@ int run_e2e(const CliArgs& cli) {
         // Map10 is the first vertical-slice gate.  Let the receive thread
         // drain the server's initial spawn burst, then require the complete
         // decoded AIGroup population rather than merely the first packet.
-        if (entered_map == 10) {
+        if (cli.live_birth) {
+            // Separate from Map10. Do not require 228 monsters, terrain
+            // coverage, or color diversity. The nine missing Map17 ground
+            // textures tile_17_mou_a_01..09 are not sampled.
+            LOG("[5/5] OK: Map17 birth assertions map=%u; skipped "
+                "tile_17_mou_a_01..09; Map10 thresholds not applied",
+                static_cast<unsigned>(entered_map));
+        } else if (entered_map == 10) {
             const auto spawn_deadline = std::chrono::steady_clock::now() +
                                          std::chrono::seconds(2);
             while (game.monsters().size() < 228 &&

@@ -25,6 +25,10 @@ if ($LoginPort -eq $AgentPort -or $LoginPort -eq $MapPort -or $AgentPort -eq $Ma
 if ($LoginPort -ne 36001 -or $AgentPort -ne 37001 -or $MapPort -ne 38001) {
     throw 'This isolated r18 stage requires its assigned 36001/37001/38001 ports.'
 }
+$Map17Port = 38004
+if ($Map17Port -eq $LoginPort -or $Map17Port -eq $AgentPort -or $Map17Port -eq $MapPort) {
+    throw 'Map17 port 38004 collides with an r18 listener.'
+}
 if (-not [StringComparer]::OrdinalIgnoreCase.Equals(
         [IO.Path]::GetFullPath($ResourceRoot).TrimEnd('\'),
         (Join-Path $expectedStage 'modern\data\PlayDH')) -or
@@ -120,7 +124,8 @@ $agentExe = Join-Path $bin 'MoxianAgentServer\mxh_agent_server_CHINA.exe'
 $loginExe = Join-Path $bin 'MoxianLoginServer\mxh_login_server.exe'
 $serverSpecs = @(
     [pscustomobject]@{ name = 'map'; exe = $mapExe; port = $MapPort; args = @('--port', $MapPort, '--map', $MapNumber, '--bind-address', '192.168.2.244', '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot, '--resource-profile', 'playdh-current', '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv) },
-    [pscustomobject]@{ name = 'agent'; exe = $agentExe; port = $AgentPort; args = @('--port', $AgentPort, '--bind-address', '192.168.2.244', '--map-server', "192.168.2.244:$MapPort", '--default-map', $MapNumber, '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv, '--legacy') },
+    [pscustomobject]@{ name = 'map17'; exe = $mapExe; port = $Map17Port; args = @('--port', $Map17Port, '--map', 17, '--bind-address', '192.168.2.244', '--resource-root', $ResourceRoot, '--server-resource-root', $ServerResourceRoot, '--resource-profile', 'playdh-current', '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv) },
+    [pscustomobject]@{ name = 'agent'; exe = $agentExe; port = $AgentPort; args = @('--port', $AgentPort, '--bind-address', '192.168.2.244', '--map-server', "192.168.2.244:$MapPort", '--map-server-map', "17=192.168.2.244:$Map17Port", '--default-map', $MapNumber, '--start-area', '17', '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv, '--legacy') },
     [pscustomobject]@{ name = 'login'; exe = $loginExe; port = $LoginPort; args = @('--port', $LoginPort, '--bind-address', '192.168.2.244', '--agent-addr', $AdvertisedAgentAddress, '--agent-port', $AgentPort, '--backend', 'mssql_odbc', '--db-env', $DatabaseConfigEnv, '--legacy') }
 )
 
@@ -165,7 +170,7 @@ Assert-OriginalProtectedConfigValue $databaseConfig 'host' $DatabaseHost
 Assert-OriginalProtectedConfigValue $databaseConfig 'database' 'MoxiangOriginalR18Test_20261009'
 Assert-OriginalProtectedConfigValue $databaseConfig 'encrypt' 'yes'
 Assert-OriginalProtectedConfigValue $databaseConfig 'trust_server_certificate' 'no'
-foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
+foreach ($port in @($LoginPort, $AgentPort, $MapPort, $Map17Port)) {
     if (@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue).Count -gt 0) {
         throw "Port $port is already listening; refusing to take over an existing service."
     }

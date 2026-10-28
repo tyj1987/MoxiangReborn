@@ -194,7 +194,7 @@ TEST(BattleFactory, PhyDefenceLevelClampedAt09) {
     EXPECT_DOUBLE_EQ(compute_phy_defence_level(9999.0, 1), 0.9);
 }
 
-TEST(BattleFactory, Defense541VersusLevel1CapsAtPointNineAndAttack30Deals3) {
+TEST(BattleFactory, Defense541VersusLevel1CapsAtPointNineAndAttack30Deals2Truncated) {
     // Map10 monster 50143 defence 541 against a level-1 attacker:
     // (541 * 2 + 50) / (1 * 20 + 150) = 1132 / 170 > 0.9, so the KR/CN
     // ceiling applies. Real arithmetic of attack 30 at that cap is 3.
