@@ -299,6 +299,7 @@ int main(int argc, char** argv) {
     ChildProcess modern_login;
     ChildProcess modern_agent;
     ChildProcess modern_map;
+    ChildProcess modern_map17;
     if (a.start_processes) {
         if (a.resource_root.empty()) a.resource_root = discover_playdh_root();
         if (!a.legacy_exe.empty()) {
@@ -318,7 +319,8 @@ int main(int argc, char** argv) {
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
             const bool login_only = a.scenario == "login";
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
-                                                "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
+                                                "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port),
+                                                "--default-map", std::to_string(a.map_num)};
 if (a.modern_legacy || a.modern_only) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             std::vector<std::string> mm_args = {
@@ -359,6 +361,7 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
                       << (modernOk?"y":"n") << "\n";
             stop_process(legacy_login); stop_process(modern_login);
             stop_process(modern_agent); stop_process(modern_map);
+            stop_process(modern_map17);
             ::WSACleanup(); return 2;
         }
     }
@@ -426,6 +429,7 @@ ServerLaunch ma{agentPath, std::move(ma_args)};
     stop_process(modern_login);
     stop_process(modern_agent);
     stop_process(modern_map);
+    stop_process(modern_map17);
     ::WSACleanup();
     return rc;
 }

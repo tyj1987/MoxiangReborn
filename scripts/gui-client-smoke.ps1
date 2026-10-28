@@ -11,8 +11,13 @@
   when the run ends. Requires PowerShell 7 (Start-Process -Environment,
   same as start_modern.ps1).
 
-  ROG example (PowerShell 7.4+). Default ports are 26001/27001/28001,
-  not 16001/17001/18001 and not the r18/r2 ranges:
+  ROG example (PowerShell 7.4+). Default ports are 26001/27001/28001.
+  Map17 uses base+2002, which is 28003, only when StartArea is 17.
+  28003 is an allowed smoke port.
+  16001/17001/18001 and 36001/37001/38001 stay rejected.
+  -MapNumber 10 enters a character pre-saved on Map10. -LiveCharacterBirth
+  creates a character on the configured StartArea. verify-map17-birth.py
+  runs only when that StartArea is 17.
     pwsh -NoProfile -ExecutionPolicy Bypass -File scripts\gui-client-smoke.ps1 -EphemeralLocalServer -BuildDir modern\build
 
   mxh_client dials only --login-host/--login-port. With the switch on,
@@ -74,6 +79,13 @@ param(
     [switch]$NoEntities,
     # Loopback-only throwaway login/agent/map. Does not call start_modern.ps1.
     [switch]$EphemeralLocalServer,
+    # Live CharacterMake. The saved map must equal the configured StartArea
+    # (-StartArea when passed, otherwise -MapNumber, which the agent receives
+    # as --default-map). Map17 and verify-map17-birth.py run only when that
+    # value is 17. Cannot be combined with -MapNumber 10.
+    [switch]$LiveCharacterBirth,
+    [ValidateRange(0, 255)]
+    [int]$StartArea = 0,
     # login=base, agent=base+1000, map=base+2000. Ignored unless -EphemeralLocalServer.
     # Default avoids 16001/17001/18001, 36001/37001/38001 and 36101/37101/38101-38103.
     [ValidateRange(1, 65533)]
@@ -85,6 +97,14 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$startAreaExplicit = $PSBoundParameters.ContainsKey('StartArea')
+$configuredStartArea = if ($startAreaExplicit) { $StartArea } else { $MapNumber }
+if ($LiveCharacterBirth -and $MapNumber -eq 10) {
+    throw "-MapNumber 10 enters the pre-saved Map10 character. -LiveCharacterBirth checks the configured StartArea and cannot be combined with -MapNumber 10."
+}
+if ($LiveCharacterBirth -and $configuredStartArea -eq 17 -and $MapNumber -ne 17 -and -not $EphemeralLocalServer) {
+    throw "start_modern.ps1 does not register Map17. Pass -EphemeralLocalServer with -LiveCharacterBirth -StartArea 17."
+}
 if ($EphemeralLocalServer) {
     # Start-Process -Environment requires Windows PowerShell's successor 7.4.
     # Checked before dot-sourcing so an older host fails with this message
@@ -198,6 +218,7 @@ try {
             throw "Missing database tool required for isolated GUI smoke: $dbTool"
         }
         $plannedDbDirectory = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-gui-smoke-' + [Guid]::NewGuid().ToString('N'))
+        $registerMap17 = $LiveCharacterBirth -and $configuredStartArea -eq 17
         $ephemeralSpec = New-EphemeralServerLaunchSpec `
             -MapExecutable $mapExe -AgentExecutable $agentExe -LoginExecutable $loginExe `
             -MapNumber $MapNumber `
@@ -205,10 +226,19 @@ try {
             -ResourceProfileId $layout.ResourceProfileId `
             -DatabaseDirectory $plannedDbDirectory `
             -LoginPort $ephemeralPortPlan.LoginPort -AgentPort $ephemeralPortPlan.AgentPort -MapPort $ephemeralPortPlan.MapPort `
+            -RegisterMap17:$registerMap17 `
             -ProcessEnvironment (Copy-EphemeralProcessEnvironment) `
             -ClientArguments $arguments
         # Before any server process. A listener on 0.0.0.0 would still accept 127.0.0.1.
-        $portInUse = Get-EphemeralPortInUseViolation -Ports @($ephemeralPortPlan.Ports)
+        $boundPorts = @($ephemeralSpec.Processes | ForEach-Object { [int]$_.Port })
+        $map17Port = @($ephemeralSpec.Processes | Where-Object { $_.Name -eq 'map17' } | ForEach-Object { [int]$_.Port })
+        if ($map17Port.Count -eq 1) {
+            $map17Busy = Get-EphemeralPortInUseViolation -Ports @([int]$map17Port[0])
+            if ($map17Busy) {
+                throw "Map17 listen port $($map17Port[0]) is occupied; refusing to fall back to another port. $map17Busy"
+            }
+        }
+        $portInUse = Get-EphemeralPortInUseViolation -Ports $boundPorts
         if ($portInUse) { throw $portInUse }
     }
     if ($AuditMapDependencies) {
@@ -280,6 +310,21 @@ try {
         -RedirectStandardInput $registerInput -NoNewWindow -Wait -PassThru
     if ($register.ExitCode -ne 0) { throw "GUI smoke test account registration failed" }
     Remove-Item -LiteralPath $registerInput -Force -ErrorAction SilentlyContinue
+    if (-not $LiveCharacterBirth) {
+        # Deterministic MapNumber enter. The client --auto-create path selects
+        # this row and must not submit CharacterMakeSyn. userid 1 is the first
+        # modern_account_identity row for account 'test'.
+        $savedMapSql = @(
+            "INSERT INTO modern_account_identity(account_id, user_idx) VALUES('test', 1)",
+            "INSERT INTO character_info(chrid,charname,userid,sex_type,hair_type,face_type,body_type,start_area,height,width,level,map_num,standing_idx,base_gengol,base_minchub,base_cheryuk,base_simmek) VALUES(100000,'MapSmoke','1',0,1,1,0,$MapNumber,1.0,1.0,1,$MapNumber,0,12,12,12,12)",
+            "INSERT INTO modern_player_state(player_id,money,level,exp,max_level,exp_flag,level_up_point,hp_mp_flag,updated_at) VALUES(100000,0,1,0,1,16,0,0,CURRENT_TIMESTAMP)",
+            "INSERT INTO modern_player_vitals(player_id,hp,shield,mp,dead,initialized,revision,updated_at) VALUES(100000,125,0,20,0,1,1,CURRENT_TIMESTAMP)"
+        )
+        foreach ($statement in $savedMapSql) {
+            & $dbTool exec --db $dbConfig $statement
+            if ($LASTEXITCODE -ne 0) { throw "GUI smoke failed to save the Map $MapNumber character" }
+        }
+    }
     if ($ExerciseInventory) {
         $grantSql = "INSERT INTO modern_item_grant(idempotency_key,character_id,item_id,item_count,status,created_by,reason)VALUES('gui-smoke-$runId',100000,8000,3,'pending','gui-smoke','inventory-visual-gate')"
         & $dbTool exec --db $dbConfig $grantSql
@@ -427,8 +472,27 @@ try {
         $log -notmatch [regex]::Escape('first valid chrid=')) {
         throw "GUI smoke neither created nor loaded a character; log=$stderr"
     }
-    if ($log -notmatch "CharacterSelectAck chrid=\d+ map_num=$MapNumber") {
-        throw "GUI smoke character map does not match requested map $MapNumber; log=$stderr"
+    if ($log -notmatch 'CharacterSelectAck chrid=\d+ map_num=(\d+)') {
+        throw "GUI smoke missing CharacterSelectAck saved map; log=$stderr"
+    }
+    $savedMap = [int]$Matches[1]
+    if ($LiveCharacterBirth) {
+        if ($log -notmatch [regex]::Escape('sent CharacterMakeSyn')) {
+            throw "LiveCharacterBirth did not create a character; log=$stderr"
+        }
+        if ($savedMap -ne $configuredStartArea) {
+            throw "LiveCharacterBirth entered map $savedMap; expected configured StartArea $configuredStartArea; log=$stderr"
+        }
+    } else {
+        if ($log -match [regex]::Escape('sent CharacterMakeSyn')) {
+            throw "GUI smoke -MapNumber $MapNumber must enter the pre-saved character and must not live-create; log=$stderr"
+        }
+        if ($log -notmatch 'auto-create selected existing chrid=') {
+            throw "GUI smoke did not select the pre-saved Map $MapNumber character; log=$stderr"
+        }
+        if ($savedMap -ne $MapNumber) {
+            throw "GUI smoke entered map $savedMap; -MapNumber $MapNumber requires that saved map; log=$stderr"
+        }
     }
     if ($ExerciseInventory -and $log -notmatch 'GUI_SMOKE_INVENTORY_OPEN') {
         throw "GUI smoke inventory exercise did not open the live inventory UI; log=$stderr"
@@ -455,8 +519,8 @@ try {
     if ($log -match 'release visual gate failed: (stmVclMismatch|stmVclMissing|stmVclBufferMismatch|stmVclShaderFailed)') {
         throw "GUI smoke visual gate failed for Map $MapNumber ($($Matches[1]): .vcl missing/mismatched, colour stream not built, or vcl shader unavailable); log=$stderr"
     }
-    if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
-        throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
+    if ($log -notmatch "GameInAck .* map=$savedMap(?:\D|$)") {
+        throw "GUI smoke GameInAck map does not match the character's saved map $savedMap; log=$stderr"
     }
     if ($log -match 'release visual gate failed: placeholderCount=(\d+) failedModelCount=(\d+)') {
         throw "GUI smoke visual gate failed for Map $MapNumber (placeholders=$($Matches[1]) failedModels=$($Matches[2])); log=$stderr"
@@ -482,11 +546,11 @@ try {
     } catch {
         throw "$($_.Exception.Message); log=$stderr"
     }
-    if ($MapNumber -eq 10 -and $monsterCount -ne 228) {
+    if (-not $LiveCharacterBirth -and $MapNumber -eq 10 -and $monsterCount -ne 228) {
         throw "GUI smoke received $monsterCount Map10 monsters, expected exactly 228; log=$stderr"
     }
     $entityTotals = @(Get-GuiSmokeEntityMonsterTotals -LogText $log)
-    if ($MapNumber -eq 10 -and $entityTotals.Count -gt 0) {
+    if (-not $LiveCharacterBirth -and $MapNumber -eq 10 -and $entityTotals.Count -gt 0) {
         $entityMonsterTotal = [int](($entityTotals | Measure-Object -Maximum).Maximum)
         if ($entityMonsterTotal -ne 228) {
             throw "GUI smoke entity frame monster total $entityMonsterTotal, expected exactly 228; log=$stderr"
@@ -501,13 +565,13 @@ try {
         if ($log -notmatch '\[entity\] original model object=\d+ type=player kind=\d+ chx=man\.chx') {
             throw "GUI player-view smoke did not resolve the local player model; log=$stderr"
         }
-        if ($MapNumber -eq 10 -and
+        if ($savedMap -eq 10 -and
             $log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
             throw "GUI player-view smoke did not resolve a Map10 monster model; log=$stderr"
         }
-        if ($MapNumber -ne 10 -and
+        if ($savedMap -ne 10 -and
             $log -notmatch '\[entity\] original model object=\d+ type=npc kind=\d+ chx=N\d+\.chx') {
-            throw "GUI player-view smoke did not resolve an NPC model for Map $MapNumber; log=$stderr"
+            throw "GUI player-view smoke did not resolve an NPC model for saved map $savedMap; log=$stderr"
         }
         if ($log -notmatch 'entity loaded=\d+ failed=0 placeholders=0 monsters=\d+ npcs=\d+') {
             throw "GUI player-view smoke reported missing/placeholder entities for Map $MapNumber; log=$stderr"
@@ -518,7 +582,10 @@ try {
     if (-not (Test-Path -LiteralPath $stateFramesDir)) { throw "GUI smoke missing state-frames dir: $stateFramesDir" }
     & python (Join-Path $repoRoot 'scripts\verify-state-frames.py') $stateFramesDir --permissive
     if ($LASTEXITCODE -ne 0) { throw "GUI state frames validation failed: $stateFramesDir" }
-    if (-not $FollowCamera) {
+    if ($LiveCharacterBirth -and $configuredStartArea -eq 17) {
+        & python (Join-Path $repoRoot 'scripts\verify-map17-birth.py') $frame
+        if ($LASTEXITCODE -ne 0) { throw "GUI Map17 birth frame validation failed: $frame" }
+    } elseif (-not $FollowCamera) {
         $terrainArgs = @($frame)
         if ($ExerciseInventory) { $terrainArgs += '--allow-ui-overlay' }
         if ($MapNumber -eq 12) { $terrainArgs += '--allow-sparse' }

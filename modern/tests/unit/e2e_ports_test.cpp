@@ -139,3 +139,22 @@ TEST(E2ePorts, Map12OffsetIsNotAForbiddenPort) {
     const auto message = mxh::test::e2e_forbidden_port_message(26001, 27001, 28001, 18002);
     EXPECT_TRUE(message.empty()) << message;
 }
+
+TEST(E2ePorts, Map17Port28003IsAllowed) {
+    EXPECT_EQ(mxh::test::kE2eDefaultMap17Port, 28003);
+    EXPECT_FALSE(mxh::test::e2e_port_is_forbidden(28003));
+    const auto message = mxh::test::e2e_forbidden_port_message(
+        26001, 27001, 28001, mxh::test::kE2eDefaultMap17Port);
+    EXPECT_TRUE(message.empty()) << message;
+}
+
+TEST(E2ePorts, StageAndR18PortsStayRejected) {
+    for (const int port : {16001, 17001, 18001, 36001, 37001, 38001}) {
+        EXPECT_TRUE(mxh::test::e2e_port_is_forbidden(port)) << port;
+    }
+    const auto message = mxh::test::e2e_forbidden_port_message(16001, 17001, 18001, 36001);
+    EXPECT_NE(message.find("login=16001"), std::string::npos) << message;
+    EXPECT_NE(message.find("agent=17001"), std::string::npos) << message;
+    EXPECT_NE(message.find("map=18001"), std::string::npos) << message;
+    EXPECT_NE(message.find("map12=36001"), std::string::npos) << message;
+}
