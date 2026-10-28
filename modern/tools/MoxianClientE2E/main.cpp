@@ -676,16 +676,33 @@ int run_e2e(const CliArgs& cli) {
         procs.push_back(std::make_unique<ServerProc>());
         procs.back()->name = "agent";
         procs.back()->exe  = cli.agent_exe;
+        const int map17_port = cli.map12_port + 1;
+        const bool spawn_map17 = cli.map_number != 17;
+        if (spawn_map17) {
+            if (map17_port < mxh::test::kE2eMinPort || map17_port > mxh::test::kE2eMaxPort ||
+                mxh::test::e2e_port_is_forbidden(map17_port) ||
+                map17_port == cli.login_port || map17_port == cli.agent_port ||
+                map17_port == cli.map_port || map17_port == cli.map12_port) {
+                LOG("Map17 port %d is outside the smoke range or collides with another listener",
+                    map17_port);
+                return 1;
+            }
+        }
         std::vector<std::string> agent_args{
             "--port", std::to_string(cli.agent_port),
             "--backend", backend_flag,
             "--db", agent_db,
             "--legacy",
             "--map-server", "127.0.0.1:" + std::to_string(cli.map_port),
-            "--default-map", std::to_string(cli.map_number)};
+            "--default-map", std::to_string(cli.map_number),
+            "--start-area", "17"};
         if (cli.exercise_mapchange) {
             agent_args.emplace_back("--map-server-map");
             agent_args.emplace_back("12=127.0.0.1:" + std::to_string(cli.map12_port));
+        }
+        if (spawn_map17) {
+            agent_args.emplace_back("--map-server-map");
+            agent_args.emplace_back("17=127.0.0.1:" + std::to_string(map17_port));
         }
         if (cli.use_hsel) agent_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", agent_args);
@@ -708,6 +725,22 @@ int run_e2e(const CliArgs& cli) {
         }
         if (cli.use_hsel) map_args.emplace_back("--use-hsel");
         procs.back()->spawn_with_args("", map_args);
+
+        if (spawn_map17) {
+            procs.push_back(std::make_unique<ServerProc>());
+            procs.back()->name = "map17";
+            procs.back()->exe = cli.map_exe;
+            std::vector<std::string> map17_args{
+                "--port", std::to_string(map17_port),
+                "--backend", backend_flag,
+                "--map", "17",
+                "--db", map_db,
+                "--resource-root", e2e_playdh_root.string(),
+                "--server-resource-root", (e2e_playdh_root / "Resource" / "Server").string(),
+                "--resource-profile", "playdh-current"};
+            if (cli.use_hsel) map17_args.emplace_back("--use-hsel");
+            procs.back()->spawn_with_args("", map17_args);
+        }
 
         if (cli.exercise_mapchange) {
             procs.push_back(std::make_unique<ServerProc>());
@@ -740,6 +773,10 @@ int run_e2e(const CliArgs& cli) {
         }
         if (cli.exercise_mapchange && !wait_for_port(cli.map12_port, cli.timeout_s)) {
             LOG("MapServer[12] failed to listen on :%d within %ds", cli.map12_port, cli.timeout_s);
+            return 1;
+        }
+        if (spawn_map17 && !wait_for_port(map17_port, cli.timeout_s)) {
+            LOG("MapServer[17] failed to listen on :%d within %ds", map17_port, cli.timeout_s);
             return 1;
         }
         LOG("all 3 servers listening (login:%d, agent:%d, map:%d)",
@@ -1022,13 +1059,16 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
     }
+    const auto entered_map = chsel2.selected_map();
+    LOG("[4/5] character saved map=%u", static_cast<unsigned>(entered_map));
     chsel2.Release();
 
     // ---- Step 5: InGame ----
+    // Enter the map persisted on the character. A new character's StartArea
+    // is not the probe's --map-number, and an existing Map10 save stays on 10.
     LOG("[5/5] InGame: sending GameInSyn through persistent AgentSession ...");
     mxh::client::CInGameState game;
-    game.Start(&engine, created_chrid,
-               static_cast<std::uint16_t>(cli.map_number));
+    game.Start(&engine, created_chrid, entered_map);
     {
         auto deadline = std::chrono::steady_clock::now() +
                        std::chrono::seconds(cli.timeout_s);
@@ -1044,7 +1084,7 @@ int run_e2e(const CliArgs& cli) {
         // Map10 is the first vertical-slice gate.  Let the receive thread
         // drain the server's initial spawn burst, then require the complete
         // decoded AIGroup population rather than merely the first packet.
-        if (cli.map_number == 10) {
+        if (entered_map == 10) {
             const auto spawn_deadline = std::chrono::steady_clock::now() +
                                          std::chrono::seconds(2);
             while (game.monsters().size() < 228 &&
@@ -1626,8 +1666,7 @@ int run_e2e(const CliArgs& cli) {
             // in the old state's inventory is not persistence evidence.
             game.Release();
             mxh::client::CInGameState relog;
-            relog.Start(&engine, created_chrid,
-                        static_cast<std::uint16_t>(cli.map_number));
+            relog.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog.is_in_game() &&
@@ -1677,8 +1716,7 @@ int run_e2e(const CliArgs& cli) {
 
             game.Release();
             mxh::client::CInGameState relog;
-            relog.Start(&engine, created_chrid,
-                        static_cast<std::uint16_t>(cli.map_number));
+            relog.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog.is_in_game() &&
@@ -1825,8 +1863,7 @@ int run_e2e(const CliArgs& cli) {
             }
             game.Release();
             mxh::client::CInGameState relog_position;
-            relog_position.Start(&engine, created_chrid,
-                                 static_cast<std::uint16_t>(cli.map_number));
+            relog_position.Start(&engine, created_chrid, entered_map);
             const auto relog_deadline = std::chrono::steady_clock::now() +
                                         std::chrono::seconds(cli.timeout_s * 3);
             while (!relog_position.is_in_game() &&

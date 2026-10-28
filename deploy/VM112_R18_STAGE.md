@@ -32,6 +32,9 @@ own writer/protocol work and are not accepted by this stage.
 
 The test stage may use Map10 solely for schema/protocol probes; Map10 has
 high-level monsters and is not a verified Lv1 birth route. Historical CN
-CreateCharacter procedure evidence points to persisted Map17/LoginPoint2017,
-but a source-bound Map17 birth profile and its initial position remain a
-separate change. Do not adjust damage or item probabilities to compensate.
+CreateCharacter procedure evidence points to persisted Map17/LoginPoint2017.
+Before the next deploy of an Agent that enforces that StartArea, this stage
+must register Map17 or startup and character creation fail instead of falling
+back to Map10. Characters already saved on Map10 still enter Map10. TYJ-155
+will carry the same requirement into `docs/CLEAN_MACHINE_DEPLOY.md`. Do not
+adjust damage or item probabilities to compensate.

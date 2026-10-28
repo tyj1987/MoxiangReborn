@@ -208,7 +208,8 @@ try {
             -ProcessEnvironment (Copy-EphemeralProcessEnvironment) `
             -ClientArguments $arguments
         # Before any server process. A listener on 0.0.0.0 would still accept 127.0.0.1.
-        $portInUse = Get-EphemeralPortInUseViolation -Ports @($ephemeralPortPlan.Ports)
+        $boundPorts = @($ephemeralSpec.Processes | ForEach-Object { [int]$_.Port })
+        $portInUse = Get-EphemeralPortInUseViolation -Ports $boundPorts
         if ($portInUse) { throw $portInUse }
     }
     if ($AuditMapDependencies) {
@@ -427,9 +428,10 @@ try {
         $log -notmatch [regex]::Escape('first valid chrid=')) {
         throw "GUI smoke neither created nor loaded a character; log=$stderr"
     }
-    if ($log -notmatch "CharacterSelectAck chrid=\d+ map_num=$MapNumber") {
-        throw "GUI smoke character map does not match requested map $MapNumber; log=$stderr"
+    if ($log -notmatch 'CharacterSelectAck chrid=\d+ map_num=(\d+)') {
+        throw "GUI smoke missing CharacterSelectAck saved map; log=$stderr"
     }
+    $savedMap = [int]$Matches[1]
     if ($ExerciseInventory -and $log -notmatch 'GUI_SMOKE_INVENTORY_OPEN') {
         throw "GUI smoke inventory exercise did not open the live inventory UI; log=$stderr"
     }
@@ -455,8 +457,8 @@ try {
     if ($log -match 'release visual gate failed: (stmVclMismatch|stmVclMissing|stmVclBufferMismatch|stmVclShaderFailed)') {
         throw "GUI smoke visual gate failed for Map $MapNumber ($($Matches[1]): .vcl missing/mismatched, colour stream not built, or vcl shader unavailable); log=$stderr"
     }
-    if ($log -notmatch "GameInAck .* map=$MapNumber(?:\D|$)") {
-        throw "GUI smoke GameInAck map does not match requested map $MapNumber; log=$stderr"
+    if ($log -notmatch "GameInAck .* map=$savedMap(?:\D|$)") {
+        throw "GUI smoke GameInAck map does not match the character's saved map $savedMap; log=$stderr"
     }
     if ($log -match 'release visual gate failed: placeholderCount=(\d+) failedModelCount=(\d+)') {
         throw "GUI smoke visual gate failed for Map $MapNumber (placeholders=$($Matches[1]) failedModels=$($Matches[2])); log=$stderr"
@@ -482,11 +484,11 @@ try {
     } catch {
         throw "$($_.Exception.Message); log=$stderr"
     }
-    if ($MapNumber -eq 10 -and $monsterCount -ne 228) {
+    if ($savedMap -eq 10 -and $monsterCount -ne 228) {
         throw "GUI smoke received $monsterCount Map10 monsters, expected exactly 228; log=$stderr"
     }
     $entityTotals = @(Get-GuiSmokeEntityMonsterTotals -LogText $log)
-    if ($MapNumber -eq 10 -and $entityTotals.Count -gt 0) {
+    if ($savedMap -eq 10 -and $entityTotals.Count -gt 0) {
         $entityMonsterTotal = [int](($entityTotals | Measure-Object -Maximum).Maximum)
         if ($entityMonsterTotal -ne 228) {
             throw "GUI smoke entity frame monster total $entityMonsterTotal, expected exactly 228; log=$stderr"
@@ -501,13 +503,13 @@ try {
         if ($log -notmatch '\[entity\] original model object=\d+ type=player kind=\d+ chx=man\.chx') {
             throw "GUI player-view smoke did not resolve the local player model; log=$stderr"
         }
-        if ($MapNumber -eq 10 -and
+        if ($savedMap -eq 10 -and
             $log -notmatch '\[entity\] original model object=\d+ type=monster kind=\d+ chx=L\d+\.chx') {
             throw "GUI player-view smoke did not resolve a Map10 monster model; log=$stderr"
         }
-        if ($MapNumber -ne 10 -and
+        if ($savedMap -ne 10 -and
             $log -notmatch '\[entity\] original model object=\d+ type=npc kind=\d+ chx=N\d+\.chx') {
-            throw "GUI player-view smoke did not resolve an NPC model for Map $MapNumber; log=$stderr"
+            throw "GUI player-view smoke did not resolve an NPC model for saved map $savedMap; log=$stderr"
         }
         if ($log -notmatch 'entity loaded=\d+ failed=0 placeholders=0 monsters=\d+ npcs=\d+') {
             throw "GUI player-view smoke reported missing/placeholder entities for Map $MapNumber; log=$stderr"

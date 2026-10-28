@@ -318,7 +318,9 @@ int main(int argc, char** argv) {
             ml.args.push_back("--agent-port"); ml.args.push_back(std::to_string(a.modern_agent_port));
             const bool login_only = a.scenario == "login";
             std::vector<std::string> ma_args = {"--port", std::to_string(a.modern_agent_port),
-                                                "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port)};
+                                                "--map-server", "127.0.0.1:" + std::to_string(a.modern_map_port),
+                                                "--default-map", std::to_string(a.map_num),
+                                                "--start-area", std::to_string(a.map_num)};
 if (a.modern_legacy || a.modern_only) ma_args.push_back("--legacy");
 ServerLaunch ma{agentPath, std::move(ma_args)};
             std::vector<std::string> mm_args = {

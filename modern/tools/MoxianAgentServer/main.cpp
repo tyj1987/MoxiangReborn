@@ -23,6 +23,7 @@
 // handle UserConn::CharacterListSyn → return a 1-entry dummy character list.
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/start_area_route.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/net/packet_trace.hpp"
@@ -55,6 +56,7 @@ struct Args {
     std::string   map_server_addr;  // empty = no MapServer (stub mode)
     std::uint16_t map_server_port   = 8001;
     std::uint16_t default_map_num   = 12;
+    std::uint16_t start_area        = mxh::server::kNewCharacterStartArea;
     struct MapRouteSpec {
         std::uint16_t map_num = 0;
         std::string address;
@@ -119,6 +121,8 @@ Args parse_args(int argc, char** argv) {
         }
         else if (s == "--default-map" && i + 1 < argc)
             a.default_map_num = parse_default_map(argv[++i]);
+        else if (s == "--start-area" && i + 1 < argc)
+            a.start_area = parse_default_map(argv[++i]);
         else if (s == "--map-server-map" && i + 1 < argc) {
             // Parse MAP=HOST:PORT. This is explicit so a production run
             // cannot silently infer a destination from the process name.
@@ -151,7 +155,8 @@ Args parse_args(int argc, char** argv) {
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
                       << "  --map-server-map M=H:P register an additional map route\n"
-                      << "  --default-map N       map assigned to newly created characters\n";
+                      << "  --default-map N       route used by --map-server\n"
+                      << "  --start-area N        new-character StartArea that must be registered (default 17)\n";
             std::exit(0);
         }
         else {
@@ -268,6 +273,14 @@ private:
 
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
+    std::vector<std::uint16_t> configured_maps;
+    configured_maps.reserve(args.map_routes.size());
+    for (const auto& route : args.map_routes) configured_maps.push_back(route.map_num);
+    if (const int startup = mxh::server::agent_startup_exit_if_start_area_unregistered(
+            args.start_area, !args.map_server_addr.empty(), args.default_map_num,
+            configured_maps.data(), configured_maps.size())) {
+        return startup;
+    }
 
     if (!args.db_env.empty()) {
         const auto* value = std::getenv(args.db_env.c_str());
@@ -353,6 +366,7 @@ int main(int argc, char** argv) {
         Args::MapRouteSpec spec;
         std::unique_ptr<MapClientHandler> handler;
         std::unique_ptr<mxh::net::TcpClient> client;
+        std::chrono::steady_clock::time_point next_retry{};
     };
     std::vector<std::unique_ptr<MapRouteConnection>> map_route_connections;
     auto next_map_reconnect = std::chrono::steady_clock::now();
@@ -392,31 +406,45 @@ int main(int argc, char** argv) {
     }
 
     // Additional map endpoints are explicit and independent of the default
-    // connection. They are kept alive for the lifetime of AgentServer; a
-    // failed endpoint is reported and remains unavailable rather than being
-    // replaced by another map's connection.
+    // connection. A failed endpoint stays unregistered until its own retry
+    // succeeds. It is never replaced by another map's connection.
+    const auto connect_extra_map = [&](MapRouteConnection& route) -> bool {
+        handler.set_map_server_for_map(route.spec.map_num, nullptr,
+                                       mxh::net::ConnectionId{});
+        if (route.client) route.client->disconnect();
+        route.client.reset();
+        route.handler.reset();
+        route.handler = std::make_unique<MapClientHandler>(handler, route.spec.map_num);
+        route.client = std::make_unique<mxh::net::TcpClient>(*route.handler);
+        route.handler->set_sender(route.client.get());
+        mxh::net::ClientConfig ccfg;
+        ccfg.remote_address = route.spec.address;
+        ccfg.port = route.spec.port;
+        ccfg.use_legacy_framing = true;
+        ccfg.connect_timeout = std::chrono::milliseconds(500);
+        const auto error = route.client->connect(ccfg);
+        if (error != mxh::net::NetError::Ok) {
+            std::cerr << "[main] cannot connect map=" << route.spec.map_num
+                      << " MapServer at " << route.spec.address << ":"
+                      << route.spec.port << " (" << mxh::net::to_string(error)
+                      << ")\n";
+            route.client.reset();
+            route.handler.reset();
+            route.next_retry = std::chrono::steady_clock::now() +
+                               std::chrono::milliseconds(500);
+            return false;
+        }
+        handler.set_map_server_for_map(route.spec.map_num, route.client.get(),
+                                       route.handler->get_map_conn_id());
+        std::cout << "[main] connected map=" << route.spec.map_num
+                  << " MapServer at " << route.spec.address << ":"
+                  << route.spec.port << "\n";
+        return true;
+    };
     for (const auto& spec : args.map_routes) {
         auto route = std::make_unique<MapRouteConnection>();
         route->spec = spec;
-        route->handler = std::make_unique<MapClientHandler>(handler, spec.map_num);
-        route->client = std::make_unique<mxh::net::TcpClient>(*route->handler);
-        route->handler->set_sender(route->client.get());
-        mxh::net::ClientConfig ccfg;
-        ccfg.remote_address = spec.address;
-        ccfg.port = spec.port;
-        ccfg.use_legacy_framing = true;
-        ccfg.connect_timeout = std::chrono::milliseconds(500);
-        const auto error = route->client->connect(ccfg);
-        if (error != mxh::net::NetError::Ok) {
-            std::cerr << "[main] cannot connect map=" << spec.map_num
-                      << " MapServer at " << spec.address << ":" << spec.port
-                      << " (" << mxh::net::to_string(error) << ")\n";
-            continue;
-        }
-        handler.set_map_server_for_map(spec.map_num, route->client.get(),
-                                       route->handler->get_map_conn_id());
-        std::cout << "[main] connected map=" << spec.map_num
-                  << " MapServer at " << spec.address << ":" << spec.port << "\n";
+        (void)connect_extra_map(*route);
         map_route_connections.push_back(std::move(route));
     }
 
@@ -438,6 +466,12 @@ int main(int argc, char** argv) {
                 next_map_reconnect = now + std::chrono::milliseconds(500);
             }
         }
+        for (auto& route : map_route_connections) {
+            const bool down = !route->client || !route->client->is_connected();
+            if (down && now >= route->next_retry) {
+                (void)connect_extra_map(*route);
+            }
+        }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
@@ -453,7 +487,7 @@ int main(int argc, char** argv) {
     for (auto& route : map_route_connections) {
         handler.set_map_server_for_map(route->spec.map_num, nullptr,
                                        mxh::net::ConnectionId{});
-        route->client->disconnect();
+        if (route->client) route->client->disconnect();
         route->client.reset();
         route->handler.reset();
     }

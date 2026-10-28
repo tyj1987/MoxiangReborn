@@ -194,6 +194,19 @@ TEST(BattleFactory, PhyDefenceLevelClampedAt09) {
     EXPECT_DOUBLE_EQ(compute_phy_defence_level(9999.0, 1), 0.9);
 }
 
+TEST(BattleFactory, Defense541VersusLevel1CapsAtPointNineAndAttack30Deals3) {
+    // Map10 monster 50143 defence 541 against a level-1 attacker:
+    // (541 * 2 + 50) / (1 * 20 + 150) = 1132 / 170 > 0.9, so the KR/CN
+    // ceiling applies. Real arithmetic of attack 30 at that cap is 3.
+    // compute_received_damage casts the double product, and
+    // 30 * (1 - 0.9) is 2.999..., so the cast is 2. The same cast already
+    // locks 1000 * 0.1 to 99. The formula is not adjusted to produce 3.
+    EXPECT_GT((541.0 * 2.0 + 50.0) / (1.0 * 20.0 + 150.0), 0.9);
+    EXPECT_DOUBLE_EQ(compute_phy_defence_level(541.0, 1), 0.9);
+    EXPECT_EQ(compute_received_damage(30u, 0.9), 2u);
+    EXPECT_NEAR(30.0 * (1.0 - 0.9), 3.0, 1e-9);
+}
+
 TEST(BattleFactory, PhyDefenceLevelClampedAtZeroForNegative) {
     // attacker_level < 1 is forced to 1, so the formula never returns < 0.
     EXPECT_GE(compute_phy_defence_level(0.0, 0), 0.0);

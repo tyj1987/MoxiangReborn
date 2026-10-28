@@ -507,10 +507,27 @@ mxh::net::Message character_make_with_default_clothes() {
     return msg;
 }
 
+class RegisteredMapSender final : public mxh::net::ITcpSender {
+public:
+    [[nodiscard]] mxh::net::NetError send(const mxh::net::Message&) override {
+        return mxh::net::NetError::Ok;
+    }
+    [[nodiscard]] bool is_connected() const noexcept override { return true; }
+};
+
+void register_birth_map(mxh::server::AgentHandler& handler,
+                        RegisteredMapSender& sender,
+                        std::uint16_t map_num = 17) {
+    handler.set_map_server_for_map(
+        map_num, &sender, mxh::net::make_connection_id(17000u + map_num));
+}
+
 TEST(AgentCharacterCreateTest, PersistsDefaultClothesBeforeAcknowledging) {
     CharacterCreateDb db;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9001),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -530,6 +547,8 @@ TEST(AgentCharacterCreateTest, EquipmentFailureRollsBackAndRejectsCreation) {
     db.fail_equipment = true;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9002),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -549,6 +568,8 @@ TEST(AgentCharacterCreateTest, PendingVitalsFailureRollsBackCharacterAndClothes)
     db.fail_pending_vitals = true;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9003),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -568,6 +589,8 @@ TEST(AgentCharacterCreateTest, ProgressFailureRollsBackCharacterBeforeClothes) {
     db.fail_progress = true;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9006),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -587,6 +610,8 @@ TEST(AgentCharacterCreateTest, UnknownCommitRetiresAdapterWithoutFalseNack) {
     db.fail_commit = true;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9004),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -602,6 +627,8 @@ TEST(AgentCharacterCreateTest, FailedRollbackRetiresAdapterWithoutFalseNack) {
     db.fail_rollback = true;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     handler.on_message(mxh::net::make_connection_id(9005),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.rollbacks, 1);
@@ -619,6 +646,8 @@ TEST(AgentCharacterCreateTest, SharedAdapterSerializesCreationFriendTxnAndSessio
             std::lock_guard<std::mutex> lock(reply_mu);
             replies.push_back(msg);
         }, true);
+    RegisteredMapSender birth;
+    register_birth_map(handler, birth);
     const auto friend_connection = mxh::net::make_connection_id(9101);
     handler.register_session(friend_connection, 1u, 123u, 10u, 0u);
     std::thread creator([&] {
@@ -6134,6 +6163,8 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     ReplySpy reply;
     AgentHandler agent(db, make_reply_spy(reply), true, false, {}, 10);
+    RegisteredMapSender birth;
+    register_birth_map(agent, birth);
     mxh::net::Message create;
     create.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     create.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterMakeSyn);
@@ -6144,6 +6175,7 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     std::memcpy(create.payload.data() + 17, &account, 4);
     std::memcpy(create.payload.data() + 51, &scale, 4);
     std::memcpy(create.payload.data() + 55, &scale, 4);
+    create.payload[25] = 17;
     agent.on_message({90}, create);
     mxh::db::ResultSet rows;
     ASSERT_TRUE(db.query("SELECT chrid,base_gengol,base_minchub,base_cheryuk,base_simmek FROM character_info", {}, rows).ok());

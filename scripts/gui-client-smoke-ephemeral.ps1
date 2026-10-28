@@ -341,15 +341,17 @@ function Get-EphemeralReservedPorts {
 
 function Resolve-EphemeralPortPlan {
     param([Parameter(Mandatory)][int]$Base)
-    # login = base, agent = base+1000, map = base+2000.
-    if ($Base -lt 1 -or ($Base + 2000) -gt 65535) {
+    # login = base, agent = base+1000, map = base+2000, map17 = base+2002.
+    # 28002 stays free for the optional map12 listener used by other probes.
+    if ($Base -lt 1 -or ($Base + 2002) -gt 65535) {
         throw "ephemeral safety: port-out-of-range $Base"
     }
     $login = $Base
     $agent = $Base + 1000
     $map = $Base + 2000
+    $map17 = $Base + 2002
     $reserved = Get-EphemeralReservedPorts
-    foreach ($port in @($login, $agent, $map)) {
+    foreach ($port in @($login, $agent, $map, $map17)) {
         if ($reserved -contains $port) {
             throw "ephemeral safety: reserved-port $port"
         }
@@ -358,7 +360,8 @@ function Resolve-EphemeralPortPlan {
         LoginPort = $login
         AgentPort = $agent
         MapPort = $map
-        Ports = @($login, $agent, $map)
+        Map17Port = $map17
+        Ports = @($login, $agent, $map, $map17)
     }
 }
 
@@ -454,17 +457,25 @@ function New-EphemeralServerLaunchSpec {
         [int]$LoginPort = 26001,
         [int]$AgentPort = 27001,
         [int]$MapPort = 28001,
+        [int]$Map17Port = 0,
         [hashtable]$ProcessEnvironment = @{},
         [Parameter(Mandatory)][string[]]$ClientArguments
     )
+    if ($Map17Port -eq 0) { $Map17Port = $MapPort + 2 }
     $reserved = Get-EphemeralReservedPorts
-    foreach ($port in @($LoginPort, $AgentPort, $MapPort)) {
+    $listenPorts = @($LoginPort, $AgentPort, $MapPort)
+    if ($MapNumber -ne 17) { $listenPorts += $Map17Port }
+    foreach ($port in @($listenPorts)) {
         if ($port -lt 1 -or $port -gt 65535) {
             throw "ephemeral safety: port-out-of-range $port"
         }
         if ($reserved -contains $port) {
             throw "ephemeral safety: reserved-port $port"
         }
+    }
+    $distinct = @($listenPorts | Select-Object -Unique)
+    if ($distinct.Count -ne @($listenPorts).Count) {
+        throw "ephemeral safety: port-out-of-range $Map17Port"
     }
 
     # Command line matches deploy/scripts/start_modern.ps1 $processes
@@ -490,8 +501,20 @@ function New-EphemeralServerLaunchSpec {
         '--port', "$AgentPort",
         '--bind-address', '127.0.0.1',
         '--map-server', "127.0.0.1:$MapPort",
-        '--default-map', "$MapNumber"
+        '--default-map', "$MapNumber",
+        '--start-area', '17'
     ) + $commonDb + $legacy
+    if ($MapNumber -ne 17) {
+        $agentArgs += @('--map-server-map', "17=127.0.0.1:$Map17Port")
+    }
+    $map17Args = @(
+        '--port', "$Map17Port",
+        '--map', '17',
+        '--bind-address', '127.0.0.1',
+        '--resource-root', $ResourceRoot,
+        '--server-resource-root', $ServerResourceRoot,
+        '--resource-profile', $ResourceProfileId
+    ) + $commonDb
     $loginArgs = @(
         '--port', "$LoginPort",
         '--bind-address', '127.0.0.1',
@@ -510,14 +533,24 @@ function New-EphemeralServerLaunchSpec {
     }
     $environment['MXH_DATABASE_CONFIG'] = $databaseConfig
 
+    # Map17 is the original new-character StartArea. The primary -MapNumber
+    # process stays in place for an existing character saved on that map.
+    # start_modern.ps1 is not the local smoke launcher and is left unchanged.
     $processes = @(
-        [pscustomobject]@{ Name = 'map'; Executable = $MapExecutable; Port = $MapPort; Arguments = $mapArgs },
+        [pscustomobject]@{ Name = 'map'; Executable = $MapExecutable; Port = $MapPort; Arguments = $mapArgs }
+    )
+    if ($MapNumber -ne 17) {
+        $processes += [pscustomobject]@{ Name = 'map17'; Executable = $MapExecutable; Port = $Map17Port; Arguments = $map17Args }
+    }
+    $processes += @(
         [pscustomobject]@{ Name = 'agent'; Executable = $AgentExecutable; Port = $AgentPort; Arguments = $agentArgs },
         [pscustomobject]@{ Name = 'login'; Executable = $LoginExecutable; Port = $LoginPort; Arguments = $loginArgs }
     )
+    $listenAddresses = @($processes | ForEach-Object { '127.0.0.1' })
     $serverArguments = @($mapArgs) + @($agentArgs) + @($loginArgs)
+    if ($MapNumber -ne 17) { $serverArguments = @($mapArgs) + @($map17Args) + @($agentArgs) + @($loginArgs) }
     $violation = Get-EphemeralSafetyViolation `
-        -ListenAddresses @('127.0.0.1', '127.0.0.1', '127.0.0.1') `
+        -ListenAddresses $listenAddresses `
         -ClientConnectAddresses @('127.0.0.1', '127.0.0.1', '127.0.0.1') `
         -DatabaseDirectory $DatabaseDirectory `
         -DatabaseFile $databaseFile `
