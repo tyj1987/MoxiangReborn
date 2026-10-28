@@ -74,6 +74,14 @@
 
 恢复的数据库过程被认为把出生地图写成 17，但 `CHARACTER_MAP=17` 不能追溯到一份原版安装文件。在出现这样的原件之前，默认 StartArea 保持不变：Agent 省略 `--start-area` 时使用 `default_map_num`（`modern/tools/MoxianAgentServer/main.cpp` 里的默认值是 12，调用方可以用 `--default-map` 覆盖）。显式把 StartArea 配成 17 且该地图未注册时，启动失败并写明地图号；建角拒绝未注册的 StartArea，不会再静默落到 Map10。已经保存在 Map10 的角色仍进入 Map10。
 
+### 2026-10-28 原版建角起始地图 17 证据 Refs TYJ-156
+
+原版角色创建的起始地图是 17。证据：originalFile `D:\MX\database\mhgame.bak`（2014-01-13 备份，SoftwareVersion 9.0.5000），sha256 `7773fa1da919d2f8b5f18019dbc6e55efd64025edd817fddb923f08e3535126b`，存储过程 `MP_CHARACTER_CreateCharacter` 向 `TB_CHARACTER.CHARACTER_MAP` 写入字面量地图 17。旁证仅：`D:\MX\src\database\MHGAME.bak`（2009-12-07，SoftwareVersion 9.0.4035），sha256 `bcdf836239b9e4f029efb337a262be668c52719692b6846c0a79c54f08570df3`，过程名相同；该备份里 `CHARACTER_MAP` 来自过程参数（调用方传入），因此不能确定地图号。未还原，也不再追查。以上由 ROG 上的只读字节搜索和 `RESTORE HEADERONLY`/`FILELISTONLY` 确定，没有执行还原。过程体留在 ROG，不在本页复述。
+
+当前默认 StartArea 仍是 10，保持不变，因为 Map17 缺少 9 张地形纹理 `tile_17_mou_a_01..09.tga`，且没有原版来源（TYJ-166，被 TYJ-165 阻塞）。只有在 TYJ-166 解决并且 GUI Map17 冒烟通过之后，才在 TYJ-156 下把默认改为 17。在此之前 Map17 只允许显式指定（`--start-area 17` / `-EnableMap17`）。
+
+仓库内没有找到 `MP_CHARACTER_CreateCharacter` 的调用方；现代建角不调用该过程，客户端把 `params.start_area` 写入建角包偏移 25（`modern/src/client/CCharMake.cpp:234`；CHINA 目录唯一 StartArea 选项值为 17，`modern/tests/unit/client/char_make_options_test.cpp:66`），`handle_legacy_character_make` 读取该字节（`modern/src/server/agent_handler.cpp:1642`）但写入 `character_info.start_area` 与 `map_num` 的是配置 StartArea（`--start-area`，否则 `default_map_num`；`modern/src/server/agent_handler.cpp:1643`、`1763`、`1774`、`1777`、`1809`）。
+
 ### 2026-10-15 Map17 原始 HFL 真实恢复
 
 复核发现当前原版 `modern/data/PlayDH/Map.pak` 的第 240 项实际包含 `17.hfl`。已从该原版包提取并按 SHA-256 `727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a` 写入 `Resource/Map/17.hfl`，同步更新 canonical hash manifest。HFL 解析通过，使用的 42 个纹理中仍有 9 个缺失；只恢复了原始高度场，没有引入 Unity 派生或替代纹理。
