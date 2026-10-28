@@ -215,24 +215,45 @@ function New-ToolDir {
     $dir = Join-Path $script:Root ('bin-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     if ($IsWindows) {
-        [IO.File]::WriteAllText((Join-Path $dir 'ctest.cmd'), "@echo off`r`nexit /b 0`r`n")
+        # commercial-smoke invokes `& ctest @args`. A ctest.cmd file is
+        # started through cmd.exe, and cmd treats '|' in the unquoted -R
+        # regex as a pipe (exit 255). ctest.exe is a native image, same
+        # path as real ctest.exe: CreateProcess, no cmd. This PE writes
+        # each argument on its own line to ctest.exe.invoked and exits 0.
+        $ctest = Join-Path $dir 'ctest.exe'
+        if ($null -eq $script:WindowsE2eStubBytes -or $script:WindowsE2eStubBytes.Length -lt 64) {
+            throw 'FAIL: Windows ctest stub needs the argument-logging PE'
+        }
+        [IO.File]::WriteAllBytes($ctest, $script:WindowsE2eStubBytes)
         if ($WithLocalDb) {
             [IO.File]::WriteAllText((Join-Path $dir 'sqllocaldb.cmd'), "@echo off`r`nexit /b 0`r`n")
         }
     } else {
-        $sh = "#!/bin/sh`nexit 0`n"
+        $ctestSh = @'
+#!/bin/sh
+printf '%s\n' "$@" > "$0.invoked"
+exit 0
+'@
+        $ctestSh = $ctestSh.Replace("`r`n", "`n")
+        if (-not $ctestSh.EndsWith("`n")) { $ctestSh += "`n" }
         $ctest = Join-Path $dir 'ctest'
-        [IO.File]::WriteAllText($ctest, $sh)
+        [IO.File]::WriteAllText($ctest, $ctestSh)
         & /bin/chmod +x -- $ctest
         if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod ctest exited $LASTEXITCODE" }
         if ($WithLocalDb) {
             $tool = Join-Path $dir 'sqllocaldb'
-            [IO.File]::WriteAllText($tool, $sh)
+            [IO.File]::WriteAllText($tool, "#!/bin/sh`nexit 0`n")
             & /bin/chmod +x -- $tool
             if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod sqllocaldb exited $LASTEXITCODE" }
         }
     }
     return $dir
+}
+
+function Get-CtestStubPath {
+    param([Parameter(Mandatory = $true)][string]$ToolDir)
+    if ($IsWindows) { return (Join-Path $ToolDir 'ctest.exe') }
+    return (Join-Path $ToolDir 'ctest')
 }
 
 function New-E2eStub {
@@ -812,6 +833,37 @@ try {
     $missingText = Get-SmokeText $missing.Stdout
     Assert-True ($missing.ExitCode -eq 6) "LocalDB missing exit was $($missing.ExitCode); stdout=[$missingText] stderr=[$($missing.Stderr)]"
     Assert-True ($missingText -eq $Unavailable) "LocalDB missing must print only the unavailable line, got [$missingText]"
+    $ctestArgs = @(Read-InvokedArgs -Exe (Get-CtestStubPath -ToolDir $absent))
+    Assert-True ($null -ne $ctestArgs -and $ctestArgs.Count -gt 0) "LocalDB missing must still run ctest; args were [$($ctestArgs -join '][')]"
+    $ctestFilters = @(
+        'LoginServerFixture.ScaffoldSmoke',
+        'LoginServerFixture.ConnectReceivesDistConnectSuccess',
+        'LoginServerFixture.LegacyLoginValidCredsReceivesAck',
+        'LoginServerFixture.LegacyLoginInvalidCredsReceivesNack',
+        'LoginServerFixtureGolden.GoldenCapturesDistConnectSuccess',
+        'LoginServerFixtureGolden.GoldenCapturesLoginAck',
+        'LoginServerFixtureGolden.GoldenCapturesLoginNack',
+        'EncryptedLoginFixture.EncryptedLoginAckMatchesGolden',
+        'WireFormatGolden.RoundTrip_login_ack',
+        'WireFormatGolden.RoundTrip_login_nack',
+        'WireFormatGolden.RoundTrip_login_request',
+        'ResourcePayloadSha256.*',
+        'ResourceByteLevel.*',
+        'MoxianClientE2E.*',
+        'LoginSbsE2E.*'
+    )
+    $ctestPattern = ($ctestFilters -join '|')
+    Assert-True ($ctestPattern.Contains('|')) 'ctest -R pattern must contain a pipe'
+    $sawRegex = $false
+    for ($i = 0; $i -lt $ctestArgs.Count; $i++) {
+        if ($ctestArgs[$i] -ne '-R') { continue }
+        $next = ''
+        if (($i + 1) -lt $ctestArgs.Count) { $next = [string]$ctestArgs[$i + 1] }
+        Assert-True ($next -eq $ctestPattern) "ctest -R must be one argument, was [$next]"
+        $sawRegex = $true
+    }
+    Assert-True $sawRegex "ctest args missing -R: [$($ctestArgs -join '][')]"
+    Assert-True (-not ($ctestArgs -contains 'LoginServerFixture.ConnectReceivesDistConnectSuccess')) 'ctest -R regex was split on the pipe'
     Assert-True ((Count-SmokeLine $missingText $Unavailable) -eq 1) 'unavailable line must appear once'
     Assert-True (-not $missingText.Contains('SKIPPED')) 'LocalDB missing must not skip'
     Assert-True (-not $missingText.Contains('PASS')) 'LocalDB missing must not pass'
