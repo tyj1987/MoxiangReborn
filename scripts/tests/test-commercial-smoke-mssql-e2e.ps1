@@ -140,18 +140,59 @@ function New-ToolDir {
 }
 
 function New-E2eStub {
-    param([Parameter(Mandatory = $true)][string]$Exe)
+    param(
+        [Parameter(Mandatory = $true)][string]$Exe,
+        [int]$ExitCode = 0
+    )
     $parent = Split-Path -Parent $Exe
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
+    if ($ExitCode -ne 0) {
+        [IO.File]::WriteAllText($Exe + '.exitcode', ([string]$ExitCode + "`n"))
+    }
     if ($IsWindows) {
-        [IO.File]::WriteAllBytes($Exe, $script:WindowsE2eStubBytes)
+        if ($ExitCode -eq 0) {
+            [IO.File]::WriteAllBytes($Exe, $script:WindowsE2eStubBytes)
+            return
+        }
+        $cs = Join-Path $parent 'e2e-stub.cs'
+        @'
+using System;
+using System.IO;
+class E2eStub {
+    static int Main(string[] args) {
+        string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+        File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+        string codeFile = exe + ".exitcode";
+        if (File.Exists(codeFile)) {
+            int code;
+            if (int.TryParse(File.ReadAllText(codeFile).Trim(), out code)) return code;
+        }
+        return 0;
+    }
+}
+'@ | Set-Content -LiteralPath $cs -Encoding ascii
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        if (-not (Test-Path -LiteralPath $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+        }
+        if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows E2E failure stub needs csc.exe' }
+        & $csc /nologo /out:$Exe $cs
+        if ($LASTEXITCODE -ne 0) { throw "FAIL: csc e2e stub exited $LASTEXITCODE" }
         return
     }
     $sh = @'
 #!/bin/sh
 log="$0.invoked"
 printf '%s\n' "$@" > "$log"
-exit 0
+code=0
+codefile="$0.exitcode"
+if [ -f "$codefile" ]; then
+    IFS= read -r code < "$codefile" || code=0
+fi
+case "$code" in
+    ''|*[!0-9]*) code=1 ;;
+esac
+exit "$code"
 '@
     $sh = $sh.Replace("`r`n", "`n")
     if (-not $sh.EndsWith("`n")) { $sh += "`n" }
@@ -182,12 +223,252 @@ function Read-InvokedArgs {
     return @($raw.Split("`n"))
 }
 
+function New-SqlCmdStub {
+    param([Parameter(Mandatory = $true)][string]$Dir)
+    if ($IsWindows) {
+        $exe = Join-Path $Dir 'sqlcmd.exe'
+        $cs = Join-Path $Dir 'sqlcmd-stub.cs'
+        @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+class SqlCmdStub {
+    static int Main(string[] args) {
+        string log = Environment.GetEnvironmentVariable("MXH_SQLCMD_STUB_LOG");
+        string dbs = Environment.GetEnvironmentVariable("MXH_SQLCMD_STUB_DBS");
+        string dropExitPath = Environment.GetEnvironmentVariable("MXH_SQLCMD_STUB_DROP_EXIT");
+        string queryExitPath = Environment.GetEnvironmentVariable("MXH_SQLCMD_STUB_QUERY_EXIT");
+        string keepPath = Environment.GetEnvironmentVariable("MXH_SQLCMD_STUB_KEEP");
+        if (!string.IsNullOrEmpty(log)) {
+            File.AppendAllText(log, string.Join("\n", args) + "\n---\n");
+        }
+        string query = "";
+        for (int i = 0; i < args.Length; i++) {
+            if (args[i] == "-Q" && i + 1 < args.Length) query = args[i + 1];
+        }
+        if (query.IndexOf("DROP DATABASE", StringComparison.Ordinal) >= 0) {
+            int code = ReadCode(dropExitPath);
+            if (code == 0 && !string.IsNullOrEmpty(dbs)) {
+                bool keep = !string.IsNullOrEmpty(keepPath) && File.Exists(keepPath);
+                string name = "";
+                int open = query.IndexOf('[');
+                int close = query.IndexOf(']');
+                if (open >= 0 && close > open) name = query.Substring(open + 1, close - open - 1);
+                var lines = new List<string>();
+                if (File.Exists(dbs)) {
+                    foreach (string line in File.ReadAllLines(dbs)) {
+                        string trim = line.Trim();
+                        if (trim.Length == 0) continue;
+                        if (!keep && trim == name) continue;
+                        lines.Add(trim);
+                    }
+                }
+                if (keep && name.Length > 0 && !lines.Contains(name)) lines.Add(name);
+                File.WriteAllLines(dbs, lines.ToArray());
+            }
+            return code;
+        }
+        int qcode = ReadCode(queryExitPath);
+        if (qcode != 0) {
+            Console.Error.WriteLine("sqlcmd stub query failed");
+            return qcode;
+        }
+        if (!string.IsNullOrEmpty(dbs) && File.Exists(dbs)) {
+            Console.Write(File.ReadAllText(dbs));
+        }
+        return 0;
+    }
+    static int ReadCode(string path) {
+        if (string.IsNullOrEmpty(path) || !File.Exists(path)) return 0;
+        int code;
+        if (!int.TryParse(File.ReadAllText(path).Trim(), out code)) return 0;
+        return code;
+    }
+}
+'@ | Set-Content -LiteralPath $cs -Encoding ascii
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        if (-not (Test-Path -LiteralPath $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+        }
+        if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows sqlcmd stub needs csc.exe' }
+        & $csc /nologo /out:$exe $cs
+        if ($LASTEXITCODE -ne 0) { throw "FAIL: csc sqlcmd stub exited $LASTEXITCODE" }
+        return $exe
+    }
+    $tool = Join-Path $Dir 'sqlcmd'
+    $sh = @'
+#!/bin/sh
+log="${MXH_SQLCMD_STUB_LOG}"
+dbs="${MXH_SQLCMD_STUB_DBS}"
+query=""
+prev=""
+for arg in "$@"; do
+    if [ -n "$log" ]; then
+        printf '%s\n' "$arg" >> "$log"
+    fi
+    if [ "$prev" = "-Q" ]; then
+        query=$arg
+    fi
+    prev=$arg
+done
+if [ -n "$log" ]; then
+    printf '%s\n' '---' >> "$log"
+fi
+read_code() {
+    code=0
+    if [ -n "$1" ] && [ -f "$1" ]; then
+        IFS= read -r code < "$1" || code=0
+    fi
+    case "$code" in
+        ''|*[!0-9]*) code=0 ;;
+    esac
+    printf '%s' "$code"
+}
+case "$query" in
+    *DROP\ DATABASE*)
+        code=$(read_code "${MXH_SQLCMD_STUB_DROP_EXIT}")
+        if [ "$code" = "0" ] && [ -n "$dbs" ]; then
+            prefix=${query#*[}
+            name=${prefix%%]*}
+            keep=0
+            if [ -n "${MXH_SQLCMD_STUB_KEEP}" ] && [ -f "${MXH_SQLCMD_STUB_KEEP}" ]; then
+                keep=1
+            fi
+            tmp="${dbs}.tmp"
+            : > "$tmp"
+            if [ -f "$dbs" ]; then
+                while IFS= read -r line || [ -n "$line" ]; do
+                    if [ -z "$line" ]; then
+                        continue
+                    fi
+                    if [ "$keep" = "0" ] && [ "$line" = "$name" ]; then
+                        continue
+                    fi
+                    printf '%s\n' "$line" >> "$tmp"
+                done < "$dbs"
+            fi
+            if [ "$keep" = "1" ] && [ -n "$name" ]; then
+                seen=0
+                while IFS= read -r line || [ -n "$line" ]; do
+                    if [ "$line" = "$name" ]; then
+                        seen=1
+                    fi
+                done < "$tmp"
+                if [ "$seen" = "0" ]; then
+                    printf '%s\n' "$name" >> "$tmp"
+                fi
+            fi
+            cat "$tmp" > "$dbs"
+            rm -f "$tmp"
+        fi
+        exit "$code"
+        ;;
+esac
+qcode=$(read_code "${MXH_SQLCMD_STUB_QUERY_EXIT}")
+if [ "$qcode" != "0" ]; then
+    echo "sqlcmd stub query failed" >&2
+    exit "$qcode"
+fi
+if [ -n "$dbs" ] && [ -f "$dbs" ]; then
+    cat "$dbs"
+fi
+exit 0
+'@
+    $sh = $sh.Replace("`r`n", "`n")
+    if (-not $sh.EndsWith("`n")) { $sh += "`n" }
+    [IO.File]::WriteAllText($tool, $sh)
+    & /bin/chmod +x -- $tool
+    if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod sqlcmd stub exited $LASTEXITCODE" }
+    return $tool
+}
+
+function Write-AsciiFile {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Text
+    )
+    $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+    if (-not $normalized.EndsWith("`n")) { $normalized += "`n" }
+    [IO.File]::WriteAllText($Path, $normalized)
+}
+
+function New-SqlCmdState {
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string[]]$Names,
+        [int]$DropExit = 0,
+        [int]$QueryExit = 0,
+        [switch]$KeepAfterDrop
+    )
+    $dir = Join-Path $Root ('sqlstate-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $dbs = Join-Path $dir 'databases.txt'
+    $log = Join-Path $dir 'sqlcmd.log'
+    $drop = Join-Path $dir 'drop.exit'
+    $query = Join-Path $dir 'query.exit'
+    $keep = Join-Path $dir 'keep'
+    Write-AsciiFile -Path $dbs -Text (($Names | ForEach-Object { $_.Trim() }) -join "`n")
+    Write-AsciiFile -Path $drop -Text ([string]$DropExit)
+    Write-AsciiFile -Path $query -Text ([string]$QueryExit)
+    $envMap = @{
+        MXH_SQLCMD_STUB_DBS = $dbs
+        MXH_SQLCMD_STUB_LOG = $log
+        MXH_SQLCMD_STUB_DROP_EXIT = $drop
+        MXH_SQLCMD_STUB_QUERY_EXIT = $query
+    }
+    if ($KeepAfterDrop) {
+        Write-AsciiFile -Path $keep -Text 'keep'
+        $envMap['MXH_SQLCMD_STUB_KEEP'] = $keep
+    }
+    return [pscustomobject]@{
+        Dir = $dir
+        Log = $log
+        Env = $envMap
+    }
+}
+
+function Read-SqlCmdLog {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return '' }
+    return [IO.File]::ReadAllText($Path).Replace("`r`n", "`n").Replace("`r", "`n")
+}
+
+function Get-DatabaseBlock {
+    param(
+        [string]$Text,
+        [string]$Label
+    )
+    $start = "MSSQL_E2E DATABASES $Label"
+    $end = "MSSQL_E2E DATABASES $Label END"
+    $names = New-Object System.Collections.Generic.List[string]
+    $capturing = $false
+    $sawEnd = $false
+    foreach ($line in ($Text -split "`n")) {
+        $trim = $line.Trim()
+        if (-not $capturing) {
+            if ($trim -eq $start) { $capturing = $true }
+            continue
+        }
+        if ($trim -eq $end) {
+            $sawEnd = $true
+            break
+        }
+        $names.Add($trim)
+    }
+    return [pscustomobject]@{
+        Complete = $sawEnd
+        Names = $names.ToArray()
+    }
+}
+
 function Invoke-Smoke {
     param(
         [Parameter(Mandatory = $true)][string]$BuildDir,
         [Parameter(Mandatory = $true)][string]$PathValue,
         [ValidateSet('default', 'force-true', 'force-false')][string]$ProbeMode = 'default',
-        [switch]$SkipMssql
+        [switch]$SkipMssql,
+        [string]$MssqlDb = '',
+        [hashtable]$StubEnv
     )
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = (Get-Process -Id $PID).Path
@@ -196,6 +477,11 @@ function Invoke-Smoke {
     $psi.RedirectStandardError = $true
     $psi.WorkingDirectory = $BuildDir
     $psi.Environment['PATH'] = $PathValue
+    if ($null -ne $StubEnv) {
+        foreach ($key in @($StubEnv.Keys)) {
+            $psi.Environment[[string]$key] = [string]$StubEnv[$key]
+        }
+    }
     $psi.ArgumentList.Add('-NoProfile')
     $psi.ArgumentList.Add('-File')
     if ($ProbeMode -eq 'default') {
@@ -204,6 +490,10 @@ function Invoke-Smoke {
         $psi.ArgumentList.Add($BuildDir)
         $psi.ArgumentList.Add('-SkipGui')
         if ($SkipMssql) { $psi.ArgumentList.Add('-SkipMssql') }
+        if (-not [string]::IsNullOrWhiteSpace($MssqlDb)) {
+            $psi.ArgumentList.Add('-MssqlDb')
+            $psi.ArgumentList.Add($MssqlDb)
+        }
     } else {
         $psi.ArgumentList.Add($script:Driver)
         $psi.ArgumentList.Add('-Smoke')
@@ -371,8 +661,156 @@ try {
     Assert-True ((Count-SmokeLine $forcedOnText $PassLine) -eq 1) "probe override true must invoke E2E, got [$forcedOnText]"
     $forcedArgs = @(Read-InvokedArgs -Exe $forcedOnBuild.Exe)
     Assert-True ($null -ne $forcedArgs -and ($forcedArgs -join "`n") -eq ($ExpectedArgs -join "`n")) "probe override true args were [$($forcedArgs -join '|')]"
+
+    Assert-True ($smokeText.Contains('--login-port 26001 --agent-port 27001 --map-port 28001 --map12-port 28002')) 'explicit E2E must pass ports 26001/27001/28001/28002'
+    foreach ($forbiddenPort in @('16001', '17001', '18001', '36001', '37001', '38001')) {
+        Assert-True (-not $smokeText.Contains($forbiddenPort)) "commercial-smoke must not mention port $forbiddenPort"
+    }
+    Assert-True ($smokeText.Contains('DROP DATABASE [')) 'drop statement must bracket the validated name'
+
+    $sqlTool = New-ToolDir
+    [void](New-SqlCmdStub -Dir $sqlTool)
+    $sqlPath = $sqlTool
+    if (-not $IsWindows) { $sqlPath = $sqlTool + ':/bin:/usr/bin' }
+    $baseNames = @('master', 'model', 'msdb', 'tempdb')
+    $goodDb = 'MxE2E_RogSmoke'
+    $goodConn = 'backend=mssql_odbc;host=.\SQLEXPRESS;database=' + $goodDb + ';encrypt=no;trust_server_certificate=yes;'
+    $expectedExplicit = @(
+        '--login-host', '127.0.0.1',
+        '--login-port', '26001',
+        '--agent-port', '27001',
+        '--map-port', '28001',
+        '--map12-port', '28002',
+        '--backend', 'mssql_odbc',
+        '--init-schema',
+        '--db', $goodConn
+    )
+
+    $rejected = @(
+        'backend=mssql_odbc;host=.\SQLEXPRESS;encrypt=no;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=Moxiang;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=master;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=[MxE2E_Ok];',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database="MxE2E_Ok";',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok;database=master;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok];DROP DATABASE [master;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok;DROP DATABASE master;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=;',
+        'backend=mssql_odbc;database=MxE2E_Ok;',
+        'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Ok space;'
+    )
+    $rejectBuild = New-BuildDir -WithExe
+    foreach ($badConn in $rejected) {
+        $state = New-SqlCmdState -Root $script:Root -Names $baseNames
+        $rejectedRun = Invoke-Smoke -BuildDir $rejectBuild.Build -PathValue $sqlPath -MssqlDb $badConn -StubEnv $state.Env
+        $rejectedText = Get-SmokeText $rejectedRun.Stdout
+        Assert-True ($rejectedRun.ExitCode -ne 0) "rejected connection must be non-zero for [$badConn], exit $($rejectedRun.ExitCode), stdout [$rejectedText], stderr [$($rejectedRun.Stderr)]"
+        Assert-True ($rejectedText.Contains('rejected before connect')) "rejected connection missing refuse line for [$badConn], got [$rejectedText]"
+        Assert-True (-not $rejectedText.Contains('PASS')) "rejected connection must not pass for [$badConn], got [$rejectedText]"
+        Assert-True (-not $rejectedText.Contains($Unavailable)) "rejected connection must not be E2E_UNAVAILABLE for [$badConn]"
+        Assert-True ((Read-SqlCmdLog -Path $state.Log).Length -eq 0) "rejected connection must not call sqlcmd for [$badConn]"
+        Assert-True ($null -eq (Read-InvokedArgs -Exe $rejectBuild.Exe)) "rejected connection must not invoke E2E for [$badConn]"
+        if (Test-Path -LiteralPath ($rejectBuild.Exe + '.invoked')) {
+            Remove-Item -LiteralPath ($rejectBuild.Exe + '.invoked') -Force
+        }
+    }
+
+    $existsState = New-SqlCmdState -Root $script:Root -Names ($baseNames + @('MxE2E_Already'))
+    $existsBuild = New-BuildDir -WithExe
+    $existsConn = 'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Already;encrypt=no;'
+    $existsRun = Invoke-Smoke -BuildDir $existsBuild.Build -PathValue $sqlPath -MssqlDb $existsConn -StubEnv $existsState.Env
+    $existsText = Get-SmokeText $existsRun.Stdout
+    $existsLog = Read-SqlCmdLog -Path $existsState.Log
+    $existsBefore = Get-DatabaseBlock -Text $existsText -Label 'BEFORE'
+    Assert-True ($existsRun.ExitCode -ne 0) "pre-existing database exit was $($existsRun.ExitCode); stdout [$existsText] stderr [$($existsRun.Stderr)]"
+    Assert-True ($existsText.Contains('MSSQL_E2E REFUSED (database MxE2E_Already already exists; refusing to touch it)')) "pre-existing refuse line missing in [$existsText]"
+    Assert-True ($existsBefore.Complete -and ($existsBefore.Names -contains 'MxE2E_Already')) "pre-existing BEFORE list missing the name in [$existsText]"
+    Assert-True (-not $existsText.Contains('MSSQL_E2E DATABASES AFTER')) 'pre-existing database must not print an AFTER list'
+    Assert-True (-not $existsLog.Contains('DROP DATABASE')) "pre-existing database must not be dropped, log [$existsLog]"
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $existsBuild.Exe)) 'pre-existing database must not invoke E2E'
+    Assert-True (-not $existsText.Contains('PASS')) 'pre-existing database must not pass'
+
+    $okState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $okBuild = New-BuildDir -WithExe
+    $okRun = Invoke-Smoke -BuildDir $okBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $okState.Env
+    $okText = Get-SmokeText $okRun.Stdout
+    $okLog = Read-SqlCmdLog -Path $okState.Log
+    $okBefore = Get-DatabaseBlock -Text $okText -Label 'BEFORE'
+    $okAfter = Get-DatabaseBlock -Text $okText -Label 'AFTER'
+    Assert-True ($okRun.ExitCode -eq 0) "explicit MSSQL success exit was $($okRun.ExitCode); stdout [$okText] stderr [$($okRun.Stderr)]"
+    Assert-True ((Count-SmokeLine $okText 'MSSQL_E2E PASS (explicit -MssqlDb, one command)') -eq 1) "explicit pass line missing in [$okText]"
+    Assert-True ((Count-SmokeLine $okText $DoneLine) -eq 1) "explicit success must finish smoke, got [$okText]"
+    Assert-True (-not $okText.Contains($Unavailable)) 'explicit MSSQL must not report E2E_UNAVAILABLE'
+    Assert-True (-not $okText.Contains($PassLine)) 'explicit MSSQL must not report the LocalDB pass line'
+    Assert-True ($okBefore.Complete -and -not ($okBefore.Names -contains $goodDb)) "BEFORE list must not contain $goodDb, got [$($okBefore.Names -join ',')]"
+    Assert-True ($okAfter.Complete -and -not ($okAfter.Names -contains $goodDb)) "AFTER list must not contain $goodDb, got [$($okAfter.Names -join ',')]"
+    Assert-True ((Count-SmokeLine $okText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "drop confirmation missing in [$okText]"
+    Assert-True ($okLog.Contains('DROP DATABASE [' + $goodDb + ']')) "drop SQL missing in [$okLog]"
+    Assert-True ($okLog.Contains('-E')) 'sqlcmd must use integrated auth -E'
+    Assert-True (-not $okLog.Contains("`n-U`n") -and -not $okLog.Contains("`n-P`n")) "sqlcmd log must not pass a SQL login, log [$okLog]"
+    $okGroups = @($okLog.Split("`n") | Where-Object { $_ -eq '---' })
+    Assert-True ($okGroups.Count -eq 3) "success path must query, drop, and verify (--- count $($okGroups.Count)), log [$okLog]"
+    $okArgs = @(Read-InvokedArgs -Exe $okBuild.Exe)
+    Assert-True ($null -ne $okArgs -and ($okArgs -join "`n") -eq ($expectedExplicit -join "`n")) "explicit E2E args were [$($okArgs -join '|')]"
+
+    $failState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $failBuild = New-BuildDir -WithExe
+    [IO.File]::WriteAllText($failBuild.Exe + '.exitcode', "4`n")
+    $failRun = Invoke-Smoke -BuildDir $failBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $failState.Env
+    $failText = Get-SmokeText $failRun.Stdout
+    $failLog = Read-SqlCmdLog -Path $failState.Log
+    Assert-True ($failRun.ExitCode -ne 0) "E2E failure must be non-zero, exit $($failRun.ExitCode), stdout [$failText] stderr [$($failRun.Stderr)]"
+    Assert-True ($failText.Contains('MSSQL_E2E FAILED (mxh_client_e2e exit 4)')) "E2E failure line missing in [$failText]"
+    Assert-True ($failLog.Contains('DROP DATABASE [' + $goodDb + ']')) "E2E failure must still drop, log [$failLog]"
+    Assert-True ((Count-SmokeLine $failText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "E2E failure drop confirmation missing in [$failText]"
+    Assert-True (-not $failText.Contains('COMMERCIAL_SMOKE PASS')) 'E2E failure must not finish as smoke pass'
+    Assert-True (-not $failText.Contains('MSSQL_E2E PASS')) 'E2E failure must not report MSSQL pass'
+    $failAfter = Get-DatabaseBlock -Text $failText -Label 'AFTER'
+    Assert-True ($failAfter.Complete -and -not ($failAfter.Names -contains $goodDb)) 'E2E failure AFTER list must not contain the database'
+
+    $dropState = New-SqlCmdState -Root $script:Root -Names $baseNames -DropExit 1
+    $dropBuild = New-BuildDir -WithExe
+    $dropRun = Invoke-Smoke -BuildDir $dropBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $dropState.Env
+    $dropText = Get-SmokeText $dropRun.Stdout
+    $dropLog = Read-SqlCmdLog -Path $dropState.Log
+    Assert-True ($dropRun.ExitCode -ne 0) "drop failure must be non-zero, exit $($dropRun.ExitCode), stdout [$dropText] stderr [$($dropRun.Stderr)]"
+    Assert-True ($dropText.Contains("MSSQL_E2E DROP FAILED (database $goodDb; sqlcmd exit 1)")) "drop failure line missing in [$dropText]"
+    Assert-True ($dropLog.Contains('DROP DATABASE [' + $goodDb + ']')) "drop failure must still issue DROP, log [$dropLog]"
+    Assert-True (-not $dropText.Contains('MSSQL_E2E PASS')) 'drop failure must not report MSSQL pass'
+    Assert-True (-not $dropText.Contains('COMMERCIAL_SMOKE PASS')) 'drop failure must not finish as smoke pass'
+
+    $keepState = New-SqlCmdState -Root $script:Root -Names $baseNames -KeepAfterDrop
+    $keepBuild = New-BuildDir -WithExe
+    $keepRun = Invoke-Smoke -BuildDir $keepBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $keepState.Env
+    $keepText = Get-SmokeText $keepRun.Stdout
+    $keepAfter = Get-DatabaseBlock -Text $keepText -Label 'AFTER'
+    Assert-True ($keepRun.ExitCode -ne 0) "database still present after drop must be non-zero, exit $($keepRun.ExitCode), stdout [$keepText]"
+    Assert-True ($keepText.Contains("MSSQL_E2E DROP FAILED (database $goodDb still present after DROP DATABASE)")) "still-present line missing in [$keepText]"
+    Assert-True ($keepAfter.Complete -and ($keepAfter.Names -contains $goodDb)) 'AFTER list must still show the database when drop did not remove it'
+    Assert-True (-not $keepText.Contains('COMMERCIAL_SMOKE PASS')) 'still-present drop must not finish as smoke pass'
+
+    $queryState = New-SqlCmdState -Root $script:Root -Names $baseNames -QueryExit 1
+    $queryBuild = New-BuildDir -WithExe
+    $queryRun = Invoke-Smoke -BuildDir $queryBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $queryState.Env
+    $queryText = Get-SmokeText $queryRun.Stdout
+    $queryLog = Read-SqlCmdLog -Path $queryState.Log
+    Assert-True ($queryRun.ExitCode -ne 0) "sys.databases failure must be non-zero, stdout [$queryText] stderr [$($queryRun.Stderr)]"
+    Assert-True ($queryText.Contains('not touching any database')) "query failure must say it did not touch a database, got [$queryText]"
+    Assert-True (-not $queryLog.Contains('DROP DATABASE')) "query failure must not drop, log [$queryLog]"
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $queryBuild.Exe)) 'query failure must not invoke E2E'
+
+    $conflictState = New-SqlCmdState -Root $script:Root -Names $baseNames
+    $conflictBuild = New-BuildDir -WithExe
+    $conflictRun = Invoke-Smoke -BuildDir $conflictBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -SkipMssql -StubEnv $conflictState.Env
+    $conflictText = Get-SmokeText $conflictRun.Stdout
+    Assert-True ($conflictRun.ExitCode -ne 0) "SkipMssql with MssqlDb exit was $($conflictRun.ExitCode); stdout [$conflictText] stderr [$($conflictRun.Stderr)]"
+    Assert-True ($conflictText -eq 'MSSQL_E2E REFUSED (-SkipMssql and -MssqlDb conflict)') "conflict line was [$conflictText]"
+    Assert-True ((Read-SqlCmdLog -Path $conflictState.Log).Length -eq 0) 'conflict must not call sqlcmd'
+    Assert-True ($null -eq (Read-InvokedArgs -Exe $conflictBuild.Exe)) 'conflict must not invoke E2E'
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Output 'PASS: commercial-smoke MSSQL E2E availability'
+Write-Output 'PASS: commercial-smoke -MssqlDb guard'

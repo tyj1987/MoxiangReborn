@@ -82,6 +82,12 @@
 .PARAMETER SkipGui
     Forward -SkipGui to commercial-smoke (skip GUI client smoke step).
 
+.PARAMETER MssqlDb
+    Optional connection string forwarded to commercial-smoke -MssqlDb.
+    When set, sqllocaldb is not a required prereq. sqlcmd, odbc18, and
+    vcredist stay required for the smoke step. Omit it to keep the
+    LocalDB prerequisite.
+
 .PARAMETER Config
     CMake config (Debug or Release). Default Debug.
 
@@ -123,6 +129,7 @@ param(
     [switch]$SkipSmoke,
     [switch]$SkipBuild,
     [switch]$SkipGui,
+    [string]$MssqlDb = "",
     [switch]$Force,
     [ValidateSet("Debug", "Release")]
     [string]$Config = "Debug",
@@ -212,11 +219,14 @@ function Get-CleanDeployRequiredPrereqNames {
     param(
         [switch]$SkipBuild,
         [switch]$SkipTests,
-        [switch]$SkipSmoke
+        [switch]$SkipSmoke,
+        [string]$MssqlDb = ""
     )
     # cmake and vs2022 are required only when the build step runs.
     # sqlcmd, sqllocaldb, odbc18, and vcredist are required when ctest
     # or commercial-smoke runs (the same set for either step).
+    # -MssqlDb points commercial-smoke at an existing SQL instance, so
+    # sqllocaldb is not required for that run. sqlcmd stays required.
     # git is not required: this script detects it and never invokes it.
     # chocolatey stays optional and is not part of the gate.
     $names = New-Object System.Collections.Generic.List[string]
@@ -229,7 +239,9 @@ function Get-CleanDeployRequiredPrereqNames {
     if (-not $SkipSmoke) { $dataStep = $true }
     if ($dataStep) {
         [void]$names.Add("sqlcmd")
-        [void]$names.Add("sqllocaldb")
+        if ([string]::IsNullOrWhiteSpace($MssqlDb)) {
+            [void]$names.Add("sqllocaldb")
+        }
         [void]$names.Add("odbc18")
         [void]$names.Add("vcredist")
     }
@@ -1909,6 +1921,16 @@ function Invoke-CleanDeploySelfTestSkipCases {
     $defaultOk = ($blocked.ExitCode -eq 2) -and ($defaultText.Contains($defaultLine)) -and ($defaultText.Contains("[FAIL] missing prereqs (cmake, vs2022, sqlcmd, sqllocaldb, odbc18, vcredist)"))
     Assert-CleanDeploySelfTest -Name "default run still requires cmake and vs2022" -Condition $defaultOk
 
+    $mssqlConn = "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_SelfTest;encrypt=no;"
+    $mssqlEnv = New-CleanDeploySelfTestToolEnvironment -Root (Join-Path $case "mssql-db-env") -Absent "sqllocaldb,cmake,vs2022,git,chocolatey" -Present "sqlcmd,odbc18,vcredist"
+    $mssqlChild = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
+        "-RepoRoot", $emptyRepoFull, "-PlayDhRoot", $playFull, "-DryRun", "-SkipBuild", "-SkipTests", "-MssqlDb", $mssqlConn
+    ) -Environment $mssqlEnv
+    $mssqlText = [string]$mssqlChild.Text
+    $mssqlLine = "[INFO] prereqs required for this run: sqlcmd, odbc18, vcredist"
+    $mssqlOk = ($mssqlChild.ExitCode -eq 0) -and ($mssqlText.Contains($mssqlLine)) -and ($mssqlText.Contains("-MssqlDb")) -and ($mssqlText.Contains("database=MxE2E_SelfTest")) -and ($mssqlText.Contains("[WARN] sqllocaldb : MISSING")) -and (-not $mssqlText.Contains("[FAIL] missing prereqs")) -and (-not $mssqlText.Contains("sqllocaldb, odbc18")) -and ($mssqlText.Contains("[SKIP] step 4 build")) -and ($mssqlText.Contains("[SKIP] step 5 ctest"))
+    Assert-CleanDeploySelfTest -Name "MssqlDb dry-run does not require sqllocaldb and forwards the connection string" -Condition $mssqlOk
+
     $readyTree = Get-CleanDeploySelfTestTreeText -RootPath $case
     $noSkipTests = Invoke-CleanDeploySelfTestChild -WorkRoot $case -ArgumentList @(
         "-RepoRoot", $repoFull, "-PlayDhRoot", $playFull, "-SkipBuild"
@@ -2120,7 +2142,7 @@ foreach ($key in @("cmake","git","sqlcmd","sqllocaldb","vcredist","odbc18","choc
     }
 }
 
-$requiredResult = Get-CleanDeployRequiredPrereqNames -SkipBuild:$SkipBuild -SkipTests:$SkipTests -SkipSmoke:$SkipSmoke
+$requiredResult = Get-CleanDeployRequiredPrereqNames -SkipBuild:$SkipBuild -SkipTests:$SkipTests -SkipSmoke:$SkipSmoke -MssqlDb $MssqlDb
 $requiredNames = @()
 if ($null -ne $requiredResult -and $null -ne $requiredResult.Names) {
     $requiredNames = @($requiredResult.Names)
@@ -2229,6 +2251,10 @@ if (-not $SkipSmoke) {
     }
     $smokeArgs = @()
     if ($SkipGui) { $smokeArgs += "-SkipGui" }
+    if (-not [string]::IsNullOrWhiteSpace($MssqlDb)) {
+        $smokeArgs += "-MssqlDb"
+        $smokeArgs += $MssqlDb
+    }
     if ($DryRun) {
         Info ('would run: ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs + ')')
     } else {
@@ -2236,7 +2262,7 @@ if (-not $SkipSmoke) {
             $smokeBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $buildDir
         }
         Write-Host ('  > ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + $smokeArgs) -ForegroundColor DarkGray
-        & $smokeScript -BuildDir $buildDir $smokeArgs -ErrorAction Stop
+        & $smokeScript -BuildDir $buildDir @smokeArgs -ErrorAction Stop
         if ($LASTEXITCODE -ne 0) { Fail ('commercial-smoke failed exit $LASTEXITCODE; exit 5') 5 }
     }
     Ok 'commercial-smoke OK'
