@@ -96,8 +96,124 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
 '@
 
+$script:Failures = New-Object System.Collections.Generic.List[string]
+$script:CasePassDetail = ''
+
 function Assert-True($condition, [string]$message) {
     if (-not $condition) { throw "FAIL: $message" }
+}
+
+function Invoke-Case {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Body
+    )
+    $script:CasePassDetail = ''
+    try {
+        . $Body
+        Write-Output ('PASS ' + $Name + $script:CasePassDetail)
+    } catch {
+        $detail = [string]$_.Exception.Message
+        if ([string]::IsNullOrWhiteSpace($detail)) { $detail = [string]$_ }
+        $script:Failures.Add($Name + ' :: ' + $detail)
+        Write-Output ('FAIL ' + $Name + ' :: ' + $detail)
+    } finally {
+        $script:CasePassDetail = ''
+    }
+}
+
+function Test-PidStillRunning {
+    param([int]$ProcessId)
+    if ($ProcessId -le 0) { return $false }
+    if (-not $IsWindows) {
+        $statusPath = '/proc/' + $ProcessId + '/status'
+        if (-not (Test-Path -LiteralPath $statusPath)) { return $false }
+        try {
+            foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                if (-not $line.StartsWith('State:')) { continue }
+                $state = $line.Substring(6).Trim()
+                if ($state.StartsWith('Z') -or $state.StartsWith('X')) { return $false }
+                return $true
+            }
+        } catch {
+            return $false
+        }
+    }
+    try {
+        $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $live) { return $false }
+        try { $live.Refresh() } catch { }
+        return -not [bool]$live.HasExited
+    } catch {
+        return $false
+    }
+}
+
+function Get-ProcStatusField {
+    param(
+        [int]$ProcessId,
+        [string]$Field
+    )
+    $statusPath = '/proc/' + $ProcessId + '/status'
+    if (-not (Test-Path -LiteralPath $statusPath)) { return '' }
+    try {
+        foreach ($line in [IO.File]::ReadLines($statusPath)) {
+            if ($line.StartsWith($Field)) { return $line.Substring($Field.Length).Trim() }
+        }
+    } catch { }
+    return ''
+}
+
+function Stop-TestProcess {
+    param($Process)
+    if ($null -eq $Process) { return }
+    try {
+        $id = [int]$Process.Id
+        if (Test-PidStillRunning -ProcessId $id) {
+            Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
+}
+
+function New-MxhServerNamedExe {
+    param([Parameter(Mandatory = $true)][string]$ProcessName)
+    $dir = Join-Path $script:Root ('named-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    if ($IsWindows) {
+        $exe = Join-Path $dir ($ProcessName + '.exe')
+        $cs = Join-Path $dir 'sleeper.cs'
+        @'
+using System;
+using System.Threading;
+class Sleeper {
+    static int Main(string[] args) {
+        int seconds = 30;
+        if (args.Length > 0) {
+            int parsed;
+            if (int.TryParse(args[0], out parsed)) seconds = parsed;
+        }
+        if (seconds < 0) seconds = 0;
+        Thread.Sleep(seconds * 1000);
+        return 0;
+    }
+}
+'@ | Set-Content -LiteralPath $cs -Encoding ascii
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+        if (-not (Test-Path -LiteralPath $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+        }
+        if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows named sleeper needs csc.exe' }
+        & $csc /nologo /out:$exe $cs
+        if ($LASTEXITCODE -ne 0) { throw "FAIL: csc named sleeper exited $LASTEXITCODE" }
+        return $exe
+    }
+    $exe = Join-Path $dir $ProcessName
+    $source = '/bin/sleep'
+    if (-not (Test-Path -LiteralPath $source)) { throw 'FAIL: /bin/sleep is required for the process-stop fixture' }
+    [IO.File]::Copy($source, $exe, $true)
+    & /bin/chmod +x -- $exe
+    if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod named sleeper exited $LASTEXITCODE" }
+    return $exe
 }
 
 function Get-SmokeText([string]$Text) {
@@ -119,19 +235,34 @@ function New-ToolDir {
     $dir = Join-Path $script:Root ('bin-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     if ($IsWindows) {
-        [IO.File]::WriteAllText((Join-Path $dir 'ctest.cmd'), "@echo off`r`nexit /b 0`r`n")
+        # commercial-smoke invokes `& ctest @args`. A ctest.cmd file is
+        # started through cmd.exe, and cmd treats '|' in the unquoted -R
+        # regex as a pipe (exit 255). ctest.exe is a native image, same
+        # path as real ctest.exe: CreateProcess, no cmd. This PE writes
+        # each argument on its own line to ctest.exe.invoked and exits 0.
+        $ctest = Join-Path $dir 'ctest.exe'
+        if ($null -eq $script:WindowsE2eStubBytes -or $script:WindowsE2eStubBytes.Length -lt 64) {
+            throw 'FAIL: Windows ctest stub needs the argument-logging PE'
+        }
+        [IO.File]::WriteAllBytes($ctest, $script:WindowsE2eStubBytes)
         if ($WithLocalDb) {
             [IO.File]::WriteAllText((Join-Path $dir 'sqllocaldb.cmd'), "@echo off`r`nexit /b 0`r`n")
         }
     } else {
-        $sh = "#!/bin/sh`nexit 0`n"
+        $ctestSh = @'
+#!/bin/sh
+printf '%s\n' "$@" > "$0.invoked"
+exit 0
+'@
+        $ctestSh = $ctestSh.Replace("`r`n", "`n")
+        if (-not $ctestSh.EndsWith("`n")) { $ctestSh += "`n" }
         $ctest = Join-Path $dir 'ctest'
-        [IO.File]::WriteAllText($ctest, $sh)
+        [IO.File]::WriteAllText($ctest, $ctestSh)
         & /bin/chmod +x -- $ctest
         if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod ctest exited $LASTEXITCODE" }
         if ($WithLocalDb) {
             $tool = Join-Path $dir 'sqllocaldb'
-            [IO.File]::WriteAllText($tool, $sh)
+            [IO.File]::WriteAllText($tool, "#!/bin/sh`nexit 0`n")
             & /bin/chmod +x -- $tool
             if ($LASTEXITCODE -ne 0) { throw "FAIL: chmod sqllocaldb exited $LASTEXITCODE" }
         }
@@ -139,10 +270,17 @@ function New-ToolDir {
     return $dir
 }
 
+function Get-CtestStubPath {
+    param([Parameter(Mandatory = $true)][string]$ToolDir)
+    if ($IsWindows) { return (Join-Path $ToolDir 'ctest.exe') }
+    return (Join-Path $ToolDir 'ctest')
+}
+
 function New-E2eStub {
     param(
         [Parameter(Mandatory = $true)][string]$Exe,
-        [int]$ExitCode = 0
+        [int]$ExitCode = 0,
+        [switch]$SpawnChild
     )
     $parent = Split-Path -Parent $Exe
     New-Item -ItemType Directory -Force -Path $parent | Out-Null
@@ -150,7 +288,9 @@ function New-E2eStub {
         [IO.File]::WriteAllText($Exe + '.exitcode', ([string]$ExitCode + "`n"))
     }
     if ($IsWindows) {
-        if ($ExitCode -eq 0) {
+        # The fixed PE always exits 0 and does not read <exe>.exitcode.
+        # A nonzero code, or -SpawnChild, must use the csc stub, which does.
+        if ($ExitCode -eq 0 -and -not $SpawnChild) {
             [IO.File]::WriteAllBytes($Exe, $script:WindowsE2eStubBytes)
             return
         }
@@ -162,6 +302,18 @@ class E2eStub {
     static int Main(string[] args) {
         string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
         File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+        string childFlag = exe + ".spawnchild";
+        if (File.Exists(childFlag)) {
+            string shell = System.IO.Path.Combine(Environment.GetEnvironmentVariable("WINDIR"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
+            var child = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo {
+                FileName = shell,
+                Arguments = "-NoProfile -NonInteractive -Command Start-Sleep -Seconds 60",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            File.WriteAllText(exe + ".children", child.Id.ToString());
+            System.Threading.Thread.Sleep(1000);
+        }
         string codeFile = exe + ".exitcode";
         if (File.Exists(codeFile)) {
             int code;
@@ -178,9 +330,31 @@ class E2eStub {
         if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows E2E failure stub needs csc.exe' }
         & $csc /nologo /out:$Exe $cs
         if ($LASTEXITCODE -ne 0) { throw "FAIL: csc e2e stub exited $LASTEXITCODE" }
+        if ($SpawnChild) {
+            [IO.File]::WriteAllText($Exe + '.spawnchild', "spawn`n")
+        }
         return
     }
-    $sh = @'
+    if ($SpawnChild) {
+        $sh = @'
+#!/bin/sh
+log="$0.invoked"
+printf '%s\n' "$@" > "$log"
+/bin/sleep 60 &
+echo $! > "$0.children"
+sleep 2
+code=0
+codefile="$0.exitcode"
+if [ -f "$codefile" ]; then
+    IFS= read -r code < "$codefile" || code=0
+fi
+case "$code" in
+    ''|*[!0-9]*) code=1 ;;
+esac
+exit "$code"
+'@
+    } else {
+        $sh = @'
 #!/bin/sh
 log="$0.invoked"
 printf '%s\n' "$@" > "$log"
@@ -194,6 +368,7 @@ case "$code" in
 esac
 exit "$code"
 '@
+    }
     $sh = $sh.Replace("`r`n", "`n")
     if (-not $sh.EndsWith("`n")) { $sh += "`n" }
     [IO.File]::WriteAllText($Exe, $sh)
@@ -205,7 +380,9 @@ function New-BuildDir {
     param(
         [switch]$WithExe,
         [ValidateSet('Debug', 'Single')]
-        [string]$Layout = 'Debug'
+        [string]$Layout = 'Debug',
+        [switch]$SpawnChild,
+        [int]$ExitCode = 0
     )
     $dir = Join-Path $script:Root ('build-' + [guid]::NewGuid().ToString('n'))
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -214,7 +391,7 @@ function New-BuildDir {
     $multi = Join-Path $dir 'tools\MoxianClientE2E\Debug\mxh_client_e2e.exe'
     $exe = $multi
     if ($Layout -eq 'Single') { $exe = $single }
-    if ($WithExe) { New-E2eStub -Exe $exe }
+    if ($WithExe) { New-E2eStub -Exe $exe -ExitCode $ExitCode -SpawnChild:$SpawnChild }
     return [pscustomobject]@{
         Build = $dir
         Exe = $exe
@@ -584,24 +761,40 @@ if ($null -ne $parseErrors -and @($parseErrors).Count -gt 0) {
     throw "FAIL: commercial-smoke.ps1 did not parse: $($parseErrors[0])"
 }
 $smokeText = [IO.File]::ReadAllText($script:Smoke)
-Assert-True (-not $smokeText.Contains('$env:')) 'product script must not read an environment variable'
-Assert-True ($smokeText.Contains($Unavailable)) 'unavailable line missing from the script'
-Assert-True ($smokeText.Contains('ExitCode = 6')) 'unavailable result must use exit code 6'
-Assert-True ($smokeText.Contains('exit $mssql.ExitCode')) 'unavailable result must exit the script'
-Assert-True ($smokeText.Contains('6  MSSQL_E2E E2E_UNAVAILABLE')) 'header must document exit code 6'
-Assert-True ($smokeText.Contains('--login-host 127.0.0.1 --backend mssql_odbc --init-schema')) 'E2E arguments changed'
+Invoke-Case 'script text contract' {
+    Assert-True (-not $smokeText.Contains('$env:')) 'product script must not read an environment variable'
+    Assert-True ($smokeText.Contains($Unavailable)) 'unavailable line missing from the script'
+    Assert-True ($smokeText.Contains('ExitCode = 6')) 'unavailable result must use exit code 6'
+    Assert-True ($smokeText.Contains('exit $mssql.ExitCode')) 'unavailable result must exit the script'
+    Assert-True ($smokeText.Contains('6  MSSQL_E2E E2E_UNAVAILABLE')) 'header must document exit code 6'
+    Assert-True ($smokeText.Contains('--login-host 127.0.0.1 --backend mssql_odbc --init-schema')) 'E2E arguments changed'
+}
 
 $script:WindowsE2eStubBytes = [Convert]::FromBase64String(($script:WindowsE2eStubB64 -replace '\s', ''))
-Assert-True ($script:WindowsE2eStubBytes.Length -gt 64) 'Windows stub is empty'
-Assert-True ($script:WindowsE2eStubBytes[0] -eq 77 -and $script:WindowsE2eStubBytes[1] -eq 90) 'Windows stub is not a PE'
+Invoke-Case 'Windows E2E PE stub' {
+    Assert-True ($script:WindowsE2eStubBytes.Length -gt 64) 'Windows stub is empty'
+    Assert-True ($script:WindowsE2eStubBytes[0] -eq 77 -and $script:WindowsE2eStubBytes[1] -eq 90) 'Windows stub is not a PE'
+}
 
 $finder = { param($node) $node -is [System.Management.Automation.Language.FunctionDefinitionAst] }
 $functions = @($ast.FindAll($finder, $true))
 foreach ($fn in $functions) {
     Invoke-Expression $fn.Extent.Text
 }
-Assert-True ($functions.Name -contains 'Test-CommercialSmokeLocalDbAvailable') 'LocalDB probe function missing'
-Assert-True ($functions.Name -contains 'Invoke-CommercialSmokeMssqlE2E') 'MSSQL E2E function missing'
+Invoke-Case 'script function contract' {
+    Assert-True ($functions.Name -contains 'Test-CommercialSmokeLocalDbAvailable') 'LocalDB probe function missing'
+    Assert-True ($functions.Name -contains 'Invoke-CommercialSmokeMssqlE2E') 'MSSQL E2E function missing'
+    Assert-True ($functions.Name -contains 'Stop-CommercialSmokeOwnedProcesses') 'owned-process cleanup missing'
+    Assert-True ($functions.Name -contains 'Get-CommercialSmokeOwnedIdentity') 'owned-process identity helper missing'
+    $explicitFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeExplicitMssqlE2E' })
+    Assert-True ($explicitFn.Count -eq 1) 'explicit MSSQL function missing'
+    $explicitBody = $explicitFn[0].Extent.Text
+    Assert-True ($explicitBody.Contains('Start-Process')) 'explicit MSSQL path must start the E2E with Start-Process'
+    Assert-True ($explicitBody.Contains('-PassThru')) 'explicit MSSQL path must keep the Start-Process process object'
+    Assert-True ($explicitBody.Contains('Stop-CommercialSmokeOwnedProcesses')) 'explicit MSSQL finally must stop owned PIDs'
+    Assert-True (-not $explicitBody.Contains('Get-Process -Name')) 'explicit MSSQL path must not stop processes by name'
+    Assert-True (-not $explicitBody.Contains("Stop-Process -Force -ErrorAction SilentlyContinue`n")) 'explicit MSSQL path must not use an unnamed Stop-Process'
+}
 
 $temp = [IO.Path]::GetTempPath()
 if ([string]::IsNullOrWhiteSpace($temp)) { $temp = [IO.Path]::GetFullPath('.') }
@@ -632,42 +825,81 @@ exit 0
 '@ | Set-Content -LiteralPath $script:Driver -Encoding ascii
 
 try {
-    $savedPath = $env:PATH
-    try {
-        $emptyBin = New-ToolDir
-        $env:PATH = $emptyBin
-        Assert-True (-not (Test-CommercialSmokeLocalDbAvailable)) 'probe must be false when sqllocaldb is not on PATH'
-        $presentBin = New-ToolDir -WithLocalDb
-        $env:PATH = $presentBin
-        Assert-True (Test-CommercialSmokeLocalDbAvailable) 'probe must be true when sqllocaldb resolves on PATH'
-    } finally {
-        if ($null -eq $savedPath) {
-            Remove-Item -Path 'Env:PATH' -ErrorAction SilentlyContinue
-        } else {
-            $env:PATH = $savedPath
+    Invoke-Case 'LocalDB probe' {
+        $savedPath = $env:PATH
+        try {
+            $emptyBin = New-ToolDir
+            $env:PATH = $emptyBin
+            Assert-True (-not (Test-CommercialSmokeLocalDbAvailable)) 'probe must be false when sqllocaldb is not on PATH'
+            $presentBin = New-ToolDir -WithLocalDb
+            $env:PATH = $presentBin
+            Assert-True (Test-CommercialSmokeLocalDbAvailable) 'probe must be true when sqllocaldb resolves on PATH'
+        } finally {
+            if ($null -eq $savedPath) {
+                Remove-Item -Path 'Env:PATH' -ErrorAction SilentlyContinue
+            } else {
+                $env:PATH = $savedPath
+            }
         }
     }
 
     $absent = New-ToolDir
     $present = New-ToolDir -WithLocalDb
 
+    Invoke-Case 'LocalDB missing' {
     $missingExe = New-BuildDir -WithExe
     $missing = Invoke-Smoke -BuildDir $missingExe.Build -PathValue $absent
     $missingText = Get-SmokeText $missing.Stdout
     Assert-True ($missing.ExitCode -eq 6) "LocalDB missing exit was $($missing.ExitCode); stdout=[$missingText] stderr=[$($missing.Stderr)]"
     Assert-True ($missingText -eq $Unavailable) "LocalDB missing must print only the unavailable line, got [$missingText]"
+    $ctestArgs = @(Read-InvokedArgs -Exe (Get-CtestStubPath -ToolDir $absent))
+    Assert-True ($null -ne $ctestArgs -and $ctestArgs.Count -gt 0) "LocalDB missing must still run ctest; args were [$($ctestArgs -join '][')]"
+    $ctestFilters = @(
+        'LoginServerFixture.ScaffoldSmoke',
+        'LoginServerFixture.ConnectReceivesDistConnectSuccess',
+        'LoginServerFixture.LegacyLoginValidCredsReceivesAck',
+        'LoginServerFixture.LegacyLoginInvalidCredsReceivesNack',
+        'LoginServerFixtureGolden.GoldenCapturesDistConnectSuccess',
+        'LoginServerFixtureGolden.GoldenCapturesLoginAck',
+        'LoginServerFixtureGolden.GoldenCapturesLoginNack',
+        'EncryptedLoginFixture.EncryptedLoginAckMatchesGolden',
+        'WireFormatGolden.RoundTrip_login_ack',
+        'WireFormatGolden.RoundTrip_login_nack',
+        'WireFormatGolden.RoundTrip_login_request',
+        'ResourcePayloadSha256.*',
+        'ResourceByteLevel.*',
+        'MoxianClientE2E.*',
+        'LoginSbsE2E.*'
+    )
+    $ctestPattern = ($ctestFilters -join '|')
+    Assert-True ($ctestPattern.Contains('|')) 'ctest -R pattern must contain a pipe'
+    $sawRegex = $false
+    for ($i = 0; $i -lt $ctestArgs.Count; $i++) {
+        if ($ctestArgs[$i] -ne '-R') { continue }
+        $next = ''
+        if (($i + 1) -lt $ctestArgs.Count) { $next = [string]$ctestArgs[$i + 1] }
+        Assert-True ($next -eq $ctestPattern) "ctest -R must be one argument, was [$next]"
+        $sawRegex = $true
+    }
+    Assert-True $sawRegex "ctest args missing -R: [$($ctestArgs -join '][')]"
+    Assert-True (-not ($ctestArgs -contains 'LoginServerFixture.ConnectReceivesDistConnectSuccess')) 'ctest -R regex was split on the pipe'
     Assert-True ((Count-SmokeLine $missingText $Unavailable) -eq 1) 'unavailable line must appear once'
     Assert-True (-not $missingText.Contains('SKIPPED')) 'LocalDB missing must not skip'
     Assert-True (-not $missingText.Contains('PASS')) 'LocalDB missing must not pass'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $missingExe.Exe)) 'LocalDB missing must not invoke E2E'
     Assert-True ([string]::IsNullOrWhiteSpace((Get-SmokeText $missing.Stderr))) "LocalDB missing stderr: $($missing.Stderr)"
+    $script:CasePassDetail = ' exit=' + [string]$missing.ExitCode + ' -R=1 argv=' + [string]$ctestArgs.Count
+    }
 
+    Invoke-Case 'LocalDB missing without exe' {
     $missingNoExeBuild = New-BuildDir
     $missingNoExe = Invoke-Smoke -BuildDir $missingNoExeBuild.Build -PathValue $absent
     $missingNoExeText = Get-SmokeText $missingNoExe.Stdout
     Assert-True ($missingNoExe.ExitCode -eq 6) "LocalDB missing without exe exit was $($missingNoExe.ExitCode); stdout=[$missingNoExeText]"
     Assert-True ($missingNoExeText -eq $Unavailable) "missing LocalDB without the exe must still be unavailable, got [$missingNoExeText]"
+    }
 
+    Invoke-Case 'SkipMssql' {
     $skipBuild = New-BuildDir -WithExe
     $skip = Invoke-Smoke -BuildDir $skipBuild.Build -PathValue $absent -SkipMssql
     $skipText = Get-SmokeText $skip.Stdout
@@ -677,7 +909,9 @@ try {
     Assert-True (-not $skipText.Contains($Unavailable)) 'SkipMssql must not report E2E_UNAVAILABLE'
     Assert-True (-not $skipText.Contains($PassLine)) 'SkipMssql must not report MSSQL pass'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $skipBuild.Exe)) 'SkipMssql must not invoke E2E'
+    }
 
+    Invoke-Case 'LocalDB present' {
     $presentBuild = New-BuildDir -WithExe
     $ran = Invoke-Smoke -BuildDir $presentBuild.Build -PathValue $present
     $ranText = Get-SmokeText $ran.Stdout
@@ -690,7 +924,9 @@ try {
     for ($i = 0; $i -lt $ExpectedArgs.Count; $i++) {
         Assert-True ($invoked[$i] -eq $ExpectedArgs[$i]) "E2E arg $i was $($invoked[$i])"
     }
+    }
 
+    Invoke-Case 'LocalDB present exe not built' {
     $notBuilt = New-BuildDir
     $notBuiltRun = Invoke-Smoke -BuildDir $notBuilt.Build -PathValue $present
     $notBuiltText = Get-SmokeText $notBuiltRun.Stdout
@@ -698,14 +934,18 @@ try {
     Assert-True ((Count-SmokeLine $notBuiltText $SkipNotBuilt) -eq 1) "LocalDB present without the exe must skip not-built, got [$notBuiltText]"
     Assert-True (-not $notBuiltText.Contains($Unavailable)) 'not-built skip must not report E2E_UNAVAILABLE'
     Assert-True (-not $notBuiltText.Contains($PassLine)) 'not-built skip must not report MSSQL pass'
+    }
 
+    Invoke-Case 'probe override false' {
     $forcedOffBuild = New-BuildDir -WithExe
     $forcedOff = Invoke-Smoke -BuildDir $forcedOffBuild.Build -PathValue $present -ProbeMode 'force-false'
     $forcedOffText = Get-SmokeText $forcedOff.Stdout
     Assert-True ($forcedOff.ExitCode -eq 6) "probe override false exit was $($forcedOff.ExitCode); stdout=[$forcedOffText] stderr=[$($forcedOff.Stderr)]"
     Assert-True ($forcedOffText -eq $Unavailable) "probe override false must be unavailable even when sqllocaldb is on PATH, got [$forcedOffText]"
     Assert-True ($null -eq (Read-InvokedArgs -Exe $forcedOffBuild.Exe)) 'probe override false must not invoke E2E'
+    }
 
+    Invoke-Case 'probe override true' {
     $forcedOnBuild = New-BuildDir -WithExe
     $forcedOn = Invoke-Smoke -BuildDir $forcedOnBuild.Build -PathValue $absent -ProbeMode 'force-true'
     $forcedOnText = Get-SmokeText $forcedOn.Stdout
@@ -713,7 +953,9 @@ try {
     Assert-True ((Count-SmokeLine $forcedOnText $PassLine) -eq 1) "probe override true must invoke E2E, got [$forcedOnText]"
     $forcedArgs = @(Read-InvokedArgs -Exe $forcedOnBuild.Exe)
     Assert-True ($null -ne $forcedArgs -and ($forcedArgs -join "`n") -eq ($ExpectedArgs -join "`n")) "probe override true args were [$($forcedArgs -join '|')]"
+    }
 
+    Invoke-Case 'port and ctest contract' {
     Assert-True ($smokeText.Contains('--login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema')) 'explicit E2E must pass ports 26001/27001/28001'
     Assert-True (-not $smokeText.Contains('--map12-port')) 'commercial-smoke must not pass --map12-port without --exercise-mapchange'
     foreach ($forbiddenPort in @('16001', '17001', '18001', '36001', '37001', '38001')) {
@@ -721,6 +963,7 @@ try {
     }
     Assert-True ($smokeText.Contains('DROP DATABASE [')) 'drop statement must bracket the validated name'
     Assert-True ($smokeText.Contains("'-C','Debug'")) 'ctest -C Debug must stay unchanged'
+    }
 
     $sqlTool = New-ToolDir
     [void](New-SqlCmdStub -Dir $sqlTool)
@@ -768,6 +1011,7 @@ try {
     )
     $rejectBuild = New-BuildDir -WithExe
     foreach ($badConn in $rejected) {
+        Invoke-Case ('rejected connection ' + $badConn) {
         $state = New-SqlCmdState -Root $script:Root -Names $baseNames
         $rejectedRun = Invoke-Smoke -BuildDir $rejectBuild.Build -PathValue $sqlPath -MssqlDb $badConn -StubEnv $state.Env
         $rejectedText = Get-SmokeText $rejectedRun.Stdout
@@ -779,6 +1023,7 @@ try {
         Assert-True ($null -eq (Read-InvokedArgs -Exe $rejectBuild.Exe)) "rejected connection must not invoke E2E for [$badConn]"
         if (Test-Path -LiteralPath ($rejectBuild.Exe + '.invoked')) {
             Remove-Item -LiteralPath ($rejectBuild.Exe + '.invoked') -Force
+        }
         }
     }
 
@@ -793,6 +1038,7 @@ try {
         @{ Conn = 'backend=mssql_odbc;host=127.0.0.1;database=MxE2E_Ok;'; Fragment = 'host= must be a local named instance' }
     )
     foreach ($hostCase in $hostCases) {
+        Invoke-Case ('host guard ' + $hostCase.Fragment) {
         $state = New-SqlCmdState -Root $script:Root -Names $baseNames
         $hostRun = Invoke-Smoke -BuildDir $rejectBuild.Build -PathValue $sqlPath -MssqlDb $hostCase.Conn -StubEnv $state.Env
         $hostText = Get-SmokeText $hostRun.Stdout
@@ -804,7 +1050,9 @@ try {
         if (Test-Path -LiteralPath ($rejectBuild.Exe + '.invoked')) {
             Remove-Item -LiteralPath ($rejectBuild.Exe + '.invoked') -Force
         }
+        }
     }
+    Invoke-Case 'local named instance' {
     Assert-True (Test-CommercialSmokeLocalNamedInstance -Value '.\SQLEXPRESS') '.\SQLEXPRESS must be a local named instance'
     Assert-True (Test-CommercialSmokeLocalNamedInstance -Value '(local)\SQLEXPRESS') '(local)\SQLEXPRESS must be a local named instance'
     Assert-True (Test-CommercialSmokeLocalNamedInstance -Value 'localhost\SQLEXPRESS') 'localhost\SQLEXPRESS must be a local named instance'
@@ -814,7 +1062,9 @@ try {
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value 'localhost')) 'bare localhost must be rejected'
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '(local)')) 'bare (local) must be rejected'
     Assert-True (-not (Test-CommercialSmokeLocalNamedInstance -Value '127.0.0.1')) 'bare 127.0.0.1 must be rejected'
+    }
 
+    Invoke-Case 'pre-existing database' {
     $existsState = New-SqlCmdState -Root $script:Root -Names ($baseNames + @('MxE2E_Already'))
     $existsBuild = New-BuildDir -WithExe
     $existsConn = 'backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_Already;encrypt=no;'
@@ -831,7 +1081,9 @@ try {
     Assert-SqlCmdTargetsInstance -Log $existsLog -Server '.\SQLEXPRESS' -ExpectedCalls 1
     Assert-True ($null -eq (Read-InvokedArgs -Exe $existsBuild.Exe)) 'pre-existing database must not invoke E2E'
     Assert-True (-not $existsText.Contains('PASS')) 'pre-existing database must not pass'
+    }
 
+    Invoke-Case 'explicit MSSQL success' {
     $okState = New-SqlCmdState -Root $script:Root -Names $baseNames
     $okBuild = New-BuildDir -WithExe
     $okRun = Invoke-Smoke -BuildDir $okBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $okState.Env
@@ -854,10 +1106,13 @@ try {
     Assert-SqlCmdTargetsInstance -Log $okLog -Server '.\SQLEXPRESS' -ExpectedCalls 3
     $okArgs = @(Read-InvokedArgs -Exe $okBuild.Exe)
     Assert-True ($null -ne $okArgs -and ($okArgs -join "`n") -eq ($expectedExplicit -join "`n")) "explicit E2E args were [$($okArgs -join '|')]"
+    }
 
+    Invoke-Case 'E2E failure exit' {
     $failState = New-SqlCmdState -Root $script:Root -Names $baseNames
-    $failBuild = New-BuildDir -WithExe
-    [IO.File]::WriteAllText($failBuild.Exe + '.exitcode', "4`n")
+    # Pass 4 at build time. Writing .exitcode after the fixed PE is ignored
+    # on Windows; that image never reads the file and always returns 0.
+    $failBuild = New-BuildDir -WithExe -ExitCode 4
     $failRun = Invoke-Smoke -BuildDir $failBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $failState.Env
     $failText = Get-SmokeText $failRun.Stdout
     $failLog = Read-SqlCmdLog -Path $failState.Log
@@ -870,7 +1125,9 @@ try {
     $failAfter = Get-DatabaseBlock -Text $failText -When 'after' -Server '.\SQLEXPRESS'
     Assert-SqlCmdTargetsInstance -Log $failLog -Server '.\SQLEXPRESS' -ExpectedCalls 3
     Assert-True ($failAfter.Complete -and -not ($failAfter.Names -contains $goodDb)) 'E2E failure AFTER list must not contain the database'
+    }
 
+    Invoke-Case 'drop failure' {
     $dropState = New-SqlCmdState -Root $script:Root -Names $baseNames -DropExit 1
     $dropBuild = New-BuildDir -WithExe
     $dropRun = Invoke-Smoke -BuildDir $dropBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $dropState.Env
@@ -884,7 +1141,9 @@ try {
     Assert-True ($dropText.Contains('[.\SQLEXPRESS] databases after:')) "drop failure after list must name the instance, got [$dropText]"
     Assert-True (-not $dropText.Contains('MSSQL_E2E PASS')) 'drop failure must not report MSSQL pass'
     Assert-True (-not $dropText.Contains('COMMERCIAL_SMOKE PASS')) 'drop failure must not finish as smoke pass'
+    }
 
+    Invoke-Case 'database still present after drop' {
     $keepState = New-SqlCmdState -Root $script:Root -Names $baseNames -KeepAfterDrop
     $keepBuild = New-BuildDir -WithExe
     $keepRun = Invoke-Smoke -BuildDir $keepBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $keepState.Env
@@ -895,7 +1154,9 @@ try {
     Assert-True ($keepText.Contains("MSSQL_E2E DROP FAILED (database $goodDb still present after DROP DATABASE)")) "still-present line missing in [$keepText]"
     Assert-True ($keepAfter.Complete -and ($keepAfter.Names -contains $goodDb)) 'AFTER list must still show the database when drop did not remove it'
     Assert-True (-not $keepText.Contains('COMMERCIAL_SMOKE PASS')) 'still-present drop must not finish as smoke pass'
+    }
 
+    Invoke-Case 'sys.databases failure' {
     $queryState = New-SqlCmdState -Root $script:Root -Names $baseNames -QueryExit 1
     $queryBuild = New-BuildDir -WithExe
     $queryRun = Invoke-Smoke -BuildDir $queryBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $queryState.Env
@@ -905,7 +1166,9 @@ try {
     Assert-True ($queryText.Contains('not touching any database')) "query failure must say it did not touch a database, got [$queryText]"
     Assert-True (-not $queryLog.Contains('DROP DATABASE')) "query failure must not drop, log [$queryLog]"
     Assert-True ($null -eq (Read-InvokedArgs -Exe $queryBuild.Exe)) 'query failure must not invoke E2E'
+    }
 
+    Invoke-Case 'SkipMssql conflicts with MssqlDb' {
     $conflictState = New-SqlCmdState -Root $script:Root -Names $baseNames
     $conflictBuild = New-BuildDir -WithExe
     $conflictRun = Invoke-Smoke -BuildDir $conflictBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -SkipMssql -StubEnv $conflictState.Env
@@ -914,7 +1177,9 @@ try {
     Assert-True ($conflictText -eq 'MSSQL_E2E REFUSED (-SkipMssql and -MssqlDb conflict)') "conflict line was [$conflictText]"
     Assert-True ((Read-SqlCmdLog -Path $conflictState.Log).Length -eq 0) 'conflict must not call sqlcmd'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $conflictBuild.Exe)) 'conflict must not invoke E2E'
+    }
 
+    Invoke-Case 'single-config exe' {
     $singleBuild = New-BuildDir -WithExe -Layout Single
     $singleState = New-SqlCmdState -Root $script:Root -Names $baseNames
     $singleRun = Invoke-Smoke -BuildDir $singleBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $singleState.Env
@@ -923,7 +1188,9 @@ try {
     Assert-True ($singleText.Contains('MSSQL_E2E EXE ' + $singleBuild.Single)) "single-config path was not logged in [$singleText]"
     Assert-True ($null -ne (Read-InvokedArgs -Exe $singleBuild.Single)) 'single-config stub was not invoked'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $singleBuild.Multi)) 'single-config run must not invoke the Debug stub'
+    }
 
+    Invoke-Case 'Debug-layout exe' {
     $debugBuild = New-BuildDir -WithExe -Layout Debug
     $debugState = New-SqlCmdState -Root $script:Root -Names $baseNames
     $debugRun = Invoke-Smoke -BuildDir $debugBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $debugState.Env
@@ -932,7 +1199,9 @@ try {
     Assert-True ($debugText.Contains('MSSQL_E2E EXE ' + $debugBuild.Multi)) "Debug path was not logged in [$debugText]"
     Assert-True ($null -ne (Read-InvokedArgs -Exe $debugBuild.Multi)) 'Debug stub was not invoked'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $debugBuild.Single)) 'Debug run must not invoke the single-config stub'
+    }
 
+    Invoke-Case 'missing exe does not drop' {
     $absentBuild = New-BuildDir
     $absentState = New-SqlCmdState -Root $script:Root -Names $baseNames
     $absentRun = Invoke-Smoke -BuildDir $absentBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $absentState.Env
@@ -947,9 +1216,139 @@ try {
     Assert-True (-not $absentLog.Contains('DROP DATABASE')) "missing exe must not drop, log [$absentLog]"
     Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Single)) 'missing single-config exe must not be invoked'
     Assert-True ($null -eq (Read-InvokedArgs -Exe $absentBuild.Multi)) 'missing Debug exe must not be invoked'
+    }
+
+    Invoke-Case 'owned process cleanup' {
+    # Cleanup identity: real processes, no SQL Server. Both executables use
+    # mxh_*_server names from the old name-based kill list. Only the PID
+    # passed to cleanup may exit.
+    $ownedExe = New-MxhServerNamedExe -ProcessName 'mxh_map_server_CHINA'
+    $decoyExe = New-MxhServerNamedExe -ProcessName 'mxh_login_server'
+    $ownedProc = $null
+    $decoyProc = $null
+    $quickProc = $null
+    try {
+        $ownedProc = Start-Process -FilePath $ownedExe -ArgumentList '60' -PassThru -NoNewWindow
+        $decoyProc = Start-Process -FilePath $decoyExe -ArgumentList '60' -PassThru -NoNewWindow
+        try { $null = $ownedProc.Handle } catch { }
+        try { $null = $decoyProc.Handle } catch { }
+        $ownedIdentity = $null
+        $decoyIdentity = $null
+        $deadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($deadline.ElapsedMilliseconds -lt 5000 -and ($null -eq $ownedIdentity -or $null -eq $decoyIdentity)) {
+            if ($null -eq $ownedIdentity) { $ownedIdentity = Get-CommercialSmokeOwnedIdentity -Process $ownedProc }
+            if ($null -eq $decoyIdentity) { $decoyIdentity = Get-CommercialSmokeOwnedIdentity -Process $decoyProc }
+            if ($null -eq $ownedIdentity -or $null -eq $decoyIdentity) { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($null -ne $ownedIdentity) 'owned sleeper identity was not recorded'
+        Assert-True ($null -ne $decoyIdentity) 'decoy sleeper identity was not recorded'
+        Assert-True ($ownedProc.ProcessName -eq 'mxh_map_server_CHINA') "owned process name was [$($ownedProc.ProcessName)]"
+        Assert-True ($decoyProc.ProcessName -eq 'mxh_login_server') "decoy process name was [$($decoyProc.ProcessName)]"
+        $childIds = @(Get-CommercialSmokeChildProcessIds -ParentId $PID)
+        Assert-True ($childIds -contains [int]$ownedIdentity.Id) "child discovery missed owned pid $($ownedIdentity.Id); found [$($childIds -join ',')]"
+        Assert-True ($childIds -contains [int]$decoyIdentity.Id) "child discovery missed decoy pid $($decoyIdentity.Id); found [$($childIds -join ',')]"
+        if (-not $IsWindows) {
+            $statIds = New-Object System.Collections.Generic.List[int]
+            Add-CommercialSmokeProcStatChildren -ParentId $PID -Ids $statIds
+            $statFound = @($statIds)
+            Assert-True ($statFound -contains [int]$ownedIdentity.Id) "status PPid scan missed owned pid $($ownedIdentity.Id); found [$($statFound -join ',')]"
+            Assert-True ($statFound -contains [int]$decoyIdentity.Id) "status PPid scan missed decoy pid $($decoyIdentity.Id); found [$($statFound -join ',')]"
+            $kernel = Get-CommercialSmokeKernelStart -ProcessId ([int]$ownedIdentity.Id)
+            Assert-True ($kernel -gt 0) "kernel starttime missing for owned pid $($ownedIdentity.Id)"
+            Assert-True ([int64]$ownedIdentity.KernelStart -eq $kernel) "identity kernel starttime was $($ownedIdentity.KernelStart), live is $kernel"
+        }
+        Stop-CommercialSmokeOwnedProcess -ProcessId $decoyIdentity.Id -StartTicks ([int64]1)
+        Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $ownedIdentity.Id; StartTicks = ([int64]1) })
+        Assert-True (Test-PidStillRunning -ProcessId $ownedIdentity.Id) 'wrong StartTime must not stop the owned PID'
+        Assert-True (Test-PidStillRunning -ProcessId $decoyIdentity.Id) 'wrong StartTime must not stop the decoy'
+        Stop-CommercialSmokeOwnedProcesses -Owned @($ownedIdentity)
+        $ownedProc.WaitForExit(5000) | Out-Null
+        Assert-True (-not (Test-PidStillRunning -ProcessId $ownedIdentity.Id)) 'cleanup did not stop the PID it was given'
+        Assert-True (Test-PidStillRunning -ProcessId $decoyIdentity.Id) 'cleanup stopped an unrelated mxh_login_server decoy'
+        Stop-CommercialSmokeOwnedProcesses -Owned @($ownedIdentity)
+        $quickProc = Start-Process -FilePath $ownedExe -ArgumentList '0' -PassThru -NoNewWindow
+        if (-not $quickProc.WaitForExit(5000)) { throw 'FAIL: already-exited fixture did not exit' }
+        Stop-CommercialSmokeOwnedProcess -ProcessId $quickProc.Id -StartTicks ([int64]1)
+        Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $quickProc.Id; StartTicks = ([int64]1) })
+        Stop-CommercialSmokeOwnedProcesses -Owned @()
+        Stop-CommercialSmokeOwnedProcesses -Owned $null
+        Stop-CommercialSmokeOwnedProcess -ProcessId 0 -StartTicks ([int64]1)
+    } finally {
+        Stop-TestProcess -Process $ownedProc
+        Stop-TestProcess -Process $decoyProc
+        Stop-TestProcess -Process $quickProc
+    }
+    }
+
+    Invoke-Case 'MSSQL path scoped cleanup' {
+    $pathDecoy = $null
+    $pathChildPid = 0
+    $spawnBuild = $null
+    try {
+        $pathDecoyExe = New-MxhServerNamedExe -ProcessName 'mxh_login_server'
+        $pathDecoy = Start-Process -FilePath $pathDecoyExe -ArgumentList '120' -PassThru -NoNewWindow
+        try { $null = $pathDecoy.Handle } catch { }
+        $pathDecoyName = ''
+        $pathDeadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($pathDeadline.ElapsedMilliseconds -lt 5000 -and $pathDecoyName -ne 'mxh_login_server') {
+            try { $pathDecoy.Refresh() } catch { }
+            $pathDecoyName = [string]$pathDecoy.ProcessName
+            if ($pathDecoyName -ne 'mxh_login_server') { Start-Sleep -Milliseconds 50 }
+        }
+        Assert-True ($pathDecoyName -eq 'mxh_login_server') "path decoy process name was [$pathDecoyName]"
+        Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'path decoy exited before smoke'
+        $spawnBuild = New-BuildDir -WithExe -SpawnChild
+        $spawnState = New-SqlCmdState -Root $script:Root -Names $baseNames
+        $spawnRun = Invoke-Smoke -BuildDir $spawnBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $spawnState.Env
+        $spawnText = Get-SmokeText $spawnRun.Stdout
+        Assert-True ($spawnRun.ExitCode -eq 0) "scoped cleanup smoke exit was $($spawnRun.ExitCode); stdout [$spawnText] stderr [$($spawnRun.Stderr)]"
+        Assert-True ((Count-SmokeLine $spawnText 'MSSQL_E2E PASS (explicit -MssqlDb, one command)') -eq 1) "scoped cleanup pass line missing in [$spawnText]"
+        Assert-True ((Count-SmokeLine $spawnText "MSSQL_E2E DROPPED (database $goodDb)") -eq 1) "scoped cleanup must still drop the database, got [$spawnText]"
+        $spawnArgs = @(Read-InvokedArgs -Exe $spawnBuild.Exe)
+        Assert-True ($null -ne $spawnArgs -and ($spawnArgs -join "`n") -eq ($expectedExplicit -join "`n")) "scoped cleanup E2E args were [$($spawnArgs -join '|')]"
+        $childLog = $spawnBuild.Exe + '.children'
+        Assert-True (Test-Path -LiteralPath $childLog) 'E2E stub did not record the child it started'
+        $childRaw = [IO.File]::ReadAllText($childLog).Trim()
+        Assert-True ([int]::TryParse($childRaw, [ref]$pathChildPid) -and $pathChildPid -gt 0) "child PID text was [$childRaw]"
+        $childPpid = ''
+        $childState = ''
+        if (-not $IsWindows) {
+            $childPpid = Get-ProcStatusField -ProcessId $pathChildPid -Field 'PPid:'
+            $childState = Get-ProcStatusField -ProcessId $pathChildPid -Field 'State:'
+        }
+        $ownedLine = ''
+        foreach ($line in ($spawnText -split "`n")) {
+            if ($line.Trim().StartsWith('MSSQL_E2E OWNED ')) { $ownedLine = $line.Trim() }
+        }
+        $ownedIds = @()
+        $ownedPrefix = 'MSSQL_E2E OWNED '
+        if ($ownedLine.StartsWith($ownedPrefix)) {
+            foreach ($token in @($ownedLine.Substring($ownedPrefix.Length).Split(','))) {
+                $pidText = ($token -split ':')[0]
+                if ($pidText -match '^\d+$') { $ownedIds += $pidText }
+            }
+        }
+        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid state=$childState) [$ownedLine]"
+        Assert-True ($ownedIds -contains [string]$pathChildPid) "owned PID list did not include child $pathChildPid [$ownedLine]"
+        Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
+    } finally {
+        Stop-TestProcess -Process $pathDecoy
+        if ($pathChildPid -gt 0) {
+            try {
+                if (Test-PidStillRunning -ProcessId $pathChildPid) {
+                    Stop-Process -Id $pathChildPid -Force -ErrorAction SilentlyContinue
+                }
+            } catch { }
+        }
+    }
+    }
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+if ($script:Failures.Count -gt 0) {
+    Write-Output ('FAILED ' + $script:Failures.Count + ' case(s)')
+    exit 1
+}
 Write-Output 'PASS: commercial-smoke MSSQL E2E availability'
 Write-Output 'PASS: commercial-smoke -MssqlDb guard'
