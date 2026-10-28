@@ -34,11 +34,13 @@
 //   mxh_client_e2e [--login-exe PATH] [--agent-exe PATH] [--map-exe PATH]
 //                  [--login-host HOST] [--agent-host HOST] [--map-host HOST]
 //                  [--login-port N] [--agent-port N] [--map-port N]
-//                  [--map12-port N] [--map-number N]
+//                  [--map12-port N] # only used with --exercise-mapchange
+//                  [--map-number N]
 //                  [--exercise-combat]  # Debug-only live attack/effect/drop gate
 //                  [--exercise-equip]   # Live equipment MoveAck/relogin gate
 //                  [--exercise-shop]    # Live NPC shop catalog/buy gate
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
+//                  [--exercise-mapchange] # start the map 12 server
 //                  [--exercise-position] # movement/GameOut/relog position gate
 //                  [--no-spawn]  # assume servers are already running (remote-safe)
 //                  [--account NAME] [--password-env ENV_NAME]
@@ -805,7 +807,7 @@ int run_e2e(const CliArgs& cli) {
             procs.back()->spawn_with_args("", map12_args);
         }
 
-        // Wait for the three ports.
+        // Wait for login, agent, and map. Map-change mode also waits for map 12.
         if (!wait_for_port(cli.login_port, cli.timeout_s)) {
             LOG("LoginServer failed to listen on :%d within %ds", cli.login_port, cli.timeout_s);
             return 1;
@@ -826,8 +828,13 @@ int run_e2e(const CliArgs& cli) {
             LOG("MapServer[17] failed to listen on :%d within %ds", map17_port, cli.timeout_s);
             return 1;
         }
-        LOG("all 3 servers listening (login:%d, agent:%d, map:%d)",
-            cli.login_port, cli.agent_port, cli.map_port);
+        if (cli.exercise_mapchange) {
+            LOG("all 4 servers listening (login:%d, agent:%d, map:%d, map12:%d)",
+                cli.login_port, cli.agent_port, cli.map_port, cli.map12_port);
+        } else {
+            LOG("all 3 servers listening (login:%d, agent:%d, map:%d)",
+                cli.login_port, cli.agent_port, cli.map_port);
+        }
     } else {
         LOG("--no-spawn: assuming servers are already up (login:%d, agent:%d, map:%d)",
             cli.login_port, cli.agent_port, cli.map_port);
