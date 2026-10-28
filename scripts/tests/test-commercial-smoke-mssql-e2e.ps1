@@ -1446,6 +1446,35 @@ try {
         }
     }
     }
+
+    Invoke-Case 'ctest must resolve to ctest.exe' {
+    Assert-True ($functions.Name -contains 'Test-CommercialSmokeCtestExecutableExtension') 'ctest extension predicate missing'
+    Assert-True (Test-CommercialSmokeCtestExecutableExtension -Path 'C:\Tools\ctest.exe') '.exe must be accepted'
+    Assert-True (Test-CommercialSmokeCtestExecutableExtension -Path 'C:\Tools\ctest.EXE') '.EXE must be accepted'
+    Assert-True (-not (Test-CommercialSmokeCtestExecutableExtension -Path 'C:\Tools\ctest.cmd')) '.cmd must be refused'
+    Assert-True (-not (Test-CommercialSmokeCtestExecutableExtension -Path 'C:\Tools\ctest.bat')) '.bat must be refused'
+    if ($IsWindows) {
+        # ctest.cmd is first on PATH. A later ctest.exe must not be used.
+        # The cmd writes a marker only if it is started. Do not place the
+        # fixed PE and then write .exitcode; this case does not use that PE.
+        $cmdDir = Join-Path $script:Root ('ctest-cmd-' + [guid]::NewGuid().ToString('n'))
+        New-Item -ItemType Directory -Force -Path $cmdDir | Out-Null
+        $cmdPath = Join-Path $cmdDir 'ctest.cmd'
+        $marker = Join-Path $cmdDir 'ctest-cmd.marker'
+        $cmdBody = "@echo off`r`n> `"%~dp0ctest-cmd.marker`" echo invoked`r`nexit /b 0`r`n"
+        [IO.File]::WriteAllBytes($cmdPath, [Text.Encoding]::ASCII.GetBytes($cmdBody))
+        $laterExeDir = New-ToolDir
+        $cmdFirstPath = $cmdDir + ';' + $laterExeDir
+        $cmdBuild = New-BuildDir
+        $cmdRun = Invoke-Smoke -BuildDir $cmdBuild.Build -PathValue $cmdFirstPath
+        $cmdText = Get-SmokeText $cmdRun.Stdout
+        $cmdExpected = 'COMMERCIAL_SMOKE REFUSED (ctest must resolve to ctest.exe on Windows, got ' + $cmdPath + ')'
+        Assert-True ($cmdRun.ExitCode -ne 0) "ctest.cmd must be refused, exit $($cmdRun.ExitCode), stdout [$cmdText] stderr [$($cmdRun.Stderr)]"
+        Assert-True ($cmdText -eq $cmdExpected) "refusal line was [$cmdText], expected [$cmdExpected], stderr [$($cmdRun.Stderr)]"
+        Assert-True (-not (Test-Path -LiteralPath $marker)) 'ctest.cmd stub was invoked'
+        Assert-True ($null -eq (Read-InvokedArgs -Exe (Join-Path $laterExeDir 'ctest.exe'))) 'a later ctest.exe must not be started'
+    }
+    }
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
 }

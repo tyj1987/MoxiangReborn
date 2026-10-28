@@ -1060,6 +1060,17 @@ function Invoke-CommercialSmokeMssqlE2E {
     }
 }
 
+function Test-CommercialSmokeCtestExecutableExtension {
+    param([string]$Path)
+    # True only when the path ends in .exe. The comparison is
+    # case-insensitive, so ctest.EXE matches and ctest.cmd / ctest.bat
+    # do not. The Windows caller checks the first PATH hit only.
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $extension = [IO.Path]::GetExtension($Path)
+    if ([string]::IsNullOrWhiteSpace($extension)) { return $false }
+    return $extension.Equals('.exe', [StringComparison]::OrdinalIgnoreCase)
+}
+
 $ErrorActionPreference = 'Stop'
 if ($SkipMssql -and -not [string]::IsNullOrWhiteSpace($MssqlDb)) {
     Write-Host 'MSSQL_E2E REFUSED (-SkipMssql and -MssqlDb conflict)' -ForegroundColor Red
@@ -1101,7 +1112,15 @@ $ctestArgs = @('-C','Debug','--test-dir',$BuildDir,'-R',$pattern,'--output-on-fa
 if ($RepeatFlaky) { $ctestArgs += @('--repeat','until-fail:3') }
 $ctestMatches = @(Get-Command -Name 'ctest' -CommandType Application -ErrorAction SilentlyContinue)
 if ($ctestMatches.Count -eq 0) { throw 'ctest was not found on PATH' }
-$ctestRun = Invoke-CommercialSmokeNative -FilePath ([string]$ctestMatches[0].Source) -ArgumentList $ctestArgs
+$ctestPath = [string]$ctestMatches[0].Source
+# First PATH hit only. On Windows that hit must be ctest.exe. Do not
+# search later PATH entries, and do not start a .cmd or .bat: cmd.exe
+# would split the unquoted -R pattern on '|'.
+if ((Test-CommercialSmokeWindowsHost) -and -not (Test-CommercialSmokeCtestExecutableExtension -Path $ctestPath)) {
+    Write-Host ('COMMERCIAL_SMOKE REFUSED (ctest must resolve to ctest.exe on Windows, got ' + $ctestPath + ')') -ForegroundColor Red
+    exit 1
+}
+$ctestRun = Invoke-CommercialSmokeNative -FilePath $ctestPath -ArgumentList $ctestArgs
 if ([int]$ctestRun.ExitCode -ne 0) { throw "Commercial smoke failed with exit code $($ctestRun.ExitCode)" }
 
 # P0 gate: one-command MSSQL full-chain E2E on SQL Server LocalDB.
