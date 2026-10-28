@@ -6,16 +6,19 @@
 #include <fstream>
 #include <iomanip>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
 #include "../../support/playdh_env.hpp"
 
 #ifdef _WIN32
+#include <process.h>
 #include <windows.h>
 #include <bcrypt.h>
 #pragma comment(lib, "bcrypt.lib")
 #else
+#include <unistd.h>
 #include "../../support/payload_sha256.hpp"
 #endif
 
@@ -106,22 +109,47 @@ private:
 
 class OverrideRootDir {
 public:
-    OverrideRootDir()
-        : path_(fs::temp_directory_path() / "mxh-resource-reference-playdh-override") {
-        fs::remove_all(path_);
-        fs::create_directories(path_ / "Resource");
+    OverrideRootDir() {
+        std::random_device device;
+        const auto nonce = std::to_string(process_id()) + "-" + std::to_string(device());
+        path_ = fs::temp_directory_path() /
+                ("mxh-resource-reference-playdh-override-" + nonce);
+        if (fs::exists(path_)) {
+            already_existed_ = true;
+            return;
+        }
+        std::error_code ec;
+        if (!fs::create_directory(path_, ec) || ec) {
+            if (fs::exists(path_)) already_existed_ = true;
+            return;
+        }
+        created_ = true;
+        fs::create_directory(path_ / "Resource", ec);
     }
     ~OverrideRootDir() {
+        if (!created_) return;
         std::error_code ec;
         fs::remove_all(path_, ec);
     }
+    bool created() const { return created_; }
+    bool already_existed() const { return already_existed_; }
     const fs::path& path() const { return path_; }
 
     OverrideRootDir(const OverrideRootDir&) = delete;
     OverrideRootDir& operator=(const OverrideRootDir&) = delete;
 
 private:
+    static long process_id() {
+#ifdef _WIN32
+        return static_cast<long>(_getpid());
+#else
+        return static_cast<long>(::getpid());
+#endif
+    }
+
     fs::path path_;
+    bool created_ = false;
+    bool already_existed_ = false;
 };
 
 fs::path resource_root(const fs::path& root) {
@@ -242,6 +270,11 @@ TEST(MxhResourceReference, CanonicalRootFollowsPlayDhRootOverride) {
     const std::optional<std::string> saved = ambient ? std::optional<std::string>(ambient)
                                                       : std::nullopt;
     const OverrideRootDir override_root;
+    ASSERT_FALSE(override_root.already_existed())
+        << "override directory already exists and was left in place: "
+        << override_root.path();
+    ASSERT_TRUE(override_root.created())
+        << "create_directory failed for " << override_root.path();
     const std::string override_text = override_root.path().string();
     {
         const ScopedPlayDhRootEnv forced(override_text.c_str());
