@@ -62,8 +62,8 @@
 #   modern/tests/unit/compat/resource_reference_test.cpp) under
 #   modern/data/PlayDH/Resource. They read no LFS .pak (only
 #   Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
-# - TODO: the synthetic-fixture TEST coming after #65 will be added to the
-#   required-Passed list.
+# - Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
+#   The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 # - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
 #   其他 job 在这些路径上一起触发。GitLab 不把这些路径并进 python_tooling_changes。
 
@@ -326,7 +326,8 @@ jobs:
           status=0
           require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
           require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
-          if ! grep -F '0 tests failed' ctest.log >/dev/null; then
+          require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+          if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1
           fi

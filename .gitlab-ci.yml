@@ -126,8 +126,8 @@ rog_gate_self_test:
 # modern/data/PlayDH/Resource. They read no LFS .pak (only
 # Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
 # MXH_PLAYDH_ROOT is not set.
-# TODO: the synthetic-fixture TEST coming after #65 will be added to the
-# required-Passed list.
+# Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
+# The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 cxx_resource_reference_linux:
   extends: .linux_trusted
   image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
@@ -181,7 +181,8 @@ cxx_resource_reference_linux:
       status=0
       require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
       require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
-      if ! grep -F '0 tests failed' ctest.log >/dev/null; then
+      require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+      if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
         echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
         status=1
       fi
