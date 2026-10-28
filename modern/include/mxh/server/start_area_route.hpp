@@ -4,9 +4,11 @@
 //
 // Omitting --start-area leaves the configured StartArea equal to
 // default_map_num (12 unless --default-map overrides it). Startup fails
-// when that map has no route. kNewCharacterStartArea is the explicit Map17
-// value for --start-area 17; it is not the omitted-flag default. The agent
-// must not substitute another map when the configured StartArea is absent.
+// when that map has no route. Character creation persists that configured
+// value. The client packet's StartArea is logged when it differs and is
+// not the stored map. kNewCharacterStartArea is the explicit Map17 value
+// for --start-area 17; it is not the omitted-flag default. The agent must
+// not substitute another map when the configured StartArea is absent.
 
 #include <cstddef>
 #include <cstdint>

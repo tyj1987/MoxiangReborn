@@ -172,10 +172,14 @@ AgentHandler::AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                            bool use_legacy_framing,
                            bool use_hsel,
                            HselSessionManager::DirectSendFn direct_send,
-                           std::uint16_t default_map_num)
+                           std::uint16_t default_map_num,
+                           std::uint16_t configured_start_area)
     : db_(db), reply_(std::move(reply)),
       use_legacy_framing_(use_legacy_framing),
       default_map_num_(default_map_num),
+      configured_start_area_(configured_start_area == 0
+                                 ? default_map_num
+                                 : configured_start_area),
       use_hsel_(use_hsel), hsel_(use_hsel, std::move(direct_send)) {}
 
 mxh::net::IEncryptor* AgentHandler::encryptor_for(
@@ -1633,8 +1637,15 @@ void AgentHandler::handle_legacy_character_make(
     std::uint8_t hair_type = data[23];
     // FaceType at offset 24
     std::uint8_t face_type = data[24];
-    // StartArea at offset 25
-    std::uint8_t start_area = data[25];
+    // Client StartArea at offset 25. The stored birth map is the
+    // Agent-configured StartArea (--start-area, else default_map_num).
+    const std::uint8_t client_start_area = data[25];
+    const auto start_area = static_cast<std::uint8_t>(configured_start_area_);
+    if (client_start_area != start_area) {
+        MLOG_INFO("[Agent] client StartArea %u differs from configured StartArea %u",
+                  static_cast<unsigned>(client_start_area),
+                  static_cast<unsigned>(start_area));
+    }
     // bDuplCheck at offset 26 (4B BOOL)
     // WearedItemIdx[10] at offset 30 (20B)
     // StandingArrayNum at offset 50
@@ -1667,8 +1678,9 @@ void AgentHandler::handle_legacy_character_make(
         return;
     }
 
-    // Reject before any character_info write. default_map_num_ is not a
-    // substitute for a missing StartArea route.
+    // Reject before any character_info write. The configured StartArea is
+    // the birth map. A missing route is not replaced by the client packet
+    // or by another registered map.
     {
         const auto birth_route = route_for_map_exact(start_area);
         const bool birth_route_available = start_area != 0u &&

@@ -83,8 +83,12 @@ std::vector<std::uint8_t> read_file(const std::filesystem::path& path) {
 
 }  // namespace
 
-TEST(StartAreaRoute, CreationRejectsUnregisteredStartMapWithoutMap10Fallback) {
-    QuietDb db;
+TEST(StartAreaRoute, ClientSends17ConfiguredDefault10LandsOn10) {
+    mxh::db::SqliteAdapter db;
+    mxh::db::ConnectionConfig cfg;
+    cfg.path = ":memory:";
+    ASSERT_TRUE(db.connect(cfg).ok());
+    ASSERT_TRUE(mxh::db::migrate_modern_schema(db).ok());
     std::vector<mxh::net::Message> replies;
     mxh::server::AgentHandler handler(db, [&](mxh::net::ConnectionId,
                                               const mxh::net::Message& msg) {
@@ -96,6 +100,33 @@ TEST(StartAreaRoute, CreationRejectsUnregisteredStartMapWithoutMap10Fallback) {
     testing::internal::CaptureStderr();
     handler.on_message(mxh::net::make_connection_id(42), character_make(17));
     const auto log = testing::internal::GetCapturedStderr();
+    EXPECT_NE(log.find("client StartArea 17 differs from configured StartArea 10"),
+              std::string::npos) << log;
+
+    mxh::db::ResultSet rows;
+    ASSERT_TRUE(db.query("SELECT start_area, map_num FROM character_info", {}, rows).ok());
+    ASSERT_EQ(rows.rows.size(), 1u);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 10);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 10);
+    EXPECT_EQ(std::count_if(replies.begin(), replies.end(), [](const auto& msg) {
+        return msg.header.protocol == static_cast<std::uint8_t>(
+            mxh::proto::UserConnProtocol::CharacterMakeNack);
+    }), 0);
+}
+
+TEST(StartAreaRoute, ConfiguredStartArea17WithoutRouteNacksWithoutFallback) {
+    QuietDb db;
+    std::vector<mxh::net::Message> replies;
+    mxh::server::AgentHandler handler(db, [&](mxh::net::ConnectionId,
+                                              const mxh::net::Message& msg) {
+        replies.push_back(msg);
+    }, true, false, {}, /*default_map_num=*/10, /*configured_start_area=*/17);
+    RecordingSender map10;
+    handler.set_map_server(&map10, mxh::net::make_connection_id(18001));
+
+    testing::internal::CaptureStderr();
+    handler.on_message(mxh::net::make_connection_id(44), character_make(17));
+    const auto log = testing::internal::GetCapturedStderr();
 
     EXPECT_NE(log.find("new-character StartArea map 17 is not registered"),
               std::string::npos) << log;
@@ -106,7 +137,7 @@ TEST(StartAreaRoute, CreationRejectsUnregisteredStartMapWithoutMap10Fallback) {
         mxh::proto::UserConnProtocol::CharacterMakeNack));
 }
 
-TEST(StartAreaRoute, RegisteredMap17PersistsStartAreaAndMap) {
+TEST(StartAreaRoute, ConfiguredStartArea17LandsOn17WhenMap17Registered) {
     mxh::db::SqliteAdapter db;
     mxh::db::ConnectionConfig cfg;
     cfg.path = ":memory:";
@@ -116,7 +147,7 @@ TEST(StartAreaRoute, RegisteredMap17PersistsStartAreaAndMap) {
     mxh::server::AgentHandler handler(db, [&](mxh::net::ConnectionId,
                                               const mxh::net::Message& msg) {
         replies.push_back(msg);
-    }, true, false, {}, 10);
+    }, true, false, {}, /*default_map_num=*/10, /*configured_start_area=*/17);
     RecordingSender map17;
     handler.set_map_server_for_map(17, &map17, mxh::net::make_connection_id(18017));
     handler.on_message(mxh::net::make_connection_id(43), character_make(17));

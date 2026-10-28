@@ -173,7 +173,6 @@ $previousGuiSmokeSkills = $env:MXH_GUI_SMOKE_SKILLS
 $previousGuiSmokeRotateAppearance = $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE
 $previousGuiSmokeCombat = $env:MXH_GUI_SMOKE_COMBAT
 $previousGuiSmokeMovement = $env:MXH_GUI_SMOKE_MOVEMENT
-$previousGuiSmokeStartArea = $env:MXH_GUI_SMOKE_START_AREA
 
 try {
     $clientLoginPort = '16001'
@@ -356,9 +355,6 @@ try {
     if ($RotateAppearance) { $env:MXH_GUI_SMOKE_ROTATE_APPEARANCE = '1' }
     if ($ExerciseCombat) { $env:MXH_GUI_SMOKE_COMBAT = '1' }
     if ($ExerciseMovement) { $env:MXH_GUI_SMOKE_MOVEMENT = '1' }
-    if ($LiveCharacterBirth) {
-        $env:MXH_GUI_SMOKE_START_AREA = [string]$configuredStartArea
-    }
     # EXIT=1 skips the entity list unless RENDER_ENTITIES=1. Default on
     # even without -FollowCamera; -NoEntities is the terrain-only opt-out.
     if ($NoEntities) {
@@ -636,9 +632,6 @@ finally {
     if ($null -eq $previousGuiSmokeMovement) {
         Remove-Item Env:MXH_GUI_SMOKE_MOVEMENT -ErrorAction SilentlyContinue
     } else { $env:MXH_GUI_SMOKE_MOVEMENT = $previousGuiSmokeMovement }
-    if ($null -eq $previousGuiSmokeStartArea) {
-        Remove-Item Env:MXH_GUI_SMOKE_START_AREA -ErrorAction SilentlyContinue
-    } else { $env:MXH_GUI_SMOKE_START_AREA = $previousGuiSmokeStartArea }
     if ($client -and -not $client.HasExited) {
         Stop-Process -Id $client.Id -Force -ErrorAction SilentlyContinue
     }

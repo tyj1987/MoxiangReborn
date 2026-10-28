@@ -18,8 +18,6 @@
 #include <cctype>
 #include <array>
 #include <string>
-#include <charconv>
-#include <system_error>
 #include <filesystem>
 #include <functional>
 #include <memory>
@@ -4361,15 +4359,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                     mxh::client::CharacterMakeParams params =
                         cm->form_model().params();
                     params.name = options.character_name;
-                    // Smoke harness only. Unset keeps the catalog StartArea.
-                    if (const char* area = std::getenv("MXH_GUI_SMOKE_START_AREA")) {
-                        unsigned long value = 0;
-                        const char* end = area + std::strlen(area);
-                        const auto parsed = std::from_chars(area, end, value);
-                        if (parsed.ec == std::errc{} && parsed.ptr == end && value <= 255u) {
-                            params.start_area = static_cast<std::uint8_t>(value);
-                        }
-                    }
                     (void)cm->SubmitCharacter(params);
                 }
             } else if (cur_state == mxh::client::GameStateId::GameIn &&

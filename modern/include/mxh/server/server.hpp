@@ -109,11 +109,15 @@ private:
 // Phase 9: forwards GameInSyn to MapServer and relays responses.
 class AgentHandler final : public mxh::net::IConnectionHandler {
 public:
+    // configured_start_area 0 means "use default_map_num" (the omitted
+    // --start-area case). Character creation persists this value. The
+    // client packet's StartArea is not a route.
     AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                  bool use_legacy_framing = false,
                  bool use_hsel = false,
                  HselSessionManager::DirectSendFn direct_send = {},
-                 std::uint16_t default_map_num = 12);
+                 std::uint16_t default_map_num = 12,
+                 std::uint16_t configured_start_area = 0);
     ~AgentHandler() override = default;
 
     bool on_connect(mxh::net::ConnectionId id,
@@ -239,6 +243,7 @@ private:
     ReplyFn reply_;
     bool use_legacy_framing_;
     std::uint16_t default_map_num_ = 12;
+    std::uint16_t configured_start_area_ = 12;
     bool allow_dev_gamein_fallback_ = true;
 
     // Track user_id per connection (set during CharacterListSyn).

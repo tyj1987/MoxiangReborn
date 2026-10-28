@@ -517,7 +517,7 @@ public:
 
 void register_birth_map(mxh::server::AgentHandler& handler,
                         RegisteredMapSender& sender,
-                        std::uint16_t map_num = 17) {
+                        std::uint16_t map_num = 12) {
     handler.set_map_server_for_map(
         map_num, &sender, mxh::net::make_connection_id(17000u + map_num));
 }
@@ -766,7 +766,8 @@ TEST(AgentCharacterCreateTest, PersistsCanonicalBirthMapWhenRouteIsRegistered) {
     CharacterCreateDb db;
     ReplySpy reply;
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true,
-                                      false, {}, /*default_map_num=*/10);
+                                      false, {}, /*default_map_num=*/10,
+                                      /*configured_start_area=*/17);
     MockTcpSender map17;
     handler.set_map_server_for_map(17, &map17, mxh::net::make_connection_id(17017));
 
@@ -6164,7 +6165,7 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     ReplySpy reply;
     AgentHandler agent(db, make_reply_spy(reply), true, false, {}, 10);
     RegisteredMapSender birth;
-    register_birth_map(agent, birth);
+    register_birth_map(agent, birth, 10);
     mxh::net::Message create;
     create.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     create.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterMakeSyn);
