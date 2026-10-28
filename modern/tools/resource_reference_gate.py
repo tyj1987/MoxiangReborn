@@ -11,6 +11,12 @@ Where each step runs
   ``.hfl`` files. It writes only names into
   ``reference/manifests/original-resource-references.json``. It does not copy
   game bytes into the repo.
+  ``originalExists`` is a client-style lookup over loose files under
+  ``--source`` and every regular ``.pak`` under that root, plus ``--pak``
+  when that archive is not already under ``--source``. Each reference also
+  records ``originalHit`` (see ``derive``). Extensions stay as referenced:
+  ``PackFile::find`` and ``FilesystemFileStorage::locate`` compare the
+  name they are given.
 * ``check`` runs in CI and on any checkout. It compares that manifest to the
   checkout. A derivation that has not been run is ``no conclusion``. A
   derivation whose status is ``partial`` is a partial conclusion. Neither
@@ -151,6 +157,31 @@ def _basename(name: str) -> str:
 
 def _casefold_name(name: str) -> str:
     return _basename(name).casefold()
+
+
+def _ascii_fold(text: str) -> str:
+    """Fold ASCII A-Z to a-z. Length-preserving, locale-independent.
+
+    ``PackFile::find`` (``modern/src/pack_file.cpp`` eq_ci) compares with
+    ``std::tolower`` per byte. ``pak_filename_less`` folds only A-Z. This
+    matches both for bytes 0-127 and leaves every other code unit alone,
+    so equality of folded strings is that ``eq_ci``.
+    """
+    return "".join(chr(ord(ch) + 32) if "A" <= ch <= "Z" else ch for ch in text)
+
+
+def _display_rel(path: Path, source: Path | None) -> str | None:
+    """Path relative to ``source`` with forward slashes, or the filename.
+
+    Never an absolute path. ``None`` when ``source`` is set and ``path``
+    is not inside it.
+    """
+    if source is not None:
+        try:
+            return path.resolve().relative_to(source.resolve()).as_posix()
+        except (OSError, ValueError):
+            return None
+    return path.name
 
 
 def is_lfs_pointer(path: Path) -> bool:
@@ -407,8 +438,8 @@ def _iter_files(root: Path):
             yield Path(directory) / filename
 
 
-def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
-    """Return the offset-4 field and the entries of the one valid layout.
+def _read_pak(pak_path: Path) -> tuple[str, int, list] | None:
+    """Return ``(kind, offset-4 field, entries)`` for the one valid layout.
 
     ``unpack_pak.read_entries`` walks both layouts and keeps the single walk
     that ends at EOF.  92-byte PlayDH: count is the uint32 at offset 4,
@@ -417,16 +448,26 @@ def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
     real count (11267) at offset 92.  Both layouts, or neither, prints one
     ERROR line naming the pak and the caller skips it.  The count passed to
     the walker is the layout's own field, never an inflated cap.
+    ``kind`` is ``92-byte`` or ``96-byte``.
     """
     try:
-        _kind, offset4, _declared, entries = unpack_pak.read_entries(str(pak_path))
+        kind, offset4, _declared, entries = unpack_pak.read_entries(str(pak_path))
     except (OSError, ValueError, struct.error) as exc:
         detail = str(exc)
         if str(pak_path) not in detail:
             detail = f"{pak_path}: {detail}"
         print(f"ERROR: {detail}", file=sys.stderr)
         return None
-    return int(offset4), entries
+    return str(kind), int(offset4), entries
+
+
+def _read_pak_entries(pak_path: Path) -> tuple[int, list] | None:
+    """Offset-4 field and entries. See ``_read_pak``."""
+    read = _read_pak(pak_path)
+    if read is None:
+        return None
+    _kind, offset4, entries = read
+    return offset4, entries
 
 
 def _pak_bytes(pak_path: Path, entry) -> bytes:
@@ -443,66 +484,235 @@ def _suffix(name: str) -> str:
     return base.rsplit(".", 1)[-1].casefold() if "." in base else ""
 
 
+class _LooseFile:
+    __slots__ = ("rel", "path")
+
+    def __init__(self, rel: str, path: Path) -> None:
+        self.rel = rel
+        self.path = path
+
+
+class _MountedPak:
+    __slots__ = ("rel", "path", "tier", "by_name")
+
+    def __init__(self, rel: str, path: Path, tier: int, by_name: dict) -> None:
+        self.rel = rel
+        self.path = path
+        self.tier = tier
+        self.by_name = by_name
+
+
+class _Hit:
+    __slots__ = ("label", "path", "entry")
+
+    def __init__(self, label: str, path: Path, entry) -> None:
+        self.label = label
+        self.path = path
+        self.entry = entry
+
+
 class _BlobIndex:
+    """Client lookup over loose files and every mounted pak.
+
+    ``map_names`` are the casefolded names ``derive`` opens. They are full
+    entry or relative paths, not a basename collapsed from a different path,
+    because ``locate`` cannot open ``dir\\file.map`` as ``file.map``.
+    """
+
     def __init__(self) -> None:
-        self.by_base: dict[str, list[tuple[str, bytes | None, Path | None]]] = {}
+        self.loose: list[_LooseFile] = []
+        self.loose_by_fold: dict[str, _LooseFile] = {}
+        self.packs: list[_MountedPak] = []
+        self.map_names: set[str] = set()
 
-    def add(self, name: str, data: bytes | None, path: Path | None) -> None:
-        self.by_base.setdefault(_casefold_name(name), []).append((name, data, path))
+    def note_map(self, lookup_name: str) -> None:
+        folded = _ascii_fold(lookup_name.replace("/", "\\"))
+        if folded.endswith(".map"):
+            self.map_names.add(folded)
 
-    def find(self, name: str):
-        return self.by_base.get(_casefold_name(name), [])
+    def locate(self, name: str) -> _Hit | None:
+        """``FilesystemFileStorage::locate`` (filesystem_file_storage.cpp).
+
+        Loose file under the source root first (case-insensitive relative
+        path; not a basename search). Then mounted paks in mount order.
+        Inside a pak, ``PackFile::find`` eq_ci on the full name, and only
+        when the query itself has a directory, eq_ci of the query basename
+        against an entry's full name. Zero-length entries do not hit
+        (``has_payload``). No extension is rewritten.
+        """
+        if not name:
+            return None
+        loose = self.loose_by_fold.get(_ascii_fold(name.replace("\\", "/")))
+        if loose is not None:
+            return _Hit("loose:" + loose.rel, loose.path, None)
+        query = _ascii_fold(name.replace("/", "\\"))
+        base = query.rsplit("\\", 1)[-1]
+        for pack in self.packs:
+            entry = pack.by_name.get(query)
+            if (entry is None or entry.real_size <= 0) and base != query:
+                entry = pack.by_name.get(base)
+            if entry is not None and entry.real_size > 0:
+                return _Hit("pak:" + pack.rel, pack.path, entry)
+        return None
+
+
+def _entry_match_name(entry) -> str:
+    """On-disk entry name, byte-preserving, with ``/`` folded to ``\\``.
+
+    ``PackFile`` stores the raw name bytes and ``find`` compares those.
+    ``PakEntry.name`` for a 96-byte pak is a GBK display decode, so the
+    match uses ``name_bytes`` (latin-1, one code unit per byte).
+    """
+    raw = getattr(entry, "name_bytes", b"") or b""
+    text = raw.decode("latin-1") if raw else (entry.name or "")
+    return text.replace("/", "\\")
+
+
+def _pak_tier_rank(kind: str) -> int:
+    """Default ``pak_tier_order``: PlayDH 92-byte, then original 96-byte.
+
+    ``FilesystemFileStorageOptions`` in ``FilesystemFileStorage.hpp``.
+    """
+    if kind == "92-byte":
+        return 0
+    if kind == "96-byte":
+        return 1
+    return 2
+
+
+def _mount_sort_key(rel: str, tier: int) -> tuple:
+    """Tier, then ``pak_filename_less`` on the relative path.
+
+    The client sorts ``filename().u8string()`` because it only mounts the
+    top of its root (``directory_iterator`` in ``Initialize``). Derive
+    mounts every pak under ``--source``, so the same comparison runs on
+    the relative path. For a single directory that path is the filename.
+    """
+    return (tier, _ascii_fold(rel), rel)
+
+
+def _can_read_file(path: Path) -> bool:
+    try:
+        with path.open("rb"):
+            return True
+    except OSError:
+        return False
 
 
 def _build_source_index(source: Path | None, pak: Path | None) -> tuple[_BlobIndex, dict]:
+    """Index loose files and every readable ``.pak`` under ``source``.
+
+    ``--pak`` is included even when it sits outside ``source``, and is not
+    mounted twice when it is also under ``source``. ``derivation.pak``
+    still describes only that ``--pak`` argument (path as passed,
+    offset-4 field, entries read to EOF). A Git LFS pointer passed as
+    ``--pak`` is refused. A pointer pak found under ``source`` is skipped.
+    """
     index = _BlobIndex()
     pak_info = {"path": str(pak) if pak else "", "headerEntries": None, "entriesReadToEof": None}
+    if pak is not None and is_lfs_pointer(pak):
+        raise ValueError(f"refusing to derive references from a Git LFS pointer: {pak}")
+
+    loose_paths: list[Path] = []
+    pak_paths: list[Path] = []
     if source and source.is_dir():
         for path in _iter_files(source):
+            if not path.is_file():
+                continue
             if path.suffix.casefold() == ".pak":
-                continue
-            if is_lfs_pointer(path):
-                continue
-            try:
-                data = path.read_bytes()
-            except OSError:
-                continue
-            index.add(path.name, data, path)
-    if pak:
-        if is_lfs_pointer(pak):
-            raise ValueError(f"refusing to derive references from a Git LFS pointer: {pak}")
-        read = _read_pak_entries(pak)
-        if read is not None:
-            header_count, entries = read
-            pak_info["headerEntries"] = header_count
+                pak_paths.append(path)
+            else:
+                loose_paths.append(path)
+    if pak is not None:
+        pak_paths.append(pak)
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for path in pak_paths:
+        try:
+            key = str(path.resolve())
+        except OSError:
+            key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(path)
+    unique.sort(key=lambda path: _mount_sort_key(_display_rel(path, source) or path.name, 0))
+
+    explicit_key = None
+    if pak is not None:
+        try:
+            explicit_key = str(pak.resolve())
+        except OSError:
+            explicit_key = str(pak)
+
+    mounted: list[_MountedPak] = []
+    for path in unique:
+        if is_lfs_pointer(path):
+            continue
+        read = _read_pak(path)
+        if read is None:
+            continue
+        kind, offset4, entries = read
+        rel = _display_rel(path, source) or path.name
+        try:
+            resolved = str(path.resolve())
+        except OSError:
+            resolved = str(path)
+        if explicit_key is not None and resolved == explicit_key:
+            pak_info["headerEntries"] = offset4
             pak_info["entriesReadToEof"] = len(entries)
-            for entry in entries:
-                index.add(entry.canonical_name, None, None)
-                index.add(entry.name, None, None)
-            # Keep entry objects so referenced containers can be loaded once.
-            pak_info["entries"] = entries
-            pak_info["pakPath"] = pak
+        by_name: dict = {}
+        for entry in entries:
+            # First entry in file order wins, including a zero-length one.
+            # find() returns that first eq_ci match; has_payload then rejects
+            # it and does not walk further entries of the same name.
+            match = _entry_match_name(entry)
+            by_name.setdefault(_ascii_fold(match), entry)
+            index.note_map(match)
+        mounted.append(_MountedPak(rel, path, _pak_tier_rank(kind), by_name))
+    mounted.sort(key=lambda item: _mount_sort_key(item.rel, item.tier))
+    index.packs = mounted
+
+    loose_files: list[_LooseFile] = []
+    for path in loose_paths:
+        if is_lfs_pointer(path) or not _can_read_file(path):
+            continue
+        rel = _display_rel(path, source)
+        if not rel:
+            continue
+        loose_files.append(_LooseFile(rel, path))
+    loose_files.sort(key=lambda item: (_ascii_fold(item.rel), item.rel))
+    for item in loose_files:
+        index.loose_by_fold.setdefault(_ascii_fold(item.rel), item)
+        index.note_map(item.rel)
+    index.loose = loose_files
     return index, pak_info
 
 
-def _load_named(index: _BlobIndex, pak_info: dict, name: str) -> bytes | None:
-    for stored, data, path in index.find(name):
-        if data is not None:
-            return data
-        if path is not None and path.is_file() and not is_lfs_pointer(path):
-            return path.read_bytes()
-    pak = pak_info.get("pakPath")
-    if not pak:
+def _load_named(index: _BlobIndex, _pak_info: dict, name: str) -> bytes | None:
+    """Bytes ``locate`` would open."""
+    hit = index.locate(name)
+    if hit is None:
         return None
-    wanted = _casefold_name(name)
-    for entry in pak_info.get("entries", []):
-        if _casefold_name(entry.canonical_name) == wanted or _casefold_name(entry.name) == wanted:
-            return _pak_bytes(pak, entry)
-    return None
+    if hit.entry is None:
+        try:
+            return hit.path.read_bytes()
+        except OSError:
+            return None
+    return _pak_bytes(hit.path, hit.entry)
 
 
-def _original_exists(index: _BlobIndex, name: str) -> bool:
-    return bool(index.find(name))
+def _original_hit(index: _BlobIndex, name: str) -> str:
+    """``loose:<rel>`` or ``pak:<rel>``, or ``""`` when ``locate`` misses.
+
+    Relative to ``--source``, forward slashes, no absolute path. The v1
+    reference object had no field for the satisfying path; ``originalHit``
+    is that record and is documented on ``derive``. ``check`` does not read
+    it. ``originalExists`` is true exactly when this string is non-empty.
+    """
+    hit = index.locate(name)
+    return "" if hit is None else hit.label
 
 
 OBFUSCATED_MAP_REASON = "obfuscated-map"
@@ -639,6 +849,12 @@ def derive(source: Path | None, pak: Path | None = None,
     version, the --pak SHA-256 and each decoded original .map SHA-256 are
     recorded. References from decoded maps carry ``derivedBy:
     "local-decoder"``.
+
+    Each reference carries ``originalHit``. ``""`` means the client lookup
+    missed. ``loose:<path>`` is a loose file and ``pak:<path>`` is a pak,
+    both relative to ``--source`` (or the pak filename when ``--pak`` is
+    outside ``--source``), forward slashes, no timestamp. The referenced
+    extension is not rewritten to another extension.
     """
     if local_decoder is not None and pak is None:
         raise LocalDecoderError(
@@ -652,8 +868,7 @@ def derive(source: Path | None, pak: Path | None = None,
     consumed: set[str] = set()
     decoded_maps: list[dict] = []
 
-    map_names = [name for name in index.by_base if name.endswith(".map")]
-    for map_name in sorted(map_names):
+    for map_name in sorted(index.map_names):
         data = _load_named(index, pak_info, map_name)
         if data is None:
             unparsed.append({"name": map_name, "reason": "map bytes unavailable"})
@@ -776,11 +991,13 @@ def _absorb(references: list[dict], excluded: list[dict], refs: list[dict],
     for ref in refs:
         key = _casefold_name(ref["name"])
         kind = excluded_resource(ref["name"])
+        hit = _original_hit(index, ref["name"])
         row = {
             "name": ref["name"],
             "via": via,
             "section": ref["section"],
-            "originalExists": _original_exists(index, ref["name"]),
+            "originalExists": hit != "",
+            "originalHit": hit,
         }
         if derived_by:
             row["derivedBy"] = derived_by
@@ -931,10 +1148,12 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
        ``caseMismatch`` (severity minor; Windows matching is case-insensitive);
     3. the basename itself is an LFS pointer file -> ``noConclusion``;
     4. one or more .pak files under root are LFS pointers -> ``pakLfsPointer``
-       (reason ``pak-lfs-pointer``). There is no reliable ref-to-pak mapping
-       (the manifest does not record the containing pak, and the same name
-       family is spread across Map/Character/Effect/monster), so ANY
-       unresolved reference is treated as possibly inside ANY pointer pak.
+       (reason ``pak-lfs-pointer``). ``originalHit`` records which original
+       archive satisfied the name at derive time. It is not a checkout
+       path, so there is still no reliable reference-to-checkout-pak
+       mapping (the same name family is spread across Map/Character/Effect/
+       monster). ANY unresolved reference is treated as possibly inside ANY
+       pointer pak.
        No conclusion: neither missing nor present. If unreadable paks also
        exist, the row stays in ``pakLfsPointer`` and lists both sets
        (``paks`` and ``unreadablePaks``) so neither is hidden;
@@ -1164,7 +1383,11 @@ def check_index(manifest: dict, index: _CheckoutIndex, strict: bool = False,
             "ttb": [f"{number}.ttb" for number in NOT_REFERENCED_TTB],
         },
         "where": {
-            "derive": "ROG, against the original .map/.stm/.hfl files and D:/MX/client/Package/3DData/Map.pak",
+            "derive": (
+                "ROG, loose files and every .pak under D:/MX, "
+                "including D:/MX/client/Package/3DData/Map.pak; "
+                "write the manifest outside the repo"
+            ),
             "check": "CI and local checkouts, against the checked-in manifest only",
         },
     }
@@ -1337,8 +1560,13 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     derive_parser = sub.add_parser("derive", help="run on ROG; write the name manifest")
-    derive_parser.add_argument("--source", type=Path, help="directory of original .map/.stm/.hfl files")
-    derive_parser.add_argument("--pak", type=Path, help="original Map.pak (read to EOF, not the 4192-entry worktree pak)")
+    derive_parser.add_argument(
+        "--source", type=Path,
+        help="original client root (ROG: D:/MX). Loose files and every .pak under it are indexed")
+    derive_parser.add_argument(
+        "--pak", type=Path,
+        help="original Map.pak (read to EOF, not the 4192-entry worktree pak); "
+             "also indexed when it is not already under --source, and its header counts are recorded")
     derive_parser.add_argument("--output", type=Path, required=True)
     derive_parser.add_argument(
         "--local-decoder", type=Path, default=None,

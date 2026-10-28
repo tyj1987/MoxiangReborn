@@ -77,12 +77,37 @@ and writes only names to
 `reference/manifests/original-resource-references.json`. CI does not have
 those originals and must not invent `N.hfl` / `N.ttb` from map numbers.
 
+`originalExists` looks at every loose file under `--source` and every
+regular `.pak` under that root (nested archives included), plus `--pak`
+when that file is not already under `--source`.
+Matching follows the client: loose relative path first, then paks in mount
+order (PlayDH 92-byte, then original 96-byte, then `pak_filename_less` on
+the path relative to `--source`), full name then basename, ASCII
+case-insensitive (`pack_file.cpp` `eq_ci`,
+`filesystem_file_storage.cpp` `locate`). The client mounts only the top of
+its own root; derive walks the whole `--source` tree because the ROG root
+is `D:\MX`. Extensions are not rewritten. Render code maps `.tga` to `.dds`
+in more than one place (`texture_loader.cpp` `compiledTextureName`,
+`terrain_scene.cpp`, `static_scene.cpp`, `entity_scene.cpp`); those are not
+the storage lookup, so a `.tga` reference hits only a `.tga` entry.
+`originalHit` records the relative loose or pak path that satisfied the
+hit (`loose:<path>` or `pak:<path>`, forward slashes, empty when missed).
+`derivation.pak.path` is still the `--pak` string that was passed.
+`check` ignores `originalHit`.
+
+Re-derive on ROG. Write the manifest outside the repo. Do not commit it
+from this tree; the checked-in manifest is replaced only after that run.
+
 ```bash
 python3 modern/tools/resource_reference_gate.py derive \
-    --source <original 3DData directory> \
+    --source D:/MX \
     --pak D:/MX/client/Package/3DData/Map.pak \
-    --output reference/manifests/original-resource-references.json
+    --output D:/MX-audit/original-resource-references.json
 ```
+
+Obfuscated maps still need the local decoder, which stays outside the repo:
+add `--local-decoder <plugin.py outside the repo>` (or set
+`MXH_LOCAL_MAP_DECODER`). The command above is the scope and output path.
 
 `check` runs in CI against that manifest. It exits 0 and prints warnings.
 The single switch that later makes a non-clean conclusion fail the process
