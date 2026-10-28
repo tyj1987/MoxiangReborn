@@ -299,8 +299,11 @@ jobs:
 
       - name: Run MxhResourceReference ctest
         run: |
-          set -euo pipefail
+          # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
+          # so ctest runs under bash and a failing ctest still fails the step.
+          bash -euo pipefail <<'EOF'
           ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
+          EOF
 
       - name: Require PlayDH reference tests passed
         if: always()
