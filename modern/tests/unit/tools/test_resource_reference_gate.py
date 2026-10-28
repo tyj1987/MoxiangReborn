@@ -886,10 +886,8 @@ class OriginalExistsScopeTests(unittest.TestCase):
             self.assertEqual(rows["empty.tga"]["via"], "0.map")
             self.assertFalse(rows["shadow.tga"]["originalExists"])
 
-            index, info = gate._build_source_index(source, source / "Map.pak")
+            index = gate._build_exists_index(source)
             self.assertEqual([pack.rel for pack in index.packs], ["Map.pak", "packs/Character.pak"])
-            self.assertEqual(info["headerEntries"], 0)
-            self.assertEqual(info["entriesReadToEof"], 1)
             self.assertEqual(index.locate("decoy.tga").label, "pak:Map.pak")
             self.assertIsNone(index.locate("hidden.tga"))
             self.assertIsNone(index.locate("other/hidden.tga"))
@@ -961,6 +959,136 @@ class OriginalExistsScopeTests(unittest.TestCase):
             tier = next(ref for ref in manifest["references"] if ref["name"] == "tier.tga")
             self.assertEqual(tier["originalHit"], "pak:z_playdh.pak")
             self.assertTrue(tier["originalExists"])
+
+    def test_client_root_relative_loose_and_outside_miss_and_maps_stay_put(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            server = root / "server"
+            (client / "Resource" / "Map").mkdir(parents=True)
+            server.mkdir()
+            (client / "0.map").write_text("\n".join([
+                "GX_MAP",
+                "GX_OBJECT",
+                "Resource/Map/wall.tga",
+                "only-server.tga",
+                "server/hero.mod",
+            ]), encoding="latin-1")
+            (client / "Resource" / "Map" / "wall.tga").write_bytes(b"wall")
+            (server / "hero.mod").write_bytes(b"mod")
+            (server / "Server.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("only-server.tga", b"nope"),
+                ("sneak.map", b"GX_MAP\nHEIGHT_FIELD\nsneak.hfl\n"),
+            ]))
+            (client / "Other.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("sneak.map", b"GX_MAP\nHEIGHT_FIELD\nsneak.hfl\n"),
+            ]))
+            manifest = gate.derive(root, None, client_root=client)
+            rows = {ref["name"]: ref for ref in manifest["references"]}
+            self.assertEqual(rows["Resource/Map/wall.tga"]["originalHit"], "loose:Resource/Map/wall.tga")
+            self.assertTrue(rows["Resource/Map/wall.tga"]["originalExists"])
+            self.assertFalse(rows["only-server.tga"]["originalExists"])
+            self.assertEqual(rows["only-server.tga"]["originalHit"], "")
+            self.assertFalse(rows["server/hero.mod"]["originalExists"])
+            self.assertEqual(manifest["derivation"]["parsedMapCount"], 1)
+            self.assertNotIn("sneak.hfl", rows)
+            self.assertNotIn("sneak.map", {item["name"] for item in manifest["derivation"]["unparsed"]})
+            parse_index, _info = gate._build_parse_index(root, None)
+            maps = {name for name in parse_index.by_base if name.endswith(".map")}
+            self.assertEqual(maps, {"0.map"})
+            exists = gate._build_exists_index(client)
+            self.assertEqual([pack.rel for pack in exists.packs], ["Other.pak"])
+            self.assertIsNone(exists.locate("only-server.tga"))
+
+
+class TrimAndCompareTests(unittest.TestCase):
+    def _pair(self, *, via="1.map", exists=True):
+        return {
+            "schema": gate.MANIFEST_SCHEMA,
+            "derivation": {
+                "status": "complete",
+                "parsedMapCount": 1,
+                "decodedMapsIgnored": False,
+            },
+            "references": [
+                {
+                    "name": "a.tga",
+                    "via": via,
+                    "section": "GX_OBJECT",
+                    "originalExists": exists,
+                    "originalHit": "loose:a.tga" if exists else "",
+                },
+                {
+                    "name": "tile_17_mou_a_01.tga",
+                    "via": "17.map",
+                    "section": "hfl-used-texture",
+                    "originalExists": False,
+                    "originalHit": "",
+                },
+            ],
+            "knownReferencedNoOriginalFile": [],
+        }
+
+    def test_trim_drops_decoder_node_and_path(self):
+        document = self._pair()
+        document["derivation"]["localDecoder"] = {
+            "version": "synthetic",
+            "decodedMaps": [{"name": "1.map", "sha256": "ab"}],
+        }
+        document["derivation"]["decoderPath"] = r"D:\secret\local_decoder.py"
+        trimmed = gate.trim_manifest(document)
+        blob = json.dumps(trimmed)
+        self.assertNotIn("localDecoder", blob)
+        self.assertNotIn("local_decoder.py", blob)
+        self.assertNotIn("secret", blob)
+        self.assertEqual(trimmed["references"][0]["originalHit"], "loose:a.tga")
+        self.assertEqual(manifest_text(trimmed), manifest_text(gate.trim_manifest(trimmed)))
+
+    def test_compare_reports_hit_fields_separately_from_other_diffs(self):
+        old = self._pair(exists=True)
+        new = self._pair(exists=False)
+        new["references"][0]["originalHit"] = ""
+        text = gate.compare_manifest_report(old, new)
+        self.assertIn("OTHER_FIELD_DIFFS 0\n", text)
+        self.assertIn("PARSED_MAP_COUNT old=1 new=1\n", text)
+        self.assertIn("DECODED_MAPS_EQUAL\n", text)
+        self.assertIn("FALSE_BY_EXTENSION tga 2\n", text)
+        self.assertIn("FALSE_BY_HIT none 2\n", text)
+        self.assertIn("FALSE_BY_VIA 1.map 1\n", text)
+        self.assertIn("FALSE_BY_VIA 17.map 1\n", text)
+        self.assertIn("TILE tile_17_mou_a_01.tga false\n", text)
+        self.assertIn("TILE tile_17_mou_a_09.tga absent\n", text)
+        self.assertNotIn("sha256", text)
+        self.assertNotIn("payload", text)
+
+        changed = self._pair(via="other.map", exists=False)
+        diff = gate.compare_manifest_report(old, changed)
+        self.assertIn("OTHER_FIELD references[0].via\n", diff)
+        self.assertNotIn("OTHER_FIELD_DIFFS 0\n", diff)
+
+        old_maps = self._pair()
+        new_maps = self._pair()
+        old_maps["derivation"]["localDecoder"] = {"decodedMaps": [{"name": "1.map"}, {"name": "2.map"}]}
+        new_maps["derivation"]["localDecoder"] = {"decodedMaps": [{"name": "2.map"}, {"name": "3.map"}]}
+        listed = gate.compare_manifest_report(old_maps, new_maps)
+        self.assertIn("DECODED_MAPS_ONLY_OLD 1.map\n", listed)
+        self.assertIn("DECODED_MAPS_ONLY_NEW 3.map\n", listed)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old_path = root / "old.json"
+            new_path = root / "new.json"
+            trimmed_path = root / "trimmed.json"
+            old_path.write_text(manifest_text(old), encoding="utf-8")
+            new_path.write_text(manifest_text(new), encoding="utf-8")
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                code = gate.main(["compare-manifests", str(old_path), str(new_path)])
+            self.assertEqual(code, 0)
+            self.assertIn("OTHER_FIELD_DIFFS 0\n", stdout.getvalue())
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(gate.main(["trim", "--input", str(new_path), "--output", str(trimmed_path)]), 0)
+            self.assertNotIn("localDecoder", trimmed_path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

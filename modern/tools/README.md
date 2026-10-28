@@ -77,37 +77,71 @@ and writes only names to
 `reference/manifests/original-resource-references.json`. CI does not have
 those originals and must not invent `N.hfl` / `N.ttb` from map numbers.
 
-`originalExists` looks at every loose file under `--source` and every
-regular `.pak` under that root (nested archives included), plus `--pak`
-when that file is not already under `--source`.
+`originalExists` looks only under `--client-root`. Loose files are keyed by
+their path relative to that root (`Resource/Map/x.hfl`, not
+`client/Resource/Map/x.hfl`). Every regular `.pak` under that root is
+mounted. Files under `server/`, `src/`, or `database/` do not count.
 Matching follows the client: loose relative path first, then paks in mount
 order (PlayDH 92-byte, then original 96-byte, then `pak_filename_less` on
-the path relative to `--source`), full name then basename, ASCII
+the path relative to `--client-root`), full name then basename, ASCII
 case-insensitive (`pack_file.cpp` `eq_ci`,
-`filesystem_file_storage.cpp` `locate`). The client mounts only the top of
-its own root; derive walks the whole `--source` tree because the ROG root
-is `D:\MX`. Extensions are not rewritten. Render code maps `.tga` to `.dds`
-in more than one place (`texture_loader.cpp` `compiledTextureName`,
-`terrain_scene.cpp`, `static_scene.cpp`, `entity_scene.cpp`); those are not
-the storage lookup, so a `.tga` reference hits only a `.tga` entry.
-`originalHit` records the relative loose or pak path that satisfied the
-hit (`loose:<path>` or `pak:<path>`, forward slashes, empty when missed).
-`derivation.pak.path` is still the `--pak` string that was passed.
+`filesystem_file_storage.cpp` `locate`). Extensions are not rewritten.
+Render code maps `.tga` to `.dds` in more than one place
+(`texture_loader.cpp` `compiledTextureName`, `terrain_scene.cpp`,
+`static_scene.cpp`, `entity_scene.cpp`); those are not the storage lookup,
+so a `.tga` reference hits only a `.tga` entry.
+`originalHit` records the client-relative loose or pak path
+(`loose:<path>` or `pak:<path>`, forward slashes, empty when missed).
 `check` ignores `originalHit`.
 
-Re-derive on ROG. Write the manifest outside the repo. Do not commit it
-from this tree; the checked-in manifest is replaced only after that run.
+Which maps are parsed is unchanged: casefolded basenames of loose files
+under `--source`, plus basenames of entries in `--pak`. A `.map` that
+exists only in some other pak is not parsed. `parsedMapCount` and
+`decodedMaps` therefore stay on that older set.
+
+`derive` still writes `derivation.localDecoder` when a plugin is loaded, so
+`check --pak` can verify it. `trim` removes that node and any `.py` decoder
+path. Hash and commit the trimmed file. Do not commit the checked-in
+manifest from this change.
+
+On ROG only `D:\build-mxr` is writable. Copy the existing local decoder
+plugin (it is not in the repo) to
+`D:\build-mxr\tyj165\local_decoder.py`, then:
 
 ```bash
 python3 modern/tools/resource_reference_gate.py derive \
-    --source D:/MX \
+    --source D:/MX/client/Package/3DData \
+    --client-root D:/MX/client \
     --pak D:/MX/client/Package/3DData/Map.pak \
-    --output D:/MX-audit/original-resource-references.json
+    --local-decoder D:/build-mxr/tyj165/local_decoder.py \
+    --output D:/build-mxr/tyj165/derive-a.json
+
+python3 modern/tools/resource_reference_gate.py derive \
+    --source D:/MX/client/Package/3DData \
+    --client-root D:/MX/client \
+    --pak D:/MX/client/Package/3DData/Map.pak \
+    --local-decoder D:/build-mxr/tyj165/local_decoder.py \
+    --output D:/build-mxr/tyj165/derive-b.json
+
+python3 modern/tools/resource_reference_gate.py trim \
+    --input D:/build-mxr/tyj165/derive-a.json \
+    --output D:/build-mxr/tyj165/derive-a.trimmed.json
+
+python3 modern/tools/resource_reference_gate.py trim \
+    --input D:/build-mxr/tyj165/derive-b.json \
+    --output D:/build-mxr/tyj165/derive-b.trimmed.json
 ```
 
-Obfuscated maps still need the local decoder, which stays outside the repo:
-add `--local-decoder <plugin.py outside the repo>` (or set
-`MXH_LOCAL_MAP_DECODER`). The command above is the scope and output path.
+`Get-FileHash -Algorithm SHA256` on the two trimmed files must match.
+Then compare the untrimmed derive (it still has `decodedMaps`) to the
+checked-in manifest. `OTHER_FIELD_DIFFS` counts every field except
+`originalExists` and `originalHit`. The report is names and counts only.
+
+```bash
+python3 modern/tools/resource_reference_gate.py compare-manifests \
+    reference/manifests/original-resource-references.json \
+    D:/build-mxr/tyj165/derive-a.json
+```
 
 `check` runs in CI against that manifest. It exits 0 and prints warnings.
 The single switch that later makes a non-clean conclusion fail the process
