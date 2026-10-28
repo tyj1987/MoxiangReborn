@@ -54,6 +54,18 @@
 # - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
 # - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
 #   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
+#
+# cxx_resource_reference_linux
+# - 与 GitLab job cxx_resource_reference_linux 同步。image 含 digest，命令相同。
+#   checkout 与 rog_gate_self_test 逐字相同。不设置 MXH_PLAYDH_ROOT。
+# - These two tests compare 16 + 3 committed PlayDH files (size + sha256, arrays in
+#   modern/tests/unit/compat/resource_reference_test.cpp) under
+#   modern/data/PlayDH/Resource. They read no LFS .pak (only
+#   Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
+# - TODO: the synthetic-fixture TEST coming after #65 will be added to the
+#   required-Passed list.
+# - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
+#   其他 job 在这些路径上一起触发。GitLab 不把这些路径并进 python_tooling_changes。
 
 name: original_governance_and_python_tests
 
@@ -80,6 +92,10 @@ on:
       - .gitlab-ci.yml
       - .github/workflows/python-tools.yml
       - reference/manifests/**
+      - modern/CMakeLists.txt
+      - modern/tests/**
+      - modern/third_party/googletest-src/**
+      - modern/data/PlayDH/Resource/**
   push:
     branches: [codex/reorg-original-20261009]
 
@@ -231,3 +247,84 @@ jobs:
           pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
           pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
           pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+
+  cxx_resource_reference_linux:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: Install build tools
+        run: |
+          set -eu
+          if [ "$(id -u)" -eq 0 ]; then
+            apt_get() { DEBIAN_FRONTEND=noninteractive apt-get "$@"; }
+          else
+            apt_get() { sudo DEBIAN_FRONTEND=noninteractive apt-get "$@"; }
+          fi
+          apt_get update
+          apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
+
+      - name: Configure and build mxh_resource_reference_tests
+        run: |
+          set -eu
+          cmake --version
+          cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --target mxh_resource_reference_tests
+
+      - name: Run MxhResourceReference ctest
+        run: |
+          set -euo pipefail
+          ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
+
+      - name: Require PlayDH reference tests passed
+        if: always()
+        run: |
+          set -eu
+          test -s ctest.log
+          require_passed() {
+            name="$1"
+            if grep -F "$name" ctest.log | grep -Eq 'Skipped|Not Run'; then
+              echo "CXX_RESOURCE_REFERENCE REQUIRED NOT PASSED ${name}" >&2
+              return 1
+            fi
+            if grep -F "$name" ctest.log | grep -Eq '(^|[[:space:]])Passed([[:space:]]|$)'; then
+              echo "CXX_RESOURCE_REFERENCE REQUIRED PASSED ${name}"
+              return 0
+            fi
+            echo "CXX_RESOURCE_REFERENCE REQUIRED NOT PASSED ${name}" >&2
+            return 1
+          }
+          status=0
+          require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
+          require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
+          if ! grep -F '0 tests failed' ctest.log >/dev/null; then
+            echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
+            status=1
+          fi
+          exit "$status"
