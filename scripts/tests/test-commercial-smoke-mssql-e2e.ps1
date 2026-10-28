@@ -268,7 +268,7 @@ log="$0.invoked"
 printf '%s\n' "$@" > "$log"
 /bin/sleep 60 &
 echo $! > "$0.children"
-sleep 1
+sleep 2
 code=0
 codefile="$0.exitcode"
 if [ -f "$codefile" ]; then
@@ -1085,6 +1085,16 @@ try {
         Assert-True ($null -ne $decoyIdentity) 'decoy sleeper identity was not recorded'
         Assert-True ($ownedProc.ProcessName -eq 'mxh_map_server_CHINA') "owned process name was [$($ownedProc.ProcessName)]"
         Assert-True ($decoyProc.ProcessName -eq 'mxh_login_server') "decoy process name was [$($decoyProc.ProcessName)]"
+        $childIds = @(Get-CommercialSmokeChildProcessIds -ParentId $PID)
+        Assert-True ($childIds -contains [int]$ownedIdentity.Id) "child discovery missed owned pid $($ownedIdentity.Id); found [$($childIds -join ',')]"
+        Assert-True ($childIds -contains [int]$decoyIdentity.Id) "child discovery missed decoy pid $($decoyIdentity.Id); found [$($childIds -join ',')]"
+        if (-not $IsWindows) {
+            $statIds = New-Object System.Collections.Generic.List[int]
+            Add-CommercialSmokeProcStatChildren -ParentId $PID -Ids $statIds
+            $statFound = @($statIds)
+            Assert-True ($statFound -contains [int]$ownedIdentity.Id) "status PPid scan missed owned pid $($ownedIdentity.Id); found [$($statFound -join ',')]"
+            Assert-True ($statFound -contains [int]$decoyIdentity.Id) "status PPid scan missed decoy pid $($decoyIdentity.Id); found [$($statFound -join ',')]"
+        }
         Stop-CommercialSmokeOwnedProcess -ProcessId $decoyIdentity.Id -StartTicks ([int64]1)
         Stop-CommercialSmokeOwnedProcesses -Owned @([pscustomobject]@{ Id = $ownedIdentity.Id; StartTicks = ([int64]1) })
         Assert-True (Test-PidStillRunning -ProcessId $ownedIdentity.Id) 'wrong StartTime must not stop the owned PID'
@@ -1136,7 +1146,14 @@ try {
         Assert-True (Test-Path -LiteralPath $childLog) 'E2E stub did not record the child it started'
         $childRaw = [IO.File]::ReadAllText($childLog).Trim()
         Assert-True ([int]::TryParse($childRaw, [ref]$pathChildPid) -and $pathChildPid -gt 0) "child PID text was [$childRaw]"
-        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running"
+        $childPpid = ''
+        $statusPath = '/proc/' + $pathChildPid + '/status'
+        if (Test-Path -LiteralPath $statusPath) {
+            foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                if ($line.StartsWith('PPid:')) { $childPpid = $line.Substring(5).Trim(); break }
+            }
+        }
+        Assert-True (-not (Test-PidStillRunning -ProcessId $pathChildPid)) "cleanup left the E2E child $pathChildPid running (ppid=$childPpid)"
         Assert-True (Test-PidStillRunning -ProcessId $pathDecoy.Id) 'MSSQL E2E cleanup stopped an unrelated mxh_login_server decoy'
     } finally {
         Stop-TestProcess -Process $pathDecoy

@@ -393,11 +393,10 @@ function Get-CommercialSmokeOwnedIdentity {
     $id = 0
     try { $id = [int]$Process.Id } catch { return $null }
     if ($id -le 0) { return $null }
-    try {
-        if ([bool]$Process.HasExited) { return $null }
-    } catch {
-        return $null
-    }
+    try { $Process.Refresh() } catch { }
+    $exited = $false
+    try { $exited = [bool]$Process.HasExited } catch { $exited = $false }
+    if ($exited) { return $null }
     $started = $null
     try { $started = $Process.StartTime } catch { return $null }
     if ($null -eq $started) { return $null }
@@ -430,23 +429,28 @@ function Add-CommercialSmokeProcStatChildren {
         [int]$ParentId,
         $Ids
     )
+    # /proc/<pid>/status PPid does not need ptrace. The children file can
+    # exist and still be empty when ptrace is restricted.
     $procRoot = '/proc'
     if (-not (Test-Path -LiteralPath $procRoot)) { return }
     foreach ($entry in @(Get-ChildItem -LiteralPath $procRoot -Directory -ErrorAction SilentlyContinue)) {
         $childId = 0
         if (-not [int]::TryParse($entry.Name, [ref]$childId)) { continue }
-        if ($childId -le 0) { continue }
-        $statPath = Join-Path $entry.FullName 'stat'
-        $stat = ''
-        try { $stat = [IO.File]::ReadAllText($statPath) } catch { continue }
-        $close = $stat.LastIndexOf(')')
-        if ($close -lt 0 -or ($close + 2) -ge $stat.Length) { continue }
-        $rest = $stat.Substring($close + 2).Trim()
-        $fields = @($rest -split '\s+')
-        if ($fields.Count -lt 2) { continue }
-        $ppid = 0
-        if (-not [int]::TryParse([string]$fields[1], [ref]$ppid)) { continue }
-        if ($ppid -eq $ParentId) { $null = $Ids.Add($childId) }
+        if ($childId -le 0 -or $childId -eq $ParentId) { continue }
+        $statusPath = Join-Path $entry.FullName 'status'
+        $matched = $false
+        try {
+            foreach ($line in [IO.File]::ReadLines($statusPath)) {
+                if (-not $line.StartsWith('PPid:')) { continue }
+                $ppid = 0
+                $value = $line.Substring(5).Trim()
+                if ([int]::TryParse($value, [ref]$ppid) -and $ppid -eq $ParentId) {
+                    $matched = $true
+                }
+                break
+            }
+        } catch { continue }
+        if ($matched) { $null = $Ids.Add($childId) }
     }
 }
 
@@ -465,9 +469,7 @@ function Get-CommercialSmokeChildProcessIds {
             }
         } else {
             $childFile = '/proc/' + $ParentId + '/task/' + $ParentId + '/children'
-            $parsed = $false
             if (Test-Path -LiteralPath $childFile) {
-                $parsed = $true
                 $text = ''
                 try { $text = [IO.File]::ReadAllText($childFile) } catch { $text = '' }
                 foreach ($part in @($text -split '\s+')) {
@@ -478,7 +480,7 @@ function Get-CommercialSmokeChildProcessIds {
                     }
                 }
             }
-            if (-not $parsed) {
+            if ($ids.Count -eq 0) {
                 Add-CommercialSmokeProcStatChildren -ParentId $ParentId -Ids $ids
             }
         }
@@ -523,16 +525,16 @@ function Stop-CommercialSmokeOwnedProcess {
     try {
         $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
         if ($null -eq $live) { return }
-        try { $live.Refresh() } catch { return }
-        try {
-            if ([bool]$live.HasExited) { return }
-        } catch {
-            return
-        }
+        try { $live.Refresh() } catch { }
+        $exited = $false
+        try { $exited = [bool]$live.HasExited } catch { $exited = $false }
+        if ($exited) { return }
         $liveTicks = [int64]0
         try { $liveTicks = [int64]$live.StartTime.ToUniversalTime().Ticks } catch { return }
         if ($liveTicks -ne $StartTicks) { return }
-        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        try { $live.Kill() } catch {
+            Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        }
     } catch {
         # Already exited, or the PID was reused between the checks above.
     }
