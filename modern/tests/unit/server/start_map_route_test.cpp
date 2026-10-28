@@ -344,3 +344,101 @@ TEST(StartAreaRoute, Level1StarterGearDamagesMap17MonsterAfterShield) {
                                            << " attack=" << attacker.phy_attack_min
                                            << "-" << attacker.phy_attack_max;
 }
+
+// TYJ-156 Map10 half. Numbers are the published 2026-10-15 fresh-starter
+// observation (life 6150, post-hit shield 2291, defense 541), not bytes from
+// MonsterList.bin or a .pak. The sword matches the synthetic template in
+// PlayerEquipmentStats, which rebuilds to the same 29-35 starter range.
+TEST(Map10FirstCombat, Level1StarterHitShouldReduceLifeAndKillThroughShield) {
+    mxh::game::ItemInfo sword;
+    sword.ItemIdx = 11000;
+    sword.ItemKind = 2049;
+    sword.EquipKind = mxh::game::WEARED_WEAPON;
+    sword.WeaponType = 1;
+    sword.MeleeAttackMin = 13;
+    sword.MeleeAttackMax = 17;
+    sword.LimitLevel = 1;
+    const auto lookup = [&](std::uint16_t id, mxh::game::ItemInfo& out) {
+        if (id != sword.ItemIdx) return false;
+        out = sword;
+        return true;
+    };
+    mxh::server::CalcBaseStats base;
+    base.gengol = base.minchub = base.cheryuk = base.simmek = 12;
+    auto state = mxh::server::make_player_state(1, 1, 1, base, {});
+    state.equipment.items[mxh::game::WEARED_WEAPON] = mxh::game::make_item(
+        101u, sword.ItemIdx, mxh::game::TP_WEAREDITEM_START + mxh::game::WEARED_WEAPON);
+    mxh::game::PlayerCombatStats attacker;
+    ASSERT_TRUE(mxh::server::rebuild_equipment_stats(state, attacker, lookup));
+    EXPECT_EQ(attacker.phy_attack_min, 29u);
+    EXPECT_EQ(attacker.phy_attack_max, 35u);
+    attacker.level = 1;
+    attacker.critical_rate = 0;
+    attacker.dodge_rate = 0;
+
+    constexpr std::uint32_t kMap10Life = 6150u;
+    constexpr std::uint32_t kMap10Shield = 2291u;
+    constexpr std::uint16_t kMap10Defense = 541u;
+    mxh::game::PlayerCombatStats monster_stats;
+    monster_stats.level = 1;
+    monster_stats.phy_defence = kMap10Defense;
+    monster_stats.dodge_rate = 0;
+    mxh::game::SkillInfo skill{};
+
+    QuietDb db;
+    mxh::server::MapHandler map(db, 10, [](mxh::net::ConnectionId, const mxh::net::Message&) {});
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 50143u;
+    monster.monster_kind = 102u;
+    monster.map_num = 10;
+    monster.level = 1;
+    monster.max_life = monster.current_life = kMap10Life;
+    monster.max_shield = monster.current_shield = kMap10Shield;
+    monster.defense = kMap10Defense;
+    ASSERT_TRUE(map.add_monster_instance(monster));
+
+    std::mt19937 rng(156u);
+    const auto rolled = mxh::server::skill_caster_calculate_monster_damage(
+        attacker, monster_stats, skill, rng);
+    ASSERT_GT(rolled.damage, 0);
+    ASSERT_LT(static_cast<std::uint32_t>(rolled.damage), kMap10Shield);
+    (void)map.apply_monster_damage(1u, monster.object_id,
+        static_cast<std::uint32_t>(rolled.damage), 0u);
+    const auto after = map.monster_vitals_for_test(monster.object_id);
+    ASSERT_TRUE(after);
+    EXPECT_LT(after->shield, kMap10Shield)
+        << "rolled damage " << rolled.damage << " was not applied";
+    // Original KR AttackManager keeps a post-shield remainder on life
+    // (minimum 1) on the same hit. Shield-first absorption leaves life full.
+    EXPECT_LT(after->life, kMap10Life)
+        << "life damage was not applied; rolled=" << rolled.damage
+        << " life=" << after->life << " shield=" << after->shield
+        << " dead=" << after->dead;
+
+    mxh::game::MonsterInstance fragile = monster;
+    fragile.object_id = 50144u;
+    fragile.max_life = fragile.current_life = 8u;
+    fragile.max_shield = fragile.current_shield = kMap10Shield;
+    fragile.is_dead = false;
+    ASSERT_TRUE(map.add_monster_instance(fragile));
+    bool killed = false;
+    std::uint32_t last_life = fragile.current_life;
+    std::uint32_t last_shield = fragile.current_shield;
+    std::int32_t last_roll = 0;
+    for (int hit = 0; hit < 30 && !killed; ++hit) {
+        const auto blow = mxh::server::skill_caster_calculate_monster_damage(
+            attacker, monster_stats, skill, rng);
+        last_roll = blow.damage;
+        ASSERT_GT(blow.damage, 0) << "hit=" << hit;
+        (void)map.apply_monster_damage(1u, fragile.object_id,
+            static_cast<std::uint32_t>(blow.damage), static_cast<std::uint32_t>(hit));
+        const auto now = map.monster_vitals_for_test(fragile.object_id);
+        ASSERT_TRUE(now);
+        last_life = now->life;
+        last_shield = now->shield;
+        killed = now->dead || now->life == 0u;
+    }
+    EXPECT_TRUE(killed)
+        << "kill was not triggered after 30 hits; last roll=" << last_roll
+        << " life=" << last_life << " shield=" << last_shield;
+}

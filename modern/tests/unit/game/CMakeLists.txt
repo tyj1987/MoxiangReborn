@@ -29,6 +29,27 @@ endif()
 include(GoogleTest)
 gtest_add_tests(TARGET mxh_game_tests)
 
+# Linux-buildable half of the TYJ-156 Map10 repro. mxh_server (MapHandler)
+# does not compile on Linux: crypto.cpp includes windows.h and the net
+# library is IOCP. This target links the damage formula plus the same
+# shield-before-life step MapHandler::apply_monster_damage uses.
+add_executable(mxh_map10_first_combat_tests
+    map10_first_combat_damage_test.cpp
+    ${CMAKE_SOURCE_DIR}/src/server/skill_caster.cpp
+)
+target_include_directories(mxh_map10_first_combat_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(mxh_map10_first_combat_tests
+    PRIVATE
+    mxh_game
+    gtest_main
+)
+if(MSVC)
+    target_compile_options(mxh_map10_first_combat_tests PRIVATE /W3 /utf-8)
+endif()
+gtest_add_tests(TARGET mxh_map10_first_combat_tests)
+
 
 
 add_executable(mxh_attack_calc_tests
