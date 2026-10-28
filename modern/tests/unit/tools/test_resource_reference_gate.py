@@ -170,6 +170,40 @@ class ResourceReferenceGateTests(unittest.TestCase):
             self.assertTrue(wall["name"].endswith(".TGA"))
             mou = next(ref for ref in manifest["references"] if ref["name"] == "tile_17_mou_a_01.tga")
             self.assertFalse(mou["originalExists"])
+            # None of the recorded-absent names are files here. The guard
+            # must leave this manifest byte-identical to the pre-guard derive.
+            self.assertEqual(set(manifest), {
+                "schema",
+                "derivation",
+                "references",
+                "excludedNotReferenced",
+                "notReferencedByOriginal",
+                "knownReferencedNoOriginalFile",
+            })
+            self.assertEqual(
+                manifest["knownReferencedNoOriginalFile"], list(gate.KNOWN_NO_ORIGINAL))
+            index = gate._build_exists_index(source)
+            self.assertEqual(gate._dds_stem_name("tile_17_mou_a_03.tga"), "tile_17_mou_a_03.dds")
+            self.assertEqual(gate._dds_stem_name("Monster_203.bin"), "Monster_203.dds")
+            self.assertEqual(gate._dds_stem_name("test4"), "test4.dds")
+            for name in gate.KNOWN_NO_ORIGINAL:
+                self.assertIsNone(index.locate(name), name)
+                dds = gate._dds_stem_name(name)
+                self.assertNotEqual(gate._ascii_fold(dds), gate._ascii_fold(name))
+                self.assertIsNone(index.locate(dds), dds)
+            blob = manifest_text(manifest)
+            self.assertEqual(
+                hashlib.sha256(blob.encode("utf-8")).hexdigest(),
+                "85d85efd7c1431f58de333bd4a51506c42b43b0aa759a26c3d98965464257715")
+            output = source / "derived.json"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                code = gate.main([
+                    "derive", "--source", str(source), "--output", str(output)])
+            self.assertEqual(code, 0, stderr.getvalue())
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertEqual(output.read_text(encoding="utf-8"), blob)
 
     def test_check_categories_warn_only_and_strict_switch(self):
         manifest = {
@@ -999,6 +1033,63 @@ class OriginalExistsScopeTests(unittest.TestCase):
             exists = gate._build_exists_index(client)
             self.assertEqual([pack.rel for pack in exists.packs], ["Other.pak"])
             self.assertIsNone(exists.locate("only-server.tga"))
+
+    def _derive_cli(self, client: Path, output: Path):
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            code = gate.main([
+                "derive",
+                "--source", str(client),
+                "--client-root", str(client),
+                "--output", str(output),
+            ])
+        return code, stdout.getvalue(), stderr.getvalue()
+
+    def test_derive_fails_when_known_dds_is_a_loose_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            client.mkdir()
+            (client / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            (client / "tile_17_mou_a_03.dds").write_bytes(b"synthetic-dds")
+            output = root / "out.json"
+            output.write_text("sentinel", encoding="utf-8")
+            code, stdout, stderr = self._derive_cli(client, output)
+            self.assertEqual(code, 1)
+            self.assertEqual(stdout, "")
+            self.assertEqual(output.read_text(encoding="utf-8"), "sentinel")
+            self.assertEqual(stderr.splitlines(), [
+                "ERROR: known-no-original name is present; manifest not written",
+                "tile_17_mou_a_03.dds -> loose:tile_17_mou_a_03.dds",
+            ])
+            self.assertNotIn(str(client), stderr)
+            with self.assertRaises(gate.KnownNoOriginalFound) as caught:
+                gate.derive(client, None, client_root=client)
+            self.assertEqual(
+                caught.exception.hits,
+                [("tile_17_mou_a_03.dds", "loose:tile_17_mou_a_03.dds")])
+
+    def test_derive_fails_when_known_tga_is_inside_a_synthetic_pak(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            client = root / "client"
+            client.mkdir()
+            (client / "0.map").write_text("GX_MAP\nGX_OBJECT\nwall.tga\n", encoding="latin-1")
+            (client / "tiles.pak").write_bytes(pak_writer.build_pak_bytes([
+                ("tile_17_mou_a_03.tga", b"synthetic-tga"),
+            ]))
+            output = root / "out.json"
+            output.write_text("sentinel", encoding="utf-8")
+            code, stdout, stderr = self._derive_cli(client, output)
+            self.assertEqual(code, 1)
+            self.assertEqual(stdout, "")
+            self.assertEqual(output.read_text(encoding="utf-8"), "sentinel")
+            self.assertEqual(stderr.splitlines(), [
+                "ERROR: known-no-original name is present; manifest not written",
+                "tile_17_mou_a_03.tga -> pak:tiles.pak",
+            ])
+            self.assertNotIn(str(client), stderr)
 
 
 class TrimAndCompareTests(unittest.TestCase):

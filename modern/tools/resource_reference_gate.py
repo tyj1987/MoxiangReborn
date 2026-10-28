@@ -14,9 +14,18 @@ Where each step runs
   ``originalExists`` looks only under ``--client-root`` (loose files keyed
   relative to that root, and every regular ``.pak`` under it). ``--source``
   and ``--pak`` still decide which maps are parsed, the same way as before.
-  Each reference records ``originalHit``. ``trim`` removes decoder
-  filesystem paths and ``.py`` paths. It leaves ``derivation.localDecoder``
-  (version, ``sourcePakSha256``, ``decodedMaps``, ``keySourceCounts``).
+  Each reference records ``originalHit``. After that index is built,
+  ``derive`` calls ``locate`` on every ``KNOWN_NO_ORIGINAL`` name and on
+  the same stem with ``.dds`` (the extension is replaced; ``locate`` does
+  not rewrite it). Those names are not references, so the reference walk
+  does not check them. A non-empty hit exits non-zero and writes no
+  manifest. Every miss leaves the manifest unchanged. The index is
+  ``--client-root``, or ``--source`` when ``--client-root`` is omitted.
+  A path that is not a directory yields an empty index, and the guard
+  does not fail.
+  ``trim`` removes decoder filesystem paths and ``.py`` paths. It leaves
+  ``derivation.localDecoder`` (version, ``sourcePakSha256``, ``decodedMaps``,
+  ``keySourceCounts``).
 * ``check`` runs in CI and on any checkout. It compares that manifest to the
   checkout. A derivation that has not been run is ``no conclusion``. A
   derivation whose status is ``partial`` is a partial conclusion. Neither
@@ -74,9 +83,10 @@ Height fields 0, 4, 23, 24, 32, 33, 34, 94 and tile tables 0, 3, 4, 23, 24,
 32, 33, 34, 94, 198 are not referenced by the original and are never reported
 as missing.
 
-The job exits 0 unless the single switch ``MXH_RESOURCE_REF_STRICT=1``
+``check`` exits 0 unless the single switch ``MXH_RESOURCE_REF_STRICT=1``
 (or ``--strict``) is set. That switch is what later turns missing files and
-an unresolved conclusion into a failing exit.
+an unresolved conclusion into a failing exit. ``derive`` exits non-zero,
+and writes nothing, when the known-no-original guard hits.
 """
 
 from __future__ import annotations
@@ -765,6 +775,57 @@ class LocalDecoderError(ValueError):
     pass
 
 
+class KnownNoOriginalFound(Exception):
+    """A name recorded as having no original file is in the existence index.
+
+    ``hits`` is ``(queried name, locate label)``. The label is ``loose:`` or
+    ``pak:`` plus a path relative to the existence root. No absolute path.
+    """
+
+    def __init__(self, hits: list[tuple[str, str]]) -> None:
+        self.hits = list(hits)
+        listing = "\n".join(f"{name} -> {label}" for name, label in self.hits)
+        super().__init__(
+            "ERROR: known-no-original name is present; manifest not written\n" + listing)
+
+
+def _dds_stem_name(name: str) -> str:
+    """Same stem with a ``.dds`` extension.
+
+    Replaces the final extension. A name with no extension gains ``.dds``.
+    Directory separators are normalized to ``/`` and otherwise kept.
+    """
+    normalized = name.replace("\\", "/")
+    slash = normalized.rfind("/")
+    base = normalized[slash + 1:]
+    prefix = normalized[:slash + 1]
+    dot = base.rfind(".")
+    renamed = base + ".dds" if dot <= 0 else base[:dot] + ".dds"
+    return prefix + renamed
+
+
+def _guard_known_no_original(index: _BlobIndex, names: tuple[str, ...]) -> None:
+    """Fail when a recorded-absent name, or its ``.dds`` stem, is present.
+
+    ``names`` are not in ``references``, so the reference walk never calls
+    ``locate`` for them. The renderer maps ``.tga`` to ``.dds``; this lookup
+    does not, so both names are queried. A miss changes nothing.
+    """
+    hits: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for name in names:
+        for query in (name, _dds_stem_name(name)):
+            key = _ascii_fold(query)
+            if key in seen:
+                continue
+            seen.add(key)
+            hit = index.locate(query)
+            if hit is not None and hit.label:
+                hits.append((query, hit.label))
+    if hits:
+        raise KnownNoOriginalFound(hits)
+
+
 def _file_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -868,6 +929,13 @@ def derive(source: Path | None, pak: Path | None = None,
     ``client_root`` is omitted). ``loose:<path>`` and ``pak:<path>`` use
     forward slashes. ``""`` is a miss. The referenced extension is not
     rewritten.
+
+    After the existence index is built, every ``known_no_original`` name
+    and the same stem with ``.dds`` is passed to ``locate``. A non-empty
+    hit raises ``KnownNoOriginalFound`` before a manifest exists. Every
+    miss leaves the returned document identical to a derive that does not
+    perform this check. The index is empty when that root is not a
+    directory, and the guard then does not fail.
     """
     if local_decoder is not None and pak is None:
         raise LocalDecoderError(
@@ -875,6 +943,7 @@ def derive(source: Path | None, pak: Path | None = None,
             "source pak SHA-256 so check --pak can verify them")
     parse_index, pak_info = _build_parse_index(source, pak)
     exists_index = _build_exists_index(source if client_root is None else client_root)
+    _guard_known_no_original(exists_index, known_no_original)
     index = exists_index
     references: list[dict] = []
     excluded: list[dict] = []
@@ -1771,7 +1840,8 @@ def main(argv: list[str] | None = None) -> int:
     derive_parser.add_argument(
         "--client-root", type=Path, default=None,
         help="originalExists scope (ROG: D:\\MX\\client). Loose files are keyed relative to this "
-             "directory and only .pak files under it count. Defaults to --source.")
+             "directory and only .pak files under it count. Defaults to --source. "
+             "The known-no-original guard uses this same index.")
     derive_parser.add_argument(
         "--pak", type=Path,
         help="original Map.pak (read to EOF, not the 4192-entry worktree pak). "
@@ -1823,9 +1893,13 @@ def main(argv: list[str] | None = None) -> int:
                 decoder = load_local_decoder(decoder_path)
             except LocalDecoderError as exc:
                 parser.error(str(exc))
-        document = derive(
-            args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder,
-            client_root=args.client_root)
+        try:
+            document = derive(
+                args.source, args.pak, local_header_stats=header_stats, local_decoder=decoder,
+                client_root=args.client_root)
+        except KnownNoOriginalFound as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
         _write_json(args.output, document)
         print(
             f"wrote {args.output} status={document['derivation']['status']} "
@@ -1836,8 +1910,8 @@ def main(argv: list[str] | None = None) -> int:
             print("local-only obfuscated-map header byte 2 counts (do not commit or paste into CI):")
             for value, count in sorted(header_stats.items()):
                 print(f"  0x{value:02x} {count}")
-        # derive always exits 0. check is warn-only by design unless the
-        # strict switch is set.
+        # A known-no-original hit already returned 1 without writing.
+        # check is warn-only by design unless the strict switch is set.
         return 0
 
     if args.command == "trim":

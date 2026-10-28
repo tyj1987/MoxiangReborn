@@ -88,3 +88,7 @@ TYJ-156 仍开放。Map17 这一半的结论：代码默认是 12（`modern/tool
 
 回执：[`original-map17-hfl-admission-20261015.json`](evidence/original-map17-hfl-admission-20261015.json)，来源清单：[`17.hfl.provenance.json`](../reference/manifests/17.hfl.provenance.json)。Map17 仍未达到可玩/视觉发布条件。
 
+### 2026-10-28 Map17 九张地表无原件 Refs TYJ-166
+
+Map17 引用 9 张地表 `tile_17_mou_a_01..09.tga`，没有原始来源。对完整原版客户端（全部 pak 与散文件）直接查找这 9 个 `.tga` 和同名 `.dds`，18 个名字的命中数是 0。不制作替代美术。Map17 不进入 1:1 GUI 门禁。`derive` 会在存在性索引上查找这些名字；其中任何一个出现时 `derive` 失败且不写清单，这个问题重新打开。
+
