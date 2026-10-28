@@ -109,11 +109,15 @@ private:
 // Phase 9: forwards GameInSyn to MapServer and relays responses.
 class AgentHandler final : public mxh::net::IConnectionHandler {
 public:
+    // configured_start_area 0 means "use default_map_num" (the omitted
+    // --start-area case). Character creation persists this value. The
+    // client packet's StartArea is not a route.
     AgentHandler(mxh::db::IDbAdapter& db, ReplyFn reply,
                  bool use_legacy_framing = false,
                  bool use_hsel = false,
                  HselSessionManager::DirectSendFn direct_send = {},
-                 std::uint16_t default_map_num = 12);
+                 std::uint16_t default_map_num = 12,
+                 std::uint16_t configured_start_area = 0);
     ~AgentHandler() override = default;
 
     bool on_connect(mxh::net::ConnectionId id,
@@ -239,6 +243,7 @@ private:
     ReplyFn reply_;
     bool use_legacy_framing_;
     std::uint16_t default_map_num_ = 12;
+    std::uint16_t configured_start_area_ = 12;
     bool allow_dev_gamein_fallback_ = true;
 
     // Track user_id per connection (set during CharacterListSyn).
@@ -468,6 +473,13 @@ public:
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
     bool add_monster_instance(const mxh::game::MonsterInstance& monster);
+    struct MonsterVitalsSnapshot {
+        std::uint32_t life = 0;
+        std::uint32_t shield = 0;
+        bool dead = false;
+    };
+    std::optional<MonsterVitalsSnapshot> monster_vitals_for_test(
+        std::uint32_t object_id);
     void set_monster_ai_clock_for_test(std::function<std::uint64_t()> clock) {
         monster_ai_clock_ = std::move(clock);
     }

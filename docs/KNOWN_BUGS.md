@@ -70,6 +70,10 @@
 
 静态回执：[`original-birth-route-static-20261015.json`](evidence/original-birth-route-static-20261015.json)。
 
+### 2026-10-28 默认 StartArea Refs TYJ-156
+
+恢复的数据库过程被认为把出生地图写成 17，但 `CHARACTER_MAP=17` 不能追溯到一份原版安装文件。在出现这样的原件之前，默认 StartArea 保持不变：Agent 省略 `--start-area` 时使用 `default_map_num`（`modern/tools/MoxianAgentServer/main.cpp` 里的默认值是 12，调用方可以用 `--default-map` 覆盖）。显式把 StartArea 配成 17 且该地图未注册时，启动失败并写明地图号；建角拒绝未注册的 StartArea，不会再静默落到 Map10。已经保存在 Map10 的角色仍进入 Map10。
+
 ### 2026-10-15 Map17 原始 HFL 真实恢复
 
 复核发现当前原版 `modern/data/PlayDH/Map.pak` 的第 240 项实际包含 `17.hfl`。已从该原版包提取并按 SHA-256 `727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a` 写入 `Resource/Map/17.hfl`，同步更新 canonical hash manifest。HFL 解析通过，使用的 42 个纹理中仍有 9 个缺失；只恢复了原始高度场，没有引入 Unity 派生或替代纹理。

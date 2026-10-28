@@ -5,6 +5,8 @@
 // MXH_E2E_PORT_BASE is read at process start, not at CMake configure time.
 //   unset or empty -> login 26001, agent 27001, map 28001, map12 28002
 //   N              -> login N, agent N+1000, map N+2000, map12 N+2001
+// Map17 smoke listens on base+2002, which is 28003 for the default base.
+// 28003 is an allowed smoke port. It is not in the forbidden list.
 // N=26001 reproduces the defaults. Flags are --login-port, --agent-port,
 // --map-port, and --map12-port. Every resolved port, including N+2001, must
 // be in 1024..65535. Ports 16001, 17001, 18001, 36001, 37001, and 38001
@@ -22,6 +24,7 @@ inline constexpr int kE2eDefaultLoginPort = 26001;
 inline constexpr int kE2eDefaultAgentPort = 27001;
 inline constexpr int kE2eDefaultMapPort = 28001;
 inline constexpr int kE2eDefaultMap12Port = 28002;
+inline constexpr int kE2eDefaultMap17Port = 28003;
 inline constexpr int kE2eMinPort = 1024;
 inline constexpr int kE2eMaxPort = 65535;
 inline constexpr int kE2eForbiddenPorts[] = {

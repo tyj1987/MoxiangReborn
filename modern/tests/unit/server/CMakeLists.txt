@@ -1,10 +1,23 @@
 # Server handler tests - Phase 10.17
 # Smoke tests for the 3 game-server handlers (Login / Agent / Map).
 
+add_executable(mxh_start_area_registration_tests
+    start_area_registration_test.cpp
+)
+target_link_libraries(mxh_start_area_registration_tests PRIVATE gtest_main)
+target_include_directories(mxh_start_area_registration_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+gtest_add_tests(TARGET mxh_start_area_registration_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
     item_id_test.cpp
     player_equipment_stats_test.cpp
+    start_map_route_test.cpp
 )
 
 include(GoogleTest)
