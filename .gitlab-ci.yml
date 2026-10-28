@@ -35,10 +35,23 @@ workflow:
         - "**/*.[Pp][Aa][Kk]"
         - .gitlab-ci.yml
         - reference/manifests/**/*
+    # Separate from python_tooling_changes so a C++-only diff does not schedule
+    # original_governance_and_python_tests or rog_gate_self_test. The workflow
+    # still has to admit the pipeline, or cxx_resource_reference_linux never starts.
+    # original_resource_reference_warn has no changes: filter, so it also runs
+    # on these pipelines.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009"'
+      changes: &cxx_resource_reference_changes
+        - modern/CMakeLists.txt
+        - modern/tests/**/*
+        - modern/third_party/googletest-src/**/*
+        - modern/data/PlayDH/Resource/**/*
     - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
       when: never
     - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
       changes: *python_tooling_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *cxx_resource_reference_changes
     - when: never
 
 variables:
@@ -104,6 +117,75 @@ rog_gate_self_test:
       pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
       pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
       pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+
+# cxx_resource_reference_linux
+# Kept in sync with the GitHub job of the same name. Same image digest as
+# rog_gate_self_test, same commands, same required-Passed check.
+# These two tests compare 16 + 3 committed PlayDH files (size + sha256, arrays in
+# modern/tests/unit/compat/resource_reference_test.cpp) under
+# modern/data/PlayDH/Resource. They read no LFS .pak (only
+# Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
+# MXH_PLAYDH_ROOT is not set.
+# TODO: the synthetic-fixture TEST coming after #65 will be added to the
+# required-Passed list.
+cxx_resource_reference_linux:
+  extends: .linux_trusted
+  image: mcr.microsoft.com/devcontainers/base:2.1.8-ubuntu24.04@sha256:f5a2cf592fd194be54fff4fc8e24388bd7d6b496f4653de7a4e985f41e8dc188
+  stage: verify
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes: *cxx_resource_reference_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *cxx_resource_reference_changes
+  script:
+    - |
+      set -eu
+      if [ "$(id -u)" -eq 0 ]; then
+        apt_get() { DEBIAN_FRONTEND=noninteractive apt-get "$@"; }
+      else
+        apt_get() { sudo DEBIAN_FRONTEND=noninteractive apt-get "$@"; }
+      fi
+      apt_get update
+      apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
+      cmake --version
+      cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+      cmake --build build --target mxh_resource_reference_tests
+    - |
+      bash -euo pipefail <<'EOF'
+      ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
+      EOF
+    - |
+      set -eu
+      test -s ctest.log
+      require_passed() {
+        name="$1"
+        if grep -F "$name" ctest.log | grep -Eq 'Skipped|Not Run'; then
+          echo "CXX_RESOURCE_REFERENCE REQUIRED NOT PASSED ${name}" >&2
+          return 1
+        fi
+        if grep -F "$name" ctest.log | grep -Eq '(^|[[:space:]])Passed([[:space:]]|$)'; then
+          echo "CXX_RESOURCE_REFERENCE REQUIRED PASSED ${name}"
+          return 0
+        fi
+        echo "CXX_RESOURCE_REFERENCE REQUIRED NOT PASSED ${name}" >&2
+        return 1
+      }
+      status=0
+      require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
+      require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
+      if ! grep -F '0 tests failed' ctest.log >/dev/null; then
+        echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
+        status=1
+      fi
+      exit "$status"
 
 original_lfs_integrity:
   extends: .linux_trusted
