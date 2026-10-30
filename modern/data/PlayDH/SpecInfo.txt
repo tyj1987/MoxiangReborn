@@ -1,5 +1,5 @@
 Intel(R) Pentium(R) D CPU 3.00GHz| Support SSE2992 MHz
-Microsoft Windows XP Professional 
+Microsoft Windows XP Professional 
 Service Pack 2 (Build 2600)
 Memory : 1024 M
 HardDiskFreeSize : 20852 M

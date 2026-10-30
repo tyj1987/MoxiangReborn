@@ -1,0 +1,34 @@
+{
+  "schema": "moxiang.art-v2.vertical-slice.v1",
+  "slice_id": "MX_SLICE_WUGUAN_001",
+  "reference_map": 44,
+  "status": "production_started",
+  "principles": [
+    "legacy semantics preserved",
+    "new visual assets independently authored",
+    "all runtime exports pass ArtV2 import and validation gates",
+    "no direct .blend files under Unity Assets"
+  ],
+  "deliverables": [
+    {"id":"MX_ENV_WUGUAN_KIT_001","category":"Environment","target":"reviewed modular environment kit","status":"integration_ready"},
+    {"id":"MX_CHAR_PLAYER_M_001","category":"Characters","target":"player-quality male character","status":"planned"},
+    {"id":"MX_NPC_WUGUAN_HERO_001","category":"NPCs","target":"hero NPC tier","status":"planned"},
+    {"id":"MX_NPC_WUGUAN_MAJOR_001","category":"NPCs","target":"major NPC tier","status":"planned"},
+    {"id":"MX_NPC_WUGUAN_NORMAL_001","category":"NPCs","target":"normal NPC tier","status":"planned"},
+    {"id":"MX_MON_WUGUAN_001","category":"Monsters","target":"normal monster 1","status":"planned"},
+    {"id":"MX_MON_WUGUAN_002","category":"Monsters","target":"normal monster 2","status":"planned"},
+    {"id":"MX_MON_WUGUAN_003","category":"Monsters","target":"normal monster 3","status":"planned"},
+    {"id":"MX_BOSS_WUGUAN_001","category":"Monsters","target":"boss-quality monster","status":"planned"},
+    {"id":"MX_WPN_SWORD_001","category":"Weapons","target":"sword family sample","status":"integration_ready"},
+    {"id":"MX_WPN_BLADE_001","category":"Weapons","target":"blade family sample","status":"integration_ready"},
+    {"id":"MX_WPN_SPEAR_001","category":"Weapons","target":"spear family sample","status":"integration_ready"},
+    {"id":"MX_VFX_SKILL_001","category":"VFX","target":"representative martial skill 1","status":"planned"},
+    {"id":"MX_VFX_SKILL_002","category":"VFX","target":"representative martial skill 2","status":"planned"},
+    {"id":"MX_VFX_SKILL_003","category":"VFX","target":"representative martial skill 3","status":"planned"},
+    {"id":"MX_VFX_SKILL_004","category":"VFX","target":"representative martial skill 4","status":"planned"},
+    {"id":"MX_VFX_SKILL_005","category":"VFX","target":"representative martial skill 5","status":"planned"},
+    {"id":"MX_UI_HUD_001","category":"UI","target":"production HUD skin direction","status":"planned"},
+    {"id":"MX_UI_INVENTORY_001","category":"UI","target":"production inventory skin direction","status":"planned"},
+    {"id":"MX_UI_DIALOGUE_001","category":"UI","target":"production dialogue skin direction","status":"planned"}
+  ]
+}

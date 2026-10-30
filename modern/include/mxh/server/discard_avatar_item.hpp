@@ -42,10 +42,9 @@ struct AvatarEquipRow {
 };
 
 // Legacy enum values used as the bounds of the default-fill loop.
-// The loop runs [12, 18) = 6 slots: Weared_Hair, Weared_Face,
-// Weared_Hat, Weared_Dress, Weared_Shoes, Weared_Gum.
-inline constexpr std::size_t kAvatarDefaultFillStart = 12;  // eAvatar_Weared_Hair
-inline constexpr std::size_t kAvatarDefaultFillEnd   = 18;  // eAvatar_Weared_Gum
+// The source excludes Weared_Gum: only the five worn flags at 12..16.
+inline constexpr std::size_t kAvatarDefaultFillStart = static_cast<std::size_t>(game::AvatarSlot::Weared_Hair);
+inline constexpr std::size_t kAvatarDefaultFillEnd = static_cast<std::size_t>(game::AvatarSlot::Weared_Gum);
 
 // 1:1 with legacy DiscardAvatarItem (data plane half). Given the
 // equip row (or null on lookup miss), the ItemIdx the player is

@@ -1,0 +1,69 @@
+{
+  "status": "passed",
+  "blender_version": "5.2.1 LTS",
+  "file_hashes_match_manifest": true,
+  "preview_alpha": true,
+  "source": {
+    "mesh_objects": 11,
+    "bounds_m": {
+      "min": [
+        -0.15366,
+        -0.15403,
+        0.0052
+      ],
+      "max": [
+        0.15055,
+        0.1463,
+        0.294
+      ],
+      "span": [
+        0.30421,
+        0.30033,
+        0.2888
+      ]
+    },
+    "triangles": 978
+  },
+  "fbx_reimport": {
+    "mesh_objects": 11,
+    "bounds_m": {
+      "min": [
+        -0.15366,
+        -0.15403,
+        0.0052
+      ],
+      "max": [
+        0.15055,
+        0.1463,
+        0.294
+      ],
+      "span": [
+        0.30421,
+        0.30033,
+        0.2888
+      ]
+    },
+    "triangles": 978
+  },
+  "glb_reimport": {
+    "mesh_objects": 11,
+    "bounds_m": {
+      "min": [
+        -0.15366,
+        -0.15403,
+        0.0052
+      ],
+      "max": [
+        0.15055,
+        0.1463,
+        0.294
+      ],
+      "span": [
+        0.30421,
+        0.30033,
+        0.2888
+      ]
+    },
+    "triangles": 978
+  }
+}

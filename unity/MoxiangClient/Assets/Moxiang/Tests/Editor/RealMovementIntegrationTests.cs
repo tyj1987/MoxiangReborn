@@ -99,5 +99,39 @@ namespace Moxiang.Tests
                 WaitFor(mover, observer, 9, initial.game.playerId, packed, 8);
             }
         }
+
+        [Test]
+        public void RealTwoClientsSeeExactUtf8ChatAndSenderLocalEcho()
+        {
+            string observerAccount = Environment.GetEnvironmentVariable("MXH_SMOKE_OBSERVER_USER");
+            if (string.IsNullOrEmpty(observerAccount)) Assert.Ignore("Requires --movement isolated real two-account fixture.");
+            ushort port = ushort.Parse(Environment.GetEnvironmentVariable("MXH_SMOKE_LOGIN_PORT"));
+            string password = Environment.GetEnvironmentVariable("MXH_SMOKE_PASSWORD");
+            using (var sender = new NativeClient())
+            using (var observer = new NativeClient())
+            {
+                var owner = Enter(sender, port, Environment.GetEnvironmentVariable("MXH_SMOKE_USER"), password);
+                Enter(observer, port, observerAccount, password);
+                const string text = "墨香 Map10 双人聊天";
+                Assert.That(sender.SubmitChat(text, owner), Is.EqualTo(CoreResult.Ok));
+                bool local = false, remote = false;
+                var timer = Stopwatch.StartNew();
+                while (timer.Elapsed < TimeSpan.FromSeconds(5) && (!local || !remote))
+                {
+                    sender.Tick(); observer.Tick();
+                    while (sender.PollEvent(out var item))
+                        if (item.type == NativeClient.EventChatMessage && item.argument0 == owner.game.playerId) {
+                            Assert.That(item.Text, Is.EqualTo(text)); Assert.That(item.requestId, Is.GreaterThan(0)); local = true;
+                        }
+                    while (observer.PollEvent(out var item))
+                        if (item.type == NativeClient.EventChatMessage && item.argument0 == owner.game.playerId) {
+                            Assert.That(item.Text, Is.EqualTo(text)); Assert.That(item.requestId, Is.Zero); remote = true;
+                        }
+                    Thread.Sleep(10);
+                }
+                Assert.That(local, Is.True, "Sender did not receive its original-client-style local echo.");
+                Assert.That(remote, Is.True, "Second client did not receive the server-routed UTF-8 chat.");
+            }
+        }
     }
 }

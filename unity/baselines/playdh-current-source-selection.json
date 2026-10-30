@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 1,
+  "profileId": "playdh-current",
+  "selections": {
+    "mxh:1fb76bb602978c271024160f33cf76626acbc9c461de0c6adb5895c3f25be56f": "mxh:a34e67bfe4881c2da5fe113422879008012e8e93f97b85089cb56d8bad931166",
+    "mxh:dba2f348f97235f04c1c9ca781df1bee812e8a225c34650fa84488b175e0d0ef": "mxh:7cc11cfa0bdf24b647e3868f17cb8bc377bd8a7f2a0434572c08f678078cfa32",
+    "mxh:9914ae82b0a8ab57632ee2e51626750b7000fcbfa6bcb74e472b3b20aa212d24": "mxh:5939639f6ffb7d62b89b8b1bd20974c8324ec8b6e758d15e81481f29b0acba0c",
+    "mxh:428fc2285577cf5f38d785a2cc19349266582c517469b834b164a51cfe88b72d": "mxh:f14f2a8631ec2d17597fb88540cfd31af9f5ad992916952db612feeaae929f95",
+    "mxh:583bdef704a8e4de9d2b18f21f205f94e6cc1832077e61062e8e785a194a04b6": "mxh:15ea5d70636c8eff2f6ff92622d7fd6876d54a25c6a7412c9995cda1347e0468",
+    "mxh:93d09e719d09e07cb2a0bafc92d46d8d41cbeb0cc8b4bbd99f278034895713b2": "mxh:d9030594e147c3f6c799e1311124390211bf6ed32b38654b627325d1505fe95f",
+    "mxh:335068d199c335cf29a984e44000520165b4308c636ddde0a4a96da7f3fc7c24": "mxh:984af8a67d1afb2fd0b9d12e9a1d5f2e108e21a7f737973fd568f229bde4bcc8",
+    "mxh:f68b1e47001519619919e8dfae454bca7ef4e4513113687651dd6569b3f97be2": "mxh:1c48330afd28af4a2320573b99710afcba133d6c1c1d82287f333a4628753002",
+    "mxh:779d4a1eeacfe57e7829442b13708250422f7f06e140b86ebc39c7d877be3eb9": "mxh:daec60449a8f2d9d3fa3271fba7d8632e28d68672e34c01abcf2f7bc1d1c2223",
+    "mxh:365c9440d1c8a38b74a41edfeea8b64e35ac2b1d12d38666e65b5e2d232f13dc": "mxh:555daf4fc3be393df2477f4e2fa98619ee433a598511eb6d8e69ac10366b4157",
+    "mxh:cf71a05038cdc53f6f6ddfb216409b61447b5dcc9c7b770637074aa503146cbc": "mxh:9498bb7049d4fcd57bb0ee8e675c5dbb8bf5bea6ffd369495b6fc981a943a7c3",
+    "mxh:2763f4a261749912e283207dd01508de147aa3e35a8e5cfb84030a3735c7076c": "mxh:8d6c31a30c9d2786c5fe355b07b27c776fbfc6c749cd902c8e2b3fd0c7587a8e",
+    "mxh:6b75fd71f46034eb5ece20a77437e0c2cf9862d53d4b0f3aaf30a09c4c129230": "mxh:f48f01a994c8063672d80912aea663a8746fce5f28e595d2d9b76da6ea4e38da",
+    "mxh:2ff9f74d22eb16b3baae037d01903f873174fd30cbb90c8c0d08d311673fd8cf": "mxh:d1c8bfa3e40429c63901c863ecd525c658fc483b2e30ab3e2da024a3d777decc",
+    "mxh:674fea4530da752e95afaeb393141b507e603a3566b6c15fcdcdd64851638574": "mxh:dcf753169777f52863f7910670b0713f755fbbb4f89c4439f13041d3a2ab3392",
+    "mxh:9e8785826b0f1ee3807e6a34100856ea68ec13b9d97bc9b16f941f0444394b48": "mxh:c752c85e0b6063a24f1fd67c57ede5e4ff72c0bf0583634c07c2eb7f648ac379",
+    "mxh:84ed41e8d058a7031833bb5aab82f7046dd189a57ec9ebf150b63409d400d1f8": "mxh:1fbb5dc4f1c52424ec29c140f04749199306fa9a5946784de35c248cbf3f4f42",
+    "mxh:e2362fa3a54538f519c68756b51d2bc59b7c42cea1df97b8e7bd7c11b327a7b7": "mxh:5918d4bfc25fb5b509047bf75a4fe9e078eda3ae92ef0b6fd9f0390313014da5",
+    "mxh:c66770019be791fb8f3de629a67d4a161c4cfe75f4b313b30d55c2b3f2248147": "mxh:5e9f8aef986ccda704560d30ff5b04b57870453db4629c21c455eeab40d0b1cf",
+    "mxh:221ca514a660f081405b65b5ff8fc94b03269d025eae09b9c40f8626c42f6306": "mxh:e733ae0a6f4882b85719901177a02ab19f3b1840f62c7adf675bf185cb6c7300",
+    "mxh:a293c5c107afa5be4e8ea6b3a5525686d6215bf78661adeb4c15a7ce84e958c8": "mxh:e6339a9a9b998476a8ff77670ed0256c1579478c924735a98ebec87c33d15d55",
+    "mxh:e8069f0af8740c2865b6a603427c947d7306c72964c54d644de36cdbd41049f3": "mxh:d7fcc2bf61f385435a081bd5c64057cc4ef398ffe3f731ef5f807e6e1f3c1d99",
+    "mxh:bbaaba7a21b59b0d711556d792db50eb909d1c4ea941eee71a5ed12246e792e7": "mxh:d23b68e89914313e5e7b0d93f8b0e10c00aece53a879014d74de6ee310f9dd86",
+    "mxh:b98f842333b8402e6cb55095f798182ddf49784f68d4d0d15b21b5ca3536c78b": "mxh:58d2a3663a821666e9ab358f7628b2e2b5aa2bf58cec8cc35a402ea5d255ee94",
+    "mxh:8e87a35b6dd2ebdbeaf61eecbd1ef69cc8db64fd4de76e6744596b9ce5b0a43f": "mxh:5cfc8b1649ee8e196fe7605dfa9e41cbd3c96c8d1b35611b04e60fd6c273cd2d",
+    "mxh:240722f4dea9675a115e298261204430479c58959b2c3daee8820b7e822df513": "mxh:0ec2a5d7ee889e5a1186fde3c10a48952e9309ce19f32ad346dfefcf61df12a5",
+    "mxh:3422d5beffd6efd3eae0580971bb0bf30ba5c3f6793117bf33108f1ac103347c": "mxh:0202f07ba0292b327afaf9f1db690b28bb96d6d89da9a72e37010934d5710e5f",
+    "mxh:b7cbc206ed584b5bda7c45cc1c2288fa21843244532857de48f5c4b70e6a6051": "mxh:549f635d593030bee8e04c8d65a25246dc5ed4cc8f1575eb92bd2d32abc27c9d",
+    "mxh:299f793eb1f81cd5aec0dafd7ea577c0559a88f653fc967bdd6ff098f64ce59e": "mxh:acd3a240650db72594e7fd51d667d635d2f2af2e4c3242789d7e806f2e7c938f",
+    "mxh:26c903eb44ebbe0ab58d99a8f8d8a12ea5627861d25ad43a8947316fd207d484": "mxh:daef1fe836d6ffb4a2ead27934dd00bb565297a941360e7d464be9616ec7b918",
+    "mxh:36d15cb2c070406e1fc9e214441ad70389539283d7df62ab2745ad8beed888b0": "mxh:f34ed9656a12030326802ea7b687c02fecd08b34831ce4cc136be4ee7deae51c",
+    "mxh:fd93385b77401a5f08727b6f1549a347a18dc9bcaae49204af23a570a4f72059": "mxh:4f38387de1efef8c0d131d23ebea25553d859356f49f2c8edfd02e50cd0fe679",
+    "mxh:b773b6dc63e72f1b8af8a8a63fd2534f8af5485c86f9f3c4729fb40461e7bb02": "mxh:ad7ab0d46ce0dcd06be6bafbcdace155cf524548ebe863ebb1701c554ceeb4b2",
+    "mxh:c25001375996c7338287fb3f7ebbd99a39696999dc5e2f2b2573b610a7f023d7": "mxh:96bc99f38e773813da10bf758ae87aa74581d0ef918db1e325e58a4abcbcf576",
+    "mxh:8db19981c5d1d060f7bdb6a22b4c2c582dc46c666b7a3c9d8830bd1f24f03811": "mxh:e09e71f50c50ad7995c1ae802293a28fb7a9fbc990ec6f13dfae260272a2abbb",
+    "mxh:e86415fb2ff4d6ae67a93a1f143a92f66c392276dc8924dea0daccb414d647d9": "mxh:d67f0484572ee61b313757f47dffae3b459cd093fe060bfe32e4614eb730faae",
+    "mxh:bbaa55b9305d98987efb69b1307f5ddb670983f5dc715fcfe1a8aea95f87c1fa": "mxh:e572030141b7005f1679eaa83a7d1981ace1f7784eb39eb7b23b06089edf1069",
+    "mxh:bb2a5dd282954eb3343cf0e12ffebf1317ab62e74175433da15af141e7ae6b1f": "mxh:26cf7c50c6379f876c3e2971561a1609935f3fbf3c3da668d880dc838fdbf892",
+    "mxh:f2fceb5e08eaacc2f739f6375f44d69c0df8459c539cf35b2d9aa11b6bdb7e1b": "mxh:798e3629e6d157fe1684b92741587453f7c51ec5d066369a7e9f32d50e637432",
+    "mxh:bc122edc1b140d32f8c1d9acbd41d1da7bf1144a2ad7cdb7a5081bf3bb0543d5": "mxh:2319d9a2bbf14dfd091abb501dc2daebf82184abc29083b546d24a73ab5cb877",
+    "mxh:d613d31d2dadcf3aaf45283cc7a34101e44c7602a74a2e1614a792bcdd11c9aa": "mxh:e67afb3c0b9fd4134d8e0ed971c75c011a4bb58a629d90ba8f4c8be6d75b6744",
+    "mxh:93d9bce0a33637d329e4f29d5142b645768f859e8f00ae6412ab350de398bcad": "mxh:28aa3c855f57e610e619d292e53a473628388f29755256e5e4760d86b13b39b1",
+    "mxh:1cf1e7409de870b76a0f6dd6c37204c7ba21f9413d4cf3f3700bdcfddd1ac2f9": "mxh:df53e6e65ebec11445a2b3da8aaedb1e9293aacd5e5d8491c8eddae22542ed97",
+    "mxh:373b2082945debb0a99ef706870be52f0b6be2ceaa6f7a3d5ad1bdb1d8d8c302": "mxh:3c0481480e3ca7305beb2a354a6a383f9798571b91455ec0e473f74bf3e7ceff",
+    "mxh:22918ea5f2d6daee87627e24951028f7cff9a1bc429a13c6c9d12bc9cc72744c": "mxh:8c33249fda9dda34b688d58189ef305df3cd55e4a7a01f34e7504d3bde2ee73d",
+    "mxh:ca97727a97f529ea24aac5078ffa9a24de0a402f187d19b30c96f72c5ff4468a": "mxh:33d0f7009077cd3387cb926bf116304aae19037fb1b2d00e7f05934d2be46cc1",
+    "mxh:3d7a6d9e27f6296532658193643d3a003a00a622cd19498dfa9e9c79b04f1dc3": "mxh:b79cc5ef7c7c4d64dc60707b4ed5108e9eb15522cdf2e052312cc5d5573ed8c8",
+    "mxh:aad9ec17dd7f5858e1e60c61b6fcc5ee3bc5ebc391723dc202d2332e601764a5": "mxh:0ab6c6cc0534d1a8b83258adadf23ceb4d5a7ef9f3c690781b8137b9d7a928f8",
+    "mxh:4050fb15301c84a533d2c9bffc973c3f4c7fd47123f76274ed134627d4ad1fb7": "mxh:dab03efbee5529524aa7303cc853232ae3a7be02409ed74d04c64a03f75505d1",
+    "mxh:fe94343ce3274b4cfbcdecbdf622a3ae997e7556f5161aeca0d5e3e16db5872e": "mxh:754fb3222434782a2a46e5552a0e75dc241a99f9bcd5e29f7ec2425d6be38c3b",
+    "mxh:0cbb22eb665b32163ce8b54c7420509661bb41ef57fa27ecb70ae80625c6d54b": "mxh:30fdcd92ffedcdd77e7b0151c5c752ba60c5ea19634fea130d4c402a5f615c29",
+    "mxh:30e91228cf0f761c92a0ef1b9b2c5c049fe7c6ee1ba6b5320068cffe55465587": "mxh:0cc1366a890c483f5bfb4056c1ba4f5f29e7505c3ff65f995669ed0dfb45fba7",
+    "mxh:4a3e636c8c79300d290bbb5e3a9a53ff89af93436bfd171552aee40d47a3f1a5": "mxh:dbb60e0c50020cac067a21d9b253eb57dd45bece45221090522da0715d5653d3",
+    "mxh:18ef462d57a1eed9d216ac0bb3b3c54d7a8dee3098dc28dea14b5f49d40e2ccc": "mxh:6739c9deab74eb87c93bdec2e29ec29e27843d3f908dcc340f70a7e8acdc3e96",
+    "mxh:6dce35208fb93bd771d750c94341b0a36efd0e10af239accaf81a1b8f19770d5": "mxh:e4499015fd430671b3884bb278722f07b172f1e9a637d7de7d15d5509963ca1e",
+    "mxh:3bcbbf457c382e99d75565391dc067b2c04de8c9f23ef6cba8b6839b8f7dc4eb": "mxh:ce3d816718adac1a1a9d4d2a527dd19880a82bd93c6ba5bab7e0eec296c58d6f",
+    "mxh:847eccbda72d05e47f43746c025fbdb33e2a38cf3471eccbc3a595b97d4ad458": "mxh:b0da2981026228c82c5ab80416e40536d57fcc28571c52008bcf98198f3655a8",
+    "mxh:1f2b6a14f31814faf5935520f57269c11500be48cb28b3c791acea1b86e5e801": "mxh:9d954d9a3b37eab3c56bab90ef514811d5ecb1a8362dc6a8f2433030f90a8fb4",
+    "mxh:4ff9ca84ab9af6a339ec4e886b9f205511871fffeea4c042f3af16adff259822": "mxh:bb3fb14406503803578977dece3ef1f1326685d40f485d8b715281ca4093eef6",
+    "mxh:40c213fe2e8bb77e1bdf989f5bac4a0bcc1ca3cc5046c3d3a5f6ec96b912a55c": "mxh:2d604261ea5e4bb08975ca00faa64bdf634f95e3e4a45337e7792179fd259b19",
+    "mxh:1ecf78a8581e74adf71d4c637b4aa789b4c644805f64e9447e8442015c4e43b9": "mxh:9252688fee9bbf9c337d83172a026a0068f7541627702bb752953bb1ef35aa8b"
+  },
+  "attestations": {
+    "mxh:0202f07ba0292b327afaf9f1db690b28bb96d6d89da9a72e37010934d5710e5f": {
+      "classification": "verified-original",
+      "sha256": "61e2733c434e09a02cd5dea61392e13ba908a38098641c6a127e0bfb0e278917",
+      "evidence": "Map.pak entry 144; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:0ab6c6cc0534d1a8b83258adadf23ceb4d5a7ef9f3c690781b8137b9d7a928f8": {
+      "classification": "verified-original",
+      "sha256": "0af380038d667b94a6140ee4015d5e306edcd6e2861397425e13a73216b999a7",
+      "evidence": "Map.pak entry 956; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:0cc1366a890c483f5bfb4056c1ba4f5f29e7505c3ff65f995669ed0dfb45fba7": {
+      "classification": "verified-original",
+      "sha256": "3584265dea805ff0d306d3b355bafb00d37764e0ac09ab84a6f90edd53f32c5b",
+      "evidence": "Map.pak entry 1025; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:0ec2a5d7ee889e5a1186fde3c10a48952e9309ce19f32ad346dfefcf61df12a5": {
+      "classification": "verified-original",
+      "sha256": "69241ab81cc1c7cabe4d3f9e80a17116e5b5b49383fa77af5f9ce55786898f23",
+      "evidence": "Map.pak entry 155; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:15ea5d70636c8eff2f6ff92622d7fd6876d54a25c6a7412c9995cda1347e0468": {
+      "classification": "verified-original",
+      "sha256": "ec9bef9d0daeb45d84d884d3f9f25b8803decb314ecb94d499659d4a9acafc48",
+      "evidence": "Map.pak entry 246; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:1c48330afd28af4a2320573b99710afcba133d6c1c1d82287f333a4628753002": {
+      "classification": "verified-original",
+      "sha256": "d78ff91a6ba246c17e243cc44360cec00b32c35faa9e8f1938de2195d9ee4d5d",
+      "evidence": "Map.pak entry 3873; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:1fbb5dc4f1c52424ec29c140f04749199306fa9a5946784de35c248cbf3f4f42": {
+      "classification": "verified-original",
+      "sha256": "5dfc06ec69b347a7ceadbfc4af8f8a9611a9f1450b0e4a96ea33857f83659298",
+      "evidence": "Map.pak entry 427; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:2319d9a2bbf14dfd091abb501dc2daebf82184abc29083b546d24a73ab5cb877": {
+      "classification": "verified-original",
+      "sha256": "7354818f23dc40f70c73b1c1aa1db66f7948dec0075cf49c467564d25046fe4c",
+      "evidence": "Map.pak entry 836; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:26cf7c50c6379f876c3e2971561a1609935f3fbf3c3da668d880dc838fdbf892": {
+      "classification": "verified-original",
+      "sha256": "d3eb73f25577c185d622a33582cef6be1a07b98d87877b4f053472838fee795a",
+      "evidence": "Map.pak entry 797; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:28aa3c855f57e610e619d292e53a473628388f29755256e5e4760d86b13b39b1": {
+      "classification": "verified-original",
+      "sha256": "85233e3f399567d2817874b9492455788cf843952959664142df97dc75329d91",
+      "evidence": "Map.pak entry 904; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:30fdcd92ffedcdd77e7b0151c5c752ba60c5ea19634fea130d4c402a5f615c29": {
+      "classification": "verified-original",
+      "sha256": "dd06ac34e303b1c39c215800ee8805ec27a53965ddd2014f29a24c16e5ab3d5a",
+      "evidence": "Map.pak entry 1014; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:33d0f7009077cd3387cb926bf116304aae19037fb1b2d00e7f05934d2be46cc1": {
+      "classification": "verified-original",
+      "sha256": "b81550fe930d4d033552454f3ae0b0fa9fdaf3cbb65ce02df2d091d3ab378377",
+      "evidence": "Map.pak entry 928; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:3c0481480e3ca7305beb2a354a6a383f9798571b91455ec0e473f74bf3e7ceff": {
+      "classification": "verified-original",
+      "sha256": "ed0c78a85114b1b3eb518d354f3e3408ea43c8edd056189031b3ba523c2601f2",
+      "evidence": "Map.pak entry 916; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:4f38387de1efef8c0d131d23ebea25553d859356f49f2c8edfd02e50cd0fe679": {
+      "classification": "verified-original",
+      "sha256": "d25db4004cec870024a54b0df387d41f8283473622b31802e7c1db6d3151cd16",
+      "evidence": "Map.pak entry 621; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:549f635d593030bee8e04c8d65a25246dc5ed4cc8f1575eb92bd2d32abc27c9d": {
+      "classification": "verified-original",
+      "sha256": "5e9fe62d1c667f8fe658bd8d7f609b6179c9895af1ba08a861b3d0ae38d3634a",
+      "evidence": "Map.pak entry 133; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:555daf4fc3be393df2477f4e2fa98619ee433a598511eb6d8e69ac10366b4157": {
+      "classification": "verified-original",
+      "sha256": "4e593c5957044957710bd4c5eaf10cb7c48d4e54368ba2a5d31b11395b4158c1",
+      "evidence": "Map.pak entry 3943; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:58d2a3663a821666e9ab358f7628b2e2b5aa2bf58cec8cc35a402ea5d255ee94": {
+      "classification": "verified-original",
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "evidence": "Map.pak entry 4074; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:5918d4bfc25fb5b509047bf75a4fe9e078eda3ae92ef0b6fd9f0390313014da5": {
+      "classification": "verified-original",
+      "sha256": "df6be900a63bf53b44d9fcb68c266d23022d37562b9ed47f3d762c5b25086710",
+      "evidence": "Map.pak entry 480; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:5cfc8b1649ee8e196fe7605dfa9e41cbd3c96c8d1b35611b04e60fd6c273cd2d": {
+      "classification": "verified-original",
+      "sha256": "41b06b045f8752a217450c69d4169f91f3fa0d55035ba87fa0db177dbd4a47a3",
+      "evidence": "Map.pak entry 590; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:5e9f8aef986ccda704560d30ff5b04b57870453db4629c21c455eeab40d0b1cf": {
+      "classification": "verified-original",
+      "sha256": "e4838a17320dbd2a3f4ca00cb6faf26b0ac86ee789e2f88d4eb618c01b460a84",
+      "evidence": "Map.pak entry 513; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:6739c9deab74eb87c93bdec2e29ec29e27843d3f908dcc340f70a7e8acdc3e96": {
+      "classification": "verified-original",
+      "sha256": "dd3a0570e0c9aa320afc5c484da58faa021fdde57244bb0be90f582d560f036b",
+      "evidence": "Map.pak entry 1056; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:754fb3222434782a2a46e5552a0e75dc241a99f9bcd5e29f7ec2425d6be38c3b": {
+      "classification": "verified-original",
+      "sha256": "5c6e1f9c69869ad7d2570fe009417f2f42e8aa62a9a7099d6f111dc9b695f52c",
+      "evidence": "Map.pak entry 978; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:7678f06b59baaa78258590accef499bf6d66a63b3b4d86265ad80475080ac63e": {
+      "classification": "verified-original",
+      "sha256": "60333632dc3326728014b61d4a530d6f3d6c53ac62601606b706b35b236e45c9",
+      "evidence": "alternate Map.pak sha256 00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3 entry 10839; shifted-count archive parsed 11267/11267 entries to exact EOF; structurally valid HFL bytes"
+    },
+    "mxh:798e3629e6d157fe1684b92741587453f7c51ec5d066369a7e9f32d50e637432": {
+      "classification": "verified-original",
+      "sha256": "96d93ed9fa753e4a7d13d794edfa35b105ba9e018b3738b80888322004a1a8ab",
+      "evidence": "Map.pak entry 803; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:7cc11cfa0bdf24b647e3868f17cb8bc377bd8a7f2a0434572c08f678078cfa32": {
+      "classification": "verified-original",
+      "sha256": "d49dd4b864f09e3880124d31633d1b0860175805a3273284988c2b421d9e31e2",
+      "evidence": "Map.pak entry 583; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:8c33249fda9dda34b688d58189ef305df3cd55e4a7a01f34e7504d3bde2ee73d": {
+      "classification": "verified-original",
+      "sha256": "18b8af708529caa349a52b524ea0e16cb1d56e7cc337fda4c0dd1cd20bef762b",
+      "evidence": "Map.pak entry 922; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:8d6c31a30c9d2786c5fe355b07b27c776fbfc6c749cd902c8e2b3fd0c7587a8e": {
+      "classification": "verified-original",
+      "sha256": "754f642b23cf3ac67e8d70818c30022b0f51662679428b346ea5238f957e6486",
+      "evidence": "Map.pak entry 234; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:9498bb7049d4fcd57bb0ee8e675c5dbb8bf5bea6ffd369495b6fc981a943a7c3": {
+      "classification": "verified-original",
+      "sha256": "1f5800c8d6aad45a5b5f46cf86fa7b69821232f90f93f8d6d73449c36b2a00ef",
+      "evidence": "Map.pak entry 3976; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:96bc99f38e773813da10bf758ae87aa74581d0ef918db1e325e58a4abcbcf576": {
+      "classification": "verified-original",
+      "sha256": "1ad2f9d8b660d32934f903e1c5b5773b54e0304ce2ed4b30611acabc7da8a1cd",
+      "evidence": "Map.pak entry 678; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:984af8a67d1afb2fd0b9d12e9a1d5f2e108e21a7f737973fd568f229bde4bcc8": {
+      "classification": "verified-original",
+      "sha256": "60333632dc3326728014b61d4a530d6f3d6c53ac62601606b706b35b236e45c9",
+      "evidence": "Map.pak entry 364; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:a26f756406ac93425697fe571d75d6a5f81947aa1b2d1f3b830ff1128e14fc7c": {
+      "classification": "verified-original",
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "evidence": "alternate Map.pak sha256 00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3 entry 8955; shifted-count archive parsed 11267/11267 entries to exact EOF; structurally valid HFL bytes"
+    },
+    "mxh:a34e67bfe4881c2da5fe113422879008012e8e93f97b85089cb56d8bad931166": {
+      "classification": "verified-original",
+      "sha256": "a774fc78a439afe0b435b88a562ede471af013d731b7f10c1c1f2a402e2aa454",
+      "evidence": "Map.pak entry 265; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:acd3a240650db72594e7fd51d667d635d2f2af2e4c3242789d7e806f2e7c938f": {
+      "classification": "verified-original",
+      "sha256": "9ad2b7a9d76d1f6e4cdac2678a6bbbdc169eb01b4a0de6b5dd5132e628b452d8",
+      "evidence": "Map.pak entry 127; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:ad7ab0d46ce0dcd06be6bafbcdace155cf524548ebe863ebb1701c554ceeb4b2": {
+      "classification": "verified-original",
+      "sha256": "3fd46a0d2bd7a053046b10791be3eb8ce16629052612424784590d2ddf787318",
+      "evidence": "Map.pak entry 659; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:b79cc5ef7c7c4d64dc60707b4ed5108e9eb15522cdf2e052312cc5d5573ed8c8": {
+      "classification": "verified-original",
+      "sha256": "94dbe54e46a4ede1933955e5c0650f0d699e3b76b41be9b877d73d09ece6ab55",
+      "evidence": "Map.pak entry 934; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:c752c85e0b6063a24f1fd67c57ede5e4ff72c0bf0583634c07c2eb7f648ac379": {
+      "classification": "verified-original",
+      "sha256": "d37a0aa003a825ac4e9f755efd230d7c8a74cc550f587937053aefebc1a10b01",
+      "evidence": "Map.pak entry 421; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:ce3d816718adac1a1a9d4d2a527dd19880a82bd93c6ba5bab7e0eec296c58d6f": {
+      "classification": "verified-original",
+      "sha256": "5ca405c360049f02df2ac0330ccdeefc4a15ad8a497d9ab1bd757fe1011475e5",
+      "evidence": "Map.pak entry 1591; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:d1c8bfa3e40429c63901c863ecd525c658fc483b2e30ab3e2da024a3d777decc": {
+      "classification": "verified-original",
+      "sha256": "5a386658e638c27df209a329c39271c24e7d575a02b56f2de0c533ba3c686212",
+      "evidence": "Map.pak entry 214; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:d23b68e89914313e5e7b0d93f8b0e10c00aece53a879014d74de6ee310f9dd86": {
+      "classification": "verified-original",
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "evidence": "Map.pak entry 4024; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:d67f0484572ee61b313757f47dffae3b459cd093fe060bfe32e4614eb730faae": {
+      "classification": "verified-original",
+      "sha256": "c946f1fe438e3fd550071c60b542903a7a41dc6d8f2f80fc5cf3a6d0fee8a94e",
+      "evidence": "Map.pak entry 777; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:d7fcc2bf61f385435a081bd5c64057cc4ef398ffe3f731ef5f807e6e1f3c1d99": {
+      "classification": "verified-original",
+      "sha256": "ae440a0f22faa63d612e0046b645477e54fa5f78ee5d008c1dd6ef3fe536bf28",
+      "evidence": "Map.pak entry 571; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:d9030594e147c3f6c799e1311124390211bf6ed32b38654b627325d1505fe95f": {
+      "classification": "verified-original",
+      "sha256": "5e9fe62d1c667f8fe658bd8d7f609b6179c9895af1ba08a861b3d0ae38d3634a",
+      "evidence": "Map.pak entry 3862; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:dab03efbee5529524aa7303cc853232ae3a7be02409ed74d04c64a03f75505d1": {
+      "classification": "verified-original",
+      "sha256": "ab7f39dac1c8aaaed76ea5ccf51f05ba772a0436965d211465bfbbbf57a73b62",
+      "evidence": "Map.pak entry 972; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:daec60449a8f2d9d3fa3271fba7d8632e28d68672e34c01abcf2f7bc1d1c2223": {
+      "classification": "verified-original",
+      "sha256": "e4e7dbdb767236f995e96542d6d352783558400d6ea0b76abbf4beebc10e41c4",
+      "evidence": "Map.pak entry 3846; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:daef1fe836d6ffb4a2ead27934dd00bb565297a941360e7d464be9616ec7b918": {
+      "classification": "verified-original",
+      "sha256": "d78ff91a6ba246c17e243cc44360cec00b32c35faa9e8f1938de2195d9ee4d5d",
+      "evidence": "Map.pak entry 117; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:dbb60e0c50020cac067a21d9b253eb57dd45bece45221090522da0715d5653d3": {
+      "classification": "verified-original",
+      "sha256": "2fa9242c9d5fc18ef78a27f2095c9cb09ff671e66e334f9956648fc13384b71a",
+      "evidence": "Map.pak entry 1043; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:dcf753169777f52863f7910670b0713f755fbbb4f89c4439f13041d3a2ab3392": {
+      "classification": "verified-original",
+      "sha256": "6f6b27947c4361636e42c921a41c690b4c0d4802d7dca2a7bced04cbfa0f7c70",
+      "evidence": "Map.pak entry 185; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:df53e6e65ebec11445a2b3da8aaedb1e9293aacd5e5d8491c8eddae22542ed97": {
+      "classification": "verified-original",
+      "sha256": "ac87bfa37928c3a26a4cdabdc8b954476d2ecfd1cd6a046c982799b8839c1476",
+      "evidence": "Map.pak entry 910; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e09e71f50c50ad7995c1ae802293a28fb7a9fbc990ec6f13dfae260272a2abbb": {
+      "classification": "verified-original",
+      "sha256": "b9ae0e18d49ba8a54e1cdfe433d46cfe7edf1d538b6a1ac3c6eaaf6b308a6bbe",
+      "evidence": "Map.pak entry 737; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e4499015fd430671b3884bb278722f07b172f1e9a637d7de7d15d5509963ca1e": {
+      "classification": "verified-original",
+      "sha256": "c45aaef442c3f4257b9084e4d02af3d08b036c950fc24913d99ebe001aeef7db",
+      "evidence": "Map.pak entry 1062; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e572030141b7005f1679eaa83a7d1981ace1f7784eb39eb7b23b06089edf1069": {
+      "classification": "verified-original",
+      "sha256": "1a63006c9efc12cba29a3aa1f7554cc23b2a724c09725e5e7e53e2852ea6c9b4",
+      "evidence": "Map.pak entry 787; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e6339a9a9b998476a8ff77670ed0256c1579478c924735a98ebec87c33d15d55": {
+      "classification": "verified-original",
+      "sha256": "5c27a1b9e20f86d75c87dc1a1fa67eaaa7cfeec47d3291ae4ace8f059077981d",
+      "evidence": "Map.pak entry 534; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e67afb3c0b9fd4134d8e0ed971c75c011a4bb58a629d90ba8f4c8be6d75b6744": {
+      "classification": "verified-original",
+      "sha256": "72dc26142550d8a0850739a7d280a2ee8a6e343b8c8ba756a766b31e4cc03373",
+      "evidence": "Map.pak entry 858; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:e733ae0a6f4882b85719901177a02ab19f3b1840f62c7adf675bf185cb6c7300": {
+      "classification": "verified-original",
+      "sha256": "727b706892bb276bfec418de21ca4c38bafd2533222a0741b6dddd55256cab8a",
+      "evidence": "Map.pak entry 240; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:eed9b79d30c36298efc8364545e9faef04f323e307c986744e2a10aa1614067f": {
+      "classification": "verified-original",
+      "sha256": "0087ca6354e20d5a10c0a97afc030401881f910d3ecc57316416c6f9749fdc3c",
+      "evidence": "alternate Map.pak sha256 00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3 entry 9741; shifted-count archive parsed 11267/11267 entries to exact EOF; structurally valid HFL bytes"
+    },
+    "mxh:f14f2a8631ec2d17597fb88540cfd31af9f5ad992916952db612feeaae929f95": {
+      "classification": "verified-original",
+      "sha256": "616fae9bd1275fc34818338481c95d2a46d786199093fe5a4bb9a4a322ea875f",
+      "evidence": "Map.pak entry 259; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:f34ed9656a12030326802ea7b687c02fecd08b34831ce4cc136be4ee7deae51c": {
+      "classification": "verified-original",
+      "sha256": "8c26103239c8d79930b94749c6b816ed1f6a0a189fd9ccf6845975d83e687a45",
+      "evidence": "Map.pak entry 111; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:f48f01a994c8063672d80912aea663a8746fce5f28e595d2d9b76da6ea4e38da": {
+      "classification": "verified-original",
+      "sha256": "fec569f4674557064390cff9dc4e552f515ce416ccbca3ccbbe9ee03ac5a0111",
+      "evidence": "Map.pak entry 415; audited original PAK container and structurally valid HFL bytes; non-PAK candidates are absent or content-proven generated placeholders"
+    },
+    "mxh:ffa38b20b9df3a19052d1266347a545af4df01261991f4d6111b6e639d7d5c48": {
+      "classification": "verified-original",
+      "sha256": "4315f3be66df23183b4b034b495f8f6c9b53bd027e32afee84e291b6c24046e8",
+      "evidence": "alternate Map.pak sha256 00fab5a3ebae755cda6a500f254d60b21c4d64fb0664744a6de6ad20091f68a3 entry 9477; shifted-count archive parsed 11267/11267 entries to exact EOF; structurally valid HFL bytes"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "mapNumber": 44,
+  "spawnGame": {
+    "x": 10650,
+    "y": 0,
+    "z": 12500
+  },
+  "worldSize": {
+    "x": 51200,
+    "y": 51200
+  },
+  "tileSize": 50,
+  "width": 1024,
+  "height": 1024,
+  "collisionBit": 1,
+  "walkableCells": 3617,
+  "tileSha256": "6e936bc95cc95a3a070df6d20106337d699da6c8d3e65c08b6c049f4bf9d9cfb",
+  "scenePath": "Assets/Moxiang/Scenes/Map44_Wuguan.unity",
+  "sourceRefs": [
+    {
+      "path": "reference/legacy-source/4dddd9a6/[CC]Suryun/SuryunDefine.h",
+      "sha256": "1e3bf19e6d4f2c575f85fd0b1cde8d56005ffe184a1a8bdddc37ad75fa5ab70c"
+    },
+    {
+      "path": "reference/legacy-source/4dddd9a6/[Server]Map/TileManager.h",
+      "sha256": "95dc72f2018d745e44c5be2328c77d61ceef324c29087dfb09f343f705a83687"
+    },
+    {
+      "path": "reference/legacy-source/4dddd9a6/[Server]Map/FixedTile.h",
+      "sha256": "7b71982412fef07623ee253cf30923b8952c27ac45c182acf23ba79b31cdda82"
+    },
+    {
+      "path": "modern/data/PlayDH/Resource/Map/Map44.bmhm",
+      "sha256": "612882ae08f5d81ec6e0016e704e7af8181facbaf7e7056e4a5419969b7e354d"
+    },
+    {
+      "path": "modern/data/PlayDH/Resource/Map/44.ttb",
+      "sha256": "6e936bc95cc95a3a070df6d20106337d699da6c8d3e65c08b6c049f4bf9d9cfb"
+    }
+  ],
+  "notes": [
+    "Map44 uses static 44.stm and HEIGHT_FIELD NA, not HFL",
+    "Input surface preserves source TTB free cells and FIXHEIGHT 0",
+    "3494 spawn-connected cells occupy 9050..12250 by10850..14050 legacy units",
+    "Existing 7m sparring decoration does not authorize enlargement of server walkable region",
+    "Travel/Suryun mission protocol acceptance must be validated separately"
+  ],
+  "releaseReady": false
+}

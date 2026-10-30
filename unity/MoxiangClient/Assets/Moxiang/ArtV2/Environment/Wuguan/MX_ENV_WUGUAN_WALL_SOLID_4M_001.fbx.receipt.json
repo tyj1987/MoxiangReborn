@@ -1,0 +1,22 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.074606+00:00",
+  "asset_id": "MX_ENV_WUGUAN_WALL_SOLID_4M_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_WALL_SOLID_4M_001.fbx",
+  "export_sha256": "cf0d0c2cca19321d8fd6e07c56a98d61af36e423c7d6d3e0ca83dc3bec9f3a60",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001",
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001__PLASTER",
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001__STONE_BASE",
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001__TRIM_L",
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001__TRIM_R",
+    "MX_ENV_WUGUAN_WALL_SOLID_4M_001__TRIM_TOP"
+  ]
+}

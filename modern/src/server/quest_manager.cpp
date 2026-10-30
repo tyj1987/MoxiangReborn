@@ -8,6 +8,33 @@
 
 namespace mxh::server {
 
+namespace {
+bool count_filter_matches(const QuestSub& sub, const QuestEvent& event) noexcept {
+    switch (sub.count_filter) {
+    case QuestCountFilterKind::None:
+        return true;
+    case QuestCountFilterKind::WeaponItem:
+        return event.weapon_item == sub.filter_value1;
+    case QuestCountFilterKind::WeaponKind:
+        return event.weapon_kind == sub.filter_value1;
+    case QuestCountFilterKind::MonsterLevel:
+        return event.monster_level >= sub.filter_value1 &&
+               event.monster_level <= sub.filter_value2;
+    case QuestCountFilterKind::PlayerMonsterLevelGap: {
+        const auto player = static_cast<std::int32_t>(event.player_level);
+        const auto monster = static_cast<std::int32_t>(event.monster_level);
+        const auto player_above = player - monster;
+        const auto monster_above = monster - player;
+        return (player_above <= 0 ||
+                static_cast<std::uint32_t>(player_above) <= sub.filter_value1) &&
+               (monster_above <= 0 ||
+                static_cast<std::uint32_t>(monster_above) <= sub.filter_value2);
+    }
+    }
+    return false;
+}
+}  // namespace
+
 QuestProgress start_quest(std::uint32_t player_id,
                           const QuestDefinition& def,
                           std::uint32_t now_ms) noexcept {
@@ -26,7 +53,12 @@ bool increment_sub(QuestProgress& progress,
                     std::uint32_t target_id,
                     std::uint32_t delta) noexcept {
     for (auto& s : progress.subs) {
-        if (s.kind == kind && (s.target_id == target_id || s.target_id == 0u)) {
+        const bool accepted_target = s.accepted_target_ids.empty()
+            ? (s.target_id == target_id || s.target_id == 0u)
+            : std::find(s.accepted_target_ids.begin(),
+                        s.accepted_target_ids.end(), target_id) !=
+                  s.accepted_target_ids.end();
+        if (s.kind == kind && accepted_target) {
             const auto remaining = std::numeric_limits<std::uint32_t>::max() - s.count;
             s.count += std::min(delta, remaining);
             if (s.count >= s.target) {
@@ -155,6 +187,7 @@ std::vector<QuestEventChange> dispatch_quest_event(
         // the legacy group refuses further mutations, so we mirror that
         // here to keep behavior byte-equal.
         if (quest.state != QuestState::Accepted) continue;
+        if (event.quest_id != 0u && event.quest_id != quest.quest_id) continue;
 
         QuestEventChange change;
         change.quest_id = quest.quest_id;
@@ -166,7 +199,13 @@ std::vector<QuestEventChange> dispatch_quest_event(
         for (auto& sub : quest.subs) {
             if (active_stage != std::numeric_limits<std::uint32_t>::max() &&
                 sub.stage != active_stage) continue;
-            if (sub.kind != event.kind || sub.target_id != event.target_id) continue;
+            const bool accepted_target = sub.accepted_target_ids.empty()
+                ? sub.target_id == event.target_id
+                : std::find(sub.accepted_target_ids.begin(),
+                            sub.accepted_target_ids.end(), event.target_id) !=
+                      sub.accepted_target_ids.end();
+            if (sub.kind != event.kind || !accepted_target ||
+                !count_filter_matches(sub, event)) continue;
             const auto previous_count = sub.count;
             const auto remaining = std::numeric_limits<std::uint32_t>::max() - sub.count;
             sub.count += std::min(event.delta, remaining);

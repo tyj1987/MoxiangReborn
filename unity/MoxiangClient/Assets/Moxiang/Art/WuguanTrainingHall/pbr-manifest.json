@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "engine": "CYCLES",
+  "blenderVersion": "5.2.1 LTS",
+  "atlasSize": 4096,
+  "objects": 66,
+  "triangles": 13308,
+  "sourceEvaluatedTriangles": 13308,
+  "sourceBlend": "unity/source-overlays/wuguan-training-hall/WuguanTrainingHall.blend",
+  "sourceBlendSha256": "a01133434249b51e914381b2e9f03c56e28fb6a160a39b1c97354255b21ae307",
+  "bakeScript": "unity/source-overlays/wuguan-training-hall/bake_pbr.py",
+  "bakeScriptSha256": "446f6a893657059c48f3ab89dd920f5804531f4fba25b25843a86fd807416f68",
+  "modelPath": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Source/WuguanTrainingHall_PBR.fbx",
+  "modelSha256": "75b87b1c7454fbf3b50b8c4fce83ddd6d3c9624639f482ef29fb834478314163",
+  "bakedBlendPath": "unity/source-overlays/wuguan-training-hall/WuguanTrainingHall_PBR.blend",
+  "bakedBlendSha256": "868bdcfc61c23000a490cc09937beadf62d5493443d8b311711907e1b1e60eed",
+  "textures": [
+    {
+      "role": "BaseColor",
+      "path": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Textures/Hall_BaseColor.png",
+      "sha256": "050aa4453d89b8500ddb4a939532a700653d20bc968d08c0c1bc288d1bcad3f1",
+      "width": 4096,
+      "height": 4096,
+      "coverage": 0.9459971785545349,
+      "colorSpace": "sRGB"
+    },
+    {
+      "role": "Normal",
+      "path": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Textures/Hall_Normal.png",
+      "sha256": "fe9b717dfcd8807be6ac41788e80c8407edfc0bfff95e37e13e3cf31ed12f166",
+      "width": 4096,
+      "height": 4096,
+      "coverage": 0.9551406502723694,
+      "colorSpace": "Linear"
+    },
+    {
+      "role": "MetallicSmoothness",
+      "path": "unity/MoxiangClient/Assets/Moxiang/Art/WuguanTrainingHall/Textures/Hall_MetallicSmoothness.png",
+      "sha256": "a3a8fa3d290895fb68283ea8c38aa00c8cf3c049d991e4efbcfe8e227bcd5dd1",
+      "width": 4096,
+      "height": 4096,
+      "coverage": 0.9459971785545349,
+      "colorSpace": "Linear"
+    }
+  ],
+  "normalConvention": "Tangent +X +Y +Z",
+  "packing": "Metallic RGB; Smoothness A = 1 - linear Roughness",
+  "uvPolicy": "Unique multi-object smart UV atlas on evaluated source meshes",
+  "limitations": "No lightmap/AO; no sculpt high-to-low transfer; no commercial art acceptance"
+}

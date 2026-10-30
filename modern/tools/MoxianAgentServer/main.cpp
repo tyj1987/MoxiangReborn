@@ -420,6 +420,9 @@ int main(int argc, char** argv) {
         queue->drain_to(server);
 
         const auto now = std::chrono::steady_clock::now();
+        const auto transfer_disconnects = handler.poll_map_transfers(now);
+        queue->drain_to(server);
+        for (const auto id : transfer_disconnects) server.disconnect(id);
         const bool map_disconnected = !map_client || !map_client->is_connected();
         if (!args.map_server_addr.empty() && map_disconnected &&
             now >= next_map_reconnect) {

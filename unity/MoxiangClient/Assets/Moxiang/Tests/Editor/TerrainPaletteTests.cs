@@ -69,5 +69,43 @@ namespace Moxiang.Tests
             foreach (string guid in AssetDatabase.FindAssets("t:Texture2D", new[] { root + "Palette" }))
                 Assert.That(AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath(guid)).mipmapCount, Is.EqualTo(5));
         }
+
+        [Test]
+        public void Map2RecoveredTexturesImportButUnresolvedTilePreventsCompleteTerrain()
+        {
+            const string root = "Assets/Moxiang/Derived/Map2/";
+            var textures = AssetDatabase.FindAssets("t:Texture2D", new[] { root + "Palette" });
+            Assert.That(textures.Length, Is.EqualTo(19));
+            foreach (var guid in textures)
+            {
+                var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath(guid));
+                Assert.That(texture.width, Is.EqualTo(64));
+                Assert.That(texture.height, Is.EqualTo(64));
+                Assert.That(texture.mipmapCount, Is.EqualTo(5));
+            }
+            var field = AssetDatabase.LoadAssetAtPath<ImportedHeightField>(root + "Map2.mxhasset");
+            Assert.That(field, Is.Not.Null);
+            int unresolved = Array.FindIndex(field.descriptor.tiles, t => (t & 0x3fff) == 13);
+            Assert.That(unresolved, Is.GreaterThanOrEqualTo(0));
+            Assert.That(field.descriptor.textureNames[13], Is.EqualTo("1"));
+            var slots = field.descriptor.tiles.Select(t => t & 0x3fff).Distinct().Where(t => t != 13).ToArray();
+            int x = unresolved % field.descriptor.tileCountX, z = unresolved / field.descriptor.tileCountX;
+            Assert.Throws<InvalidDataException>(() => TerrainTileMesh.Build(field, x, z, 1, slots));
+        }
+
+        [Test]
+        public void Map2DevelopmentTerrainKeepsOverrideExplicitAndAllChunksPresent()
+        {
+            const string path = "Assets/Moxiang/Derived/Map2/Map2.mxhterrain";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            Assert.That(prefab, Is.Not.Null);
+            Assert.That(prefab.name, Is.EqualTo("Map2"));
+            Assert.That(prefab.transform.childCount, Is.EqualTo(64));
+            var materials = AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>().ToArray();
+            Assert.That(materials.Length, Is.EqualTo(20));
+            Assert.That(materials.Count(m => m.name.Contains("DevelopmentOverride_Unaccepted")), Is.EqualTo(1));
+            foreach (var renderer in prefab.GetComponentsInChildren<MeshRenderer>())
+                foreach (var material in renderer.sharedMaterials) Assert.That(material.mainTexture, Is.Not.Null);
+        }
     }
 }

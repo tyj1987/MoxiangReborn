@@ -1,0 +1,45 @@
+{
+  "schema": "moxiang.art-v2.asset-catalog.v1",
+  "entries": [
+    {
+      "assetId": "MX_ENV_WUGUAN_ASSEMBLY_001",
+      "legacyId": "",
+      "category": "Environment",
+      "runtimePath": "Assets/Moxiang/ArtV2/Environment/Wuguan/Prefabs/MX_ENV_WUGUAN_ASSEMBLY_001.prefab",
+      "sourcePath": "artsource/Blender/Environment/Wuguan/MX_ENV_WUGUAN_KIT_001.blend",
+      "stage": "integration_ready",
+      "verticalSlice": true,
+      "releaseReady": false
+    },
+    {
+      "assetId": "MX_WPN_SWORD_001",
+      "legacyId": "",
+      "category": "Weapon",
+      "runtimePath": "Assets/Moxiang/ArtV2/Weapons/Sword/Prefabs/MX_WPN_SWORD_001.prefab",
+      "sourcePath": "artsource/Blender/Weapons/Sword/MX_WPN_SWORD_001.blend",
+      "stage": "integration_ready",
+      "verticalSlice": true,
+      "releaseReady": false
+    },
+    {
+      "assetId": "MX_WPN_BLADE_001",
+      "legacyId": "",
+      "category": "Weapon",
+      "runtimePath": "Assets/Moxiang/ArtV2/Weapons/Blade/Prefabs/MX_WPN_BLADE_001.prefab",
+      "sourcePath": "artsource/Blender/Weapons/Blade/MX_WPN_BLADE_001.blend",
+      "stage": "integration_ready",
+      "verticalSlice": true,
+      "releaseReady": false
+    },
+    {
+      "assetId": "MX_WPN_SPEAR_001",
+      "legacyId": "",
+      "category": "Weapon",
+      "runtimePath": "Assets/Moxiang/ArtV2/Weapons/Spear/Prefabs/MX_WPN_SPEAR_001.prefab",
+      "sourcePath": "artsource/Blender/Weapons/Spear/MX_WPN_SPEAR_001.blend",
+      "stage": "integration_ready",
+      "verticalSlice": true,
+      "releaseReady": false
+    }
+  ]
+}

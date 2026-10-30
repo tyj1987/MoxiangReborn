@@ -28,6 +28,15 @@ std::vector<ClientRuntimeEvent> NetworkEventQueue::drain() {
     return result;
 }
 
+bool NetworkEventQueue::try_pop(ClientRuntimeEvent& event,
+    const std::function<bool(const ClientRuntimeEvent&)>& ready) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_events.empty() || !ready(m_events.front())) return false;
+    event = std::move(m_events.front());
+    m_events.pop_front();
+    return true;
+}
+
 std::size_t NetworkEventQueue::size() const {
     std::lock_guard<std::mutex> lock(m_mutex);
     return m_events.size();

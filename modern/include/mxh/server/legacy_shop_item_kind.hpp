@@ -25,6 +25,7 @@ inline constexpr std::uint16_t LEGACY_SHOP_ITEM_MAKEUP        = 261u;
 inline constexpr std::uint16_t LEGACY_SHOP_ITEM_DECORATION    = 262u;
 inline constexpr std::uint16_t LEGACY_SHOP_ITEM_SUNDRIES      = 263u;
 inline constexpr std::uint16_t LEGACY_SHOP_ITEM_EQUIP         = 264u;
+inline constexpr std::uint16_t LEGACY_SHOP_ITEM_TITAN_EQUIP   = 290u;
 inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET           = 300u;
 inline constexpr std::uint16_t LEGACY_SHOP_ITEM_PET_EQUIP     = 310u;
 

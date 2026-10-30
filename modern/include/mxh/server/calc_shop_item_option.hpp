@@ -19,15 +19,9 @@
 //     of the function's effect; the data plane returns the new value
 //     instead of mutating a member field.
 //
-// Locale-gated branches (legacy #ifdef _JAPAN_LOCAL_ / _HK_LOCAL_ /
-// _TL_LOCAL_): only the InvenExtend / PyogukExtend / MugongExtend /
-// CharacterSlot branches had locale splits, and all four locales agreed
-// on the incantation indices. The locale splits only changed the
-// indices applied (e.g. JP/HK also recognized the *2 variants). The
-// modern port inlines the locale-agnostic behavior (a single ItemIdx
-// per incantation) and documents the locale variants in the incantation
-// id enum. The SetExtraSlotCount side effect is the orchestrator's
-// responsibility.
+// Source ShopItemManager.cpp:1339-1399 gates slot expansion to JP/HK/TL;
+// only HK recognizes the second set of indices. China/Korea do not invoke
+// these callbacks. The runtime environment selects the source locale explicitly.
 
 #pragma once
 
@@ -38,6 +32,8 @@
 #include "mxh/game/shop_item_option.hpp"
 
 namespace mxh::server {
+
+enum class ShopLocale { China, Korea, Japan, HongKong, Thailand };
 
 // ---- 1:1 legacy enums ----
 
@@ -115,6 +111,7 @@ struct CalcShopItemOptionInfo {
 class CalcShopItemOptionEnv {
 public:
     virtual ~CalcShopItemOptionEnv() = default;
+    virtual ShopLocale locale() const noexcept { return ShopLocale::China; }
 
     // 1:1 with legacy gEventRate[rate_id] == gEventRateFile[rate_id].
     // The orchestrator wires gEventRate / gEventRateFile to this hook.

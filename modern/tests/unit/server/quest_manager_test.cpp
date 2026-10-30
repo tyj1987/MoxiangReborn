@@ -451,6 +451,25 @@ TEST(DispatchQuestEvent, UpdatesEveryMatchingActiveQuestInLogOrder) {
     EXPECT_EQ(log.quests[1].subs[0].count, 1u);
 }
 
+TEST(DispatchQuestEvent, NpcTalkQuestContextCannotAdvanceAnotherQuest) {
+    QuestDefinition first; first.quest_id = 101;
+    first.subs.push_back(QuestSub{QuestSubKind::TalkNpc, 38, 0, 1});
+    QuestDefinition second; second.quest_id = 102;
+    second.subs.push_back(QuestSub{QuestSubKind::TalkNpc, 38, 0, 1});
+    QuestLog log; log.player_id = 1001;
+    ASSERT_TRUE(accept_quest(log, first, 0));
+    ASSERT_TRUE(accept_quest(log, second, 0));
+
+    QuestEvent event{QuestSubKind::TalkNpc, 38, 1};
+    event.quest_id = 102;
+    const auto changes = dispatch_quest_event(log, event);
+
+    ASSERT_EQ(changes.size(), 1u);
+    EXPECT_EQ(changes.front().quest_id, 102u);
+    EXPECT_EQ(log.quests[0].subs[0].count, 0u);
+    EXPECT_EQ(log.quests[1].subs[0].count, 1u);
+}
+
 TEST(DispatchQuestEvent, CompletesQuestWhenFinalConditionMatches) {
     QuestLog log; log.player_id = 1001;
     accept_quest(log, make_kill_quest(101, 200, 2), 0);

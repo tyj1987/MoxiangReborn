@@ -207,7 +207,8 @@ def _discover_commit() -> str:
         return "unknown"
 
 
-def _iter_loose_files(root: Path, unsafe: list[dict[str, str]]) -> Iterable[tuple[Path, str]]:
+def _iter_loose_files(root: Path, unsafe: list[dict[str, str]],
+                      source_label: str = "loose") -> Iterable[tuple[Path, str]]:
     root_resolved = root.resolve(strict=True)
     for base, dirs, files in os.walk(root, followlinks=False):
         base_path = Path(base)
@@ -215,7 +216,7 @@ def _iter_loose_files(root: Path, unsafe: list[dict[str, str]]) -> Iterable[tupl
         for name in sorted(dirs, key=lambda value: (value.casefold(), value)):
             candidate = base_path / name
             if candidate.is_symlink():
-                unsafe.append({"source": "loose", "path": str(candidate.relative_to(root)), "reason": "directory symlink"})
+                unsafe.append({"source": source_label, "path": str(candidate.relative_to(root)), "reason": "directory symlink"})
             else:
                 safe_dirs.append(name)
         dirs[:] = safe_dirs
@@ -227,10 +228,10 @@ def _iter_loose_files(root: Path, unsafe: list[dict[str, str]]) -> Iterable[tupl
                 resolved.relative_to(root_resolved)
                 normalized = normalize_relative_path(relative)
             except (OSError, ValueError) as exc:
-                unsafe.append({"source": "loose", "path": relative, "reason": str(exc)})
+                unsafe.append({"source": source_label, "path": relative, "reason": str(exc)})
                 continue
             if candidate.is_symlink():
-                unsafe.append({"source": "loose", "path": relative, "reason": "file symlink"})
+                unsafe.append({"source": source_label, "path": relative, "reason": "file symlink"})
                 continue
             yield candidate, normalized
 
@@ -258,7 +259,8 @@ def _apply_attestation(source: dict[str, Any], attestation: Any,
 
 
 def build_manifest(root: Path, profile_id: str, source_commit: str | None = None,
-                   selection_path: Path | None = None) -> dict[str, Any]:
+                   selection_path: Path | None = None,
+                   additional_roots: list[tuple[str, Path]] | None = None) -> dict[str, Any]:
     root = root.resolve(strict=True)
     if not root.is_dir():
         raise AuditError(f"resource root is not a directory: {root}")
@@ -268,6 +270,16 @@ def build_manifest(root: Path, profile_id: str, source_commit: str | None = None
     issues: list[dict[str, str]] = []
     unsafe: list[dict[str, str]] = []
     sources: list[dict[str, Any]] = []
+    resolved_additional_roots: list[tuple[str, Path]] = []
+    for label, additional_root in additional_roots or []:
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", label):
+            raise AuditError(f"invalid additional root label: {label}")
+        if any(existing == label for existing, _ in resolved_additional_roots):
+            raise AuditError(f"duplicate additional root label: {label}")
+        resolved = additional_root.resolve(strict=True)
+        if not resolved.is_dir():
+            raise AuditError(f"additional root is not a directory: {resolved}")
+        resolved_additional_roots.append((label, resolved))
 
     root_files = defaultdict(list)
     for item in root.iterdir():
@@ -336,6 +348,28 @@ def build_manifest(root: Path, profile_id: str, source_commit: str | None = None
             ))
         except (OSError, ValueError) as exc:
             issues.append({"code": "loose-read-error", "subject": relative, "detail": str(exc)})
+
+    for label, additional_root in resolved_additional_roots:
+        source_type = f"overlay:{label}"
+        for path, relative in _iter_loose_files(additional_root, unsafe, source_type):
+            if path.name.casefold() in ("manifest.json", "provenance.json"):
+                continue
+            if path.suffix.casefold() == ".pak":
+                issues.append({"code": "overlay-pak-not-supported", "subject": label,
+                               "detail": relative})
+                continue
+            try:
+                data = path.read_bytes()
+                logical = logical_path_for_loose(relative)
+                sources.append(_source_record(
+                    source_type=source_type, logical_path=logical,
+                    physical_path=relative, size=len(data),
+                    sha256=_sha256_bytes(data),
+                    classification=classify_hfl(logical, data),
+                ))
+            except (OSError, ValueError) as exc:
+                issues.append({"code": "overlay-read-error", "subject": f"{label}:{relative}",
+                               "detail": str(exc)})
 
     for source in sources:
         if source["sourceId"] in attestations:
@@ -414,7 +448,8 @@ def build_manifest(root: Path, profile_id: str, source_commit: str | None = None
         "schemaVersion": SCHEMA_VERSION,
         "tool": {"name": TOOL_NAME, "version": TOOL_VERSION},
         "profileId": profile_id,
-        "source": {"root": ".", "commit": (source_commit or _discover_commit()).lower()},
+        "source": {"root": ".", "commit": (source_commit or _discover_commit()).lower(),
+                   "additionalRoots": [label for label, _ in resolved_additional_roots]},
         "policy": {
             "sourcePrecedence": "none",
             "ambiguousSourceSelection": "explicit-source-id-required",
@@ -521,20 +556,32 @@ def validate_manifest_document(manifest: dict[str, Any], mode: str = "release") 
     return {"mode": mode, "passed": not ordered, "blockerCount": len(ordered), "blockers": ordered}
 
 
-def verify_source_bytes(manifest: dict[str, Any], root: Path) -> dict[str, Any]:
+def verify_source_bytes(manifest: dict[str, Any], root: Path,
+                        additional_roots: dict[str, Path] | None = None) -> dict[str, Any]:
     """Rehash loose files and complete containers against the recorded baseline."""
     result = validate_manifest_document(manifest, "integrity")
     blockers = result["blockers"]
     root = root.resolve(strict=True)
-    records = list(manifest.get("packs", []))
-    records.extend(source for asset in manifest.get("assets", [])
+    records: list[tuple[dict[str, Any], Path]] = [(record, root) for record in manifest.get("packs", [])]
+    records.extend((source, root) for asset in manifest.get("assets", [])
                    for source in asset.get("sources", []) if source.get("sourceType") == "loose")
-    for record in records:
+    supplied = {label: path.resolve(strict=True) for label, path in (additional_roots or {}).items()}
+    required_labels = set(manifest.get("source", {}).get("additionalRoots", []))
+    for label in sorted(required_labels - set(supplied)):
+        blockers.append({"code": "source-root", "subject": label, "detail": "additional root not supplied"})
+    for asset in manifest.get("assets", []):
+        for source in asset.get("sources", []):
+            source_type = str(source.get("sourceType", ""))
+            if source_type.startswith("overlay:"):
+                label = source_type.removeprefix("overlay:")
+                if label in supplied:
+                    records.append((source, supplied[label]))
+    for record, record_root in records:
         relative = record.get("physicalPath", record.get("path", ""))
         try:
             relative = normalize_relative_path(relative)
-            path = (root / relative).resolve(strict=True)
-            path.relative_to(root)
+            path = (record_root / relative).resolve(strict=True)
+            path.relative_to(record_root)
             if path.stat().st_size != record["bytes"] or _sha256_file(path) != record["sha256"]:
                 raise ValueError("recorded bytes/hash differ")
         except (OSError, ValueError, KeyError) as exc:
@@ -573,6 +620,16 @@ def _read_manifest(path: Path) -> dict[str, Any]:
     return document
 
 
+def _parse_additional_roots(values: list[str] | None) -> list[tuple[str, Path]]:
+    parsed: list[tuple[str, Path]] = []
+    for value in values or []:
+        label, separator, path = value.partition("=")
+        if not separator or not path:
+            raise AuditError("additional root must use LABEL=PATH")
+        parsed.append((label, Path(path)))
+    return parsed
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
@@ -582,16 +639,19 @@ def main(argv: list[str] | None = None) -> int:
     audit.add_argument("--profile-id", required=True)
     audit.add_argument("--source-commit")
     audit.add_argument("--selection", type=Path)
+    audit.add_argument("--additional-root", action="append", default=[], metavar="LABEL=PATH")
     validate = subcommands.add_parser("validate", help="validate an existing manifest")
     validate.add_argument("manifest", type=Path)
     validate.add_argument("--mode", choices=("integrity", "release"), default="release")
     verify = subcommands.add_parser("verify-source", help="rehash original files and PAK containers against a baseline")
     verify.add_argument("manifest", type=Path)
     verify.add_argument("root", type=Path)
+    verify.add_argument("--additional-root", action="append", default=[], metavar="LABEL=PATH")
     args = parser.parse_args(argv)
     try:
         if args.command == "audit":
-            manifest = build_manifest(args.root, args.profile_id, args.source_commit, args.selection)
+            manifest = build_manifest(args.root, args.profile_id, args.source_commit, args.selection,
+                                      _parse_additional_roots(args.additional_root))
             _write_manifest(args.output, args.root, manifest)
             coverage = manifest["coverage"]
             validation = manifest["releaseValidation"]
@@ -608,7 +668,8 @@ def main(argv: list[str] | None = None) -> int:
             }, sort_keys=True))
             return 0
         manifest = _read_manifest(args.manifest)
-        result = (verify_source_bytes(manifest, args.root) if args.command == "verify-source"
+        result = (verify_source_bytes(manifest, args.root,
+                    dict(_parse_additional_roots(args.additional_root))) if args.command == "verify-source"
                   else validate_manifest_document(manifest, args.mode))
         print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if result["passed"] else 1

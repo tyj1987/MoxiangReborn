@@ -2651,7 +2651,7 @@ add_executable(mxh_shop_item_manager_tests
     agent_friend_side_effect_runtime_test.cpp
 )
 target_link_libraries(mxh_shop_item_manager_tests PRIVATE
-    mxh_server gtest_main
+    mxh_server mxh_db gtest_main
 )
 target_include_directories(mxh_shop_item_manager_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
@@ -3223,6 +3223,8 @@ gtest_add_tests(TARGET mxh_live_events_tests)
 add_executable(mxh_quest_runtime_adapter_tests quest_runtime_adapter_test.cpp)
 target_link_libraries(mxh_quest_runtime_adapter_tests PRIVATE mxh_server gtest_main)
 target_include_directories(mxh_quest_runtime_adapter_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_definitions(mxh_quest_runtime_adapter_tests PRIVATE
+    MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 gtest_add_tests(TARGET mxh_quest_runtime_adapter_tests)
 
 add_executable(mxh_account_service_tests account_service_test.cpp)

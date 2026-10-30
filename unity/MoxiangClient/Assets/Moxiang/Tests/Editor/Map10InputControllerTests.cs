@@ -28,5 +28,27 @@ namespace Moxiang.Tests
             }
             finally { Object.DestroyImmediate(go); }
         }
+
+        [Test]
+        public void EntityClickSuppressesGroundMoveOnlyInFrontOfGround()
+        {
+            var entity = new GameObject("NPC click test");
+            var child = new GameObject("NPC collider");
+            try {
+                entity.transform.position = new Vector3(2000, 2000, 2000);
+                child.transform.SetParent(entity.transform, false);
+                child.AddComponent<BoxCollider>();
+                var identity = entity.AddComponent<TargetSelectable>();
+                identity.objectId = 77;
+                identity.isNpc = true;
+                Physics.SyncTransforms();
+                var ray = new Ray(entity.transform.position + Vector3.back * 5, Vector3.forward);
+                Assert.That(Map10InputController.EntityOwnsClick(ray, 10), Is.True);
+                Assert.That(Map10InputController.EntityOwnsClick(ray, 2), Is.False);
+                identity.objectId = 0;
+                Assert.That(Map10InputController.EntityOwnsClick(ray, 10), Is.False);
+            }
+            finally { Object.DestroyImmediate(entity); }
+        }
     }
 }

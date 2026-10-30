@@ -22,6 +22,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include "mxh/game/avatar_item_option.hpp"
 
 namespace mxh::game {
@@ -124,5 +125,45 @@ static_assert(sizeof(ShopItemOption) == 120,
 static_assert(offsetof(ShopItemOption, Gengol) == 46);
 static_assert(offsetof(ShopItemOption, wSkinItem) == 106);
 static_assert(offsetof(ShopItemOption, dwStreetStallDecoration) == 116);
+
+// SHOPITEMOPTION on the modern wire uses the original packed little-endian
+// field order. Encode values explicitly, independently of host byte order.
+inline std::array<std::uint8_t, 120> encode_shop_item_option(const ShopItemOption& s) noexcept {
+    std::array<std::uint8_t, 120> result{};
+    std::size_t offset = 0;
+    const auto put = [&](std::uint32_t value, unsigned bytes) {
+        for (unsigned i = 0; i < bytes; ++i)
+            result[offset++] = static_cast<std::uint8_t>(value >> (8 * i));
+    };
+    for (auto value : s.Avatar) put(value, 2);
+    for (auto value : {s.Gengol, s.Minchub, s.Cheryuk, s.Simmek, s.Life,
+                       s.Shield, s.Naeryuk, s.AddExp, s.AddItemDrop}) put(value, 2);
+    put(static_cast<std::uint8_t>(s.ExpPeneltyPoint), 1);
+    put(static_cast<std::uint8_t>(s.MoneyPeneltyPoint), 1);
+    put(s.AddSung, 2);
+    put(static_cast<std::uint8_t>(s.NeagongDamage), 1);
+    put(static_cast<std::uint8_t>(s.WoigongDamage), 1);
+    put(static_cast<std::uint8_t>(s.ComboDamage), 1);
+    put(static_cast<std::uint8_t>(s.RecoverRate), 1);
+    put(s.Critical, 2);
+    put(static_cast<std::uint8_t>(s.StunByCri), 1);
+    put(s.Decisive, 2);
+    put(static_cast<std::uint8_t>(s.ItemMixSuccess), 1);
+    put(s.StatePoint, 2); put(s.UseStatePoint, 2);
+    put(static_cast<std::uint8_t>(s.RegistPhys), 1);
+    put(static_cast<std::uint8_t>(s.RegistAttr), 1);
+    put(static_cast<std::uint8_t>(s.NeaRyukSpend), 1);
+    put(s.SkillPoint, 4); put(s.UseSkillPoint, 4);
+    put(static_cast<std::uint8_t>(s.ProtectCount), 1);
+    put(s.AddAbility, 2); put(s.AddMugongExp, 2);
+    put(static_cast<std::uint8_t>(s.PlustimeExp), 1);
+    put(static_cast<std::uint8_t>(s.PlustimeAbil), 1);
+    put(static_cast<std::uint8_t>(s.PlustimeNaeruyk), 1);
+    put(s.bKyungGong, 1); put(s.KyungGongSpeed, 1);
+    put(s.EquipLevelFree, 1); put(s.ReinforceAmp, 1); put(s.bStreetStall, 1);
+    for (auto value : s.wSkinItem) put(value, 2);
+    put(s.dwStreetStallDecoration, 4);
+    return result;
+}
 
 }  // namespace mxh::game

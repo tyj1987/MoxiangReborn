@@ -60,6 +60,11 @@ public:
 
     std::optional<std::uint16_t> insert_inventory_item(mxh::game::ItemBase item) noexcept;
     std::optional<mxh::game::ItemBase> remove_inventory_item(std::uint16_t slot) noexcept;
+    // Exact identity check for shop expiry; accepts absolute source positions.
+    std::optional<mxh::game::ItemBase> remove_shop_inventory_item(const mxh::game::ItemBase& expected) noexcept;
+    // Original expiry search order: ShopInventory, Weared, PetWeared, TitanShopItem.
+    // Relocation is allowed, but duplicate database ids or icon mismatches fail closed.
+    std::optional<mxh::game::ItemBase> remove_physical_shop_item(const mxh::game::ItemBase& expected) noexcept;
     std::uint32_t count_inventory_item(std::uint16_t item_idx) const noexcept;
     bool remove_inventory_item_by_icon(std::uint16_t item_idx,
                                        std::uint32_t quantity) noexcept;
@@ -69,6 +74,10 @@ public:
                       std::uint16_t inventory_slot) noexcept;
 
     PlayerDamageResult apply_damage(std::uint32_t amount) noexcept;
+    // Finalize a server-computed lethal hit without applying damage twice.
+    bool mark_dead_if_zero_life() noexcept;
+    // Ordinary revive vitals only; caller must commit penalties/location first.
+    // Not the special duel/siege revive path.
     bool revive() noexcept;
     void heal_full() noexcept;
 

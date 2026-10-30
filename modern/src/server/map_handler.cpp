@@ -20,14 +20,29 @@
 //   [2B length LE] [8B MSGBASE: checksum+code+cat+proto+objID] [payload]
 
 #include "mxh/server/server.hpp"
+#include "mxh/net/capture_handler.hpp"
+#include "mxh/server/restore_shop_persistence.hpp"
+#include "mxh/server/calc_shop_item_option_runtime.hpp"
+#include "mxh/server/shop_playtime_step.hpp"
+#include "mxh/server/dup_param.hpp"
+#include "mxh/server/discard_avatar_item.hpp"
+#include <mxh/server/avatar_equip_environment.hpp>
+#include <mxh/server/avatar_calc.hpp>
 #include "mxh/server/live_events.hpp"
 #include "mxh/server/distributer.hpp"
 #include "mxh/server/quest_runtime_adapter.hpp"
+#include "mxh/server/agent_char.hpp"
+#include "mxh/server/agent_userconn.hpp"
+#include "mxh/game/login_point.hpp"
+#include "mxh/server/commit_present_revive.hpp"
+#include "mxh/server/revive_vitality_messages.hpp"
+#include "mxh/proto/character_level.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "mxh/server/ai_group_loader.hpp"
 #include "mxh/game/item_effects.hpp"
 #include "mxh/game/item_manager.hpp"
 #include "mxh/game/skill_manager.hpp"
+#include "mxh/game/battle_factory.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/game/npc_role.hpp"
 #include "mxh/server/player.hpp"
@@ -41,9 +56,12 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 #include <iostream>
+#include <iterator>
 #include <optional>
 #include <random>
 #include <vector>
@@ -174,6 +192,26 @@ std::string get_str(const mxh::db::ResultSet& rs, std::size_t row,
     return def;
 }
 
+std::optional<std::time_t> packed_shop_time_to_epoch(mxh::game::PackedTime value) {
+    if (value.month() < 1u || value.month() > 12u || value.day() < 1u ||
+        value.day() > 31u || value.hour() > 23u || value.minute() > 59u ||
+        value.second() > 59u) return std::nullopt;
+    std::tm decoded{};
+    decoded.tm_year = 100 + value.year();
+    decoded.tm_mon = value.month() - 1;
+    decoded.tm_mday = value.day();
+    decoded.tm_hour = value.hour();
+    decoded.tm_min = value.minute();
+    decoded.tm_sec = value.second();
+    decoded.tm_isdst = -1;
+    const auto epoch = std::mktime(&decoded);
+    if (epoch == static_cast<std::time_t>(-1)) return std::nullopt;
+    if (decoded.tm_mon != value.month() - 1 || decoded.tm_mday != value.day() ||
+        decoded.tm_hour != value.hour() || decoded.tm_min != value.minute() ||
+        decoded.tm_sec != value.second()) return std::nullopt;
+    return epoch;
+}
+
 // ---------------------------------------------------------------------------
 // CharData: real character data loaded from the database.
 // ---------------------------------------------------------------------------
@@ -193,15 +231,19 @@ struct CharData {
     float height = 1.0f, width = 1.0f;
 };
 
-CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
+std::optional<CharData> load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid,
+                                      std::uint32_t user_id, bool allow_defaults) {
     CharData cd;
     cd.chrid = chrid;
     mxh::db::ResultSet rs;
     std::vector<mxh::db::Bind> params = { mxh::db::bind(static_cast<std::int64_t>(chrid)) };
     auto r = db.query(
         "SELECT charname, sex_type, face_type, hair_type, height, width, "
-        "level, map_num FROM character_info WHERE chrid = ?",
+        "level, map_num, userid FROM character_info WHERE chrid = ?",
         params, rs);
+    if ((!r.ok() || rs.empty()) && !allow_defaults) return std::nullopt;
+    if (!allow_defaults && (user_id == 0 || get_str(rs, 0, "userid", "") != std::to_string(user_id)))
+        return std::nullopt;
     if (r.ok() && !rs.empty()) {
         cd.name      = get_str(rs, 0, "charname", "Player");
         cd.gender    = static_cast<std::uint8_t>(get_int(rs, 0, "sex_type"));
@@ -214,6 +256,7 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
     }
     mxh::db::ResultSet state;
     r = db.query("SELECT level,exp,money FROM modern_player_state WHERE player_id = ?", params, state);
+    if (!r.ok() && !allow_defaults) return std::nullopt;
     if (r.ok() && !state.empty()) {
         cd.level = static_cast<std::uint16_t>(get_int(state, 0, "level", cd.level));
         cd.exp = static_cast<std::uint32_t>(get_int(state, 0, "exp"));
@@ -225,6 +268,8 @@ CharData load_char_data(mxh::db::IDbAdapter& db, std::uint32_t chrid) {
 mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id, const CharData& cd,
                                   const mxh::game::ItemTotalInfo& items,
                                   const std::array<std::uint32_t, 8>& skills,
+                                  const mxh::game::ShopItemOption& shop_options,
+                                  const mxh::server::PlayerVitals& vitals,
                                   float position_x, float position_z) {
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
@@ -235,6 +280,9 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id
 
     m.payload.resize(kMinGameInAckPayloadSize, 0);
     std::memcpy(m.payload.data() + kPayloadItemOff, &items, sizeof(items));
+    const auto shop_wire = mxh::game::encode_shop_item_option(shop_options);
+    std::copy(shop_wire.begin(), shop_wire.end(),
+              m.payload.begin() + mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET);
 
     // --- BASEOBJECT_INFO [0..34] ---
     put_u32(m.payload, kPayloadBaseObjOff + 0, player_id);
@@ -242,10 +290,10 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id
     put_str(m.payload, kPayloadBaseObjOff + 8, cd.name.c_str(), 17);
 
     // --- CHARACTER_TOTALINFO [35..146] ---
-    put_u32(m.payload, kPayloadCharTotalOff + 0, cd.life);
-    put_u32(m.payload, kPayloadCharTotalOff + 4, cd.max_life);
-    put_u32(m.payload, kPayloadCharTotalOff + 8, cd.shield);
-    put_u32(m.payload, kPayloadCharTotalOff + 12, cd.max_shield);
+    put_u32(m.payload, kPayloadCharTotalOff + 0, vitals.current_hp);
+    put_u32(m.payload, kPayloadCharTotalOff + 4, vitals.max_hp);
+    put_u32(m.payload, kPayloadCharTotalOff + 8, vitals.current_shield);
+    put_u32(m.payload, kPayloadCharTotalOff + 12, vitals.max_shield);
     put_u8(m.payload, kPayloadCharTotalOff + 16, cd.gender);
     put_u8(m.payload, kPayloadCharTotalOff + 17, cd.face_type);
     put_u8(m.payload, kPayloadCharTotalOff + 18, cd.hair_type);
@@ -265,8 +313,8 @@ mxh::net::Message make_gamein_ack(std::uint32_t player_id, std::uint32_t user_id
     put_u16(m.payload, kPayloadHeroTotalOff + 2, 10);
     put_u16(m.payload, kPayloadHeroTotalOff + 4, 10);
     put_u16(m.payload, kPayloadHeroTotalOff + 6, 10);
-    put_u32(m.payload, kPayloadHeroTotalOff + 8, 50);
-    put_u32(m.payload, kPayloadHeroTotalOff + 12, 50);
+    put_u32(m.payload, kPayloadHeroTotalOff + 8, vitals.current_mp);
+    put_u32(m.payload, kPayloadHeroTotalOff + 12, vitals.max_mp);
     const std::int64_t exp = cd.exp;
     std::memcpy(m.payload.data() + kPayloadHeroTotalOff + 22, &exp, sizeof(exp));
     put_u32(m.payload, kPayloadHeroTotalOff + 36, cd.money);
@@ -329,30 +377,45 @@ std::array<std::uint32_t, 8> load_quick_skills(mxh::db::IDbAdapter& db,
     return out;
 }
 
-void load_character_equipment(mxh::db::IDbAdapter& db, std::uint32_t chrid,
-                              mxh::game::ItemTotalInfo& items) {
+bool load_character_equipment(mxh::db::IDbAdapter& db, std::uint32_t chrid,
+                              mxh::game::ItemTotalInfo& items,
+                              std::array<bool, 10>* present = nullptr) {
     mxh::db::ResultSet rows;
     const auto result = db.query(
         "SELECT slot,item_idx FROM modern_character_equipment WHERE chrid=? AND slot BETWEEN 0 AND 9 ORDER BY slot",
         {mxh::db::bind(static_cast<std::int64_t>(chrid))}, rows);
-    if (!result.ok()) return;
+    if (!result.ok()) return false;
     for (const auto& row : rows.rows) {
         if (row.size() < 2 || !std::holds_alternative<std::int64_t>(row[0]) ||
             !std::holds_alternative<std::int64_t>(row[1])) continue;
         const auto slot = static_cast<std::size_t>(std::get<std::int64_t>(row[0]));
         if (slot < 10u) {
+            if (present) (*present)[slot] = true;
             items.WearedItem[slot].wIconIdx = static_cast<std::uint16_t>(
                 std::get<std::int64_t>(row[1]));
         }
     }
+    return true;
 }
 
-mxh::net::Message make_gameout_ack() {
+mxh::game::ItemTotalInfo make_item_total(const mxh::server::PlayerState& state) {
+    mxh::game::ItemTotalInfo items{};
+    std::copy(state.inventory.items.begin(), state.inventory.items.end(), std::begin(items.Inventory));
+    std::copy(state.equipment.items.begin(), state.equipment.items.end(), std::begin(items.WearedItem));
+    std::copy(state.shop_inventory.items.begin(), state.shop_inventory.items.end(), std::begin(items.ShopInventory));
+    std::copy(state.pet_wear.items.begin(), state.pet_wear.items.end(), std::begin(items.PetWearedItem));
+    std::copy(state.titan_wear.items.begin(), state.titan_wear.items.end(), std::begin(items.TitanWearedItem));
+    std::copy(state.titan_shop_items.items.begin(), state.titan_shop_items.items.end(), std::begin(items.TitanShopItem));
+    return items;
+}
+
+mxh::net::Message make_gameout_ack(std::uint32_t player_id) {
     mxh::net::Message m;
     m.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::UserConn);
     m.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::GameOutAck);
+    m.header.object_id = player_id;
     return m;
 }
 
@@ -410,6 +473,10 @@ std::optional<MapHandler::PlayerRuntimeSnapshot> MapHandler::player_runtime_snap
     PlayerRuntimeSnapshot snapshot;
     snapshot.lifecycle = it->second.actor.lifecycle();
     snapshot.player_id = it->second.actor.state().player_id;
+    snapshot.user_id = it->second.actor.state().user_id;
+    snapshot.gender = it->second.actor.state().gender;
+    snapshot.face_type = it->second.actor.state().face_type;
+    snapshot.hair_type = it->second.actor.state().hair_type;
     snapshot.map_num = it->second.actor.state().map_num;
     materialize_player_position_locked(player_id,movement_now());
     snapshot.pos_x = it->second.actor.state().pos_x;
@@ -425,6 +492,8 @@ std::optional<MapHandler::PlayerRuntimeSnapshot> MapHandler::player_runtime_snap
     snapshot.level = it->second.actor.state().progress.level;
     snapshot.level_exp = it->second.actor.state().progress.level_exp;
     snapshot.total_exp = it->second.actor.state().progress.total_exp;
+    snapshot.current_shield = it->second.actor.state().vitals.current_shield;
+    snapshot.max_shield = it->second.actor.state().vitals.max_shield;
     return snapshot;
 }
 
@@ -435,6 +504,22 @@ bool MapHandler::set_player_vitals_for_test(std::uint32_t player_id, std::uint32
     auto& vitals = it->second.actor.state().vitals;
     vitals.current_hp = std::min(hp, vitals.max_hp);
     vitals.current_mp = std::min(mp, vitals.max_mp);
+    auto info = connected_players_.find(player_id);
+    if (info != connected_players_.end()) {
+        info->second.combat.current_hp = vitals.current_hp;
+        info->second.combat.current_mp = vitals.current_mp;
+    }
+    return true;
+}
+
+bool MapHandler::set_player_shield_for_test(std::uint32_t player_id, std::uint32_t shield) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto runtime = player_runtimes_.find(player_id);
+    const auto info = connected_players_.find(player_id);
+    if (runtime == player_runtimes_.end() || info == connected_players_.end()) return false;
+    auto& vitals = runtime->second.actor.state().vitals;
+    vitals.current_shield = std::min(shield, vitals.max_shield);
+    info->second.current_shield = vitals.current_shield;
     return true;
 }
 
@@ -500,31 +585,41 @@ std::optional<QuestProgress> MapHandler::quest_progress_for_test(std::uint32_t p
     return **progress;
 }
 
-void MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t money) {
+bool MapHandler::persist_player_money(std::uint32_t player_id, std::uint32_t money) {
     // M3 D-stage: BuySyn money persistence.  Upsert a single row in
     // modern_player_state keyed by player_id.  Mirrors the role of
     // legacy [Server]Map/MapDBShopList.cpp MP_ITEM_UPDATE for money.
-    // The SQL is portable: SQLite (3.24+ ON CONFLICT) and MSSQL
-    // (2016+ INSERT...ON CONFLICT) both accept this UPSERT form; the
-    // MoxianDbTool and mx_modern_schema_mssql.sql declare the table
-    // identically.
+    // SQLite and SQL Server use different upsert and UTC timestamp syntax.
+    // Keep the parameter layout identical so the value boundary is shared.
     const std::int64_t pid_i64 = static_cast<std::int64_t>(player_id);
     const std::int64_t money_i64 = static_cast<std::int64_t>(money);
     std::vector<mxh::db::Bind> params = {
         mxh::db::bind(pid_i64),
         mxh::db::bind(money_i64),
     };
-    auto r = db_.execute(
-        "INSERT INTO modern_player_state (player_id, money, updated_at) "
-        "VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
-        "ON CONFLICT (player_id) DO UPDATE SET "
-        "money = excluded.money, updated_at = excluded.updated_at",
-        params);
+    auto r = db_.backend_name() == "mssql_odbc"
+        ? db_.execute(
+            "MERGE modern_player_state WITH (HOLDLOCK) AS target "
+            "USING (SELECT ? AS player_id, ? AS money) AS source "
+            "ON target.player_id = source.player_id "
+            "WHEN MATCHED THEN UPDATE SET money = source.money, "
+            "updated_at = CONVERT(nvarchar(32), SYSUTCDATETIME(), 127) "
+            "WHEN NOT MATCHED THEN INSERT (player_id, money, updated_at) "
+            "VALUES (source.player_id, source.money, "
+            "CONVERT(nvarchar(32), SYSUTCDATETIME(), 127));",
+            params)
+        : db_.execute(
+            "INSERT INTO modern_player_state (player_id, money, updated_at) "
+            "VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+            "ON CONFLICT (player_id) DO UPDATE SET "
+            "money = excluded.money, updated_at = excluded.updated_at",
+            params);
     if (!r.ok()) {
         std::cerr << "[Map] persist_player_money(" << player_id
                   << ", " << money << ") DB error: "
                   << r.error_message << "\n";
     }
+    return r.ok();
 }
 
 void MapHandler::persist_party(const Party& party) {
@@ -678,27 +773,45 @@ void MapHandler::load_membership_state(std::uint32_t player_id, std::string_view
     }
 }
 
-void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
+bool MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
     mxh::db::ResultSet rows;
     const std::vector<mxh::db::Bind> args{mxh::db::bind(static_cast<std::int64_t>(player_id))};
     const auto result = db_.query(
         "SELECT container,slot,db_idx,item_idx,durability,rare_idx,quick_position,item_param "
         "FROM modern_player_item WHERE player_id=? ORDER BY container,slot", args, rows);
-    if (!result.ok()) return;
+    if (!result.ok()) return false;
     for (const auto& row : rows.rows) {
-        if (row.size() < 8) continue;
+        if (row.size() != 8) return false;
         bool valid = true;
         for (const auto& value : row) valid = valid && std::holds_alternative<std::int64_t>(value);
-        if (!valid) continue;
+        if (!valid) return false;
         const auto container = std::get<std::int64_t>(row[0]);
         const auto slot = std::get<std::int64_t>(row[1]);
+        // Containers 2..5 are the modern-owned shop/pet/Titan wire containers.
+        // Reject malformed records rather than dropping them and deleting them
+        // on the next save.
+        std::int64_t owned_slot_count = -1;
+        if (container == 2) owned_slot_count = static_cast<std::int64_t>(player.state().shop_inventory.items.size());
+        else if (container == 3) owned_slot_count = static_cast<std::int64_t>(player.state().pet_wear.items.size());
+        else if (container == 4) owned_slot_count = static_cast<std::int64_t>(player.state().titan_wear.items.size());
+        else if (container == 5) owned_slot_count = static_cast<std::int64_t>(player.state().titan_shop_items.items.size());
+        if (owned_slot_count >= 0) {
+            if (slot < 0 || slot >= owned_slot_count) return false;
+            for (std::size_t column = 2; column < 8; ++column) {
+                const auto value = std::get<std::int64_t>(row[column]);
+                const std::int64_t maximum = column == 3 || column == 6 ? 65535 : UINT32_MAX;
+                if (value < 0 || value > maximum) return false;
+            }
+            if (std::get<std::int64_t>(row[2]) == 0 || std::get<std::int64_t>(row[3]) == 0) return false;
+        }
         mxh::game::ItemBase item{};
         item.dwDBIdx = static_cast<std::uint32_t>(std::get<std::int64_t>(row[2]));
         if (item.dwDBIdx != 0u) {
             auto next = next_item_db_idx_.load(std::memory_order_relaxed);
-            while (next <= item.dwDBIdx &&
-                   !next_item_db_idx_.compare_exchange_weak(
-                       next, item.dwDBIdx + 1u,
+            const auto successor = item.dwDBIdx == UINT32_MAX ? UINT32_MAX : item.dwDBIdx + 1u;
+            while (next < successor &&
+                    !next_item_db_idx_.compare_exchange_weak(
+                        next, successor,
                        std::memory_order_relaxed,
                        std::memory_order_relaxed)) {
             }
@@ -714,8 +827,23 @@ void MapHandler::load_player_items(std::uint32_t player_id, Player& player) {
         } else if (container == 1 && slot >= 0 && slot < static_cast<std::int64_t>(player.state().equipment.items.size())) {
             item.Position = static_cast<std::uint16_t>(mxh::game::TP_WEAREDITEM_START + slot);
             player.state().equipment.items[static_cast<std::size_t>(slot)] = item;
+        } else if (container == 2) {
+            item.Position = static_cast<std::uint16_t>(mxh::game::TP_SHOPINVEN_START + slot);
+            player.state().shop_inventory.items[static_cast<std::size_t>(slot)] = item;
+        } else if (container == 3) {
+            item.Position = static_cast<std::uint16_t>(mxh::game::TP_PETWEAR_START + slot);
+            player.state().pet_wear.items[static_cast<std::size_t>(slot)] = item;
+        } else if (container == 4) {
+            item.Position = static_cast<std::uint16_t>(mxh::game::TP_TITANWEAR_START + slot);
+            player.state().titan_wear.items[static_cast<std::size_t>(slot)] = item;
+        } else if (container == 5) {
+            item.Position = static_cast<std::uint16_t>(mxh::game::TP_TITANSHOPITEM_START + slot);
+            player.state().titan_shop_items.items[static_cast<std::size_t>(slot)] = item;
+        } else {
+            return false; // Never publish a partial container set then erase omitted rows on save.
         }
     }
+    return true;
 }
 
 namespace {
@@ -734,6 +862,7 @@ bool MapHandler::persist_player_position_locked(std::uint32_t player_id) {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto runtime = player_runtimes_.find(player_id);
         if (runtime == player_runtimes_.end()) return false;
+        materialize_player_position_locked(player_id, movement_now());
         const auto& actor = runtime->second.actor.state();
         map_num = map_num_;
         pos_x = static_cast<std::uint16_t>(actor.pos_x);
@@ -744,20 +873,36 @@ bool MapHandler::persist_player_position_locked(std::uint32_t player_id) {
         mxh::db::bind(static_cast<std::int64_t>(map_num)),
         mxh::db::bind(static_cast<std::int64_t>(pos_x)),
         mxh::db::bind(static_cast<std::int64_t>(pos_z))};
-    auto r = db_.execute(
-        "INSERT INTO modern_player_position "
-        "(player_id, map_num, pos_x, pos_z, updated_at) "
-        "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
-        "ON CONFLICT (player_id) DO UPDATE SET "
-        "map_num = excluded.map_num, pos_x = excluded.pos_x, "
-        "pos_z = excluded.pos_z, updated_at = excluded.updated_at",
-        params);
+    auto r = db_.backend_name() == "mssql_odbc"
+        ? db_.execute(
+            "MERGE modern_player_position WITH (HOLDLOCK) AS target "
+            "USING (SELECT ? AS player_id, ? AS map_num, ? AS pos_x, ? AS pos_z) AS source "
+            "ON target.player_id = source.player_id "
+            "WHEN MATCHED THEN UPDATE SET map_num = source.map_num, "
+            "pos_x = source.pos_x, pos_z = source.pos_z, "
+            "updated_at = CONVERT(nvarchar(32), SYSUTCDATETIME(), 127) "
+            "WHEN NOT MATCHED THEN INSERT (player_id, map_num, pos_x, pos_z, updated_at) "
+            "VALUES (source.player_id, source.map_num, source.pos_x, source.pos_z, "
+            "CONVERT(nvarchar(32), SYSUTCDATETIME(), 127));",
+            params)
+        : db_.execute(
+            "INSERT INTO modern_player_position "
+            "(player_id, map_num, pos_x, pos_z, updated_at) "
+            "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+            "ON CONFLICT (player_id) DO UPDATE SET "
+            "map_num = excluded.map_num, pos_x = excluded.pos_x, "
+            "pos_z = excluded.pos_z, updated_at = excluded.updated_at",
+            params);
     if (!r.ok()) {
         std::cerr << "[Map] persist_player_position(" << player_id
                   << ") DB error: " << r.error_message << "\n";
         return false;
     }
-    return true;
+    // CharacterSelect reads character_info.map_num; keep it aligned with the
+    // saved position so a reconnect reaches the map that owns this snapshot.
+    return db_.execute("UPDATE character_info SET map_num=? WHERE chrid=?",
+        {mxh::db::bind(static_cast<std::int64_t>(map_num)),
+         mxh::db::bind(static_cast<std::int64_t>(player_id))}).ok();
 }
 
 std::size_t MapHandler::persist_all_connected_player_positions() {
@@ -776,33 +921,257 @@ std::size_t MapHandler::persist_all_connected_player_positions() {
     return wrote;
 }
 
-void MapHandler::prepare_for_shutdown() {
-    if (draining_.exchange(true)) return;  // idempotent
-    std::cout << "[Map] prepare_for_shutdown: draining, persisting "
-              << "positions and disconnecting from DB\n";
+bool MapHandler::prepare_for_shutdown() {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
+    if (draining_.exchange(true)) return shutdown_save_succeeded_;
     materialize_positions();
-    persist_all_connected_player_positions();
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> players;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        for (const auto& [pid, info] : connected_players_) players.emplace_back(pid, info.money);
+    }
+    std::size_t saved = 0;
+    for (const auto& [pid, money] : players) {
+        if (persist_player_exit(pid, money)) ++saved;
+        else std::cerr << "[Map] shutdown save failed player=" << pid << "\n";
+    }
+    shutdown_save_succeeded_ = saved == players.size();
+    std::cout << "[Map] shutdown saved " << saved << " of " << players.size() << " players\n";
     if (db_.is_connected()) db_.disconnect();
+    return shutdown_save_succeeded_;
 }
 
-void MapHandler::persist_player_items(std::uint32_t player_id) {
+bool MapHandler::persist_player_items(std::uint32_t player_id) {
+    if (!db_.begin_transaction().ok()) return false;
+    if (!write_player_items(player_id) || !db_.commit().ok()) {
+        (void)db_.rollback();
+        return false;
+    }
+    return true;
+}
+
+bool MapHandler::persist_player_items_and_money(std::uint32_t player_id,
+                                                std::uint32_t money) {
+    bool began = false;
+    bool commit_attempted = false;
+    try {
+        if (!db_.begin_transaction().ok()) return false;
+        began = true;
+        if (write_player_items(player_id) && persist_player_money(player_id, money)) {
+            commit_attempted = true;
+            if (db_.commit().ok()) return true;
+        }
+    } catch (...) {
+    }
+    bool rolled_back = false;
+    if (began) {
+        try { rolled_back = db_.rollback().ok(); } catch (...) {}
+    }
+    if (commit_attempted || !rolled_back) {
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        std::cerr << "[Map] terminal inventory/money persistence uncertainty player="
+                  << player_id << "\n";
+        try { db_.disconnect(); } catch (...) {}
+    }
+    return false;
+}
+
+bool MapHandler::persist_quest_reward(std::uint32_t player_id,
+                                      const PlayerProgress& progress) {
+    bool began = false;
+    bool commit_attempted = false;
+    try {
+        if (!db_.begin_transaction().ok()) return false;
+        began = true;
+        const std::vector<mxh::db::Bind> args{
+            mxh::db::bind(static_cast<std::int64_t>(progress.level)),
+            mxh::db::bind(static_cast<std::int64_t>(progress.level_exp)),
+            mxh::db::bind(static_cast<std::int64_t>(progress.money)),
+            mxh::db::bind(static_cast<std::int64_t>(player_id))};
+        if (persist_quest_log(player_id) && write_player_items(player_id) &&
+            db_.execute("UPDATE modern_player_state SET level=?,exp=?,money=?,"
+                        "updated_at=CURRENT_TIMESTAMP WHERE player_id=?", args).ok()) {
+            commit_attempted = true;
+            if (db_.commit().ok()) return true;
+        }
+    } catch (...) {
+    }
+    bool rolled_back = false;
+    if (began) {
+        try { rolled_back = db_.rollback().ok(); } catch (...) {}
+    }
+    if (commit_attempted || !rolled_back) {
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        std::cerr << "[Map] terminal quest reward persistence uncertainty player="
+                  << player_id << "\n";
+        try { db_.disconnect(); } catch (...) {}
+    }
+    return false;
+}
+
+bool MapHandler::settle_ordinary_dead_exit(std::uint32_t player_id) {
+    // Resources absent: keep the stored death. Callers that have not loaded the
+    // penalty tables must not invent a free revive.
+    if (!experience_curve_ || !exp_penalties_ || !map_kinds_) return true;
+    PlayerRuntime snapshot;
+    std::shared_ptr<const std::uint8_t> session;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto info = connected_players_.find(player_id);
+        const auto runtime = player_runtimes_.find(player_id);
+        if (info == connected_players_.end() || runtime == player_runtimes_.end()) return true;
+        if (runtime->second.actor.lifecycle() != PlayerLifecycle::Dead) return true;
+        if (!runtime->second.shop_persisted_loaded) return true;
+        snapshot = runtime->second;
+        session = info->second.session_identity;
+    }
+    const auto& before = snapshot.actor.state();
+    const auto flags = map_kinds_->resolved_flags(before.map_num);
+    const bool known_event = before.map_num == 58;
+    if (!flags && !known_event) return true;
+    PresentReviveContext context{};
+    context.dead = true;
+    context.level = before.progress.level;
+    context.event_map = known_event || (flags && (*flags & 128u) != 0u);
+    context.penalty_exempt_map = flags && (*flags & mxh::game::present_revive_exempt_map_mask) != 0u;
+    context.died_for_battle_channel = before.death_flags.battle_channel;
+    context.died_for_guild_field_war = before.death_flags.guild_field_war;
+    const auto decision = decide_present_revive(context);
+    std::optional<PresentReviveCandidate> candidate;
+    if (decision == PresentReviveDecision::IgnoreEventMap ||
+        decision == PresentReviveDecision::RecoverWithoutLoss) {
+        PresentReviveCandidate restored;
+        restored.actor = snapshot.actor;
+        if (!restored.actor.revive()) return false;
+        restored.shop.rows = snapshot.shop_persisted_rows;
+        restored.pets = snapshot.pet_manager;
+        restored.manager = snapshot.shop_items;
+        candidate = std::move(restored);
+    } else if (decision == PresentReviveDecision::RecoverWithLoss) {
+        candidate = prepare_present_revive_candidate(
+            snapshot.actor, *experience_curve_, *exp_penalties_, snapshot.shop_persisted_rows,
+            snapshot.shop_items, context, snapshot.pet_manager, mxh::game::ReviveLocation::Login);
+        if (!candidate) return false;
+    } else {
+        return true;
+    }
+    const auto previous = mxh::db::load_modern_shop_state(db_, player_id, before.user_id);
+    if (!previous) return false;
+    const auto commit = commit_present_revive(db_, *previous, snapshot.actor, *candidate);
+    if (commit == mxh::db::ReviveCommit::Uncertain) {
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        try { db_.disconnect(); } catch (...) {}
+        return false;
+    }
+    if (commit != mxh::db::ReviveCommit::Committed) return false;
+    const auto& after = candidate->actor.state();
+    bool published = false;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto info = connected_players_.find(player_id);
+        const auto runtime = player_runtimes_.find(player_id);
+        if (info != connected_players_.end() && runtime != player_runtimes_.end() &&
+            info->second.session_identity == session &&
+            runtime->second.actor.lifecycle() == PlayerLifecycle::Dead) {
+            runtime->second.actor = candidate->actor;
+            runtime->second.shop_items = candidate->manager;
+            runtime->second.shop_persisted_rows = candidate->shop.rows;
+            runtime->second.shop_persisted_loaded = true;
+            runtime->second.pet_manager = candidate->pets;
+            published = reset_player_position_locked(player_id, after.pos_x, after.pos_z, movement_now());
+            info->second.level = after.progress.level;
+            info->second.money = after.progress.money;
+            info->second.combat.level = after.progress.level;
+            info->second.combat.current_hp = after.vitals.current_hp;
+            info->second.combat.max_hp = after.vitals.max_hp;
+            info->second.combat.current_mp = after.vitals.current_mp;
+            info->second.combat.max_mp = after.vitals.max_mp;
+            info->second.current_shield = after.vitals.current_shield;
+            info->second.max_shield = after.vitals.max_shield;
+        }
+    }
+    if (!published) {
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        return false;
+    }
+    return true;
+}
+
+bool MapHandler::persist_player_exit(std::uint32_t player_id, std::uint32_t money) {
+    if (!settle_ordinary_dead_exit(player_id)) return false;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto info = connected_players_.find(player_id);
+        if (info != connected_players_.end()) money = info->second.money;
+    }
+    bool began = false;
+    bool commit_attempted = false;
+    try {
+        if (!db_.begin_transaction().ok()) return false;
+        began = true;
+        if (write_player_items(player_id) && persist_player_money(player_id, money) &&
+            persist_quest_log(player_id) && persist_player_position_locked(player_id) && persist_player_shop_exit(player_id)) {
+            commit_attempted = true;
+            if (db_.commit().ok()) return true;
+        }
+    } catch (...) {
+        // Adapter exceptions must not escape the network callback or bypass
+        // rollback. An exception during BEGIN leaves ownership uncertain.
+    }
+    bool rolled_back = false;
+    if (began) {
+        try { rolled_back = db_.rollback().ok(); } catch (...) {}
+    }
+    if (commit_attempted || !rolled_back) {
+        // A failed COMMIT may already be durable (e.g. ODBC autocommit reset).
+        // Do not reuse this runtime/connection as if rollback proved otherwise.
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        std::cerr << "[Map] terminal exit persistence uncertainty player=" << player_id << "\n";
+        try { db_.disconnect(); } catch (...) {}
+    }
+    return false;
+}
+
+// Caller owns the transaction: standalone inventory saves and complete exits
+// share SQL without starting or committing a nested transaction.
+bool MapHandler::write_player_items(std::uint32_t player_id) {
     InventorySlots inventory;
     EquipSlots equipment;
+    ShopInventorySlots shop_inventory;
+    PetWearSlots pet_wear;
+    TitanWearSlots titan_wear;
+    TitanShopItemSlots titan_shop_items;
     {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto runtime = player_runtimes_.find(player_id);
-        if (runtime == player_runtimes_.end()) return;
+        if (runtime == player_runtimes_.end()) return false;
         inventory = runtime->second.actor.state().inventory;
         equipment = runtime->second.actor.state().equipment;
+        shop_inventory = runtime->second.actor.state().shop_inventory;
+        pet_wear = runtime->second.actor.state().pet_wear;
+        titan_wear = runtime->second.actor.state().titan_wear;
+        titan_shop_items = runtime->second.actor.state().titan_shop_items;
     }
-    if (!db_.begin_transaction().ok()) return;
-    const auto rollback = [&]() noexcept { (void)db_.rollback(); };
+    return write_player_items(player_id, inventory, equipment, shop_inventory,
+        pet_wear, titan_wear, titan_shop_items);
+}
+
+// This overload also accepts an unpublished admission candidate. Transaction
+// ownership remains with the caller so shop use-state and inventory commit together.
+bool MapHandler::write_player_items(std::uint32_t player_id, const InventorySlots& inventory,
+                                   const EquipSlots& equipment, const ShopInventorySlots& shop_inventory,
+                                   const PetWearSlots& pet_wear, const TitanWearSlots& titan_wear,
+                                   const TitanShopItemSlots& titan_shop_items) {
     const std::vector<mxh::db::Bind> delete_args{
         mxh::db::bind(static_cast<std::int64_t>(player_id))};
     if (!db_.execute("DELETE FROM modern_player_item WHERE player_id=?",
                      delete_args).ok()) {
-        rollback();
-        return;
+        return false;
     }
     bool write_failed = false;
     const auto write = [&](std::int64_t container, std::size_t slot,
@@ -825,7 +1194,192 @@ void MapHandler::persist_player_items(std::uint32_t player_id) {
     };
     for (std::size_t i = 0; i < inventory.items.size(); ++i) write(0, i, inventory.items[i]);
     for (std::size_t i = 0; i < equipment.items.size(); ++i) write(1, i, equipment.items[i]);
-    if (write_failed || !db_.commit().ok()) rollback();
+    for (std::size_t i = 0; i < shop_inventory.items.size(); ++i) write(2, i, shop_inventory.items[i]);
+    for (std::size_t i = 0; i < pet_wear.items.size(); ++i) write(3, i, pet_wear.items[i]);
+    for (std::size_t i = 0; i < titan_wear.items.size(); ++i) write(4, i, titan_wear.items[i]);
+    for (std::size_t i = 0; i < titan_shop_items.items.size(); ++i) write(5, i, titan_shop_items.items[i]);
+    return !write_failed;
+}
+
+bool MapHandler::restore_player_shop(std::uint32_t player_id, std::uint32_t account_id, PlayerRuntime& candidate) {
+    bool began=false, begin_attempted=false, commit_attempted=false;
+    try {
+        const auto initial = mxh::db::load_modern_shop_state(db_,player_id,account_id);
+        if (!initial) return allow_dev_gamein_fallback_;
+        begin_attempted=true;
+        if (!db_.begin_transaction().ok()) throw std::runtime_error("shop admission begin uncertain");
+        began=true;
+        const auto snapshot=mxh::db::load_modern_shop_state(db_,player_id,account_id);
+        if (!snapshot) throw std::runtime_error("owned shop snapshot unavailable");
+        if (snapshot->pets) {
+            candidate.pet_manager.m_PetInfoList.clear();
+            for (const auto& pet : *snapshot->pets)
+                candidate.pet_manager.m_PetInfoList.push_back({pet.summon_item,pet.kind,pet.grade,
+                    pet.stamina,pet.friendship,pet.alive,pet.rest,pet.summoned});
+            // Restore owned records only. A summoned world entity requires the
+            // normal pet admission/spawn path; a saved flag is not that entity.
+            candidate.pet_manager.m_curSummonItemDBIdx.reset();
+        }
+        auto& state=candidate.actor.state();
+        const auto restore_vitals = [&] {
+            if (!snapshot->vitals) return;
+            const auto& saved = *snapshot->vitals;
+            // Expired equipment/shop bonuses can lower current maxima during admission.
+            state.vitals.current_hp = std::min(saved.life, state.vitals.max_hp);
+            state.vitals.current_shield = std::min(saved.shield, state.vitals.max_shield);
+            state.vitals.current_mp = std::min(saved.naeryuk, state.vitals.max_mp);
+            (void)candidate.actor.mark_dead_if_zero_life();
+        };
+        // Reload every container inside this transaction; never merge an older
+        // pre-transaction row into an admission candidate after a concurrent edit.
+        state.inventory={}; state.equipment={}; state.shop_inventory={};
+        state.pet_wear={}; state.titan_wear={}; state.titan_shop_items={};
+        if (!load_player_items(player_id,candidate.actor)) throw std::runtime_error("shop admission inventory read failed");
+        state.shop_options.wSkinItem=snapshot->rows.skin;
+        if (!snapshot->rows.used_items.empty()) {
+            if (!shop_rate_environment_ || shop_dup_catalog_.entries.empty())
+                throw std::runtime_error("shop admission resource environment unavailable");
+            // UsedShopItem skips JP/TL base expansion indices and all HK
+            // expansion indices; CN/KR never calculate expansion. Replaying a
+            // persisted use row must not increment an activation-time slot count.
+            struct ExpansionGuard final : CalcShopItemOptionPlayerHook {
+                bool unexpected=false;
+                void on_expand_inven_slot() noexcept override { unexpected=true; }
+                void on_expand_pyoguk_slot() noexcept override { unexpected=true; }
+                void on_expand_mugong_slot() noexcept override { unexpected=true; }
+                void on_expand_character_slot() noexcept override { unexpected=true; }
+            } expansion;
+            struct Effects final : ShopRestorePersistenceEffects {
+                Player& actor;
+                std::vector<mxh::game::ShopItemBase> expired;
+                Effects(ShopItemManager& manager, const mxh::game::ItemManager& catalog,
+                    Player& player, const ShopRateEnvironment& environment,
+                    CalcShopItemOptionPlayerHook& hook, const ShopDupCatalog& duplicates,
+                    mxh::db::ModernShopState record)
+                    : ShopRestorePersistenceEffects(manager,catalog,player.state().shop_options,
+                        environment,hook,duplicates,std::move(record)), actor(player) {}
+                bool discard_item(const mxh::game::ItemBase& item) override {
+                    return actor.remove_physical_shop_item(item).has_value();
+                }
+                void log_expired(const mxh::game::ShopItemBase& item) override { expired.push_back(item); }
+            };
+            const auto environment=*shop_rate_environment_;
+            Effects effects(candidate.shop_items,item_manager_,candidate.actor,environment,expansion,shop_dup_catalog_,*snapshot);
+            const auto now=shop_time_now();
+            const auto now_ms=static_cast<std::uint32_t>(movement_now());
+            for (const auto& row:snapshot->rows.used_items) {
+                auto item=mxh::game::make_item(row.database_id,row.item_id,row.position);
+                const auto status=restore_used_shop_item(candidate.shop_items,item_manager_,state.shop_options,effects,
+                    &item,row.parameter,mxh::game::PackedTime{row.begin_time},row.remaining_time,now_ms,now,environment.locale());
+                if (status!=ShopRestoreStatus::Restored && status!=ShopRestoreStatus::Expired)
+                    throw std::runtime_error("shop use row restoration failed");
+                if (status==ShopRestoreStatus::Expired) {
+                    mxh::game::ItemInfo expired_info{};
+                    if (item_manager_.try_get(row.item_id,expired_info) &&
+                        (expired_info.ItemKind==LEGACY_SHOP_ITEM_NOMALCLOTHES_SKIN ||
+                         expired_info.ItemKind==LEGACY_SHOP_ITEM_COSTUME_SKIN)) {
+                        state.shop_options.wSkinItem=discard_skin_item(skin_catalog_,
+                            expired_info.ItemKind,&state.shop_options.wSkinItem);
+                        effects.set_skin(state.shop_options.wSkinItem);
+                    }
+                }
+                if(status==ShopRestoreStatus::Restored && row.parameter==kShopItemUseParamEquipAvatar) {
+                    AvatarEquipEnvironment avatar_env(avatar_equip_catalog_,item_manager_,candidate.shop_items,
+                        state.inventory.items,state.equipment.items,state.shop_inventory.items);
+                    const auto transition=put_on_avatar_item(avatar_env,&state.shop_options.Avatar,
+                        row.item_id,row.position,false,0,false);
+                    // Source RUsingShopItemInfo ignores a rejected PutOnAvatarItem;
+                    // retain the use row without fabricating a worn appearance.
+                    if(transition.status==AvatarEquipStatus::Ok) {
+                        for(const auto& effect:transition.effects) {
+                            if(effect.kind==AvatarEquipEffectKind::ParamUpdateToDb)
+                                effects.update_avatar_parameter(effect.item_idx,effect.param);
+                            else if(auto* use=candidate.shop_items.find_using_item_by_icon_idx_mutable(effect.item_idx))
+                                use->Data.ShopItem.Param=effect.param;
+                        }
+                        state.shop_options.Avatar=transition.avatar;
+                        state.apply_avatar_options(calc_avatar_option(transition.avatar,item_manager_));
+                    }
+                }
+            }
+            if (expansion.unexpected) throw std::runtime_error("unexpected restoration expansion callback");
+            state.apply_shop_options(state.shop_options);
+            restore_vitals();
+            if (!write_player_items(player_id,state.inventory,state.equipment,state.shop_inventory,
+                    state.pet_wear,state.titan_wear,state.titan_shop_items) ||
+                !effects.save_shop_record(db_,player_id,account_id)) throw std::runtime_error("shop admission persistence failed");
+            commit_attempted=true;
+            if (!db_.commit().ok()) throw std::runtime_error("shop admission commit uncertain");
+            candidate.shop_persisted_rows = effects.pending_rows();
+            candidate.shop_persisted_loaded = true;
+            // Existing Map stdout is the operational log sink. Buffer until
+            // commit so rollback never emits a successful expiration record.
+            for (const auto& item:effects.expired)
+                std::cout << "[Map] ShopItemUseEnd player=" << player_id << " db_idx=" << item.ItemBase.dwDBIdx
+                          << " item=" << item.ItemBase.wIconIdx << " position=" << item.ItemBase.Position << "\n";
+            return true;
+        }
+        restore_vitals();
+        commit_attempted=true;
+        if (!db_.commit().ok()) throw std::runtime_error("shop admission commit uncertain");
+        candidate.shop_persisted_rows = snapshot->rows;
+        candidate.shop_persisted_loaded = true;
+        return true;
+    } catch (...) {
+        bool rolled_back=false;
+        if (began) { try { rolled_back=db_.rollback().ok(); } catch (...) {} }
+        if (commit_attempted || (began && !rolled_back) || (begin_attempted && !began)) {
+            draining_.store(true); shutdown_save_succeeded_=false;
+            try { db_.disconnect(); } catch (...) {}
+        }
+        std::cerr << "[Map] shop admission failed player=" << player_id << "\n";
+        return false;
+    }
+}
+
+bool MapHandler::persist_player_shop_exit(std::uint32_t player_id) {
+    std::vector<UsingShopItemEntry> used;
+    mxh::db::PersistedVitals vitals;
+    std::vector<mxh::db::PersistedPet> pets;
+    std::uint32_t account=0;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto found=player_runtimes_.find(player_id);
+        if(found==player_runtimes_.end()) return false;
+        account=found->second.actor.state().user_id;
+        const auto& current=found->second.actor.state().vitals;
+        vitals={current.current_hp,current.current_shield,current.current_mp};
+        for (const auto& pet:found->second.pet_manager.m_PetInfoList)
+            pets.push_back({pet.PetSummonItemDBIdx,pet.PetKind,pet.PetGrade,pet.PetStamina,
+                pet.PetFriendly,pet.bAlive,pet.bRest,pet.bSummonning});
+        for(const auto& [id,item]:found->second.shop_items.using_items()) used.push_back(item);
+    }
+    const auto snapshot=mxh::db::load_modern_shop_state(db_,player_id,account);
+    if(!snapshot) return used.empty() && allow_dev_gamein_fallback_;
+    if(!used.empty() && !shop_rate_environment_) return false;
+    auto pending=snapshot->rows;
+    const auto now=static_cast<std::uint32_t>(movement_now());
+    for(const auto& entry:used) {
+        const auto& item=entry.Data.ShopItem;
+        mxh::game::ItemInfo info{};
+        if(!item_manager_.try_get(item.ItemBase.wIconIdx,info) || info.SellPrice!=mxh::game::SHOP_ITEM_PARAM_PLAY_TIME) continue;
+        if(info.ItemKind==258 && info.MeleeAttackMin &&
+            (!item.Remaintime || !shop_rate_environment_->event_rate_active(info.MeleeAttackMin))) continue;
+        auto row=pending.used_items.end();
+        for(auto it=pending.used_items.begin();it!=pending.used_items.end();++it) {
+            if(it->database_id!=item.ItemBase.dwDBIdx) continue;
+            if(row!=pending.used_items.end() || it->item_id!=item.ItemBase.wIconIdx) return false;
+            row=it;
+        }
+        if(row==pending.used_items.end()) return false;
+        const auto elapsed=std::min<std::uint32_t>(now-entry.Data.LastCheckTime,30000u);
+        row->remaining_time=item.Remaintime>elapsed?item.Remaintime-elapsed:0u;
+    }
+    // Caller owns the exit transaction. Do not mutate the live manager before commit.
+    // Keep older records at v2 unless a pet list has actually been persisted or exists.
+    std::optional<std::vector<mxh::db::PersistedPet>> pet_records;
+    if (snapshot->pets || !pets.empty()) pet_records=std::move(pets);
+    return mxh::db::save_modern_shop_state(db_,player_id,account,*snapshot,pending,vitals,pet_records);
 }
 
 bool MapHandler::persist_player_money_for_test(std::uint32_t player_id, std::uint32_t money) {
@@ -859,30 +1413,28 @@ bool MapHandler::persist_quest_log_for_test(std::uint32_t player_id) {
     return true;
 }
 
-void MapHandler::persist_quest_log(std::uint32_t player_id) {
+bool MapHandler::persist_quest_log(std::uint32_t player_id) {
     // M3 D-stage: StartSyn quest_log persistence.  Snapshots every
     // quest in the player's quest_log under players_mu_ and
     // UPSERTs one row per quest to modern_player_quest_log.
     // Mirrors the role of legacy [Server]Map/MapDBQuest.cpp quest
     // persistence for the modern data plane.
     //
-    // The SQL is portable: SQLite (3.24+ ON CONFLICT) and MSSQL
-    // (2016+ INSERT...ON CONFLICT) both accept this UPSERT form;
-    // the MoxianDbTool and mx_modern_schema_mssql.sql declare the
-    // table identically.
+    // SQLite and SQL Server require distinct upsert syntax.
     QuestLog snapshot;
     {
         std::lock_guard<std::mutex> lock(players_mu_);
         const auto it = player_runtimes_.find(player_id);
-        if (it == player_runtimes_.end()) return;
+        if (it == player_runtimes_.end()) return false;
         snapshot = it->second.quest_log;
     }
-    if (snapshot.quests.empty()) return;
+    if (snapshot.quests.empty()) return true;
     const std::vector<mxh::db::Bind> delete_args{
         mxh::db::bind(static_cast<std::int64_t>(player_id))};
     const auto delete_result = db_.execute(
         "DELETE FROM modern_player_quest_sub WHERE player_id=?", delete_args);
     const bool persist_subs = delete_result.ok();
+    bool success = persist_subs;
     for (const auto& s : snapshot.quests) {
         const std::int64_t pid_i64 = static_cast<std::int64_t>(player_id);
         const std::int64_t qid_i64 = static_cast<std::int64_t>(s.quest_id);
@@ -894,16 +1446,31 @@ void MapHandler::persist_quest_log(std::uint32_t player_id) {
             mxh::db::bind(state_i64),
             mxh::db::bind(atime_i64),
         };
-        auto r = db_.execute(
-            "INSERT INTO modern_player_quest_log "
-            "(player_id, quest_id, state, accepted_time_ms, updated_at) "
-            "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
-            "ON CONFLICT (player_id, quest_id) DO UPDATE SET "
-            "state = excluded.state, "
-            "accepted_time_ms = excluded.accepted_time_ms, "
-            "updated_at = excluded.updated_at",
-            params);
+        auto r = db_.backend_name() == "mssql_odbc"
+            ? db_.execute(
+                "MERGE modern_player_quest_log WITH (HOLDLOCK) AS target "
+                "USING (SELECT ? AS player_id, ? AS quest_id, ? AS state, "
+                "? AS accepted_time_ms) AS source "
+                "ON target.player_id=source.player_id AND target.quest_id=source.quest_id "
+                "WHEN MATCHED THEN UPDATE SET state=source.state, "
+                "accepted_time_ms=source.accepted_time_ms, "
+                "updated_at=CONVERT(nvarchar(32),SYSUTCDATETIME(),127) "
+                "WHEN NOT MATCHED THEN INSERT "
+                "(player_id,quest_id,state,accepted_time_ms,updated_at) VALUES "
+                "(source.player_id,source.quest_id,source.state,source.accepted_time_ms,"
+                "CONVERT(nvarchar(32),SYSUTCDATETIME(),127));",
+                params)
+            : db_.execute(
+                "INSERT INTO modern_player_quest_log "
+                "(player_id, quest_id, state, accepted_time_ms, updated_at) "
+                "VALUES (?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) "
+                "ON CONFLICT (player_id, quest_id) DO UPDATE SET "
+                "state = excluded.state, "
+                "accepted_time_ms = excluded.accepted_time_ms, "
+                "updated_at = excluded.updated_at",
+                params);
         if (!r.ok()) {
+            success = false;
             std::cerr << "[Map] persist_quest_log(player=" << player_id
                       << ", quest=" << s.quest_id
                       << ") DB error: " << r.error_message << "\n";
@@ -924,12 +1491,14 @@ void MapHandler::persist_quest_log(std::uint32_t player_id) {
                 "(player_id,quest_id,sub_index,kind,target_id,count,target_count) "
                 "VALUES (?,?,?,?,?,?,?)", sub_params);
             if (!sub_result.ok()) {
+                success = false;
                 std::cerr << "[Map] persist quest sub failed player=" << player_id
                           << " quest=" << s.quest_id << " sub=" << index
                           << ": " << sub_result.error_message << "\n";
             }
         }
     }
+    return success;
 }
 
 void MapHandler::notify_quest_changes(
@@ -958,14 +1527,14 @@ void MapHandler::notify_quest_changes(
     }
 }
 
-void MapHandler::load_quest_log(std::uint32_t player_id, QuestLog& quest_log) {
+bool MapHandler::load_quest_log(std::uint32_t player_id, QuestLog& quest_log) {
     quest_log.player_id = player_id;
     mxh::db::ResultSet rows;
     const std::vector<mxh::db::Bind> args{mxh::db::bind(static_cast<std::int64_t>(player_id))};
     const auto result = db_.query(
         "SELECT quest_id,state,accepted_time_ms FROM modern_player_quest_log WHERE player_id=? ORDER BY quest_id",
         args, rows);
-    if (!result.ok()) return;
+    if (!result.ok()) return false;
     for (const auto& row : rows.rows) {
         if (row.size() < 3 || !std::holds_alternative<std::int64_t>(row[0])
             || !std::holds_alternative<std::int64_t>(row[1])
@@ -986,7 +1555,7 @@ void MapHandler::load_quest_log(std::uint32_t player_id, QuestLog& quest_log) {
     const auto sub_result = db_.query(
         "SELECT quest_id,sub_index,kind,target_id,count,target_count FROM modern_player_quest_sub "
         "WHERE player_id=? ORDER BY quest_id,sub_index", args, sub_rows);
-    if (!sub_result.ok()) return;
+    if (!sub_result.ok()) return false;
     for (const auto& row : sub_rows.rows) {
         if (row.size() < 6) continue;
         bool integers = true;
@@ -1003,6 +1572,7 @@ void MapHandler::load_quest_log(std::uint32_t player_id, QuestLog& quest_log) {
         if (sub.kind != kind || sub.target_id != target_id || sub.target != target) continue;
         sub.count = std::min(static_cast<std::uint32_t>(std::get<std::int64_t>(row[4])), sub.target);
     }
+    return true;
 }
 std::optional<MapHandler::GroundDrop> MapHandler::create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z) {
     if (item_id == 0u || count == 0u) return std::nullopt;
@@ -1104,7 +1674,9 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     std::uint32_t rng_value,
     std::shared_ptr<const std::uint8_t> expected_session,
     bool* accepted) {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
     if (accepted) *accepted = false;
+    if (draining_) return std::nullopt;
     mxh::game::MonsterInstance updated_monster;
     GroundDrop created_drop;
     bool has_drop = false;
@@ -1162,8 +1734,17 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             const auto owner = connected_players_.find(attacker_player_id);
             if (player != player_runtimes_.end() && (!expected_session ||
                 (owner != connected_players_.end() && owner->second.session_identity == expected_session))) {
+                const auto& actor_state = player->second.actor.state();
+                const auto weapon_item = actor_state.equipment.items[1].wIconIdx;
+                std::uint16_t weapon_kind = 0u;
+                mxh::game::ItemInfo weapon_info{};
+                if (weapon_item != 0u && item_manager_.try_get(weapon_item, weapon_info)) {
+                    weapon_kind = weapon_info.WeaponType;
+                }
                 quest_changes = dispatch_quest_event(player->second.quest_log,
-                    QuestEvent{QuestSubKind::Kill, updated_monster.monster_kind, 1u});
+                    QuestEvent{QuestSubKind::Kill, updated_monster.monster_kind, 1u,
+                               actor_state.progress.level, updated_monster.level,
+                               weapon_kind, weapon_item});
             }
         }
         if (!quest_changes.empty()) {
@@ -1181,41 +1762,100 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
         std::uint32_t level_ups = 0;
         std::uint64_t player_connection = 0;
         PlayerProgress persisted_progress;
+        std::optional<Player> experience_candidate;
+        std::shared_ptr<const std::uint8_t> award_session;
         bool player_awarded = false;
         {
             std::lock_guard<std::mutex> player_lock(players_mu_);
             const auto player = player_runtimes_.find(attacker_player_id);
             const auto info = connected_players_.find(attacker_player_id);
-            if (player != player_runtimes_.end() && experience_curve_ && (!expected_session ||
+            if (player != player_runtimes_.end() && info != connected_players_.end() && experience_curve_ && (!expected_session ||
                 (info != connected_players_.end() && info->second.session_identity == expected_session))) {
                 const auto level = player->second.actor.state().progress.level;
                 const auto threshold = experience_curve_->max_exp_point(
                     static_cast<std::uint16_t>(std::min<std::uint32_t>(level, mxh::game::MAX_CHARACTER_LEVEL_NUM)));
-                level_ups = player->second.actor.add_experience(awarded,
+                experience_candidate=player->second.actor;
+                award_session=info->second.session_identity;
+                level_ups = experience_candidate->add_experience(awarded,
                     static_cast<std::uint32_t>(std::min<std::uint64_t>(threshold, std::numeric_limits<std::uint32_t>::max())));
-                persisted_progress = player->second.actor.state().progress;
-                player_awarded = true;
+                persisted_progress = experience_candidate->state().progress;
+                const auto& before=player->second.actor.state().progress;
+                player_awarded = persisted_progress.level!=before.level ||
+                    persisted_progress.level_exp!=before.level_exp;
             }
             if (info != connected_players_.end()) player_connection = info->second.conn_id;
         }
         if (awarded != 0u && player_awarded) {
             const std::vector<mxh::db::Bind> params{mxh::db::bind(static_cast<std::int64_t>(attacker_player_id)),
                 mxh::db::bind(static_cast<std::int64_t>(persisted_progress.level)),
-                mxh::db::bind(static_cast<std::int64_t>(persisted_progress.level_exp))};
-            const auto saved = db_.execute("INSERT INTO modern_player_state(player_id,level,exp,money,updated_at) "
-                "VALUES(?,?,?,0,CURRENT_TIMESTAMP) ON CONFLICT(player_id) DO UPDATE SET "
-                "level=excluded.level,exp=excluded.exp,updated_at=excluded.updated_at", params);
-            if (!saved.ok()) std::cerr << "[Map] experience persistence failed: " << saved.error_message << "\n";
+                mxh::db::bind(static_cast<std::int64_t>(persisted_progress.level_exp)),
+                mxh::db::bind(static_cast<std::int64_t>(persisted_progress.money))};
+            const auto saved = db_.backend_name() == "mssql_odbc"
+                ? db_.execute(
+                    "MERGE modern_player_state WITH (HOLDLOCK) AS target "
+                    "USING (SELECT ? AS player_id, ? AS level, ? AS exp, ? AS money) AS source "
+                    "ON target.player_id=source.player_id "
+                    "WHEN MATCHED THEN UPDATE SET level=source.level,exp=source.exp,"
+                    "updated_at=CONVERT(nvarchar(32),SYSUTCDATETIME(),127) "
+                    "WHEN NOT MATCHED THEN INSERT (player_id,level,exp,money,updated_at) "
+                    "VALUES(source.player_id,source.level,source.exp,source.money,"
+                    "CONVERT(nvarchar(32),SYSUTCDATETIME(),127));",
+                    params)
+                : db_.execute(
+                    "INSERT INTO modern_player_state(player_id,level,exp,money,updated_at) "
+                    "VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_id) DO UPDATE SET "
+                    "level=excluded.level,exp=excluded.exp,updated_at=excluded.updated_at",
+                    params);
+            if (!saved.ok()) {
+                // An autocommit error can have an uncertain outcome. Do not
+                // publish or retry the reward against a potentially committed row.
+                draining_=true;
+                std::cerr << "[Map] experience persistence failed; draining: " << saved.error_message << "\n";
+                return std::nullopt;
+            }
+            {
+                std::lock_guard<std::mutex> player_lock(players_mu_);
+                const auto player=player_runtimes_.find(attacker_player_id);
+                const auto info=connected_players_.find(attacker_player_id);
+                if(player==player_runtimes_.end() || info==connected_players_.end() ||
+                    info->second.session_identity!=award_session) {
+                    draining_=true;
+                    return std::nullopt;
+                }
+                player->second.actor.state().progress=persisted_progress;
+                info->second.level=persisted_progress.level;
+                info->second.combat.level=persisted_progress.level;
+            }
         }
         if (awarded != 0u && player_awarded && player_connection != 0) {
+            if (level_ups != 0u) {
+                const auto maximum = experience_curve_->max_exp_point(
+                    static_cast<std::uint16_t>(persisted_progress.level));
+                const auto encoded = mxh::proto::encode_character_level({
+                    static_cast<std::uint16_t>(persisted_progress.level),
+                    static_cast<std::int64_t>(persisted_progress.level_exp),
+                    static_cast<std::int64_t>(maximum)});
+                if (!encoded) {
+                    draining_ = true;
+                    return std::nullopt;
+                }
+                mxh::net::Message level;
+                level.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+                level.header.protocol = mxh::server::mp_char_level_notify;
+                level.header.object_id = attacker_player_id;
+                level.payload.assign(encoded->begin(), encoded->end());
+                reply_(mxh::net::ConnectionId{player_connection}, level);
+            }
             mxh::net::Message exp;
             exp.header.category = 3u;
-            exp.header.protocol = 13u;
+            exp.header.protocol = mxh::server::mp_char_exppoint_ack;
             exp.header.object_id = attacker_player_id;
             exp.payload.resize(9u, 0u);
-            const auto signed_exp = static_cast<std::int64_t>(awarded);
+            // MSG_EXPPOINT carries the current within-level total, not a delta.
+            // ExpKind 0 is ACQUIRE; 1 means DIE, never "level up".
+            const auto signed_exp = static_cast<std::int64_t>(persisted_progress.level_exp);
             std::memcpy(exp.payload.data(), &signed_exp, sizeof(signed_exp));
-            exp.payload[8] = level_ups != 0u ? 1u : 0u;
+            exp.payload[8] = 0u;
             reply_(mxh::net::ConnectionId{player_connection}, exp);
         }
     }
@@ -1251,6 +1891,38 @@ std::size_t MapHandler::player_runtime_count() {
     return player_runtimes_.size();
 }
 
+std::optional<UsingShopItemEntry> MapHandler::shop_using_item_for_test(
+    std::uint32_t player_id, std::uint16_t icon_idx) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    const auto runtime = player_runtimes_.find(player_id);
+    if (runtime == player_runtimes_.end()) return std::nullopt;
+    const auto* item = runtime->second.shop_items.find_using_item_by_icon_idx(icon_idx);
+    if (!item) return std::nullopt;
+    return *item;
+}
+
+bool MapHandler::set_shop_time_clock_for_test(
+    std::function<mxh::game::PackedTime()> clock) {
+    std::lock_guard<std::mutex> lock(players_mu_);
+    if (!clock || !connected_players_.empty()) return false;
+    shop_time_clock_ = std::move(clock);
+    return true;
+}
+
+mxh::game::PackedTime MapHandler::shop_time_now() const {
+    if (shop_time_clock_) return shop_time_clock_();
+    const auto wall_clock = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    std::tm local{};
+    localtime_s(&local, &wall_clock);
+    return mxh::game::PackedTime{
+        (static_cast<std::uint32_t>(local.tm_year - 100) & 15u) << 28 |
+        static_cast<std::uint32_t>(local.tm_mon + 1) << 24 |
+        static_cast<std::uint32_t>(local.tm_mday) << 18 |
+        static_cast<std::uint32_t>(local.tm_hour) << 12 |
+        static_cast<std::uint32_t>(local.tm_min) << 6 |
+        static_cast<std::uint32_t>(local.tm_sec)};
+}
+
 bool MapHandler::on_connect(mxh::net::ConnectionId id,
                             const std::string& remote_addr) {
     if (draining_.load()) {
@@ -1269,9 +1941,10 @@ bool MapHandler::on_connect(mxh::net::ConnectionId id,
 
 void MapHandler::on_disconnect(mxh::net::ConnectionId id,
                                mxh::net::NetError reason) {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
     std::cout << "[Map] client disconnected (id=" << id.value
               << " reason=" << mxh::net::to_string(reason) << ")\n";
-    materialize_positions();
+    if (!draining_.load()) materialize_positions();
     hsel_.on_disconnect(id);
     // Remove ALL players on this TCP connection (AgentServer multiplexes).
     std::vector<std::uint32_t> removed_pids;
@@ -1282,7 +1955,26 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
             if (info.conn_id == id.value) removed_pids.push_back(pid);
         }
     }
-    for (const auto pid : removed_pids) persist_player_items(pid);
+    // Shutdown has already completed its save phase and closed the adapter.
+    // Disconnect callbacks must still clear routing/runtime, without new SQL.
+    if (!draining_.load()) {
+        for (const auto pid : removed_pids) {
+            std::uint32_t money = 0;
+            {
+                std::lock_guard<std::mutex> lock(players_mu_);
+                money = connected_players_.at(pid).money;
+            }
+            if (!persist_player_exit(pid, money)) {
+                // The caller has gone away and cannot retry GameOut. Do not
+                // accept a reconnect against a silently stale database state.
+                draining_.store(true);
+                shutdown_save_succeeded_ = false;
+                std::cerr << "[Map] disconnect save failed player=" << pid << "\n";
+                try { db_.disconnect(); } catch (...) {}
+                break;
+            }
+        }
+    }
     removed_pids.clear();
     {
         std::lock_guard<std::mutex> lk(players_mu_);
@@ -1309,6 +2001,8 @@ void MapHandler::on_disconnect(mxh::net::ConnectionId id,
 
 void MapHandler::on_message(mxh::net::ConnectionId id,
                             const mxh::net::Message& msg) {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
+    if (draining_.load()) return;
     materialize_positions();
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
     std::cout << "[Map] on_message cat=" << mxh::proto::category_name(cat)
@@ -1341,6 +2035,9 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
         case mxh::proto::Category::Battle:
             handle_battle(id, msg);
             break;
+        case mxh::proto::Category::CharRevive:
+            handle_charrevive(id, msg);
+            break;
         case mxh::proto::Category::Quest:
             handle_quest(id, msg);
             break;
@@ -1355,6 +2052,276 @@ void MapHandler::on_message(mxh::net::ConnectionId id,
                       << mxh::proto::category_name(cat)
                       << " proto=" << (int)msg.header.protocol << "\n";
             break;
+    }
+}
+
+void MapHandler::handle_charrevive(mxh::net::ConnectionId id,
+                                   const mxh::net::Message& msg) {
+    // Original MP_REVIVEMsgParser: empty MSGBASE. 0 is present-spot, 3 is login point.
+    const bool login_point = msg.header.protocol == 3;
+    if ((msg.header.protocol != 0 && !login_point) || !msg.payload.empty() || !msg.header.object_id) {
+        std::cout << "[Map] ignoring malformed/unsupported CharRevive proto="
+                  << static_cast<int>(msg.header.protocol)
+                  << " obj=" << msg.header.object_id << "\\n";
+        return;
+    }
+
+    const auto player_id = msg.header.object_id;
+    const auto send_nack = [&](std::uint8_t reason) {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = mxh::server::userconn_character_revive_nack;
+        nack.header.object_id = player_id;
+        nack.payload = {reason};
+        if (reply_) reply_(id, nack);
+    };
+
+    PlayerRuntime snapshot;
+    PlayerInfo info_snapshot;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto info = connected_players_.find(player_id);
+        const auto runtime = player_runtimes_.find(player_id);
+        if (info == connected_players_.end() || runtime == player_runtimes_.end() ||
+            info->second.conn_id != id.value) {
+            std::cout << "[Map] PresentSpot revive rejected: session ownership mismatch player="
+                      << player_id << "\\n";
+            return;
+        }
+        snapshot = runtime->second;
+        info_snapshot = info->second;
+    }
+
+    const auto& original = snapshot.actor;
+    const auto& before = original.state();
+    if (before.map_num == 58) return;
+    if (original.lifecycle() != PlayerLifecycle::Dead) {
+        send_nack(1);
+        return;
+    }
+    if (is_looted_player(looting_manager_, player_id)) {
+        send_nack(2);
+        return;
+    }
+
+    if (!experience_curve_ || !exp_penalties_ || !map_kinds_ ||
+        (login_point && !login_points_) ||
+        !snapshot.shop_persisted_loaded) {
+        std::cerr << "[Map] PresentSpot revive unavailable: authoritative resources/state "
+                  << "not loaded player=" << player_id << "\\n";
+        return;
+    }
+
+    const auto context = resolve_present_revive_context(
+        original, looting_manager_, *map_kinds_,
+        /*battle_channel=*/false,
+        /*exit_started=*/false,
+        /*korean_first_action_penalty=*/false);
+    if (!context) {
+        std::cerr << "[Map] PresentSpot revive rejected: unresolved map semantics player="
+                  << player_id << " map=" << before.map_num << "\\n";
+        return;
+    }
+    switch (decide_present_revive(*context)) {
+    case PresentReviveDecision::IgnoreEventMap: return;
+    case PresentReviveDecision::RejectNotDead: send_nack(1); return;
+    case PresentReviveDecision::RejectLooted: send_nack(2); return;
+    case PresentReviveDecision::RejectExiting: send_nack(4); return;
+    case PresentReviveDecision::RecoverWithoutLoss:
+    case PresentReviveDecision::RecoverWithLoss: break;
+    }
+
+    const auto previous = mxh::db::load_modern_shop_state(db_, player_id, before.user_id);
+    if (!previous) {
+        std::cerr << "[Map] PresentSpot revive rejected: persisted shop state unavailable player="
+                  << player_id << "\\n";
+        return;
+    }
+
+    const auto same_rows = [](const mxh::db::LegacyShopAppearanceRows& left,
+                              const mxh::db::LegacyShopAppearanceRows& right) {
+        if (left.skin != right.skin || left.used_items.size() != right.used_items.size())
+            return false;
+        for (std::size_t i = 0; i < left.used_items.size(); ++i) {
+            const auto& a = left.used_items[i];
+            const auto& b = right.used_items[i];
+            if (a.item_id != b.item_id || a.position != b.position ||
+                a.database_id != b.database_id || a.parameter != b.parameter ||
+                a.begin_time != b.begin_time || a.remaining_time != b.remaining_time)
+                return false;
+        }
+        return true;
+    };
+    if (!same_rows(previous->rows, snapshot.shop_persisted_rows)) {
+        std::cerr << "[Map] PresentSpot revive rejected: runtime/shop persistence fence mismatch "
+                  << "player=" << player_id << "\\n";
+        return;
+    }
+
+    auto candidate = prepare_present_revive_candidate(
+        original, *experience_curve_, *exp_penalties_, snapshot.shop_persisted_rows,
+        snapshot.shop_items, *context, snapshot.pet_manager,
+        login_point ? mxh::game::ReviveLocation::Login : mxh::game::ReviveLocation::Present);
+    if (!candidate) {
+        std::cerr << "[Map] PresentSpot revive candidate preparation failed player="
+                  << player_id << "\\n";
+        return;
+    }
+    if (login_point) {
+        const auto point = mxh::game::login_revive_point(*login_points_, before.map_num);
+        if (!point) {
+            std::cerr << "[Map] login-point revive rejected: map has no shipped login point player="
+                      << player_id << " map=" << before.map_num << "\n";
+            return;
+        }
+        candidate->actor.state().pos_x = point->x;
+        candidate->actor.state().pos_z = point->z;
+    }
+
+    const auto wire = prepare_revive_vitality_messages(original, candidate->actor);
+    if (!wire) {
+        std::cerr << "[Map] PresentSpot revive wire validation failed player="
+                  << player_id << "\\n";
+        return;
+    }
+
+    const auto& after = candidate->actor.state();
+    std::vector<mxh::net::Message> side_effect_messages;
+    const auto append_u32 = [](mxh::net::Message& message, std::uint32_t value) {
+        for (unsigned i = 0; i < 4; ++i)
+            message.payload.push_back(static_cast<std::uint8_t>(value >> (8 * i)));
+    };
+
+    for (const auto& notice : candidate->shop.notices) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(notice.protocol);
+        message.header.object_id = player_id;
+        append_u32(message, notice.value);
+        side_effect_messages.push_back(std::move(message));
+    }
+
+    if (before.progress.money != after.progress.money) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
+        message.header.object_id = player_id;
+        append_u32(message, after.progress.money);
+        side_effect_messages.push_back(std::move(message));
+    }
+
+    if (before.progress.level != after.progress.level) {
+        const auto encoded = mxh::proto::encode_character_level({
+            after.progress.level,
+            static_cast<std::int64_t>(after.progress.level_exp),
+            static_cast<std::int64_t>(after.progress.max_exp)});
+        if (!encoded) {
+            std::cerr << "[Map] PresentSpot revive level wire validation failed player="
+                      << player_id << "\\n";
+            return;
+        }
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+        message.header.protocol = mxh::server::mp_char_level_notify;
+        message.header.object_id = player_id;
+        message.payload.assign(encoded->begin(), encoded->end());
+        side_effect_messages.push_back(std::move(message));
+    }
+
+    if (before.progress.level != after.progress.level ||
+        before.progress.level_exp != after.progress.level_exp) {
+        mxh::net::Message message;
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+        message.header.protocol = mxh::server::mp_char_exppoint_ack;
+        message.header.object_id = player_id;
+        const auto value = static_cast<std::uint64_t>(after.progress.level_exp);
+        for (unsigned i = 0; i < 8; ++i)
+            message.payload.push_back(static_cast<std::uint8_t>(value >> (8 * i)));
+        message.payload.push_back(1); // eExpKind_Die
+        side_effect_messages.push_back(std::move(message));
+    }
+
+    const auto commit = commit_present_revive(db_, *previous, original, *candidate);
+    if (commit == mxh::db::ReviveCommit::Rejected) {
+        std::cerr << "[Map] PresentSpot revive persistence rejected player="
+                  << player_id << "\\n";
+        return;
+    }
+    if (commit == mxh::db::ReviveCommit::Uncertain) {
+        std::cerr << "[Map] PresentSpot revive commit uncertain; draining server player="
+                  << player_id << "\\n";
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        try { db_.disconnect(); } catch (...) {}
+        return;
+    }
+
+    bool published = false;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto info = connected_players_.find(player_id);
+        const auto runtime = player_runtimes_.find(player_id);
+        if (info != connected_players_.end() && runtime != player_runtimes_.end() &&
+            info->second.conn_id == id.value &&
+            info->second.session_identity == info_snapshot.session_identity &&
+            runtime->second.actor.lifecycle() == PlayerLifecycle::Dead) {
+            const auto& current = runtime->second.actor.state();
+            const bool unchanged =
+                current.user_id == before.user_id &&
+                current.map_num == before.map_num &&
+                current.progress.level == before.progress.level &&
+                current.progress.level_exp == before.progress.level_exp &&
+                current.progress.money == before.progress.money &&
+                current.vitals.current_hp == before.vitals.current_hp &&
+                current.vitals.current_mp == before.vitals.current_mp &&
+                current.vitals.current_shield == before.vitals.current_shield &&
+                same_rows(runtime->second.shop_persisted_rows, snapshot.shop_persisted_rows);
+            if (unchanged) {
+                runtime->second.actor = candidate->actor;
+                runtime->second.shop_items = candidate->manager;
+                runtime->second.shop_persisted_rows = candidate->shop.rows;
+                runtime->second.shop_persisted_loaded = true;
+                runtime->second.pet_manager = candidate->pets;
+                const bool positioned = reset_player_position_locked(
+                    player_id, after.pos_x, after.pos_z, movement_now());
+
+                auto& published_info = info->second;
+                published_info.level = after.progress.level;
+                published_info.money = after.progress.money;
+                published_info.shop_options = after.shop_options;
+                published_info.combat.level = after.progress.level;
+                published_info.combat.current_hp = after.vitals.current_hp;
+                published_info.combat.max_hp = after.vitals.max_hp;
+                published_info.combat.current_mp = after.vitals.current_mp;
+                published_info.combat.max_mp = after.vitals.max_mp;
+                published_info.current_shield = after.vitals.current_shield;
+                published_info.max_shield = after.vitals.max_shield;
+                published = positioned;
+            }
+        }
+    }
+
+    if (!published) {
+        std::cerr << "[Map] PresentSpot revive post-commit publication fence failed; "
+                  << "draining server player=" << player_id << "\\n";
+        draining_.store(true);
+        shutdown_save_succeeded_ = false;
+        return;
+    }
+
+    if (reply_) {
+        reply_(id, wire->position);
+        for (const auto& message : side_effect_messages) reply_(id, message);
+        // Pet state is committed/published. A proven pet-info/death wire encoder
+        // is still a separate migration item; do not invent packet layouts here.
+        if (candidate->pet_effect.send_pet_info || candidate->pet_effect.send_pet_death) {
+            std::cout << "[Map] PresentSpot revive pet effect persisted player="
+                      << player_id
+                      << " summon=" << candidate->pet_effect.summon_item_db_idx
+                      << " info=" << candidate->pet_effect.send_pet_info
+                      << " death=" << candidate->pet_effect.send_pet_death << "\\n";
+        }
+        for (const auto& message : wire->vitality) reply_(id, message);
     }
 }
 
@@ -1377,12 +2344,23 @@ void MapHandler::handle_userconn(mxh::net::ConnectionId id,
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 const auto it = connected_players_.find(player_id);
-                if (it != connected_players_.end()) money = it->second.money;
+                if (it != connected_players_.end() && it->second.conn_id == id.value)
+                    money = it->second.money;
+            }
+            if (!money) {
+                auto nack = make_gameout_ack(player_id);
+                nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack);
+                reply_(id, nack);
+                break; // No owned live state was flushed; an old acknowledgement cannot advance a new transfer.
             }
             if (money) {
-                persist_player_items(player_id);
-                persist_player_money(player_id, *money);
-                persist_quest_log(player_id);
+                const bool saved = persist_player_exit(player_id, *money);
+                if (!saved) {
+                    auto nack = make_gameout_ack(player_id);
+                    nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameOutNack);
+                    reply_(id, nack);
+                    break; // Retain the authoritative runtime for a retry; do not claim a successful exit.
+                }
             }
             std::vector<std::uint32_t> remaining_pids;
             {
@@ -1399,7 +2377,7 @@ void MapHandler::handle_userconn(mxh::net::ConnectionId id,
             if (!remaining_pids.empty()) {
                 std::cout << "[Map] notified others about player=" << player_id << " leaving (GameOut)\n";
             }
-            reply_(id, make_gameout_ack());
+            reply_(id, make_gameout_ack(player_id));
             break;
         }
         case mxh::proto::UserConnProtocol::ConnectionCheck: {
@@ -1425,7 +2403,16 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
               << " payload=" << msg.payload.size() << "B\n";
 
     // Phase 9.1: Load real character data from DB.
-    CharData cd = load_char_data(db_, player_id);
+    const auto reject_entry = [&] {
+        mxh::net::Message nack;
+        nack.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+        nack.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInNack);
+        nack.header.object_id = player_id;
+        reply_(id, nack);
+    };
+    const auto loaded = load_char_data(db_, player_id, user_id, allow_dev_gamein_fallback_);
+    if (!loaded) { reject_entry(); return; }
+    CharData cd = *loaded;
     if (dev_initial_money_ != 0) {
         cd.money = dev_initial_money_;
         std::cout << "[Map] DEV initial money fixture applied player="
@@ -1445,6 +2432,42 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     // the central tower static mesh and is only the old error fallback.
     pi.pos_x = map_num_ == 12 ? 27189.0f : 25000.0f;
     pi.pos_z = map_num_ == 12 ? 27361.0f : 25000.0f;
+    mxh::db::ResultSet saved_position;
+    const auto position_result = db_.query(
+        "SELECT map_num,pos_x,pos_z FROM modern_player_position WHERE player_id=?",
+        {mxh::db::bind(static_cast<std::int64_t>(player_id))}, saved_position);
+    if (!position_result.ok() && !allow_dev_gamein_fallback_) { reject_entry(); return; }
+    if (position_result.ok() && !saved_position.empty()) {
+        const auto map = get_int(saved_position, 0, "map_num", -1);
+        const auto x = get_int(saved_position, 0, "pos_x", -1);
+        const auto z = get_int(saved_position, 0, "pos_z", -1);
+        if (map <= 0 || map > 65535 || x < 0 || x > 65535 || z < 0 || z > 65535) {
+            if (!allow_dev_gamein_fallback_) { reject_entry(); return; }
+        } else if (map == map_num_) {
+            pi.pos_x = static_cast<float>(x);
+            pi.pos_z = static_cast<float>(z);
+        } else {
+            const mxh::compat::MapChangeEntry* arrival = nullptr;
+            if (map_change_catalog_) for (const auto& route : map_change_catalog_->entries) {
+                if (route.current_map_num != map || route.move_map_num != map_num_) continue;
+                if (!std::isfinite(route.current_x) || !std::isfinite(route.current_z)) continue;
+                const double dx = x - route.current_x, dz = z - route.current_z;
+                if (dx * dx + dz * dz > 500.0 * 500.0) continue;
+                if (!std::isfinite(route.move_x) || !std::isfinite(route.move_z) ||
+                    route.move_x < 0 || route.move_x > 65535 || route.move_z < 0 || route.move_z > 65535) continue;
+                if (arrival && (arrival->move_x != route.move_x || arrival->move_z != route.move_z)) {
+                    reject_entry(); return; // Ambiguous overlapping exits cannot choose a convenient spawn.
+                }
+                arrival = &route;
+            }
+            if (!arrival) {
+                if (!allow_dev_gamein_fallback_) { reject_entry(); return; }
+            } else {
+                pi.pos_x = arrival->move_x;
+                pi.pos_z = arrival->move_z;
+            }
+        }
+    }
     std::memset(pi.name, 0, sizeof(pi.name));
     auto name_bytes = cd.name.c_str();
     std::size_t name_len = std::strlen(name_bytes);
@@ -1461,6 +2484,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     pi.conn_id = id.value;
     PlayerSpawnInfo spawn;
     spawn.player_id = player_id;
+    spawn.user_id = user_id;
     spawn.level = cd.level;
     spawn.map_num = map_num_;
     spawn.name = cd.name;
@@ -1469,7 +2493,9 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
     spawn.bonuses.item_max_naeryuk = static_cast<std::int32_t>(pi.combat.max_mp);
     PlayerRuntime runtime;
     runtime.quest_log.player_id = player_id;
-    load_quest_log(player_id, runtime.quest_log);
+    if (!load_quest_log(player_id, runtime.quest_log) && !allow_dev_gamein_fallback_) {
+        reject_entry(); return;
+    }
     init_pet_manager(runtime.pet_manager);
     init_titan_manager(runtime.titan_manager);
     if (!runtime.actor.initialize(spawn) || !runtime.actor.activate()) {
@@ -1477,17 +2503,34 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         return;
     }
     runtime.actor.state().progress.level_exp = cd.exp;
+    runtime.actor.state().gender = cd.gender;
+    runtime.actor.state().face_type = cd.face_type;
+    runtime.actor.state().hair_type = cd.hair_type;
     runtime.actor.state().progress.total_exp = cd.exp;
     runtime.actor.state().progress.money = cd.money;
-    load_player_items(player_id, runtime.actor);
+    if (!load_player_items(player_id, runtime.actor) && !allow_dev_gamein_fallback_) {
+        reject_entry(); return;
+    }
+    mxh::game::ItemTotalInfo appearance{};
+    std::array<bool, 10> appearance_present{};
+    if (!load_character_equipment(db_, player_id, appearance, &appearance_present) && !allow_dev_gamein_fallback_) {
+        reject_entry(); return;
+    }
+    if (!restore_player_shop(player_id,user_id,runtime)) { reject_entry(); return; }
     load_membership_state(player_id, cd.name, cd.level);
-    for (std::size_t i = 0; i < runtime.actor.state().inventory.items.size(); ++i)
-        pi.items.Inventory[i] = runtime.actor.state().inventory.items[i];
-    for (std::size_t i = 0; i < runtime.actor.state().equipment.items.size(); ++i)
-        pi.items.WearedItem[i] = runtime.actor.state().equipment.items[i];
-    load_character_equipment(db_, player_id, pi.items);
+    pi.items = make_item_total(runtime.actor.state());
+    for (std::size_t i = 0; i < appearance_present.size(); ++i)
+        if (appearance_present[i]) pi.items.WearedItem[i].wIconIdx = appearance.WearedItem[i].wIconIdx;
     runtime.actor.state().pos_x = pi.pos_x;
     runtime.actor.state().pos_z = pi.pos_z;
+    pi.shop_options = runtime.actor.state().shop_options;
+    const auto admitted_vitals=runtime.actor.state().vitals;
+    pi.combat.current_hp=admitted_vitals.current_hp;
+    pi.combat.max_hp=admitted_vitals.max_hp;
+    pi.combat.current_mp=admitted_vitals.current_mp;
+    pi.combat.max_mp=admitted_vitals.max_mp;
+    pi.current_shield=admitted_vitals.current_shield;
+    pi.max_shield=admitted_vitals.max_shield;
     {
         std::lock_guard<std::mutex> lk(players_mu_);
         connected_players_[player_id] = pi;
@@ -1532,6 +2575,7 @@ void MapHandler::handle_gamein(mxh::net::ConnectionId id,
         quick_skills[3] = 10;
     }
     reply_(id, make_gamein_ack(player_id, user_id, cd, pi.items, quick_skills,
+                               pi.shop_options, admitted_vitals,
                                pi.pos_x, pi.pos_z));
     // Rehydrate the quest dialog from the authoritative persisted log before
     // any new interaction.  The legacy client receives one TotalInfo record
@@ -1738,6 +2782,28 @@ void MapHandler::spawn_map_npcs() {
         s.pos_z = npc.position_z;
         s.name = npc.name;
         npcs_.push_back(std::move(s));
+    }
+    // StaticNpc is the spawn/identity source; MapChange is route metadata.
+    // playdh-current mixes localized names, so an exact unique coordinate join
+    // establishes portal semantics while preserving the static record's identity.
+    if (static_npc_catalog_ && map_change_catalog_) for (const auto& npc : *static_npc_catalog_) {
+        if (npc.map != map_num_) continue;
+        if (std::count_if(static_npc_catalog_->begin(), static_npc_catalog_->end(), [&](const auto& other) {
+            return other.map == npc.map && other.x == npc.x && other.z == npc.z;
+        }) != 1) continue;
+        std::size_t matches = 0;
+        for (const auto& route : map_change_catalog_->entries)
+            if (route.current_map_num == npc.map && route.current_x == npc.x && route.current_z == npc.z)
+                ++matches;
+        if (matches != 1) continue;
+        if (std::any_of(npcs_.begin(), npcs_.end(), [&](const auto& live) { return live.npc_id == npc.index; })) continue;
+        ServerNpc portal;
+        portal.npc_id = npc.index;
+        portal.npc_kind = static_cast<std::uint16_t>(mxh::game::NpcRole::MapChange);
+        portal.map_num = npc.map;
+        portal.pos_x = npc.x; portal.pos_z = npc.z;
+        portal.name = npc.name;
+        npcs_.push_back(std::move(portal));
     }
     std::cout << "[Map] spawned " << npcs_.size() << " NPCs for map "
               << map_num_ << "\n";
@@ -2288,6 +3354,8 @@ void MapHandler::send_character_add_locked(std::uint32_t target_player_id,
     // CHARACTER_TOTALINFO [35..146]
     put_u32(m.payload, off + 0, info.combat.current_hp);
     put_u32(m.payload, off + 4, info.combat.max_hp);
+    put_u32(m.payload, off + 8, info.current_shield);
+    put_u32(m.payload, off + 12, info.max_shield);
     put_u16(m.payload, off + 16, info.gender);
     put_u8(m.payload, off + 17, info.face_type);
     put_u8(m.payload, off + 18, info.hair_type);
@@ -2309,7 +3377,9 @@ void MapHandler::send_character_add_locked(std::uint32_t target_player_id,
     put_u16(m.payload, off + 2, static_cast<std::uint16_t>(info.pos_z));
     off += 14;
 
-    // SHOPITEMOPTION [147..266] - all zeros
+    // SHOPITEMOPTION [161..280] from the same admitted state as GameInAck.
+    const auto shop_wire = mxh::game::encode_shop_item_option(info.shop_options);
+    std::copy(shop_wire.begin(), shop_wire.end(), m.payload.begin() + off);
     off += 120;
 
     // bInTitan (4B) = 0
@@ -2528,6 +3598,8 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         info_it->second.combat.current_hp = actor_state.vitals.current_hp;
                         info_it->second.combat.max_mp = actor_state.vitals.max_mp;
                         info_it->second.combat.current_mp = actor_state.vitals.current_mp;
+                        info_it->second.current_shield = actor_state.vitals.current_shield;
+                        info_it->second.max_shield = actor_state.vitals.max_shield;
                         info_it->second.level = actor_state.progress.level;
                         for (std::size_t i = 0; i < actor_state.inventory.items.size(); ++i) {
                             info_it->second.items.Inventory[i] = actor_state.inventory.items[i];
@@ -2612,7 +3684,22 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             reply.header.object_id = player_id;
             reply.payload = msg.payload;
             reply_(id, reply);
-            if (found) persist_player_items(player_id);
+            if (found) {
+                persist_player_items(player_id);
+                mxh::game::ItemTotalInfo updated_items{};
+                {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    const auto it = connected_players_.find(player_id);
+                    if (it != connected_players_.end()) updated_items = it->second.items;
+                }
+                mxh::net::Message total;
+                total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+                total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+                total.header.object_id = player_id;
+                total.payload.resize(sizeof(updated_items));
+                std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+                reply_(id, total);
+            }
             std::cout << "[Map] sent ITEM_DISCARD_"
                       << (found ? "ACK" : "NACK") << "\n";
             break;
@@ -2634,6 +3721,8 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
 
             bool ok = false;
             std::uint32_t new_money = 0;
+            std::uint32_t prior_money = 0;
+            mxh::game::ItemBase prior_item{};
             mxh::game::ItemTotalInfo updated_items{};
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
@@ -2662,6 +3751,8 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         static_cast<std::uint64_t>(info_it->second.money) + *payout <=
                             std::numeric_limits<std::uint32_t>::max();
                     if (valid_item) {
+                        prior_item = item;
+                        prior_money = info_it->second.money;
                         if (item.ItemParam == item_num) {
                             item = mxh::game::make_empty_item();
                             item.Position = target_pos;
@@ -2679,6 +3770,18 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     }
                 }
             }
+            if (ok && !persist_player_items_and_money(player_id, new_money)) {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                auto info_it = connected_players_.find(player_id);
+                auto runtime_it = player_runtimes_.find(player_id);
+                if (info_it != connected_players_.end() && runtime_it != player_runtimes_.end()) {
+                    runtime_it->second.actor.state().inventory.items[target_pos] = prior_item;
+                    info_it->second.money = prior_money;
+                    runtime_it->second.actor.set_money(prior_money);
+                    info_it->second.items.Inventory[target_pos] = prior_item;
+                }
+                ok = false;
+            }
             mxh::net::Message reply;
             reply.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
             reply.header.protocol = static_cast<std::uint8_t>(ok ? mxh::proto::ItemProtocol::SellAck : mxh::proto::ItemProtocol::SellNack);
@@ -2686,8 +3789,6 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             reply.payload = msg.payload;
             reply_(id, reply);
             if (ok) {
-                persist_player_items(player_id);
-                persist_player_money(player_id, new_money);
                 mxh::net::Message money;
                 money.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
                 money.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money);
@@ -2768,6 +3869,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::uint32_t new_hp = 0;
             std::uint32_t new_mp = 0;
             bool consumed = false;
+            mxh::game::ItemTotalInfo updated_items{};
             std::vector<QuestEventChange> quest_changes;
             {
                 std::lock_guard<std::mutex> lk(players_mu_);
@@ -2787,6 +3889,7 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                         }
                         info_it->second.combat.current_hp = new_hp;
                         info_it->second.combat.current_mp = new_mp;
+                        updated_items = info_it->second.items;
                         quest_changes = dispatch_quest_event(
                             runtime_it->second.quest_log,
                             QuestEvent{QuestSubKind::Collect,
@@ -2832,6 +3935,13 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
             std::memcpy(reply.payload.data() + off, &new_hp, 4);          off += 4;
             std::memcpy(reply.payload.data() + off, &new_mp, 4);          off += 4;
             reply_(id, reply);
+            mxh::net::Message total;
+            total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+            total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+            total.header.object_id = player_id;
+            total.payload.resize(sizeof(updated_items));
+            std::memcpy(total.payload.data(), &updated_items, sizeof(updated_items));
+            reply_(id, total);
             persist_player_items(player_id);
             if (!quest_changes.empty()) {
                 persist_quest_log(player_id);
@@ -2961,11 +4071,15 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     std::memory_order_relaxed);
                 bool ok = true;
                 mxh::game::ItemTotalInfo updated_items{};
+                InventorySlots prior_inventory{};
+                mxh::game::ItemTotalInfo prior_total{};
                 {
                     std::lock_guard<std::mutex> lk(players_mu_);
                     auto info_it = connected_players_.find(player_id);
                     auto rt_it   = player_runtimes_.find(player_id);
                     if (info_it != connected_players_.end() && rt_it != player_runtimes_.end()) {
+                        prior_inventory = rt_it->second.actor.state().inventory;
+                        prior_total = info_it->second.items;
                         info_it->second.money = decision.new_money;
                         rt_it->second.actor.set_money(decision.new_money);
                         for (std::uint16_t n = 0; n < req.qty; ++n) {
@@ -2976,6 +4090,8 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                             }
                             info_it->second.money = player_money;
                             rt_it->second.actor.set_money(player_money);
+                            rt_it->second.actor.state().inventory = prior_inventory;
+                            info_it->second.items = prior_total;
                             ok = false;
                             break;
                         }
@@ -2988,6 +4104,18 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     } else {
                         ok = false;
                     }
+                }
+                if (ok && !persist_player_items_and_money(player_id, decision.new_money)) {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    auto info_it = connected_players_.find(player_id);
+                    auto rt_it = player_runtimes_.find(player_id);
+                    if (info_it != connected_players_.end() && rt_it != player_runtimes_.end()) {
+                        info_it->second.money = player_money;
+                        info_it->second.items = prior_total;
+                        rt_it->second.actor.set_money(player_money);
+                        rt_it->second.actor.state().inventory = prior_inventory;
+                    }
+                    ok = false;
                 }
                 if (ok) {
                     // Publish the authoritative money before the existing
@@ -3006,12 +4134,6 @@ void MapHandler::handle_item(mxh::net::ConnectionId id,
                     reply_(id, money);
                     reply_msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck);
                     reply_(id, reply_msg);
-                    // M3 D-stage: persist the new money to modern_player_state
-                    // so the value survives a server restart.  Failure is
-                    // logged inside persist_player_money and does not affect
-                    // the wire reply above.
-                    persist_player_money(player_id, decision.new_money);
-                    persist_player_items(player_id);
                     // Refresh the buyer's inventory with ITEM_TOTALINFO_LOCAL
                     // so the client grid shows the purchased item.
                     mxh::net::Message total;
@@ -3051,10 +4173,37 @@ std::size_t MapHandler::install_ai_groups(const AiGroupList& groups) {
     ai_spawn_overrides_.reserve(groups.spawn_count());
     for (const auto& group : groups.groups) {
         for (const auto& def : group.spawns) {
-            ai_spawn_overrides_.push_back(def);
             mxh::game::MonsterTemplate tpl;
             tpl.MonsterKind = def.monster_kind;
             tpl.ObjectKind  = def.object_kind;
+            if (monster_catalog_) {
+                const auto* source = monster_catalog_->find(
+                    static_cast<std::uint16_t>(def.monster_kind));
+                if (source == nullptr) {
+                    std::cerr << "[Map] AI spawn references missing MonsterList kind="
+                              << def.monster_kind << "\n";
+                    continue;
+                }
+                std::strncpy(tpl.Name, source->name.c_str(), 16);
+                tpl.Name[16] = '\0';
+                tpl.Level = source->level;
+                tpl.Life = source->life;
+                tpl.Shield = source->shield;
+                tpl.ExpPoint = source->exp;
+                tpl.AttackMin = source->attack_min;
+                tpl.AttackMax = source->attack_max;
+                tpl.Defense = source->defense;
+                tpl.WalkSpeed = source->walk_speed;
+                tpl.RunSpeed = source->run_speed;
+                tpl.SearchRange = source->search_range;
+                tpl.DomainRange = source->domain_range;
+                tpl.Aggressive = source->aggressive;
+                tpl.SearchPeriodMs = static_cast<std::uint32_t>(source->search_period_ms);
+                tpl.AttackCount = source->attack_count;
+                tpl.AttackSkills = source->attack_skills;
+                tpl.AttackRates = source->attack_rates;
+            }
+            ai_spawn_overrides_.push_back(def);
             ai_template_overrides_.emplace(def.monster_kind, tpl);
             ++spawned;
         }
@@ -3112,6 +4261,21 @@ void MapHandler::spawn_monsters() {
             // regen manager (CAIGroup::Die). Modern GameIn creates the
             // instance immediately, so the first appearance is alive.
             m.is_dead  = false;
+            if (tmpl) {
+                m.exp_reward = tmpl->ExpPoint;
+                m.attack_min = tmpl->AttackMin;
+                m.attack_max = tmpl->AttackMax;
+                m.defense = tmpl->Defense;
+                m.walk_speed = tmpl->WalkSpeed;
+                m.run_speed = tmpl->RunSpeed;
+                m.search_range = tmpl->SearchRange;
+                m.domain_range = tmpl->DomainRange;
+                m.aggressive = tmpl->Aggressive;
+                m.search_period_ms = tmpl->SearchPeriodMs;
+                m.attack_count = tmpl->AttackCount;
+                m.attack_skills = tmpl->AttackSkills;
+                m.attack_rates = tmpl->AttackRates;
+            }
             // In the current PlayDH profile the drop-list index is the
             // monster kind.  Only enable the relation when a real table is
             // present; missing data remains a no-drop state instead of
@@ -3190,6 +4354,10 @@ void MapHandler::spawn_monsters() {
         m.search_range  = tmpl->SearchRange;
         m.domain_range  = tmpl->DomainRange;
         m.aggressive    = tmpl->Aggressive;
+        m.search_period_ms = tmpl->SearchPeriodMs;
+        m.attack_count = tmpl->AttackCount;
+        m.attack_skills = tmpl->AttackSkills;
+        m.attack_rates = tmpl->AttackRates;
         m.drop_item_id  = tmpl->DropItemId;
         m.drop_item_ratio = tmpl->DropItemRatio;
 
@@ -3396,15 +4564,383 @@ MapHandler::Stats MapHandler::stats() const {
     return s;
 }
 
+void MapHandler::tick_shop_items(std::uint32_t delta_ms) {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
+    if (draining_.load() || delta_ms == 0u) return;
+
+    struct DuePlayer {
+        std::uint32_t player_id = 0;
+        std::uint32_t account_id = 0;
+        std::uint64_t connection_id = 0;
+        bool flush_due = false;
+        Player actor;
+        ShopItemManager manager;
+        mxh::db::LegacyShopAppearanceRows persisted_rows;
+        bool persisted_loaded = false;
+    };
+    std::vector<DuePlayer> due;
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        due.reserve(player_runtimes_.size());
+        for (auto& [player_id, runtime] : player_runtimes_) {
+            const bool flush_due = runtime.shop_items.tick(delta_ms);
+            if (!flush_due && !runtime.shop_items.check_due()) continue;
+            const auto connected = connected_players_.find(player_id);
+            if (connected == connected_players_.end()) continue;
+            DuePlayer candidate;
+            candidate.player_id = player_id;
+            candidate.account_id = runtime.actor.state().user_id;
+            candidate.connection_id = connected->second.conn_id;
+            candidate.flush_due = flush_due;
+            candidate.actor = runtime.actor;
+            candidate.manager = runtime.shop_items;
+            candidate.persisted_rows = runtime.shop_persisted_rows;
+            candidate.persisted_loaded = runtime.shop_persisted_loaded;
+            candidate.manager.clear_check_time();
+            due.push_back(std::move(candidate));
+        }
+    }
+
+    const auto packed_now = shop_time_now();
+    const auto now_ms = static_cast<std::uint32_t>(movement_now());
+    for (auto& candidate : due) {
+        struct RemainingUpdate { std::uint32_t database_id; std::uint16_t icon; std::uint32_t remaining; };
+        struct Expiration { mxh::game::ShopItemBase item; };
+        struct ShopNotification {
+            mxh::proto::ItemProtocol protocol;
+            std::uint16_t icon;
+            std::uint16_t position = 0;
+            std::uint16_t count = 0;
+        };
+        std::vector<RemainingUpdate> updates;
+        std::vector<Expiration> expirations;
+        std::vector<ShopNotification> notifications;
+        std::vector<SkinItemSlots> skin_notifications;
+
+        const auto entries = [&] {
+            std::vector<UsingShopItemEntry> copy;
+            copy.reserve(candidate.manager.using_items().size());
+            for (const auto& [key, entry] : candidate.manager.using_items()) {
+                (void)key;
+                copy.push_back(entry);
+            }
+            return copy;
+        }();
+
+        bool candidate_valid = true;
+        for (const auto& entry : entries) {
+            mxh::game::ItemInfo info{};
+            if (!item_manager_.try_get(entry.Data.ShopItem.ItemBase.wIconIdx, info)) continue;
+
+            bool expired = false;
+            if (info.SellPrice == mxh::game::SHOP_ITEM_PARAM_STORED_TIME) {
+                expired = packed_now.value > entry.Data.ShopItem.Remaintime;
+                if (!expired) {
+                    const auto end = packed_shop_time_to_epoch(
+                        mxh::game::PackedTime{entry.Data.ShopItem.Remaintime});
+                    const auto current = packed_shop_time_to_epoch(packed_now);
+                    if (end && current) {
+                        const auto seconds = std::difftime(*end, *current);
+                        if (seconds > 0.0 && seconds < 60.0) {
+                            notifications.push_back({
+                                mxh::proto::ItemProtocol::ShopItemOneMinute,
+                                entry.Data.ShopItem.ItemBase.wIconIdx});
+                        }
+                    }
+                }
+            } else if (info.SellPrice == mxh::game::SHOP_ITEM_PARAM_PLAY_TIME) {
+                if (!shop_rate_environment_) { candidate_valid = false; break; }
+                const auto step = plan_shop_playtime_step(
+                    entry.Data, &info, *shop_rate_environment_, now_ms, candidate.flush_due);
+                auto* live = candidate.manager.find_using_item_by_icon_idx_mutable(
+                    entry.Data.ShopItem.ItemBase.wIconIdx);
+                if (!live) { candidate_valid = false; break; }
+                live->Data = step.next;
+                expired = step.expired;
+                if (step.persist_remaining) {
+                    updates.push_back({entry.Data.ShopItem.ItemBase.dwDBIdx,
+                        entry.Data.ShopItem.ItemBase.wIconIdx, step.next.ShopItem.Remaintime});
+                }
+                if (step.notify_one_minute) {
+                    notifications.push_back({
+                        mxh::proto::ItemProtocol::ShopItemOneMinute,
+                        entry.Data.ShopItem.ItemBase.wIconIdx});
+                }
+            }
+            if (!expired) continue;
+
+            const auto option = shop_option_info(info);
+            if (!option || !shop_rate_environment_) { candidate_valid = false; break; }
+            struct NoExpansion final : CalcShopItemOptionPlayerHook {
+                void on_expand_inven_slot() noexcept override {}
+                void on_expand_pyoguk_slot() noexcept override {}
+                void on_expand_mugong_slot() noexcept override {}
+                void on_expand_character_slot() noexcept override {}
+            } hook;
+            auto& state = candidate.actor.state();
+            apply_calc_shop_item_option(candidate.manager, state.shop_options,
+                entry.Data.ShopItem.ItemBase.wIconIdx, false, 0u, *option,
+                *shop_rate_environment_, hook);
+
+            const double pet_index = info.LifeRecoverRate;
+            if (!std::isfinite(pet_index) || pet_index < 0.0 || pet_index > 4294967295.0) {
+                candidate_valid = false;
+                break;
+            }
+            DupParamIndices indices{info.AllPlus_Value, info.MugongNum, info.MugongType,
+                info.LifeRecover, static_cast<std::uint32_t>(pet_index), pet_index != 0.0};
+            auto counters = candidate.manager.dup_counters();
+            SundrySideEffects duplicate_effects{};
+            delete_dup_param(counters, indices, shop_dup_catalog_, duplicate_effects);
+            candidate.manager.set_dup_counters(counters);
+            if (duplicate_effects.clear_b_street_stall) state.shop_options.bStreetStall = 0;
+
+            auto expired_item = entry.Data.ShopItem;
+            if (info.ItemType == 11u) {
+                const auto removed = candidate.actor.remove_physical_shop_item(expired_item.ItemBase);
+                if (!removed) { candidate_valid = false; break; }
+                expired_item.ItemBase = *removed;
+            }
+            if (info.ItemKind == LEGACY_SHOP_ITEM_MAKEUP ||
+                info.ItemKind == LEGACY_SHOP_ITEM_DECORATION) {
+                if (const auto avatar = avatar_equip_catalog_.entries.find(
+                        entry.Data.ShopItem.ItemBase.wIconIdx);
+                    avatar != avatar_equip_catalog_.entries.end()) {
+                    state.shop_options.Avatar = discard_avatar_item(&avatar->second.equip,
+                        entry.Data.ShopItem.ItemBase.wIconIdx, state.shop_options.Avatar);
+                    state.apply_avatar_options(calc_avatar_option(state.shop_options.Avatar, item_manager_));
+                }
+            }
+            if (info.ItemKind == LEGACY_SHOP_ITEM_NOMALCLOTHES_SKIN ||
+                info.ItemKind == LEGACY_SHOP_ITEM_COSTUME_SKIN) {
+                state.shop_options.wSkinItem = discard_skin_item(skin_catalog_, info.ItemKind,
+                    &state.shop_options.wSkinItem);
+                // The original source reaches this transition from two call sites,
+                // but its lifetime bug leaves a duplicate wire acknowledgement
+                // unproven. Publish one authoritative state transition.
+                skin_notifications.push_back(state.shop_options.wSkinItem);
+            }
+            if (!candidate.manager.delete_using_item(entry.Data.ShopItem.ItemBase.wIconIdx)) {
+                candidate_valid = false;
+                break;
+            }
+            state.apply_shop_options(state.shop_options);
+            expirations.push_back({expired_item});
+            if (info.ItemType == 11u &&
+                (info.ItemKind == LEGACY_SHOP_ITEM_MAKEUP ||
+                 info.ItemKind == LEGACY_SHOP_ITEM_DECORATION ||
+                 info.ItemKind == LEGACY_SHOP_ITEM_PET_EQUIP ||
+                 info.ItemKind == LEGACY_SHOP_ITEM_TITAN_EQUIP)) {
+                notifications.push_back({mxh::proto::ItemProtocol::DiscardAck,
+                    expired_item.ItemBase.wIconIdx, expired_item.ItemBase.Position, 1u});
+            }
+            notifications.push_back({mxh::proto::ItemProtocol::ShopItemUseEnd,
+                expired_item.ItemBase.wIconIdx});
+        }
+
+        if (!candidate_valid) {
+            std::cerr << "[Map] shop timer candidate failed player=" << candidate.player_id << "\n";
+            draining_.store(true);
+            shutdown_save_succeeded_ = false;
+            return;
+        }
+
+        const bool needs_persistence = !updates.empty() || !expirations.empty();
+        bool committed = !needs_persistence;
+        bool began = false;
+        bool commit_attempted = false;
+        if (needs_persistence) {
+            try {
+                if (!db_.begin_transaction().ok()) throw std::runtime_error("shop timer begin uncertain");
+                began = true;
+                const auto snapshot = mxh::db::load_modern_shop_state(
+                    db_, candidate.player_id, candidate.account_id);
+                if (!snapshot) throw std::runtime_error("shop timer snapshot unavailable");
+                if (!candidate.persisted_loaded ||
+                    mxh::db::encode_modern_shop_state(candidate.player_id, snapshot->rows) !=
+                    mxh::db::encode_modern_shop_state(candidate.player_id, candidate.persisted_rows))
+                    throw std::runtime_error("shop timer persisted baseline changed");
+                auto pending = snapshot->rows;
+                const auto find_unique = [&](std::uint32_t database_id, std::uint16_t icon) {
+                    auto found = pending.used_items.end();
+                    for (auto it = pending.used_items.begin(); it != pending.used_items.end(); ++it) {
+                        if (it->database_id != database_id) continue;
+                        if (found != pending.used_items.end() || it->item_id != icon)
+                            throw std::runtime_error("shop timer identity mismatch");
+                        found = it;
+                    }
+                    if (found == pending.used_items.end())
+                        throw std::runtime_error("shop timer row missing");
+                    return found;
+                };
+                if (pending.used_items.size() != entries.size())
+                    throw std::runtime_error("shop timer row count changed");
+                for (const auto& entry : entries) {
+                    const auto& item = entry.Data.ShopItem;
+                    const auto row = find_unique(item.ItemBase.dwDBIdx, item.ItemBase.wIconIdx);
+                    if (row->position != item.ItemBase.Position || row->parameter != item.Param ||
+                        row->begin_time != item.BeginTime.value)
+                        throw std::runtime_error("shop timer row changed");
+                }
+                for (const auto& update : updates)
+                    find_unique(update.database_id, update.icon)->remaining_time = update.remaining;
+                for (const auto& expiration : expirations) {
+                    const auto& item = expiration.item.ItemBase;
+                    pending.used_items.erase(find_unique(item.dwDBIdx, item.wIconIdx));
+                }
+                const auto& state = candidate.actor.state();
+                pending.skin = state.shop_options.wSkinItem;
+                if ((!expirations.empty() && !write_player_items(candidate.player_id,
+                        state.inventory, state.equipment, state.shop_inventory,
+                        state.pet_wear, state.titan_wear, state.titan_shop_items)) ||
+                    !mxh::db::save_modern_shop_state(db_, candidate.player_id,
+                        candidate.account_id, *snapshot, pending))
+                    throw std::runtime_error("shop timer persistence failed");
+                commit_attempted = true;
+                if (!db_.commit().ok()) throw std::runtime_error("shop timer commit uncertain");
+                began = false;
+                candidate.persisted_rows = pending;
+                candidate.persisted_loaded = true;
+                committed = true;
+            } catch (...) {
+                bool rolled_back = false;
+                if (began) { try { rolled_back = db_.rollback().ok(); } catch (...) {} }
+                if (commit_attempted || !rolled_back) {
+                    try { db_.disconnect(); } catch (...) {}
+                }
+                draining_.store(true);
+                shutdown_save_succeeded_ = false;
+                std::cerr << "[Map] shop timer persistence failed player=" << candidate.player_id << "\n";
+            }
+        }
+        if (!committed) return;
+
+        {
+            std::lock_guard<std::mutex> lock(players_mu_);
+            const auto runtime = player_runtimes_.find(candidate.player_id);
+            const auto connected = connected_players_.find(candidate.player_id);
+            if (runtime == player_runtimes_.end() || connected == connected_players_.end()) {
+                draining_.store(true);
+                shutdown_save_succeeded_ = false;
+                return;
+            }
+            runtime->second.actor = candidate.actor;
+            runtime->second.shop_items = candidate.manager;
+            runtime->second.shop_persisted_rows = candidate.persisted_rows;
+            runtime->second.shop_persisted_loaded = candidate.persisted_loaded;
+            auto& info = connected->second;
+            const auto& state = candidate.actor.state();
+            info.shop_options = state.shop_options;
+            info.items = make_item_total(state);
+            info.combat.current_hp = state.vitals.current_hp;
+            info.combat.max_hp = state.vitals.max_hp;
+            info.combat.current_mp = state.vitals.current_mp;
+            info.combat.max_mp = state.vitals.max_mp;
+            info.current_shield = state.vitals.current_shield;
+            info.max_shield = state.vitals.max_shield;
+        }
+
+        const auto send_notification = [&](const ShopNotification& notification) {
+            mxh::net::Message message;
+            message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+            message.header.protocol = static_cast<std::uint8_t>(notification.protocol);
+            message.header.object_id = candidate.player_id;
+            if (notification.protocol == mxh::proto::ItemProtocol::DiscardAck) {
+                message.payload.resize(6u);
+                std::memcpy(message.payload.data(), &notification.position, 2u);
+                std::memcpy(message.payload.data() + 2u, &notification.icon, 2u);
+                std::memcpy(message.payload.data() + 4u, &notification.count, 2u);
+            } else {
+                message.payload.resize(sizeof(std::uint32_t));
+                const auto value = static_cast<std::uint32_t>(notification.icon);
+                std::memcpy(message.payload.data(), &value, sizeof(value));
+            }
+            reply_(mxh::net::ConnectionId{candidate.connection_id}, message);
+        };
+        for (const auto& notification : notifications)
+            if (notification.protocol == mxh::proto::ItemProtocol::DiscardAck)
+                send_notification(notification);
+        std::vector<std::uint64_t> active_connections;
+        if (!skin_notifications.empty()) {
+            std::lock_guard<std::mutex> lock(players_mu_);
+            for (const auto& [player_id, info] : connected_players_) {
+                (void)player_id;
+                if (std::find(active_connections.begin(), active_connections.end(), info.conn_id) ==
+                    active_connections.end())
+                    active_connections.push_back(info.conn_id);
+            }
+        }
+        for (const auto& skin : skin_notifications) {
+            mxh::net::Message message;
+            message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::ItemExt);
+            message.header.protocol = static_cast<std::uint8_t>(
+                mxh::proto::ItemExtProtocol::SkinItemDiscardAck);
+            message.header.object_id = candidate.player_id;
+            message.payload.resize(sizeof(skin));
+            std::memcpy(message.payload.data(), skin.data(), sizeof(skin));
+            // Legacy QuickSend publishes the skin transition to the visible
+            // grid. AgentServer multiplexing makes each active map connection
+            // the safe modern equivalent; object_id identifies the owner.
+            for (const auto connection_id : active_connections)
+                reply_(mxh::net::ConnectionId{connection_id}, message);
+        }
+        if (!expirations.empty()) {
+            const auto& state = candidate.actor.state();
+            const auto items = make_item_total(state);
+            mxh::net::Message total;
+            total.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+            total.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal);
+            total.header.object_id = candidate.player_id;
+            total.payload.resize(sizeof(items));
+            std::memcpy(total.payload.data(), &items, sizeof(items));
+            reply_(mxh::net::ConnectionId{candidate.connection_id}, total);
+
+            mxh::net::Message appearance;
+            appearance.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Server);
+            appearance.header.protocol = mxh::proto::kModernShopAppearance;
+            appearance.header.object_id = candidate.player_id;
+            const auto shop_wire = mxh::game::encode_shop_item_option(state.shop_options);
+            appearance.payload.assign(shop_wire.begin(), shop_wire.end());
+            reply_(mxh::net::ConnectionId{candidate.connection_id}, appearance);
+        }
+        for (const auto& notification : notifications)
+            if (notification.protocol != mxh::proto::ItemProtocol::DiscardAck)
+                send_notification(notification);
+        for (const auto& expiration : expirations) {
+            const auto& item = expiration.item.ItemBase;
+            std::cout << "[Map] ShopItemUseEnd player=" << candidate.player_id
+                      << " db_idx=" << item.dwDBIdx << " item=" << item.wIconIdx
+                      << " position=" << item.Position << "\n";
+        }
+    }
+}
+
 void MapHandler::tick_monster_ai() {
+    std::lock_guard<std::recursive_mutex> dispatch(dispatch_mu_);
+    if (draining_.load()) return;
     materialize_positions();
     // Called periodically from the server main loop or a timer.
     // Phase 10c P0: simple state machine.
-    auto now_ms = static_cast<std::uint64_t>(
+    auto now_ms = monster_ai_clock_ ? monster_ai_clock_() : static_cast<std::uint64_t>(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count());
 
     std::vector<mxh::game::MonsterInstance> moved;
+    struct PendingAttack {
+        std::uint64_t connection_id = 0;
+        std::uint32_t player_id = 0;
+        std::uint32_t monster_id = 0;
+        std::int32_t life_delta = 0;
+        std::int32_t shield_delta = 0;
+        bool died = false;
+        mxh::game::SkillInstance skill;
+    };
+    std::vector<PendingAttack> attacks;
+    auto random_value = [&]() -> std::uint32_t {
+        if (monster_ai_rng_) return monster_ai_rng_();
+        static thread_local std::mt19937 rng(std::random_device{}());
+        return rng();
+    };
     {
         std::lock_guard<std::mutex> lk(monsters_mu_);
 
@@ -3426,8 +4962,9 @@ void MapHandler::tick_monster_ai() {
                 continue;
             }
 
-            // AI tick every 1 second
-            if (now_ms - m.last_ai_tick_ms < 1000) continue;
+            // MonsterList supplies the original search/decision period.
+            if (now_ms < m.last_ai_tick_ms ||
+                now_ms - m.last_ai_tick_ms < m.search_period_ms) continue;
             m.last_ai_tick_ms = now_ms;
 
             switch (m.ai_state) {
@@ -3437,6 +4974,7 @@ void MapHandler::tick_monster_ai() {
                         std::lock_guard<std::mutex> plk(players_mu_);
                         float search_sq = m.search_range * m.search_range;
                         for (auto& [pid, pinfo] : connected_players_) {
+                            if (pinfo.combat.current_hp == 0) continue;
                             float d2 = mxh::game::distance_sq_2d(
                                 m.pos_x, m.pos_z, pinfo.pos_x, pinfo.pos_z);
                             if (d2 < search_sq) {
@@ -3454,7 +4992,7 @@ void MapHandler::tick_monster_ai() {
                     // Move toward target player
                     std::lock_guard<std::mutex> plk(players_mu_);
                     auto it = connected_players_.find(m.target_object_id);
-                    if (it == connected_players_.end()) {
+                    if (it == connected_players_.end() || it->second.combat.current_hp == 0) {
                         // Target gone, return to spawn
                         m.ai_state = mxh::game::MonsterAIState::Return;
                         break;
@@ -3462,8 +5000,13 @@ void MapHandler::tick_monster_ai() {
                     float dx = it->second.pos_x - m.pos_x;
                     float dz = it->second.pos_z - m.pos_z;
                     float dist = std::sqrt(dx * dx + dz * dz);
-                    if (dist < 3.0f) {
-                        // In attack range
+                    const auto slot = std::min<std::size_t>(m.current_attack_slot, 1);
+                    const auto* skill = m.attack_count == 0 ? nullptr : find_skill(m.attack_skills[slot]);
+                    if (skill == nullptr) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    if (dist <= static_cast<float>(skill->SkillRange)) {
                         m.ai_state = mxh::game::MonsterAIState::Attack;
                     } else {
                         // Move toward target
@@ -3475,11 +5018,75 @@ void MapHandler::tick_monster_ai() {
                     break;
                 }
                 case mxh::game::MonsterAIState::Attack: {
-                    // Phase 10c P0: just log the attack, damage dealt in Phase 10d
-                    std::cout << "[Map] monster id=" << m.object_id
-                              << " attacks player=" << m.target_object_id << "\n";
-                    // Return to chase (will re-evaluate next tick)
-                    m.ai_state = mxh::game::MonsterAIState::Chase;
+                    std::lock_guard<std::mutex> plk(players_mu_);
+                    auto player = connected_players_.find(m.target_object_id);
+                    auto runtime = player_runtimes_.find(m.target_object_id);
+                    if (player == connected_players_.end() || runtime == player_runtimes_.end() ||
+                        player->second.combat.current_hp == 0) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    const auto slot = std::min<std::size_t>(m.current_attack_slot, 1);
+                    const auto* skill = m.attack_count == 0 ? nullptr : find_skill(m.attack_skills[slot]);
+                    if (skill == nullptr) {
+                        m.ai_state = mxh::game::MonsterAIState::Return;
+                        break;
+                    }
+                    const float d2 = mxh::game::distance_sq_2d(
+                        m.pos_x, m.pos_z, player->second.pos_x, player->second.pos_z);
+                    const float range = static_cast<float>(skill->SkillRange);
+                    if (d2 > range * range) {
+                        m.ai_state = mxh::game::MonsterAIState::Chase;
+                        break;
+                    }
+                    // Original StateMachinen uses a strict delay comparison.
+                    if (now_ms <= m.last_attack_ms || now_ms - m.last_attack_ms <= skill->DelayTime)
+                        break;
+
+                    const auto gap = m.attack_max >= m.attack_min
+                        ? static_cast<std::uint32_t>(m.attack_max - m.attack_min + 1) : 1u;
+                    const auto raw = mxh::game::compute_monster_physical_attack(
+                        m.attack_min, m.attack_max, 1.0, static_cast<int>(random_value() % gap));
+                    auto& vitals = runtime->second.actor.state().vitals;
+                    const double shield_ratio = skill->ComboNum == 100 ? 0.7 : 0.5;
+                    const auto requested_shield = static_cast<std::uint32_t>(raw * shield_ratio);
+                    const auto shield_damage = std::min(vitals.current_shield, requested_shield);
+                    const auto after_shield = raw - shield_damage;
+                    const auto defense = mxh::game::compute_phy_defence_level(
+                        player->second.combat.phy_defence, m.level);
+                    const auto calculated = mxh::game::compute_received_damage(after_shield, defense);
+                    const auto life_damage = std::min(vitals.current_hp, std::max(1u, calculated));
+                    vitals.current_shield -= shield_damage;
+                    vitals.current_hp -= life_damage;
+                    (void)runtime->second.actor.mark_dead_if_zero_life();
+                    player->second.current_shield = vitals.current_shield;
+                    player->second.combat.current_hp = vitals.current_hp;
+
+                    PendingAttack pending;
+                    pending.connection_id = player->second.conn_id;
+                    pending.player_id = player->first;
+                    pending.monster_id = m.object_id;
+                    pending.life_delta = -static_cast<std::int32_t>(life_damage);
+                    pending.shield_delta = -static_cast<std::int32_t>(shield_damage);
+                    pending.died = vitals.current_hp == 0;
+                    pending.skill.skill_object_id = next_skill_obj_id_++;
+                    pending.skill.skill_idx = skill->SkillIdx;
+                    pending.skill.caster_id = m.object_id;
+                    pending.skill.main_target_id = player->first;
+                    pending.skill.pos_x = player->second.pos_x;
+                    pending.skill.pos_z = player->second.pos_z;
+                    pending.skill.direction = static_cast<std::uint16_t>(m.angle);
+                    pending.skill.start_time = now_ms;
+                    pending.skill.duration = skill->Duration;
+                    attacks.push_back(pending);
+
+                    m.last_attack_ms = now_ms;
+                    if (m.attack_count > 1) {
+                        const auto roll = random_value() % 100u;
+                        m.current_attack_slot = roll < m.attack_rates[0] ? 0 : 1;
+                    } else {
+                        m.current_attack_slot = 0;
+                    }
                     break;
                 }
                 case mxh::game::MonsterAIState::Return: {
@@ -3506,6 +5113,38 @@ void MapHandler::tick_monster_ai() {
     }
     for (const auto& m : moved) {
         broadcast_monster_move(m);
+    }
+    for (const auto& attack : attacks) {
+        broadcast_skill_object_add(0, attack.skill, attack.monster_id);
+        send_skill_single_result(attack.player_id, attack.player_id,
+                                 -attack.life_delta, 1);
+        if (attack.shield_delta != 0) {
+            mxh::net::Message shield;
+            shield.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+            shield.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::ShieldAck);
+            shield.header.object_id = attack.player_id;
+            shield.payload.resize(sizeof(attack.shield_delta));
+            std::memcpy(shield.payload.data(), &attack.shield_delta, sizeof(attack.shield_delta));
+            reply_(mxh::net::ConnectionId{attack.connection_id}, shield);
+        }
+        mxh::net::Message life;
+        life.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
+        life.header.protocol = static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LifeAck);
+        life.header.object_id = attack.player_id;
+        life.payload.resize(sizeof(attack.life_delta));
+        std::memcpy(life.payload.data(), &attack.life_delta, sizeof(attack.life_delta));
+        reply_(mxh::net::ConnectionId{attack.connection_id}, life);
+        if (attack.died) {
+            mxh::net::Message death;
+            death.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+            death.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::CharacterDie);
+            death.header.object_id = attack.monster_id;
+            death.payload.resize(8);
+            std::memcpy(death.payload.data(), &attack.monster_id, 4);
+            std::memcpy(death.payload.data() + 4, &attack.player_id, 4);
+            reply_(mxh::net::ConnectionId{attack.connection_id}, death);
+        }
+        broadcast_skill_object_remove(0, attack.skill.skill_object_id);
     }
 }
 
@@ -3616,28 +5255,6 @@ void MapHandler::handle_npc(mxh::net::ConnectionId id,
             reply.payload = msg.payload;
             reply_(id, reply);
             std::cout << "[Map] sent NPC_SPEECH_ACK\n";
-
-            // Quest scripts use the same authoritative NPC speech event as
-            // the legacy map server.  Feed the event after the speech ack so
-            // a quest substep can advance without inventing a second NPC
-            // protocol.  The quest manager decides whether this NPC matches
-            // any active sub-condition; unmatched speeches are harmless.
-            std::vector<QuestEventChange> quest_changes;
-            {
-                std::lock_guard<std::mutex> lk(players_mu_);
-                const auto player = player_runtimes_.find(player_id);
-                if (player != player_runtimes_.end()) {
-                    quest_changes = dispatch_quest_event(
-                        player->second.quest_log,
-                        QuestEvent{QuestSubKind::TalkNpc, npc_id, 1u});
-                }
-            }
-            if (!quest_changes.empty()) {
-                persist_quest_log(player_id);
-                notify_quest_changes(player_id, quest_changes);
-                std::cout << "[Map] quest NPC speech advanced player="
-                          << player_id << " npc=" << npc_id << "\n";
-            }
 
             bool dealer = false;
             {
@@ -3814,6 +5431,83 @@ void MapHandler::load_skill_list(const std::string& path) {
     std::cout << "[Map] skill_manager loaded " << skill_manager_.size()
               << " skills (" << errors << " parse errors) from " << path
               << std::endl;
+}
+
+bool MapHandler::load_map_kinds(const std::filesystem::path& path, std::string_view profile) {
+    map_kinds_.reset();
+    if(profile!="playdh-current" && profile!="sworking-2008-reference") return false;
+    std::ifstream input(path,std::ios::binary|std::ios::ate);
+    if(!input || input.tellg()<14 || input.tellg()>65536) return false;
+    input.seekg(0);
+    const std::vector<std::uint8_t> bytes{std::istreambuf_iterator<char>(input),{}};
+    const auto expected=profile=="playdh-current"
+        ? "9af05426844b08bc8c624b04da2413a7ef23ec5025a66af0f7679b0c378f55f8"
+        : "6a22b6402b10c58e45f94982a287d240f7dc5570aacc9efce10356ec7535aa12";
+    if(mxh::net::sha256(bytes).to_hex()!=expected) return false;
+    map_kinds_=mxh::game::decode_map_kind(bytes);
+    return map_kinds_.has_value();
+}
+
+bool MapHandler::load_exp_penalty(const std::filesystem::path& path, std::string_view profile) {
+    exp_penalties_.reset();
+    mxh::game::ExpPenaltyProfile format;
+    if (profile == "playdh-current") format = mxh::game::ExpPenaltyProfile::PlayDhCurrent;
+    else if (profile == "sworking-2008-reference") format = mxh::game::ExpPenaltyProfile::LegacyMhFile;
+    else return false;
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input || input.tellg() < 14 || input.tellg() > 65536) return false;
+    input.seekg(0);
+    const std::vector<std::uint8_t> bytes{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    const auto expected = profile == "playdh-current"
+        ? "7abcc8211e0bffa58ce7658883c79bf040e748a42568701b773e4ed3f0809419"
+        : "f39c4d312788fbb66f7eecf798e33bb82a9e2f5a647b31e300cf2db19d396a19";
+    if (mxh::net::sha256(bytes).to_hex() != expected) return false;
+    exp_penalties_ = mxh::game::decode_exp_penalty(bytes, format);
+    return exp_penalties_.has_value();
+}
+
+bool MapHandler::load_login_points(const std::filesystem::path& path, std::string_view profile) {
+    login_points_.reset();
+    mxh::game::LoginPointProfile format;
+    if (profile == "playdh-current") format = mxh::game::LoginPointProfile::PlayDhCurrent;
+    else if (profile == "sworking-2008-reference") format = mxh::game::LoginPointProfile::LegacyMhFile;
+    else return false;
+    std::ifstream input(path, std::ios::binary | std::ios::ate);
+    if (!input || input.tellg() < 14 || input.tellg() > 65536) return false;
+    input.seekg(0);
+    const std::vector<std::uint8_t> bytes{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    const auto expected = profile == "playdh-current"
+        ? "08f66bb7d4f7eb2b8fa61828c284ed8384a312a8d2809d12399bbfcdb3dc811e"
+        : "19ae7df6504ebd20949e41b8eb1f64c5c52fff0a5d87596755357b4500b879ab";
+    if (mxh::net::sha256(bytes).to_hex() != expected) return false;
+    login_points_ = mxh::game::decode_login_points(bytes, format);
+    return login_points_.has_value();
+}
+
+void MapHandler::load_monster_list(const std::string& path) {
+    monster_catalog_.reset();
+    std::ifstream input(path, std::ios::binary);
+    if (!input) {
+        std::cout << "[Map] load_monster_list failed to open " << path << std::endl;
+        return;
+    }
+    const std::vector<std::uint8_t> bytes{
+        std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+    try {
+        monster_catalog_ = mxh::compat::MonsterCatalog::parse_bin(bytes);
+    } catch (const std::exception& ex) {
+        std::cout << "[Map] load_monster_list failed: " << ex.what() << std::endl;
+        return;
+    }
+    if (!monster_catalog_ || monster_catalog_->entries().empty()) {
+        monster_catalog_.reset();
+        std::cout << "[Map] load_monster_list parsed no valid rows from " << path << std::endl;
+        return;
+    }
+    std::cout << "[Map] monster_catalog loaded " << monster_catalog_->entries().size()
+              << " rows from " << path << std::endl;
 }
 
 void MapHandler::load_item_prices(const std::string& path) {
@@ -4191,6 +5885,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             // Reserve MP atomically against the same session that was validated.
             const auto simple = mxh::game::to_simple(*skill);
             bool enough_mp = false;
+            bool caster_alive = false;
             {
                 std::lock_guard<std::mutex> lock(players_mu_);
                 const auto it = connected_players_.find(caster_id);
@@ -4198,9 +5893,11 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     it->second.session_identity != caster->session_identity ||
                     it->second.conn_id != id.value) break;
                 const auto runtime = player_runtimes_.find(caster_id);
+                caster_alive = runtime != player_runtimes_.end() &&
+                    runtime->second.actor.is_active() && runtime->second.actor.is_alive();
                 if (runtime != player_runtimes_.end())
                     it->second.combat.current_mp = runtime->second.actor.state().vitals.current_mp;
-                enough_mp = it->second.combat.current_mp >= simple.need_nearyuk;
+                enough_mp = caster_alive && it->second.combat.current_mp >= simple.need_nearyuk;
                 if (enough_mp) {
                     it->second.combat.current_mp -= simple.need_nearyuk;
                     if (const auto rt = player_runtimes_.find(caster_id); rt != player_runtimes_.end())
@@ -4209,14 +5906,14 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 }
             }
             if (!enough_mp) {
-                std::cout << "[Map] Skill not enough MP\n";
+                std::cout << (caster_alive ? "[Map] Skill not enough MP\n" : "[Map] Skill caster inactive or dead\n");
                 mxh::net::Message nack;
                 nack.header.category = static_cast<std::uint8_t>(
                     mxh::proto::Category::Skill);
                 nack.header.protocol = static_cast<std::uint8_t>(
                     mxh::proto::SkillProtocol::StartNack);
                 nack.header.object_id = caster_id;
-                std::uint8_t err = 2;  // not enough MP
+                std::uint8_t err = caster_alive ? 2 : 3;  // insufficient MP or invalid caster
                 nack.payload.assign(reinterpret_cast<const std::uint8_t*>(&err),
                                     reinterpret_cast<const std::uint8_t*>(&err) + 1);
                 reply_(id, nack);
@@ -4428,6 +6125,75 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
     reply.payload.resize(2);
     std::memcpy(reply.payload.data(), &quest_id, 2);
     switch (proto) {
+        case mxh::proto::QuestProtocol::NpcTalk: {
+            // Legacy SEND_QUEST_IDX begins with MainQuestIdx=npc semantic index
+            // and SubQuestIdx=quest index. These are not live world object IDs.
+            if (msg.payload.size() < 4u) {
+                reply.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalkNack);
+                reply_(id, reply);
+                break;
+            }
+            std::uint16_t npc_index = 0;
+            std::uint16_t talk_quest_id = 0;
+            std::memcpy(&npc_index, msg.payload.data(), sizeof(npc_index));
+            std::memcpy(&talk_quest_id, msg.payload.data() + 2, sizeof(talk_quest_id));
+            bool npc_in_range = false;
+            std::optional<std::pair<float, float>> player_position;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto player = connected_players_.find(msg.header.object_id);
+                if (player != connected_players_.end())
+                    player_position = {{player->second.pos_x, player->second.pos_z}};
+            }
+            if (player_position) {
+                std::lock_guard<std::mutex> lk(npcs_mu_);
+                const auto npc = std::find_if(npcs_.begin(), npcs_.end(),
+                    [npc_index](const ServerNpc& value) { return value.npc_id == npc_index; });
+                if (npc != npcs_.end()) {
+                    const float dx = player_position->first - static_cast<float>(npc->pos_x);
+                    const float dz = player_position->second - static_cast<float>(npc->pos_z);
+                    npc_in_range = dx * dx + dz * dz <= 500.0f * 500.0f;
+                }
+            }
+            std::optional<QuestLog> prior_log;
+            std::vector<QuestEventChange> changes;
+            {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto player = player_runtimes_.find(msg.header.object_id);
+                if (player != player_runtimes_.end() && npc_in_range &&
+                    npc_index != 0u && talk_quest_id != 0u) {
+                    prior_log = player->second.quest_log;
+                    QuestEvent event{QuestSubKind::TalkNpc, npc_index, 1u};
+                    event.quest_id = talk_quest_id;
+                    changes = dispatch_quest_event(player->second.quest_log, event);
+                }
+            }
+            bool persisted = !changes.empty();
+            bool began = false;
+            if (persisted) {
+                try {
+                    began = db_.begin_transaction().ok();
+                    persisted = began && persist_quest_log(msg.header.object_id) && db_.commit().ok();
+                } catch (...) {
+                    persisted = false;
+                }
+            }
+            if (!persisted && began) {
+                try { db_.rollback(); } catch (...) {}
+            }
+            if (!persisted && prior_log) {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto player = player_runtimes_.find(msg.header.object_id);
+                if (player != player_runtimes_.end()) player->second.quest_log = *prior_log;
+            }
+            reply.payload.assign(msg.payload.begin(), msg.payload.begin() + 4);
+            reply.header.protocol = static_cast<std::uint8_t>(persisted
+                ? mxh::proto::QuestProtocol::NpcTalkAck
+                : mxh::proto::QuestProtocol::NpcTalkNack);
+            reply_(id, reply);
+            if (persisted) notify_quest_changes(msg.header.object_id, changes);
+            break;
+        }
         case mxh::proto::QuestProtocol::StartSyn: {
             const std::uint32_t player_id = msg.header.object_id;
             std::size_t active_count = 0;
@@ -4437,6 +6203,7 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                 def = quest_definitions_.find_quest(quest_id);
             }
             bool accepted = false;
+            std::optional<QuestLog> prior_quest_log;
             if (def != nullptr) {
                 std::lock_guard<std::mutex> lk(players_mu_);
                 auto it = player_runtimes_.find(player_id);
@@ -4446,7 +6213,10 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                     if (it->second.quest_log.player_id == 0u) {
                         it->second.quest_log.player_id = player_id;
                     }
-                    accepted = mxh::server::accept_quest(it->second.quest_log, qdef, now_ms);
+                    prior_quest_log = it->second.quest_log;
+                    accepted = mxh::server::accept_quest(
+                        it->second.quest_log, qdef, now_ms,
+                        it->second.actor.state().progress.level);
                     active_count = mxh::server::active_quest_count(it->second.quest_log);
                 }
             } else {
@@ -4458,18 +6228,47 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
             }
             (void)active_count;
             if (def != nullptr && accepted) {
+                bool began = false;
+                bool commit_attempted = false;
+                try {
+                    began = db_.begin_transaction().ok();
+                    if (began && persist_quest_log(player_id)) {
+                        commit_attempted = true;
+                        accepted = db_.commit().ok();
+                    } else {
+                        accepted = false;
+                    }
+                } catch (...) {
+                    accepted = false;
+                }
+                bool rolled_back = false;
+                if (!accepted && began) {
+                    try { rolled_back = db_.rollback().ok(); } catch (...) {}
+                }
+                if (!accepted && (commit_attempted || (began && !rolled_back))) {
+                    draining_.store(true);
+                    shutdown_save_succeeded_ = false;
+                    std::cerr << "[Map] terminal quest acceptance persistence uncertainty player="
+                              << player_id << " quest=" << quest_id << "\n";
+                    try { db_.disconnect(); } catch (...) {}
+                }
+                if (!accepted && prior_quest_log) {
+                    std::lock_guard<std::mutex> lk(players_mu_);
+                    const auto runtime = player_runtimes_.find(player_id);
+                    if (runtime != player_runtimes_.end()) {
+                        runtime->second.quest_log = *prior_quest_log;
+                        active_count = mxh::server::active_quest_count(runtime->second.quest_log);
+                    }
+                }
+            }
+            if (def != nullptr && accepted) {
                 reply.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartAck);
                 reply_(id, reply);
                 std::cout << "[Map] sent QUEST_START_ACK player=" << player_id << " quest_id=" << quest_id << " active=" << active_count << std::endl;
-                // M3 D-stage: persist the new quest_log to modern_player_quest_log
-                // so the accepted quest survives a server restart.  Failure is
-                // logged inside persist_quest_log and does not affect the wire reply.
-                persist_quest_log(player_id);
-
             } else {
                 reply.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartNack);
                 reply_(id, reply);
-                std::cout << "[Map] sent QUEST_START_NACK player=" << player_id << " quest_id=" << quest_id << " active=" << active_count << " reason=" << (def == nullptr ? "no_def" : "already_active") << std::endl;
+                std::cout << "[Map] sent QUEST_START_NACK player=" << player_id << " quest_id=" << quest_id << " active=" << active_count << " reason=" << (def == nullptr ? "no_def" : "eligibility_state_or_persistence") << std::endl;
             }
             break;
         }
@@ -4477,6 +6276,9 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
             const auto script = quest_definitions_.find_quest(quest_id);
             bool rewarded = false;
             PlayerProgress reward_progress;
+            std::optional<mxh::server::PlayerState> prior_actor_state;
+            std::optional<QuestLog> prior_quest_log;
+            std::optional<PlayerInfo> prior_connected_info;
             if (script != nullptr) {
                 const auto definition = make_runtime_quest_definition(*script);
                 std::lock_guard<std::mutex> lk(players_mu_);
@@ -4484,22 +6286,44 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                 if (runtime != player_runtimes_.end()) {
                     const auto progress = find_quest(runtime->second.quest_log, quest_id);
                     if (progress && (*progress)->state == QuestState::Complete) {
-                        bool item_space = definition.reward_item_idx == 0u;
-                        if (!item_space) {
-                            for (const auto& item : runtime->second.actor.state().inventory.items) {
-                                if (item.dwDBIdx == 0u) { item_space = true; break; }
-                            }
-                        }
+                        prior_actor_state = runtime->second.actor.state();
+                        prior_quest_log = runtime->second.quest_log;
+                        const auto prior_info = connected_players_.find(msg.header.object_id);
+                        if (prior_info != connected_players_.end()) prior_connected_info = prior_info->second;
+                        const std::size_t required_reward_slots = !definition.item_rewards.empty()
+                            ? definition.item_rewards.size()
+                            : (definition.reward_item_idx == 0u ? 0u : 1u);
+                        const auto empty_reward_slots = static_cast<std::size_t>(std::count_if(
+                            runtime->second.actor.state().inventory.items.begin(),
+                            runtime->second.actor.state().inventory.items.end(),
+                            [](const auto& item) { return item.dwDBIdx == 0u; }));
+                        const bool item_space = empty_reward_slots >= required_reward_slots;
                         if (item_space) {
                         std::uint32_t threshold = 0;
                         if (experience_curve_) threshold = static_cast<std::uint32_t>(std::min<std::uint64_t>(
                             experience_curve_->max_exp_point(runtime->second.actor.state().progress.level), std::numeric_limits<std::uint32_t>::max()));
                         const auto result = claim_quest_reward(**progress, definition, runtime->second.actor, threshold);
                         rewarded = result.status == QuestRewardStatus::Granted;
-                        if (rewarded && result.item_idx != 0u && result.item_qty != 0u) {
-                            auto item = mxh::game::make_item(0x60000000u | quest_id,
-                                static_cast<std::uint16_t>(result.item_idx), 0u, 100u, result.item_qty);
-                            rewarded = runtime->second.actor.insert_inventory_item(item).has_value();
+                        if (rewarded) {
+                            const auto insert_reward = [&](std::uint32_t item_idx, std::uint32_t quantity,
+                                                           std::size_t ordinal) {
+                                if (item_idx == 0u || quantity == 0u) return true;
+                                const auto database_id = ordinal == 0u
+                                    ? (0x60000000u | quest_id)
+                                    : (0x61000000u | ((quest_id & 0xffffu) << 8u) |
+                                       static_cast<std::uint32_t>(ordinal & 0xffu));
+                                auto item = mxh::game::make_item(database_id,
+                                    static_cast<std::uint16_t>(item_idx), 0u, 100u, quantity);
+                                return runtime->second.actor.insert_inventory_item(item).has_value();
+                            };
+                            if (!definition.item_rewards.empty()) {
+                                for (std::size_t i = 0; i < definition.item_rewards.size() && rewarded; ++i) {
+                                    const auto& item = definition.item_rewards[i];
+                                    rewarded = insert_reward(item.item_idx, item.quantity, i);
+                                }
+                            } else {
+                                rewarded = insert_reward(result.item_idx, result.item_qty, 0u);
+                            }
                         }
                         if (rewarded) {
                             reward_progress = runtime->second.actor.state().progress;
@@ -4514,30 +6338,33 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                     }
                 }
             }
+            if (rewarded && !persist_quest_reward(msg.header.object_id, reward_progress)) {
+                rewarded = false;
+            }
+            if (!rewarded && prior_actor_state && prior_quest_log) {
+                std::lock_guard<std::mutex> lk(players_mu_);
+                const auto runtime = player_runtimes_.find(msg.header.object_id);
+                if (runtime != player_runtimes_.end()) {
+                    runtime->second.actor.state() = *prior_actor_state;
+                    runtime->second.quest_log = *prior_quest_log;
+                }
+                const auto info = connected_players_.find(msg.header.object_id);
+                if (info != connected_players_.end() && prior_connected_info) {
+                    info->second = *prior_connected_info;
+                }
+            }
             reply.header.protocol = static_cast<std::uint8_t>(rewarded ? mxh::proto::QuestProtocol::EndAck : mxh::proto::QuestProtocol::EndNack);
             if (!rewarded) reply_(id, reply);
             if (rewarded) {
                 mxh::game::ItemTotalInfo updated_items{};
                 std::uint32_t updated_money = 0;
                 std::optional<PlayerInfo> reward_appearance;
-                persist_quest_log(msg.header.object_id);
-                persist_player_items(msg.header.object_id);
-                const std::vector<mxh::db::Bind> args{
-                    mxh::db::bind(static_cast<std::int64_t>(reward_progress.level)),
-                    mxh::db::bind(static_cast<std::int64_t>(reward_progress.level_exp)),
-                    mxh::db::bind(static_cast<std::int64_t>(reward_progress.money)),
-                    mxh::db::bind(static_cast<std::int64_t>(msg.header.object_id))};
-                const auto saved = db_.execute(
-                    "UPDATE modern_player_state SET level=?,exp=?,money=?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?", args);
-                if (!saved.ok()) std::cerr << "[Map] quest reward state persistence failed: " << saved.error_message << "\n";
                 {
                     std::lock_guard<std::mutex> lk(players_mu_);
                     const auto runtime = player_runtimes_.find(msg.header.object_id);
                     if (runtime != player_runtimes_.end()) {
                         updated_money = runtime->second.actor.state().progress.money;
-                        for (std::size_t i = 0; i < runtime->second.actor.state().inventory.items.size(); ++i) {
-                            updated_items.Inventory[i] = runtime->second.actor.state().inventory.items[i];
-                        }
+                        updated_items = make_item_total(runtime->second.actor.state());
                         const auto info = connected_players_.find(msg.header.object_id);
                         if (info != connected_players_.end()) {
                             info->second.level = runtime->second.actor.state().progress.level;
@@ -4546,6 +6373,8 @@ void MapHandler::handle_quest(mxh::net::ConnectionId id,
                             info->second.combat.max_hp = runtime->second.actor.state().vitals.max_hp;
                             info->second.combat.current_mp = runtime->second.actor.state().vitals.current_mp;
                             info->second.combat.max_mp = runtime->second.actor.state().vitals.max_mp;
+                            info->second.current_shield = runtime->second.actor.state().vitals.current_shield;
+                            info->second.max_shield = runtime->second.actor.state().vitals.max_shield;
                             info->second.items = updated_items;
                             reward_appearance = info->second;
                         }

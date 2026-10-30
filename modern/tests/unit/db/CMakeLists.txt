@@ -7,6 +7,7 @@ add_executable(mxh_db_tests
     mssql_production_modules_test.cpp
     real_resource_test.cpp
     schema_migration_test.cpp
+    legacy_shop_appearance_test.cpp
     pooled_db_adapter_test.cpp
     player_position_persistence_test.cpp
     ${CMAKE_SOURCE_DIR}/src/server/login_audit.cpp
@@ -15,6 +16,8 @@ add_executable(mxh_db_tests
 )
 
 target_link_libraries(mxh_db_tests PRIVATE mxh_db mxh_compat gtest_main)
+add_test(NAME legacy_shop_appearance_source COMMAND mxh_db_tests --gtest_filter=LegacyShopAppearance.*)
+add_test(NAME legacy_shop_appearance_mssql_readonly COMMAND mxh_db_tests --gtest_filter=LegacyShopAppearanceMssql.*)
 
 include(GoogleTest)
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.

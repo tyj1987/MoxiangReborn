@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "project_id": "moxiang",
+  "checkout_role": "repo",
+  "authoritative": false,
+  "updated_at": "2026-10-09T10:54:12.621924+00:00",
+  "task": "user-approved-moxiang-reorganization",
+  "technical_evidence_entrypoints": [
+    "ROADMAP.md",
+    "docs/REORGANIZATION_STATUS.md",
+    "docs/PLAYABLE_STATUS.md",
+    "docs/UNITY_REMASTER_STATUS.md",
+    "docs/VERIFICATION_MATRIX.md"
+  ],
+  "constraints": [
+    "保全独有WIP/资产/数据库；符合已批准恢复门槛的冗余可永久删除",
+    "原版与Unity独立工作树/构建/日志/可写数据库",
+    "服务端和数据库测试只在PVE；本机客户端和无需DB测试",
+    "保持原始协议与资源字节，不强推/重写历史，不正式发布",
+    "每个工作树一个写入者；按当前owner协调"
+  ],
+  "next_actions": [
+    "root: preserve current main delta privately; sole main/GUI writer; cleanup19269190942B logical; desktop interactive10:50UTC",
+    "original owner: finish r18 source and exact PC pure-case whitelist; independent clean build; COPY_ONLY dedicated PVE v3 DB; four historic rows not backfilled; live r17 unchanged",
+    "Unity owner: c4d3b723 pure birth policy9/9 local, not runtime; private birth scene233/0/13 and active URP1/1 only; Player286/PVEv6b unchanged",
+    "Astra: exact snapshot transaction/schema/whitelist/deploy review; real SQL guard only on isolated PVE copy",
+    "GitLabc26CI753/Unity32fedCI755; Windows runner protected-only and lacks known toolchain; no formal branch promotion/pruning",
+    "Full playable, natural drop/click pickup/equipment, map coverage, recovery and24h remain open"
+  ],
+  "verification_evidence": "E:/Workspaces/moxiang/audit/2026-10-09-reorg",
+  "permission_boundary": "Current user plan authorizes scoped development, test deployment and verified cleanup; host/Broker controls remain enforced"
+}

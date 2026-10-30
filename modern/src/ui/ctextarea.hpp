@@ -138,8 +138,8 @@ public:
 
     // ----- 1:1 with legacy cTextArea::Render -----
 
-    // Draws the optional three-row chrome, visible text lines and caret via
-    // the shared cImage/TextRender adapters.
+    // Draws optional chrome, visible text lines and the caret through the
+    // shared cImage/TextRender adapters.
     void Render() override;
 
 private:

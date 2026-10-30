@@ -179,6 +179,42 @@ class UnityResourceAuditTests(unittest.TestCase):
             self.assertFalse(result["passed"])
             self.assertTrue(any(item["subject"] == "plain.bin" for item in result["blockers"]))
 
+    def test_additional_root_is_explicit_and_rehashed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / "canonical"
+            overlay = base / "recovered"
+            root.mkdir()
+            (overlay / "Resource" / "Map").mkdir(parents=True)
+            create_profile(root)
+            recovered = make_hfl_template()
+            (overlay / "Resource" / "Map" / "203.hfl").write_bytes(recovered)
+            manifest = audit.build_manifest(
+                root, "fixture", COMMIT, additional_roots=[("recovered", overlay)])
+            asset = next(item for item in manifest["assets"]
+                         if item["logicalPath"] == "Map/203.hfl")
+            self.assertEqual(asset["sources"][0]["sourceType"], "overlay:recovered")
+            missing = audit.verify_source_bytes(manifest, root)
+            self.assertFalse(missing["passed"])
+            self.assertTrue(any(item["code"] == "source-root" for item in missing["blockers"]))
+            verified = audit.verify_source_bytes(manifest, root, {"recovered": overlay})
+            self.assertTrue(verified["passed"])
+            (overlay / "Resource" / "Map" / "203.hfl").write_bytes(b"changed")
+            changed = audit.verify_source_bytes(manifest, root, {"recovered": overlay})
+            self.assertFalse(changed["passed"])
+            self.assertTrue(any(item["code"] == "source-bytes" for item in changed["blockers"]))
+
+    def test_additional_root_labels_are_fail_closed(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            create_profile(root)
+            with self.assertRaises(audit.AuditError):
+                audit.build_manifest(root, "fixture", COMMIT,
+                                     additional_roots=[("../escape", root)])
+            with self.assertRaises(audit.AuditError):
+                audit.build_manifest(root, "fixture", COMMIT,
+                                     additional_roots=[("same", root), ("same", root)])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

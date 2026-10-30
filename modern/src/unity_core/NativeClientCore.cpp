@@ -1,7 +1,12 @@
 #include "NativeClientCore.hpp"
+#include "ShopWire.hpp"
+#include "ShopAppearanceWire.hpp"
 #include "../client/CInGameState.hpp"
 
 #include "mxh/proto/protocol.hpp"
+#include "mxh/proto/character_revive.hpp"
+#include "mxh/proto/character_level.hpp"
+#include "mxh/game/npc_role.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -190,6 +195,8 @@ std::uint32_t NativeClientCore::connect(
     pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
+    npcs_.clear();
+    pending_transfer_ = {};
     login_events_.clear();
     agent_.events().clear();
     login_dropped_seen_ = login_events_.dropped_count();
@@ -235,6 +242,22 @@ std::uint32_t NativeClientCore::destroy() noexcept {
     }
 }
 
+std::uint32_t NativeClientCore::load_map_routes(const std::string& utf8_path) {
+    std::lock_guard lock(mutex_);
+    if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
+    if (state_ != MXH_UNITY_STATE_IDLE && state_ != MXH_UNITY_STATE_FAILED) return MXH_UNITY_WRONG_STATE;
+    map_routes_.reset();
+    const auto path = std::filesystem::u8path(utf8_path);
+    std::error_code error;
+    const auto size = std::filesystem::file_size(path, error);
+    if (error || size == 0 || size > 4 * 1024 * 1024) return MXH_UNITY_INVALID_ARGUMENT;
+    auto catalog = mxh::compat::load_map_change_bin(path);
+    if (!catalog || catalog->entries.empty() || catalog->entries.size() > 4096)
+        return MXH_UNITY_PROTOCOL_ERROR;
+    map_routes_ = std::move(catalog);
+    return MXH_UNITY_OK;
+}
+
 std::uint32_t NativeClientCore::disconnect() {
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
@@ -257,6 +280,8 @@ std::uint32_t NativeClientCore::disconnect() {
     pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
+    npcs_.clear();
+    pending_transfer_ = {};
     deadline_ = {};
     state_ = MXH_UNITY_STATE_IDLE;
     ++revision_;
@@ -304,6 +329,8 @@ bool NativeClientCore::shutdown_noexcept() noexcept {
     pending_character_ids_.clear();
     characters_.clear();
     game_ = {};
+    npcs_.clear();
+    pending_transfer_ = {};
     deadline_ = {};
     state_ = MXH_UNITY_STATE_IDLE;
     return clean;
@@ -312,11 +339,53 @@ bool NativeClientCore::shutdown_noexcept() noexcept {
 std::uint32_t NativeClientCore::tick() {
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
-    for (const auto& event : login_events_.drain()) handle_login_event(event);
-    for (const auto& event : agent_.events().drain()) handle_agent_event(event);
+    // A paused Unity frame can accumulate a valid burst of entity messages.
+    // Leave the FIFO head queued until its public events fit; do not drain a
+    // 4096-message network queue into the 256-slot ABI queue in one operation.
+    const auto ready = [this](const mxh::client::ClientRuntimeEvent& event) {
+        constexpr std::size_t inventory_chunks = (mxh::game::ITEM_TOTAL_SLOT_COUNT + 10) / 11;
+        std::size_t reserve = inventory_chunks + 4; // GameIn + state + map change + shop appearance
+        const auto& message = event.message;
+        if (event.kind == mxh::client::ClientRuntimeEventKind::Message &&
+            message.header.protocol == mxh::proto::kModernShopList) {
+            if (const auto shop = parse_shop_list(message.payload))
+                reserve = std::max(reserve, (static_cast<std::size_t>(shop->count) + 39) / 40);
+        }
+        // Empty output permits one atomic message. Existing handler checks
+        // reject a message whose expansion exceeds the entire capacity.
+        return events_.empty() || reserve <= event_capacity_ - events_.size();
+    };
+    mxh::client::ClientRuntimeEvent event;
+    for (std::size_t count = 0; count < 256 && login_events_.try_pop(event, ready); ++count)
+        handle_login_event(event);
+    for (std::size_t count = 0; count < 256 && agent_.events().try_pop(event, ready); ++count)
+        handle_agent_event(event);
+    if (state_ == MXH_UNITY_STATE_IN_GAME && pending_buy_.item != 0 &&
+        Clock::now() >= pending_buy_.deadline)
+        fail(MXH_UNITY_NETWORK_ERROR, "purchase outcome unknown: acknowledgement timeout; reconnect required");
     if (login_events_.dropped_count() != login_dropped_seen_ ||
         agent_.events().dropped_count() != agent_dropped_seen_) {
         fail(MXH_UNITY_INTERNAL_ERROR, "network event queue overflow");
+    }
+    if (state_ == MXH_UNITY_STATE_IN_GAME && pending_use_.active &&
+        Clock::now() >= pending_use_.deadline) {
+        fail(MXH_UNITY_PROTOCOL_ERROR, "item use response timed out");
+        return MXH_UNITY_PROTOCOL_ERROR;
+    }
+    if (state_ == MXH_UNITY_STATE_IN_GAME && pending_item_move_.active &&
+        Clock::now() >= pending_item_move_.deadline) {
+        fail(MXH_UNITY_PROTOCOL_ERROR, "item move response timed out");
+        return MXH_UNITY_PROTOCOL_ERROR;
+    }
+    if (state_ == MXH_UNITY_STATE_IN_GAME && pending_sell_.active &&
+        Clock::now() >= pending_sell_.deadline) {
+        fail(MXH_UNITY_PROTOCOL_ERROR, "sell response timed out");
+        return MXH_UNITY_PROTOCOL_ERROR;
+    }
+    if (state_ == MXH_UNITY_STATE_IN_GAME && pending_discard_.active &&
+        Clock::now() >= pending_discard_.deadline) {
+        fail(MXH_UNITY_PROTOCOL_ERROR, "discard response timed out");
+        return MXH_UNITY_PROTOCOL_ERROR;
     }
     if (dropped_events_ != public_dropped_seen_ && state_ != MXH_UNITY_STATE_FAILED &&
         state_ != MXH_UNITY_STATE_IDLE) {
@@ -345,6 +414,7 @@ void NativeClientCore::handle_login_event(
                state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE &&
                state_ != MXH_UNITY_STATE_AWAIT_CHARACTER_SELECT &&
                state_ != MXH_UNITY_STATE_AWAIT_GAME_IN &&
+               state_ != MXH_UNITY_STATE_AWAIT_MAP_CHANGE &&
                state_ != MXH_UNITY_STATE_IN_GAME &&
                state_ != MXH_UNITY_STATE_FAILED) {
         fail(MXH_UNITY_NETWORK_ERROR, "login disconnected before acknowledgement");
@@ -441,10 +511,64 @@ void NativeClientCore::handle_agent_event(
 
 void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
     using mxh::proto::UserConnProtocol;
+    // Source-world messages already queued before Agent received the transfer
+    // still belong to the old generation while awaiting its routing decision.
+    const bool source_world = state_ == MXH_UNITY_STATE_IN_GAME || state_ == MXH_UNITY_STATE_AWAIT_MAP_CHANGE;
+    if(source_world && message.header.category==kUserConn &&
+        message.header.protocol==static_cast<std::uint8_t>(UserConnProtocol::CharacterRevive)) {
+        const auto position=mxh::proto::decode_character_revive(message.header.object_id,message.payload);
+        if(!position) { fail(MXH_UNITY_PROTOCOL_ERROR,"invalid CharacterRevive position"); return; }
+        if(position->player==game_.player_id) {
+            game_.position_x=position->x; game_.position_z=position->z;
+            ++revision_;
+        }
+        // MOVE_POS carries no vitality. A separate LifeAck authorizes living input.
+        (void)emit(MXH_UNITY_EVENT_CHARACTER_REVIVE,MXH_UNITY_OK,0,position->player,
+            std::uint32_t(position->x)|(std::uint32_t(position->z)<<16),{},message.header.protocol);
+        return;
+    }
+    if (source_world && message.header.category == kUserConn &&
+        message.header.protocol == static_cast<std::uint8_t>(UserConnProtocol::CharacterDie)) {
+        if (message.payload.size() != 8) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid CharacterDie length"); return;
+        }
+        std::uint32_t attacker = 0, victim = 0;
+        std::memcpy(&attacker, message.payload.data(), 4);
+        std::memcpy(&victim, message.payload.data() + 4, 4);
+        if (attacker == 0 || attacker != message.header.object_id || victim != game_.player_id) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "invalid CharacterDie identity"); return;
+        }
+        game_.life = 0;
+        ++revision_;
+        (void)emit(MXH_UNITY_EVENT_PLAYER_DEATH, MXH_UNITY_OK, 0, victim, attacker, {});
+        return;
+    }
     if (message.header.category != kUserConn) {
-        if (state_ != MXH_UNITY_STATE_IN_GAME) {
+        if (pending_transfer_.target && state_ == MXH_UNITY_STATE_AWAIT_GAME_IN) return;
+        if (!source_world) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected agent message category");
             return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Npc)) {
+            const auto protocol = static_cast<mxh::proto::NpcProtocol>(message.header.protocol);
+            if (protocol == mxh::proto::NpcProtocol::SpeechAck ||
+                protocol == mxh::proto::NpcProtocol::SpeechNack) {
+                if (message.header.object_id != game_.player_id || message.payload.size() != 4) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "invalid NPC speech response");
+                    return;
+                }
+                std::uint32_t npc_id = 0;
+                for (unsigned i = 0; i < 4; ++i)
+                    npc_id |= static_cast<std::uint32_t>(message.payload[i]) << (8 * i);
+                if (npc_id == 0) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "zero NPC speech response identity");
+                    return;
+                }
+                (void)emit(MXH_UNITY_EVENT_NPC_RESPONSE,
+                    protocol == mxh::proto::NpcProtocol::SpeechAck ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                    0, npc_id, 0, {}, message.header.protocol);
+                return;
+            }
         }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Move)) {
             using mxh::proto::MoveProtocol;
@@ -514,6 +638,77 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
                        message.header.object_id, life->second, {}, message.header.protocol);
             return;
         }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Character)) {
+            const auto protocol = static_cast<mxh::proto::CharacterProtocol>(message.header.protocol);
+            if (protocol == mxh::proto::CharacterProtocol::ExpPointAck) {
+                if(message.header.object_id!=game_.player_id || message.payload.size()!=9 ||
+                    message.payload[8]>2) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR,"invalid experience acknowledgement");
+                    return;
+                }
+                std::int64_t experience=0;
+                std::memcpy(&experience,message.payload.data(),8);
+                if(experience<0) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR,"negative absolute experience");
+                    return;
+                }
+                game_.exp=static_cast<std::uint64_t>(experience);
+                ++revision_;
+                return;
+            }
+            if (protocol == mxh::proto::CharacterProtocol::LevelNotify) {
+                if (message.header.object_id != game_.player_id) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Character level owner");
+                    return;
+                }
+                const auto level = mxh::proto::decode_character_level(message.payload);
+                if (!level) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Character level notification");
+                    return;
+                }
+                game_.level = level->level;
+                game_.exp = static_cast<std::uint64_t>(level->current_experience);
+                game_.max_exp = static_cast<std::uint64_t>(level->maximum_experience);
+                ++revision_;
+                return;
+            }
+            if (protocol == mxh::proto::CharacterProtocol::LifeAck ||
+                protocol == mxh::proto::CharacterProtocol::ShieldAck ||
+                protocol == mxh::proto::CharacterProtocol::NaeryukAck) {
+                if (message.header.object_id != game_.player_id || message.payload.size() != 4) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Character vitality acknowledgement");
+                    return;
+                }
+                std::int32_t delta = 0;
+                std::memcpy(&delta, message.payload.data(), sizeof(delta));
+                if (protocol == mxh::proto::CharacterProtocol::LifeAck) {
+                    const auto next = static_cast<std::int64_t>(game_.life) + delta;
+                    if (next < 0 || next > game_.max_life) {
+                        fail(MXH_UNITY_PROTOCOL_ERROR, "Character life delta exceeds bounds");
+                        return;
+                    }
+                    game_.life = static_cast<std::uint32_t>(next);
+                    ++revision_;
+                    (void)emit(MXH_UNITY_EVENT_PLAYER_LIFE, MXH_UNITY_OK, 0,
+                               game_.player_id, game_.life, {},
+                               static_cast<std::uint32_t>(delta));
+                } else if (protocol == mxh::proto::CharacterProtocol::NaeryukAck) {
+                    const auto next=static_cast<std::int64_t>(game_.mp)+delta;
+                    if(next<0 || next>game_.max_mp) {
+                        fail(MXH_UNITY_PROTOCOL_ERROR,"Character naeryuk delta exceeds bounds"); return;
+                    }
+                    game_.mp=static_cast<std::uint32_t>(next);
+                    ++revision_;
+                    (void)emit(MXH_UNITY_EVENT_PLAYER_MP,MXH_UNITY_OK,0,game_.player_id,
+                        game_.mp,{},static_cast<std::uint32_t>(delta));
+                } else {
+                    (void)emit(MXH_UNITY_EVENT_PLAYER_SHIELD_DELTA, MXH_UNITY_OK, 0,
+                               game_.player_id, 0, {},
+                               static_cast<std::uint32_t>(delta));
+                }
+                return;
+            }
+        }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify)) {
             const auto drop = mxh::client::parse_legacy_ground_drop(message.payload);
@@ -522,8 +717,264 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             (void)emit(MXH_UNITY_EVENT_GROUND_DROP, MXH_UNITY_OK, 0, drop->object_id, drop->item_id, detail, message.header.protocol);
             return;
         }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Skill)) {
+            const auto protocol = static_cast<mxh::proto::SkillProtocol>(message.header.protocol);
+            if (protocol == mxh::proto::SkillProtocol::StartAck) {
+                if (message.payload.size() != 8) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Skill StartAck"); return; }
+                std::uint32_t skill = 0, skill_object = 0;
+                std::memcpy(&skill, message.payload.data(), 4);
+                std::memcpy(&skill_object, message.payload.data() + 4, 4);
+                if (skill == 0 || skill_object == 0) { fail(MXH_UNITY_PROTOCOL_ERROR, "zero Skill StartAck field"); return; }
+                (void)emit(MXH_UNITY_EVENT_SKILL_RELEASE, MXH_UNITY_OK, skill_object,
+                           message.header.object_id, skill, {}, message.header.protocol);
+                return;
+            }
+            if (protocol == mxh::proto::SkillProtocol::SingleResult) {
+                if (message.payload.size() != 9) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Skill SingleResult"); return; }
+                std::uint32_t target = 0; std::int32_t signed_damage = 0;
+                std::memcpy(&target, message.payload.data(), 4);
+                std::memcpy(&signed_damage, message.payload.data() + 4, 4);
+                if (target == 0 || signed_damage < 0) { fail(MXH_UNITY_PROTOCOL_ERROR, "invalid Skill SingleResult fields"); return; }
+                (void)emit(MXH_UNITY_EVENT_SKILL_HIT, MXH_UNITY_OK, 0, target,
+                           static_cast<std::uint32_t>(signed_damage), {}, message.payload[8]);
+                return;
+            }
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == 109 || message.header.protocol == 110 || message.header.protocol == 150)) {
+            if(message.header.object_id!=game_.player_id || message.payload.size()!=4) {
+                fail(MXH_UNITY_PROTOCOL_ERROR,"invalid shop protection notification"); return;
+            }
+            std::uint32_t value=0;
+            std::memcpy(&value,message.payload.data(),4);
+            const auto protocol=message.header.protocol;
+            if((protocol==109 && value!=55311) || (protocol==110 && value!=55312) ||
+                (protocol==150 && value>127)) {
+                fail(MXH_UNITY_PROTOCOL_ERROR,"invalid shop protection value"); return;
+            }
+            (void)emit(MXH_UNITY_EVENT_SHOP_PROTECTION,MXH_UNITY_OK,0,value,0,{},protocol);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemOneMinute))) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 4) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid shop item expiry notification");
+                return;
+            }
+            const auto item = static_cast<std::uint32_t>(message.payload[0]) |
+                (static_cast<std::uint32_t>(message.payload[1]) << 8) |
+                (static_cast<std::uint32_t>(message.payload[2]) << 16) |
+                (static_cast<std::uint32_t>(message.payload[3]) << 24);
+            if (item == 0 || item > 0xffffu) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid shop item expiry identity");
+                return;
+            }
+            const auto event_type = message.header.protocol ==
+                    static_cast<std::uint8_t>(mxh::proto::ItemProtocol::ShopItemUseEnd)
+                ? MXH_UNITY_EVENT_SHOP_ITEM_USE_END
+                : MXH_UNITY_EVENT_SHOP_ITEM_ONE_MINUTE;
+            (void)emit(event_type, MXH_UNITY_OK, 0, item, 0, {}, message.header.protocol);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyNack))) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 4) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid buy response"); return;
+            }
+            if (pending_buy_.item == 0) return;
+            const auto item = static_cast<std::uint16_t>(message.payload[0] | (message.payload[1] << 8));
+            const auto quantity = static_cast<std::uint16_t>(message.payload[2] | (message.payload[3] << 8));
+            if (item != pending_buy_.item || quantity != pending_buy_.quantity) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "buy response does not match pending purchase"); return;
+            }
+            const auto request = pending_buy_.request;
+            pending_buy_ = {};
+            (void)emit(MXH_UNITY_EVENT_BUY_RESPONSE,
+                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuyAck)
+                    ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                request, item, quantity, {}, message.header.protocol);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseNack))) {
+            const bool accepted = message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseAck);
+            const std::size_t expected = accepted ? 20u : 2u;
+            if (message.header.object_id != game_.player_id || message.payload.size() != expected) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid item use response"); return;
+            }
+            if (!pending_use_.active) return;
+            const auto position = static_cast<std::uint16_t>(message.payload[0] | (message.payload[1] << 8));
+            if (position != pending_use_.position) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "item use response does not match pending request"); return;
+            }
+            const auto request = pending_use_.request;
+            pending_use_ = {};
+            std::uint16_t item = 0;
+            if (accepted) {
+                item = static_cast<std::uint16_t>(message.payload[2] | (message.payload[3] << 8));
+                auto read_u32 = [&](std::size_t offset) {
+                    return static_cast<std::uint32_t>(message.payload[offset]) |
+                        (static_cast<std::uint32_t>(message.payload[offset + 1]) << 8) |
+                        (static_cast<std::uint32_t>(message.payload[offset + 2]) << 16) |
+                        (static_cast<std::uint32_t>(message.payload[offset + 3]) << 24);
+                };
+                game_.life = read_u32(12);
+                game_.mp = read_u32(16);
+                ++revision_;
+            }
+            const std::string response_bytes = accepted
+                ? std::string(reinterpret_cast<const char*>(message.payload.data()), message.payload.size())
+                : std::string{};
+            (void)emit(MXH_UNITY_EVENT_ITEM_USE_RESPONSE,
+                accepted ? MXH_UNITY_OK : MXH_UNITY_REJECTED, request, position, item,
+                response_bytes, message.header.protocol);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::TotalInfoLocal)) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != sizeof(game_.items)) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid inventory refresh"); return;
+            }
+            std::memcpy(&game_.items, message.payload.data(), sizeof(game_.items));
+            ++revision_;
+            emit_inventory();
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack))) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 24) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid item move response"); return;
+            }
+            if (!pending_item_move_.active) return;
+            auto read_u16 = [&](std::size_t offset) {
+                return static_cast<std::uint16_t>(message.payload[offset] | (message.payload[offset + 1] << 8));
+            };
+            auto read_u32 = [&](std::size_t offset) {
+                return static_cast<std::uint32_t>(message.payload[offset]) |
+                    (static_cast<std::uint32_t>(message.payload[offset + 1]) << 8) |
+                    (static_cast<std::uint32_t>(message.payload[offset + 2]) << 16) |
+                    (static_cast<std::uint32_t>(message.payload[offset + 3]) << 24);
+            };
+            const auto target = read_u16(22);
+            if (read_u32(0) != pending_item_move_.database_id || target != pending_item_move_.target) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "item move response does not match pending request"); return;
+            }
+            const auto pending = pending_item_move_;
+            pending_item_move_ = {};
+            (void)emit(MXH_UNITY_EVENT_ITEM_MOVE_RESPONSE,
+                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveAck)
+                    ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                pending.request, pending.source, pending.target, {}, message.header.protocol);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellNack))) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 8) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid sell response"); return;
+            }
+            if (!pending_sell_.active) return;
+            auto read_u16 = [&](std::size_t offset) {
+                return static_cast<std::uint16_t>(message.payload[offset] | (message.payload[offset + 1] << 8));
+            };
+            if (read_u16(0) != pending_sell_.position || read_u16(2) != pending_sell_.item ||
+                read_u16(4) != pending_sell_.quantity || read_u16(6) != pending_sell_.dealer) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "sell response does not match pending sale"); return;
+            }
+            const auto pending = pending_sell_;
+            pending_sell_ = {};
+            (void)emit(MXH_UNITY_EVENT_SELL_RESPONSE,
+                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellAck)
+                    ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                pending.request, pending.position, pending.item, {}, pending.quantity);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            (message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck) ||
+             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardNack))) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 2) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid discard response"); return;
+            }
+            if (!pending_discard_.active) return;
+            const auto position = static_cast<std::uint16_t>(message.payload[0] | (message.payload[1] << 8));
+            if (position != pending_discard_.position) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "discard response does not match pending request"); return;
+            }
+            const auto pending = pending_discard_;
+            pending_discard_ = {};
+            (void)emit(MXH_UNITY_EVENT_DISCARD_RESPONSE,
+                message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardAck)
+                    ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                pending.request, pending.position);
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Server) &&
+            message.header.protocol == mxh::proto::kModernShopAppearance) {
+            const auto shop = parse_shop_appearance_wire(message.payload);
+            if (message.header.object_id != game_.player_id || !shop) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid shop appearance refresh");
+                return;
+            }
+            if (!emit(MXH_UNITY_EVENT_SHOP_APPEARANCE, MXH_UNITY_OK, 0,
+                    game_.player_id, 1,
+                    std::string(reinterpret_cast<const char*>(shop->raw.data()), shop->raw.size()),
+                    message.header.protocol)) {
+                fail(MXH_UNITY_INTERNAL_ERROR, "shop appearance refresh admission failed");
+            }
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::Money)) {
+            if (message.header.object_id != game_.player_id || message.payload.size() != 4) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid authoritative money update"); return;
+            }
+            std::uint32_t money = 0;
+            for (unsigned i = 0; i < 4; ++i)
+                money |= static_cast<std::uint32_t>(message.payload[i]) << (8 * i);
+            game_.money = money;
+            ++revision_;
+            return;
+        }
+        if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
+            message.header.protocol == mxh::proto::kModernShopList) {
+            const auto shop = parse_shop_list(message.payload);
+            if (!shop || message.header.object_id != game_.player_id) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "invalid shop catalog"); return;
+            }
+            constexpr std::size_t entries_per_chunk = 40;
+            const auto chunks = std::max<std::size_t>(1, (shop->count + entries_per_chunk - 1) / entries_per_chunk);
+            if (chunks > event_capacity_ - events_.size()) {
+                fail(MXH_UNITY_INTERNAL_ERROR, "shop catalog exceeds available event capacity"); return;
+            }
+            for (std::size_t chunk = 0; chunk < chunks; ++chunk) {
+                const auto offset = chunk * entries_per_chunk;
+                const auto count = std::min<std::size_t>(entries_per_chunk, shop->count - offset);
+                const auto bytes = shop->entries.subspan(offset * 6, count * 6);
+                const std::string payload(bytes.empty() ? "" : reinterpret_cast<const char*>(bytes.data()), bytes.size());
+                if (!emit(MXH_UNITY_EVENT_SHOP_CATALOG, MXH_UNITY_OK, 0,
+                        shop->npc_id, shop->count, payload, static_cast<std::uint32_t>(offset))) return;
+            }
+            return;
+        }
         if (message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Quest)) {
             const auto protocol = static_cast<mxh::proto::QuestProtocol>(message.header.protocol);
+            if (protocol == mxh::proto::QuestProtocol::NpcTalkAck ||
+                protocol == mxh::proto::QuestProtocol::NpcTalkNack) {
+                const auto response = mxh::client::parse_quest_npc_talk_response(message.payload);
+                if (!response) {
+                    fail(MXH_UNITY_PROTOCOL_ERROR, "invalid quest NPC response");
+                    return;
+                }
+                (void)emit(MXH_UNITY_EVENT_QUEST_NPC_RESPONSE,
+                    protocol == mxh::proto::QuestProtocol::NpcTalkAck
+                        ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                    0, response->npc_index, response->quest_id, {}, message.header.protocol);
+                return;
+            }
             std::uint32_t quest_id = 0, state = 0;
             if ((protocol == mxh::proto::QuestProtocol::ChangeState || protocol == mxh::proto::QuestProtocol::TotalInfo) && message.payload.size() >= 8) {
                 std::memcpy(&quest_id, message.payload.data(), 4);
@@ -559,7 +1010,7 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         return;
     }
     const auto protocol = static_cast<UserConnProtocol>(message.header.protocol);
-    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+    if (source_world &&
         protocol == UserConnProtocol::MonsterAdd) {
         const auto parsed = mxh::client::parse_legacy_monster_add(message.payload);
         if (!parsed || parsed->object_id == 0) {
@@ -568,30 +1019,37 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         }
         const auto packed = static_cast<std::uint32_t>(parsed->position_x) |
             (static_cast<std::uint32_t>(parsed->position_z) << 16);
+        const auto utf8_name = name_to_utf8(parsed->name, legacy_text_code_page_);
         (void)emit(MXH_UNITY_EVENT_MONSTER_ADDED, MXH_UNITY_OK, 0,
-                   parsed->object_id, packed, parsed->name,
-                   message.header.protocol);
+                   parsed->object_id, packed, utf8_name.value_or(std::string{}),
+                   parsed->monster_kind);
         (void)emit(MXH_UNITY_EVENT_ENTITY_LIFE, MXH_UNITY_OK, 0,
                    parsed->object_id, parsed->current_life, {}, message.header.protocol);
         (void)emit(MXH_UNITY_EVENT_ENTITY_SHIELD, MXH_UNITY_OK, 0,
                    parsed->object_id, parsed->current_shield, {}, message.header.protocol);
         return;
     }
-    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+    if (source_world &&
         protocol == UserConnProtocol::NpcAdd) {
         const auto parsed = mxh::client::parse_legacy_npc_add(message.payload);
         if (!parsed || parsed->npc_id == 0) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "invalid NpcAdd payload");
             return;
         }
+        if (!npcs_.upsert(parsed->npc_id, {parsed->npc_kind,
+                parsed->position_x, parsed->position_z, parsed->name})) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "NPC directory capacity exceeded");
+            return;
+        }
         const auto packed = static_cast<std::uint32_t>(parsed->position_x) |
             (static_cast<std::uint32_t>(parsed->position_z) << 16);
+        const auto utf8_name = name_to_utf8(parsed->name, legacy_text_code_page_);
         (void)emit(MXH_UNITY_EVENT_NPC_ADDED, MXH_UNITY_OK, 0,
-                   parsed->npc_id, packed, parsed->name,
-                   message.header.protocol);
+                   parsed->npc_id, packed, utf8_name.value_or(std::string{}),
+                   parsed->npc_kind);
         return;
     }
-    if (state_ == MXH_UNITY_STATE_IN_GAME &&
+    if (source_world &&
         protocol == UserConnProtocol::ObjectRemove) {
         if (message.payload.size() < 4) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "invalid ObjectRemove payload");
@@ -600,6 +1058,7 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         std::uint32_t object_id = 0;
         std::memcpy(&object_id, message.payload.data(), sizeof(object_id));
         if (object_id == 0) return;
+        npcs_.erase(object_id);
         (void)emit(MXH_UNITY_EVENT_ENTITY_REMOVED, MXH_UNITY_OK, 0, object_id, 0, {}, message.header.protocol);
         return;
     }
@@ -778,6 +1237,32 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         fail(MXH_UNITY_PROTOCOL_ERROR, "game entry rejected");
         return;
     }
+    if (protocol == UserConnProtocol::ChangeMapAck || protocol == UserConnProtocol::ChangeMapNack) {
+        if (state_ != MXH_UNITY_STATE_AWAIT_MAP_CHANGE || !pending_transfer_.target ||
+            message.header.object_id != selected_character_id_ || message.payload.size() != 2) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected map-change response"); return;
+        }
+        const auto map = static_cast<std::uint16_t>(message.payload[0] | (message.payload[1] << 8));
+        if (protocol == UserConnProtocol::ChangeMapNack) {
+            if (map != pending_transfer_.target) {
+                fail(MXH_UNITY_PROTOCOL_ERROR, "mismatched map-change rejection"); return;
+            }
+            const auto request = pending_transfer_;
+            pending_transfer_ = {};
+            pending_request_id_ = 0;
+            deadline_ = {};
+            transition(MXH_UNITY_STATE_IN_GAME);
+            (void)emit(MXH_UNITY_EVENT_MAP_CHANGE, MXH_UNITY_REJECTED, request.request, request.target, request.source);
+            return;
+        }
+        if (map != pending_transfer_.target && map != pending_transfer_.source) {
+            fail(MXH_UNITY_PROTOCOL_ERROR, "mismatched map-change destination"); return;
+        }
+        selected_map_ = map;
+        transition(MXH_UNITY_STATE_AWAIT_GAME_IN);
+        deadline_ = Clock::now() + std::chrono::milliseconds(timeout_ms_);
+        return;
+    }
     if (protocol == UserConnProtocol::GameInAck) {
         if (state_ != MXH_UNITY_STATE_AWAIT_GAME_IN) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected GameInAck");
@@ -797,6 +1282,7 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
             fail(MXH_UNITY_PROTOCOL_ERROR, "GameIn name encoding failed");
             return;
         }
+        npcs_.clear();
         game_ = *parsed;
         game_.name = std::move(*utf8_name);
         selected_map_ = game_.map_num;
@@ -805,10 +1291,26 @@ void NativeClientCore::handle_agent_message(const mxh::net::Message& message) {
         transition(MXH_UNITY_STATE_IN_GAME);
         (void)emit(MXH_UNITY_EVENT_GAME_IN, MXH_UNITY_OK,
                    pending_request_id_, game_.player_id, game_.map_num);
+        // parse_legacy_gamein_ack has already validated the complete fixed block.
+        const auto shop = parse_shop_appearance_wire(std::span<const std::uint8_t>(message.payload)
+            .subspan(mxh::game::HERO_TOTAL_SHOP_OPTION_OFFSET, ShopAppearanceWire::size));
+        if (!shop || !emit(MXH_UNITY_EVENT_SHOP_APPEARANCE, MXH_UNITY_OK, 0,
+            game_.player_id, 1, std::string(reinterpret_cast<const char*>(shop->raw.data()), shop->raw.size()))) {
+            fail(MXH_UNITY_INTERNAL_ERROR, "shop appearance event admission failed");
+            return;
+        }
+        emit_inventory();
+        if (pending_transfer_.target) {
+            (void)emit(MXH_UNITY_EVENT_MAP_CHANGE,
+                game_.map_num == pending_transfer_.target ? MXH_UNITY_OK : MXH_UNITY_REJECTED,
+                pending_transfer_.request, pending_transfer_.target, game_.map_num);
+            pending_transfer_ = {};
+            movement_epoch_ = next_movement_command_sequence_ = last_movement_state_sequence_ = 0;
+        }
         pending_request_id_ = 0;
         return;
     }
-    if (state_ != MXH_UNITY_STATE_IN_GAME)
+    if (!source_world && !(pending_transfer_.target && state_ == MXH_UNITY_STATE_AWAIT_GAME_IN))
         fail(MXH_UNITY_PROTOCOL_ERROR, "unexpected agent protocol during handshake");
 }
 
@@ -818,13 +1320,20 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     if (command.type != MXH_UNITY_COMMAND_SELECT_CHARACTER &&
         command.type != MXH_UNITY_COMMAND_CREATE_CHARACTER &&
         command.type != MXH_UNITY_COMMAND_MOVE && command.type != MXH_UNITY_COMMAND_STOP &&
-        command.type != MXH_UNITY_COMMAND_PICKUP && command.type != MXH_UNITY_COMMAND_QUEST)
+        command.type != MXH_UNITY_COMMAND_PICKUP && command.type != MXH_UNITY_COMMAND_QUEST &&
+        command.type != MXH_UNITY_COMMAND_NPC_INTERACT && command.type != MXH_UNITY_COMMAND_BUY &&
+        command.type != MXH_UNITY_COMMAND_QUEST_NPC_TALK &&
+        command.type != MXH_UNITY_COMMAND_PRESENT_REVIVE &&
+        command.type != MXH_UNITY_COMMAND_LOGIN_REVIVE &&
+        command.type != MXH_UNITY_COMMAND_USE_ITEM && command.type != MXH_UNITY_COMMAND_MOVE_ITEM &&
+        command.type != MXH_UNITY_COMMAND_SELL && command.type != MXH_UNITY_COMMAND_DISCARD_ITEM)
         return MXH_UNITY_UNSUPPORTED;
     if (command.expected_session_generation != session_generation_ ||
         command.expected_map_generation != map_generation_)
         return MXH_UNITY_WRONG_STATE;
     if (command.type == MXH_UNITY_COMMAND_MOVE || command.type == MXH_UNITY_COMMAND_STOP) {
         if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (game_.life == 0) return MXH_UNITY_WRONG_STATE;
         if (command.payload_size != 0 || command.argument0 > 0xffffu ||
             command.argument1 > 0xffffu) return MXH_UNITY_INVALID_ARGUMENT;
         const auto protocol = command.type == MXH_UNITY_COMMAND_MOVE
@@ -843,6 +1352,160 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
             game_.player_id, static_cast<std::uint32_t>(x) | (static_cast<std::uint32_t>(z) << 16),
             {}, static_cast<std::uint8_t>(protocol));
         return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_BUY) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 == 0 || command.argument0 > 0xffffu ||
+            command.argument1 == 0 || command.argument1 > 0xffffu) return MXH_UNITY_INVALID_ARGUMENT;
+        if (pending_buy_.item != 0) return MXH_UNITY_NOT_READY;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn);
+        message.header.object_id = game_.player_id;
+        message.payload = {static_cast<std::uint8_t>(command.argument0),
+            static_cast<std::uint8_t>(command.argument0 >> 8), static_cast<std::uint8_t>(command.argument1),
+            static_cast<std::uint8_t>(command.argument1 >> 8)};
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "purchase send failed"); return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_buy_ = {static_cast<std::uint16_t>(command.argument0), static_cast<std::uint16_t>(command.argument1),
+            command.request_id, Clock::now() + std::chrono::milliseconds(timeout_ms_)};
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_USE_ITEM) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 > 0xffffu || command.argument1 != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        if (pending_use_.active) return MXH_UNITY_NOT_READY;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::UseSyn);
+        message.header.object_id = game_.player_id;
+        message.payload = {static_cast<std::uint8_t>(command.argument0),
+            static_cast<std::uint8_t>(command.argument0 >> 8)};
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "item use send failed"); return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_use_ = {true, static_cast<std::uint16_t>(command.argument0), command.request_id,
+            Clock::now() + std::chrono::milliseconds(timeout_ms_)};
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_MOVE_ITEM) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 >= mxh::game::TP_WEAREDITEM_END ||
+            command.argument1 >= mxh::game::TP_WEAREDITEM_END || command.argument0 == command.argument1)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        if (pending_item_move_.active) return MXH_UNITY_NOT_READY;
+        const auto source = static_cast<std::uint16_t>(command.argument0);
+        const auto target = static_cast<std::uint16_t>(command.argument1);
+        const auto& item = source < mxh::game::SLOT_INVENTORY_NUM
+            ? game_.items.Inventory[source]
+            : game_.items.WearedItem[source - mxh::game::TP_WEAREDITEM_START];
+        if (mxh::game::is_empty_slot(item)) return MXH_UNITY_REJECTED;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveSyn);
+        message.header.object_id = game_.player_id;
+        message.payload.resize(sizeof(item) + sizeof(target));
+        std::memcpy(message.payload.data(), &item, sizeof(item));
+        std::memcpy(message.payload.data() + sizeof(item), &target, sizeof(target));
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "item move send failed"); return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_item_move_ = {true, source, target, item.dwDBIdx, command.request_id,
+            Clock::now() + std::chrono::milliseconds(timeout_ms_)};
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_SELL) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        const auto position = static_cast<std::uint16_t>(command.argument0);
+        const auto quantity = static_cast<std::uint16_t>(command.argument1);
+        const auto dealer = static_cast<std::uint16_t>(command.argument1 >> 16);
+        if (command.payload_size != 0 || command.argument0 >= mxh::game::SLOT_INVENTORY_NUM ||
+            quantity == 0 || dealer == 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        if (pending_sell_.active) return MXH_UNITY_NOT_READY;
+        const auto& item = game_.items.Inventory[position];
+        if (mxh::game::is_empty_slot(item) || item.ItemParam < quantity)
+            return MXH_UNITY_REJECTED;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::SellSyn);
+        message.header.object_id = game_.player_id;
+        const auto append_u16 = [&](std::uint16_t value) {
+            message.payload.push_back(static_cast<std::uint8_t>(value));
+            message.payload.push_back(static_cast<std::uint8_t>(value >> 8));
+        };
+        append_u16(position);
+        append_u16(item.wIconIdx);
+        append_u16(quantity);
+        append_u16(dealer);
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "sell send failed"); return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_sell_ = {true, position, item.wIconIdx, quantity, dealer, command.request_id,
+            Clock::now() + std::chrono::milliseconds(timeout_ms_)};
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_DISCARD_ITEM) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 >= mxh::game::SLOT_INVENTORY_NUM ||
+            command.argument1 != 0) return MXH_UNITY_INVALID_ARGUMENT;
+        if (pending_discard_.active) return MXH_UNITY_NOT_READY;
+        const auto position = static_cast<std::uint16_t>(command.argument0);
+        if (mxh::game::is_empty_slot(game_.items.Inventory[position])) return MXH_UNITY_REJECTED;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::DiscardSyn);
+        message.header.object_id = game_.player_id;
+        message.payload = {static_cast<std::uint8_t>(position), static_cast<std::uint8_t>(position >> 8)};
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "discard send failed"); return MXH_UNITY_NETWORK_ERROR;
+        }
+        pending_discard_ = {true, position, command.request_id,
+            Clock::now() + std::chrono::milliseconds(timeout_ms_)};
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_NPC_INTERACT) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 == 0 || command.argument1 != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        const auto npc = npcs_.find(command.argument0);
+        if (!npc || !npcs_.in_range(command.argument0, game_.position_x,
+                game_.position_z, mxh::client::kNpcInteractionRange))
+            return MXH_UNITY_REJECTED;
+        if (mxh::game::role_uses_agent_route(mxh::game::role_from_wire(npc->kind))) {
+            if (!map_routes_ || pending_buy_.item) return MXH_UNITY_NOT_READY;
+            const auto destination = npcs_.destination(command.argument0, game_.map_num, *map_routes_);
+            if (!destination) return MXH_UNITY_REJECTED;
+            mxh::net::Message change{};
+            change.header.category = kUserConn;
+            change.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::ChangeMapSyn);
+            change.header.object_id = game_.player_id;
+            change.payload.assign(16, 0);
+            change.payload[0] = static_cast<std::uint8_t>(*destination);
+            change.payload[1] = static_cast<std::uint8_t>(*destination >> 8);
+            pending_transfer_ = {game_.map_num, *destination, command.request_id};
+            pending_request_id_ = command.request_id;
+            transition(MXH_UNITY_STATE_AWAIT_MAP_CHANGE);
+            deadline_ = Clock::now() + std::chrono::milliseconds(3ull * timeout_ms_ + 5000);
+            if (agent_.send(change) != mxh::net::NetError::Ok) {
+                fail(MXH_UNITY_NETWORK_ERROR, "map-change send failed"); return MXH_UNITY_NETWORK_ERROR;
+            }
+            return MXH_UNITY_OK;
+        }
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Npc);
+        message.header.protocol = static_cast<std::uint8_t>(mxh::proto::NpcProtocol::SpeechSyn);
+        message.header.object_id = game_.player_id;
+        message.payload.resize(4);
+        for (unsigned i = 0; i < 4; ++i)
+            message.payload[i] = static_cast<std::uint8_t>(command.argument0 >> (8 * i));
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "NPC interaction send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        return MXH_UNITY_OK; // Sent only; UI must wait for the server response.
     }
     if (command.type == MXH_UNITY_COMMAND_PICKUP) {
         if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
@@ -870,6 +1533,37 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
             return MXH_UNITY_NETWORK_ERROR;
         }
         ++revision_;
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_QUEST_NPC_TALK) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 == 0 || command.argument0 > 0xffffu ||
+            command.argument1 == 0 || command.argument1 > 0xffffu)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        const auto message = mxh::client::make_quest_npc_talk_message(
+            game_.player_id, static_cast<std::uint16_t>(command.argument0),
+            static_cast<std::uint16_t>(command.argument1));
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "quest NPC talk send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
+        ++revision_;
+        return MXH_UNITY_OK;
+    }
+    if (command.type == MXH_UNITY_COMMAND_PRESENT_REVIVE ||
+        command.type == MXH_UNITY_COMMAND_LOGIN_REVIVE) {
+        if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+        if (game_.life != 0) return MXH_UNITY_WRONG_STATE;
+        if (command.payload_size != 0 || command.argument0 != 0 || command.argument1 != 0)
+            return MXH_UNITY_INVALID_ARGUMENT;
+        mxh::net::Message message{};
+        message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::CharRevive);
+        message.header.protocol = command.type == MXH_UNITY_COMMAND_LOGIN_REVIVE ? 3 : 0;
+        message.header.object_id = game_.player_id;
+        if (agent_.send(message) != mxh::net::NetError::Ok) {
+            fail(MXH_UNITY_NETWORK_ERROR, "revive send failed");
+            return MXH_UNITY_NETWORK_ERROR;
+        }
         return MXH_UNITY_OK;
     }
     if (state_ != MXH_UNITY_STATE_CHARACTER_LIST_READY) return MXH_UNITY_WRONG_STATE;
@@ -942,7 +1636,32 @@ std::uint32_t NativeClientCore::submit(const mxh_unity_command& command) {
     return MXH_UNITY_OK;
 }
 
+void NativeClientCore::emit_inventory() {
+    if (state_ != MXH_UNITY_STATE_IN_GAME) return;
+    constexpr std::size_t slots = mxh::game::ITEM_TOTAL_SLOT_COUNT;
+    constexpr std::size_t stride = sizeof(mxh::game::ItemBase);
+    constexpr std::size_t per_chunk = 11;
+    constexpr std::size_t chunks = (slots + per_chunk - 1) / per_chunk;
+    if (chunks > event_capacity_ - events_.size()) {
+        fail(MXH_UNITY_INTERNAL_ERROR, "inventory exceeds available event capacity"); return;
+    }
+    const auto* bytes = reinterpret_cast<const char*>(&game_.items);
+    for (std::size_t offset = 0; offset < slots; offset += per_chunk) {
+        const auto count = std::min(per_chunk, slots - offset);
+        if (!emit(MXH_UNITY_EVENT_INVENTORY, MXH_UNITY_OK, 0, game_.player_id,
+                static_cast<std::uint32_t>(slots), std::string(bytes + offset * stride, count * stride),
+                static_cast<std::uint32_t>(offset))) return;
+    }
+}
+
 void NativeClientCore::transition(std::uint32_t state) {
+    if (state != MXH_UNITY_STATE_IN_GAME) {
+        pending_buy_ = {};
+        pending_use_ = {};
+        pending_item_move_ = {};
+        pending_sell_ = {};
+        pending_discard_ = {};
+    }
     state_ = state;
     ++revision_;
     (void)emit(MXH_UNITY_EVENT_STATE_CHANGED, MXH_UNITY_OK, 0, state);
@@ -1003,6 +1722,8 @@ std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command
     std::lock_guard lock(mutex_);
     if (destroyed_) return MXH_UNITY_INVALID_HANDLE;
     if (command.head.type == MXH_UNITY_COMMAND_SKILL) {
+        if (state_ == MXH_UNITY_STATE_IN_GAME && game_.life == 0)
+            return MXH_UNITY_WRONG_STATE;
         if (command.head.expected_session_generation != session_generation_ ||
             command.head.expected_map_generation != map_generation_)
             return MXH_UNITY_WRONG_STATE;
@@ -1036,6 +1757,11 @@ std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command
         const auto message = mxh::client::make_chat_message(game_.player_id, text);
         if (agent_.send(message) != mxh::net::NetError::Ok) { fail(MXH_UNITY_NETWORK_ERROR, "chat send failed"); return MXH_UNITY_NETWORK_ERROR; }
         ++revision_;
+        // Agent broadcast intentionally excludes the sending character, as the
+        // original client displayed its own accepted input locally.
+        (void)emit(MXH_UNITY_EVENT_CHAT_MESSAGE, MXH_UNITY_OK, command.head.request_id,
+                   game_.player_id, 0, text,
+                   static_cast<std::uint32_t>(mxh::proto::ChatProtocol::All));
         return MXH_UNITY_OK;
     }
     namespace wire = mxh::proto::movement;
@@ -1051,6 +1777,8 @@ std::uint32_t NativeClientCore::submit_extended(const mxh_unity_extended_command
         command.head.expected_map_generation != map_generation_)
         return MXH_UNITY_WRONG_STATE;
     if (state_ != MXH_UNITY_STATE_IN_GAME) return MXH_UNITY_WRONG_STATE;
+    if (command.head.type != MXH_UNITY_COMMAND_HELLO_TIMED && game_.life == 0)
+        return MXH_UNITY_WRONG_STATE;
     if (!command.payload || command.payload_size == 0)
         return MXH_UNITY_INVALID_ARGUMENT;
     if (command.head.type == MXH_UNITY_COMMAND_HELLO_TIMED) {
@@ -1128,6 +1856,15 @@ std::uint32_t NativeClientCore::copy_snapshot(mxh_unity_snapshot& snapshot) cons
         target.gender = source.gender;
         target.face_type = source.face_type;
         target.hair_type = source.hair_type;
+        // Character-list appearance can be stale by the time Map admits us.
+        // Keep the ABI unchanged while exposing the admitted player's appearance
+        // through its existing selected-character slot.
+        if (state_ == MXH_UNITY_STATE_IN_GAME && source.valid &&
+            source.chrid == selected_character_id_ && source.chrid == game_.player_id) {
+            target.gender = game_.gender;
+            target.face_type = game_.face_type;
+            target.hair_type = game_.hair_type;
+        }
         std::copy(source.weared_item_idx.begin(), source.weared_item_idx.end(),
                   target.worn_item_index);
         copy_text(target.name, sizeof(target.name), target.name_length, source.name);
@@ -1145,6 +1882,7 @@ std::uint32_t NativeClientCore::copy_snapshot(mxh_unity_snapshot& snapshot) cons
     snapshot.game.mp = game_.mp;
     snapshot.game.max_mp = game_.max_mp;
     snapshot.game.experience = game_.exp;
+    snapshot.game.max_experience = game_.max_exp;
     snapshot.game.money = game_.money;
     snapshot.game.gen_gol = game_.gen_gol;
     snapshot.game.min_chub = game_.min_chub;

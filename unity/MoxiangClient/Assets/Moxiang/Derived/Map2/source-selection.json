@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "profileId": "unity-remaster-v1",
+  "mapId": 2,
+  "logicalPath": "Map/2.hfl",
+  "sourceId": "mxh:7cc11cfa0bdf24b647e3868f17cb8bc377bd8a7f2a0434572c08f678078cfa32",
+  "container": "Map.pak",
+  "entryIndex": 583,
+  "entryOffset": 165847978,
+  "sourceSha256": "d49dd4b864f09e3880124d31633d1b0860175805a3273284988c2b421d9e31e2",
+  "sourceClassification": "verified-original",
+  "releaseReady": false,
+  "selectionReason": "Explicit packed candidate; loose Resource/Map/2.hfl matches the generated-placeholder fingerprint and is excluded.",
+  "validation": "Extraction verifies container and entry baseline hashes; native HFL parser exports 513 by 513 heights; the unified playdh-current source selection attests this PAK entry as original. Materials, object layout and gameplay terrain equivalence remain unaccepted.",
+  "converterVersion": "hfl-native-1"
+}

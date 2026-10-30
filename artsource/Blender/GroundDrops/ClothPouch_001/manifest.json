@@ -1,0 +1,69 @@
+{
+  "asset_id": "MX_ENV_GROUNDDROP_CLOTH_POUCH_001",
+  "provenance": "Original procedural meshes and textures authored by this local Blender script; no legacy or external asset bytes used.",
+  "license": "Project-owned original asset; use subject to Moxiang project ownership policy.",
+  "source": "MX_ENV_GROUNDDROP_CLOTH_POUCH_001.blend",
+  "blender_version": "5.2.1 LTS",
+  "unit": "meter",
+  "pivot": "ground contact at (0,0,0)",
+  "blender_axes": "+Z up, -Y front",
+  "unity_fbx_export_axes": "-Z forward, +Y up",
+  "bounds_blender_m": {
+    "min": [
+      -0.15366,
+      -0.15403,
+      0.0052
+    ],
+    "max": [
+      0.15055,
+      0.1463,
+      0.294
+    ]
+  },
+  "mesh_objects": 11,
+  "vertices": 547,
+  "triangles": 978,
+  "texture_channels": {
+    "basecolor": "sRGB RGBA",
+    "roughness": "linear grayscale R",
+    "normal": "linear tangent-space RGB"
+  },
+  "files": {
+    "MX_ENV_GROUNDDROP_CLOTH_POUCH_001.blend": {
+      "bytes": 294072,
+      "sha256": "1b4b6b5be0bec2f5974c2963886659deb7f4cb8949924c7cff3e81caa16146f7"
+    },
+    "MX_ENV_GROUNDDROP_CLOTH_POUCH_001.fbx": {
+      "bytes": 69436,
+      "sha256": "48c41d9867519ca6e3de41a39669f39302381452be6555bc7d9febb40630fc5f"
+    },
+    "MX_ENV_GROUNDDROP_CLOTH_POUCH_001.glb": {
+      "bytes": 250292,
+      "sha256": "2112f7bc369e3ae6969e16de1a22a6b1d2f5dbd12c846be11dc37e6dbb139610"
+    },
+    "Textures/MX_ENV_GROUNDDROP_CLOTH_POUCH_001_basecolor.png": {
+      "bytes": 95525,
+      "sha256": "ac653a3a8d2d6fd71d4c512b55f10c1b6670530b595a9a8c487c7d649e1be0e6"
+    },
+    "Textures/MX_ENV_GROUNDDROP_CLOTH_POUCH_001_normal.png": {
+      "bytes": 15606,
+      "sha256": "4ac63a1ebe638a3457a13cc2e1ed78ac925c80b438d3e8c69667ba77427bb1ef"
+    },
+    "Textures/MX_ENV_GROUNDDROP_CLOTH_POUCH_001_roughness.png": {
+      "bytes": 63678,
+      "sha256": "d95df0c9df228fcca42e3b048c9bd56dea4ab43aa30315e70294a3751918a025"
+    },
+    "Previews/MX_ENV_GROUNDDROP_CLOTH_POUCH_001_far.png": {
+      "bytes": 80632,
+      "sha256": "42e225eb72186bbde0d6750b9f1abc8ffcef8e7413ad9794f1c8948c25232484"
+    },
+    "Previews/MX_ENV_GROUNDDROP_CLOTH_POUCH_001_near.png": {
+      "bytes": 173863,
+      "sha256": "38a1d58aa87b6317888b0a9e9a8c2a0dd4385c8e48e530ef794580072e7ca4cc"
+    },
+    "build_cloth_pouch.py": {
+      "bytes": 13388,
+      "sha256": "83e4c27089bf778b024156bba9599ff2f15d8ad6fc32b86c0542a60948af4c04"
+    }
+  }
+}

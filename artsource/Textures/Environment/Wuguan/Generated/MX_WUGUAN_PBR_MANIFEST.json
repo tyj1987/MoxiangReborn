@@ -1,0 +1,103 @@
+{
+  "schema": "moxiang.art-v2.generated-pbr.v1",
+  "resolution": 1024,
+  "generator": "generate_wuguan_pbr.py",
+  "materials": {
+    "WOOD": {
+      "base": [
+        67,
+        31,
+        17
+      ],
+      "metal": 0.0,
+      "rough": 0.5,
+      "normal": 3.0,
+      "seed": 1101,
+      "files": {
+        "baseColor": "MX_WUGUAN_WOOD_BaseColor.png",
+        "normal": "MX_WUGUAN_WOOD_Normal.png",
+        "orm": "MX_WUGUAN_WOOD_ORM.png"
+      }
+    },
+    "LACQUER": {
+      "base": [
+        112,
+        18,
+        13
+      ],
+      "metal": 0.0,
+      "rough": 0.28,
+      "normal": 1.3,
+      "seed": 1102,
+      "files": {
+        "baseColor": "MX_WUGUAN_LACQUER_BaseColor.png",
+        "normal": "MX_WUGUAN_LACQUER_Normal.png",
+        "orm": "MX_WUGUAN_LACQUER_ORM.png"
+      }
+    },
+    "STONE": {
+      "base": [
+        92,
+        94,
+        91
+      ],
+      "metal": 0.0,
+      "rough": 0.73,
+      "normal": 5.0,
+      "seed": 1103,
+      "files": {
+        "baseColor": "MX_WUGUAN_STONE_BaseColor.png",
+        "normal": "MX_WUGUAN_STONE_Normal.png",
+        "orm": "MX_WUGUAN_STONE_ORM.png"
+      }
+    },
+    "PLASTER": {
+      "base": [
+        151,
+        139,
+        112
+      ],
+      "metal": 0.0,
+      "rough": 0.82,
+      "normal": 2.4,
+      "seed": 1104,
+      "files": {
+        "baseColor": "MX_WUGUAN_PLASTER_BaseColor.png",
+        "normal": "MX_WUGUAN_PLASTER_Normal.png",
+        "orm": "MX_WUGUAN_PLASTER_ORM.png"
+      }
+    },
+    "PAPER": {
+      "base": [
+        200,
+        163,
+        92
+      ],
+      "metal": 0.0,
+      "rough": 0.66,
+      "normal": 1.6,
+      "seed": 1105,
+      "files": {
+        "baseColor": "MX_WUGUAN_PAPER_BaseColor.png",
+        "normal": "MX_WUGUAN_PAPER_Normal.png",
+        "orm": "MX_WUGUAN_PAPER_ORM.png"
+      }
+    },
+    "BRONZE": {
+      "base": [
+        111,
+        65,
+        30
+      ],
+      "metal": 0.82,
+      "rough": 0.36,
+      "normal": 2.0,
+      "seed": 1106,
+      "files": {
+        "baseColor": "MX_WUGUAN_BRONZE_BaseColor.png",
+        "normal": "MX_WUGUAN_BRONZE_Normal.png",
+        "orm": "MX_WUGUAN_BRONZE_ORM.png"
+      }
+    }
+  }
+}

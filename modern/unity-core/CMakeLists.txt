@@ -19,6 +19,8 @@ add_library(mxh_unity_core_impl STATIC
     ${MXH_SRC}/client/ClientWire.cpp
     ${MXH_SRC}/unity_core/NativeClientCore.cpp
     ${MXH_SRC}/unity_core/EntityWire.cpp
+    ${MXH_SRC}/map_change_catalog.cpp
+    ${MXH_SRC}/mh_file_ex.cpp
     ${MXH_SRC}/game/movement_timeline.cpp
     ${MXH_SRC}/game/player_move_speed.cpp
 )
@@ -52,12 +54,22 @@ if(MSVC)
 endif()
 
 if(MXH_UNITY_BUILD_TESTS)
+    add_executable(mxh_unity_map_route_probe tools/map_route_probe.cpp)
+    target_link_libraries(mxh_unity_map_route_probe PRIVATE mxh_unity_core_impl)
+    add_executable(mxh_unity_shop_catalog_probe tools/shop_catalog_probe.cpp
+        ${MXH_SRC}/server/dealitem_parser.cpp)
+    target_link_libraries(mxh_unity_shop_catalog_probe PRIVATE mxh_unity_core_impl)
+    if(MSVC)
+        target_compile_options(mxh_unity_shop_catalog_probe PRIVATE /utf-8 /EHsc)
+    endif()
     enable_testing()
     set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
     add_subdirectory(${MXH_MODERN_ROOT}/third_party/googletest-src
                      ${CMAKE_BINARY_DIR}/_deps/googletest-build EXCLUDE_FROM_ALL)
     add_executable(mxh_unity_core_tests
         tests/unity_core_test.cpp
+        tests/npc_directory_test.cpp
+        tests/shop_appearance_wire_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/movement_timeline_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/game/player_move_speed_test.cpp
         ${MXH_MODERN_ROOT}/tests/unit/proto/movement_wire_test.cpp

@@ -24,6 +24,7 @@
 #include <filesystem>
 #include <fstream>
 #include "mxh/db/db_adapter.hpp"
+#include "mxh/db/writer_contract.hpp"
 #include "mxh/net/net.hpp"
 
 #include <atomic>
@@ -61,6 +62,7 @@ struct Args {
     std::uint32_t stats_interval_seconds = 60;  // 0 disables the periodic dump
     bool          experimental_timed_movement = false;
     std::uint32_t dev_initial_money = 0;
+    bool          print_writer_contract = false;
 };
 
 std::uint16_t parse_u16_option(std::string_view token, const char* option,
@@ -127,6 +129,8 @@ Args parse_args(int argc, char** argv) {
             a.experimental_timed_movement = true;
         else if (s == "--dev-initial-money" && i + 1 < argc)
             a.dev_initial_money = parse_u32_option(argv[++i], "--dev-initial-money");
+        else if (s == "--print-writer-contract")
+            a.print_writer_contract = true;
         else if (s == "--help") {
             std::cout << "Usage: mxh_map_server [options]\n"
                       << "  --port N      listen port (default 8001)\n"
@@ -141,7 +145,8 @@ Args parse_args(int argc, char** argv) {
                       << "  --backend NAME 'sqlite' (default) or 'mssql_odbc'\n"
                       << "  --allow-dev-fallbacks  permit hardcoded test monster spawns\n"
                       << "  --stats-interval N   periodic health dump interval (s); 0 disables\n"
-                      << "  --dev-initial-money N  test-only starting money fixture\n"
+                       << "  --dev-initial-money N  test-only starting money fixture\n"
+                       << "  --print-writer-contract  print the exact database writer capability and exit\n"
                       << "  --no-legacy   disable 4DyuchiNET framing\n";
             std::exit(0);
         }
@@ -208,6 +213,11 @@ struct ReplyQueue {
 
 int main(int argc, char** argv) {
     auto args = parse_args(argc, argv);
+
+    if (args.print_writer_contract) {
+        std::cout << mxh::db::kMapWriterContract << "\n";
+        return 0;
+    }
 
     if (!args.db_env.empty()) {
         const auto* value = std::getenv(args.db_env.c_str());
@@ -338,9 +348,31 @@ int main(int argc, char** argv) {
     // existing e2e and side-by-side paths keep their deterministic traces.
     if (!args.resource_root.empty()) {
         const auto root = std::filesystem::path(args.resource_root);
+        if (!handler.load_map_routes(root / "Resource" / "MapChange.bin")) {
+            std::cerr << "FATAL: required MapChange.bin could not be loaded\n";
+            return 1;
+        }
         handler.load_skill_list((root / "Resource" / "SkillList.bin").string());
         if (!handler.has_loaded_skill_list()) {
             std::cerr << "FATAL: required SkillList.bin could not be loaded from "
+                      << root.string() << "\n";
+            return 1;
+        }
+        handler.load_monster_list((root / "Resource" / "MonsterList.bin").string());
+        if (!handler.load_map_kinds(root / "Resource" / "MapKindInfo.bin", args.resource_profile)) {
+            std::cerr << "FATAL: required MapKindInfo.bin failed profile validation\n";
+            return 1;
+        }
+        if (!handler.load_exp_penalty(root / "Resource" / "Server" / "ExpPenalty.bin", args.resource_profile)) {
+            std::cerr << "FATAL: required ExpPenalty.bin could not be decoded for selected profile\n";
+            return 1;
+        }
+        if (!handler.load_login_points(root / "Resource" / "Server" / "LoginPoint.bin", args.resource_profile)) {
+            std::cerr << "FATAL: required LoginPoint.bin could not be decoded for selected profile\n";
+            return 1;
+        }
+        if (!handler.has_loaded_monster_list()) {
+            std::cerr << "FATAL: required MonsterList.bin could not be loaded from "
                       << root.string() << "\n";
             return 1;
         }
@@ -367,6 +399,38 @@ int main(int argc, char** argv) {
             return 1;
         }
         handler.load_experience_curve((root / "Resource" / "CharacterExpPoint.bin").string());
+        std::string shop_dup_error;
+#if defined(_JAPAN_LOCAL_)
+        constexpr auto shop_locale = mxh::server::ShopLocale::Japan;
+#elif defined(_HK_LOCAL_)
+        constexpr auto shop_locale = mxh::server::ShopLocale::HongKong;
+#elif defined(_TL_LOCAL_)
+        constexpr auto shop_locale = mxh::server::ShopLocale::Thailand;
+#elif defined(_KOR_LOCAL_)
+        constexpr auto shop_locale = mxh::server::ShopLocale::Korea;
+#else
+        constexpr auto shop_locale = mxh::server::ShopLocale::China;
+#endif
+        std::string shop_rate_error;
+        if (!handler.load_shop_event_rates(root / "Resource" / "Server" / "DropRate.bin",shop_locale,shop_rate_error)) {
+            std::cerr << "FATAL: required DropRate.bin: " << shop_rate_error << "\n";
+            return 1;
+        }
+        if (!handler.load_shop_dup_catalog(root / "Resource" / "ItemdupOption.bin", shop_dup_error)) {
+            std::cerr << "FATAL: required ItemdupOption.bin: " << shop_dup_error << "\n";
+            return 1;
+        }
+        std::string avatar_error;
+        if (!handler.load_avatar_equip_catalog(root / "Resource" / "AvatarEquip.bin",avatar_error)) {
+            std::cerr << "FATAL: required AvatarEquip.bin: " << avatar_error << "\n";
+            return 1;
+        }
+        std::string skin_error;
+        if (!handler.load_skin_catalogs(root / "Resource" / "SkinSelectItemList.bin",
+                root / "Resource" / "CostumeSkinItemList.bin",skin_error)) {
+            std::cerr << "FATAL: required skin catalogs: " << skin_error << "\n";
+            return 1;
+        }
         if (!handler.has_loaded_experience_curve()) {
             std::cerr << "FATAL: required CharacterExpPoint.bin could not be loaded from "
                       << root.string() << "\n";
@@ -392,6 +456,7 @@ int main(int argc, char** argv) {
     handler.set_dev_stub_caster(args.dev_stub_caster);
     handler.set_allow_dev_monster_fallback(args.allow_dev_fallbacks);
     handler.set_allow_dev_skill_fallback(args.allow_dev_fallbacks);
+    handler.set_allow_dev_gamein_fallback(args.allow_dev_fallbacks);
     handler.set_dev_initial_money(args.dev_initial_money);
 
     mxh::net::TcpServer server(handler);
@@ -413,10 +478,13 @@ int main(int argc, char** argv) {
     auto last_stats_log = std::chrono::steady_clock::now();
     auto stats_interval = std::chrono::seconds(args.stats_interval_seconds > 0
         ? args.stats_interval_seconds : 60);
-    while (g_running.load()) {
+    while (g_running.load() && !handler.is_draining()) {
         queue->drain_to(server);
         const auto now = std::chrono::steady_clock::now();
         if (now - last_ai_tick >= std::chrono::milliseconds(100)) {
+            const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                now - last_ai_tick).count();
+            handler.tick_shop_items(static_cast<std::uint32_t>(elapsed_ms));
             handler.tick_monster_ai();
             last_ai_tick = now;
         }
@@ -433,7 +501,8 @@ int main(int argc, char** argv) {
     }
 
     std::cout << "[main] shutting down...\n";
-    handler.prepare_for_shutdown();
+    const bool saved = handler.prepare_for_shutdown();
     server.stop();
-    return 0;
+    if (!saved) std::cerr << "[main] shutdown completed with player persistence failures\n";
+    return saved ? 0 : 1;
 }

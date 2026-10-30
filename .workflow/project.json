@@ -1,0 +1,122 @@
+{
+  "protocol_version": "1.0",
+  "project_id": "moxiang",
+  "checkout_role": "repo",
+  "project_type": "self_developed",
+  "management_mode": "local_governance",
+  "source_of_truth": "gitlab",
+  "desired_source_of_truth": "gitlab",
+  "repository": "https://gitlab.52trz.com/52trz/moxiang-reborn",
+  "primary_remote": {
+    "name": "gitlab",
+    "url": "https://gitlab.52trz.com/52trz/moxiang-reborn.git"
+  },
+  "mirror": "https://github.com/tyj1987/MoxiangReborn",
+  "mirror_remote": {
+    "name": "origin",
+    "url": "https://github.com/tyj1987/MoxiangReborn.git"
+  },
+  "github_role": "mirror",
+  "remote_role_basis": "user_approved_plan_and_read_only_project_12_verification_20261009",
+  "observed_remotes": [
+    {
+      "name": "gitlab",
+      "url": "https://gitlab.52trz.com/52trz/moxiang-reborn.git"
+    },
+    {
+      "name": "origin",
+      "url": "https://github.com/tyj1987/MoxiangReborn.git"
+    }
+  ],
+  "gitlab": {
+    "project_id": 12,
+    "binding_status": "api_verified",
+    "web_url": "https://gitlab.52trz.com/52trz/moxiang-reborn",
+    "verified_at": "2026-10-08T18:24:38.477615Z"
+  },
+  "execution": {
+    "system": "ChatLink",
+    "mode": "existing_local_permissions"
+  },
+  "credentials": {
+    "system": "Broker",
+    "mode": "server_side_injection",
+    "service_ref": "gitlab-moxiang-read",
+    "binding_status": "project12_session_scope_verified"
+  },
+  "docs": {
+    "system": "git",
+    "path": "docs/",
+    "scope": "technical",
+    "existing_evidence_entrypoints": [
+      "ROADMAP.md",
+      "docs/UNITY_REMASTER_STATUS.md",
+      "docs/PLAYABLE_STATUS.md"
+    ]
+  },
+  "knowledge": {
+    "system": "Notion",
+    "scope": "cross_project_business_only",
+    "binding": null,
+    "optional": true,
+    "engineering_state": false
+  },
+  "design": {
+    "system": "Figma",
+    "scope": "design_only",
+    "binding": null,
+    "optional": true,
+    "engineering_state": false
+  },
+  "status": "needs_review",
+  "pending_items": [
+    {
+      "code": "branches_not_unified",
+      "action": "完成两线候选验证及独有内容迁移后再归并长期分支。"
+    },
+    {
+      "code": "windows_unity_build_ci_pending",
+      "action": "CI753原版/755Unity治理、Python和来源检查成功。Windows runner2仅protected refs，VM162缺已发现的C++/Unity工具链；远端构建未接通。"
+    },
+    {
+      "code": "wip_classification_incomplete",
+      "action": "主工作区和隔离副本独有内容逐项保全、吸收；不得整体覆盖。"
+    }
+  ],
+  "external_messaging": false,
+  "authorization": {
+    "production_mutations": false,
+    "remote_migration": false,
+    "issue_mr_writes": false,
+    "pipeline_trigger": false,
+    "commit_push": false
+  },
+  "schema_version": 1,
+  "verified_session_access": {
+    "observed_at": "2026-10-09T10:54:12.621924+00:00",
+    "identity": "client.moxiang-project12.rog",
+    "read_service": "gitlab-moxiang-read",
+    "ci_service": "gitlab-moxiang-ci",
+    "api_helper": "E:/Workspaces/moxiang/audit/2026-10-09-reorg/broker-access/Invoke-MoxiangBroker.ps1",
+    "git_helper": "E:/Workspaces/moxiang/audit/2026-10-09-reorg/broker-access/Push-MoxiangGitLab.ps1",
+    "scope": "Project 12 scoped API and two candidate branches; credentials remain server-side",
+    "certificate_expires_utc": "2026-11-07T18:39:20Z",
+    "global_adapter_binding": "not_changed",
+    "evidence": "audit/2026-10-09-reorg/branch-consolidation/gitlab-refs-1050.json"
+  },
+  "session_authorization": {
+    "basis": "explicit user reorganization plan and subsequent recovery authorization; metadata does not alter host or Broker controls",
+    "project_id": 12,
+    "candidate_commit_push": true,
+    "candidate_ci": true,
+    "candidate_branches": [
+      "codex/reorg-original-20261009",
+      "codex/reorg-unity-20261009"
+    ],
+    "pve_test_only": true,
+    "verified_redundant_cleanup": true,
+    "production_release": false,
+    "external_messaging": false,
+    "unscoped_authorization_flags": "remain false; this scoped record documents already authorized work"
+  }
+}

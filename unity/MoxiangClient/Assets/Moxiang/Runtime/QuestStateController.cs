@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Moxiang
@@ -8,6 +9,8 @@ namespace Moxiang
         public ConnectionPanel connection;
         public uint QuestId { get; private set; }
         public uint State { get; private set; }
+        public IReadOnlyDictionary<uint, uint> ActiveQuests => activeQuests;
+        private readonly Dictionary<uint, uint> activeQuests = new();
         private ulong generation;
 
         private void OnEnable() { if (connection != null) connection.CoreEventReceived += OnCoreEvent; }
@@ -17,11 +20,23 @@ namespace Moxiang
         {
             if (e.type == NativeClient.EventDisconnected || e.state != CoreState.InGame)
             {
-                QuestId = 0; State = 0; generation = 0; return;
+                Clear(); generation = 0; return;
             }
-            if (generation != 0 && e.mapGeneration != generation) { QuestId = 0; State = 0; }
+            if (generation != 0 && e.mapGeneration != generation) Clear();
             generation = e.mapGeneration;
-            if (e.type == NativeClient.EventQuestUpdated) { QuestId = e.argument0; State = e.argument1; }
+            if (e.type == NativeClient.EventQuestUpdated) ApplyQuestUpdate(e.argument0, e.argument1);
+        }
+
+        public void ApplyQuestUpdate(uint questId, uint state)
+        {
+            if (questId == 0) return;
+            QuestId = questId; State = state;
+            activeQuests[questId] = state;
+        }
+
+        public void Clear()
+        {
+            QuestId = 0; State = 0; activeQuests.Clear();
         }
     }
 }

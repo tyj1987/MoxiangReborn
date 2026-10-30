@@ -3,7 +3,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstring>
+#include <limits>
 #include <sstream>
 
 namespace mxh::compat {
@@ -19,6 +21,22 @@ std::vector<std::string_view> splitTabs(std::string_view line) {
     }
     return fields;
 }
+
+template <typename T>
+bool parseInteger(std::string_view field, T& value) {
+    unsigned long long parsed = 0;
+    const auto result = std::from_chars(field.data(), field.data() + field.size(), parsed);
+    if (result.ec != std::errc{} || result.ptr != field.data() + field.size() ||
+        parsed > static_cast<unsigned long long>(std::numeric_limits<T>::max())) return false;
+    value = static_cast<T>(parsed);
+    return true;
+}
+
+bool parseFloat(std::string_view field, float& value) {
+    const auto result = std::from_chars(field.data(), field.data() + field.size(), value);
+    return result.ec == std::errc{} && result.ptr == field.data() + field.size() &&
+        std::isfinite(value);
+}
 }
 
 std::optional<MonsterCatalog> MonsterCatalog::parse_text(
@@ -31,7 +49,7 @@ std::optional<MonsterCatalog> MonsterCatalog::parse_text(
     while (std::getline(input, line)) {
         if (!line.empty() && line.back() == '\r') line.pop_back();
         const auto fields = splitTabs(line);
-        if (fields.size() < 8 || fields[6].empty()) continue;
+        if (fields.size() < 48 || fields[6].empty()) continue;
         unsigned kind = 0;
         const auto parsed = std::from_chars(fields[0].data(), fields[0].data() + fields[0].size(), kind);
         if (parsed.ec != std::errc{} || kind == 0 || kind > 65535u) continue;
@@ -53,6 +71,34 @@ std::optional<MonsterCatalog> MonsterCatalog::parse_text(
             visual.scale = 1.0f;
         }
         if (!(visual.scale > 0.0f && visual.scale < 100.0f)) visual.scale = 1.0f;
+        std::uint8_t fore_attack = 0;
+        if (!parseInteger(fields[3], visual.level) ||
+            !parseInteger(fields[11], visual.life) ||
+            !parseInteger(fields[12], visual.shield) ||
+            !parseInteger(fields[13], visual.exp) ||
+            !parseInteger(fields[15], visual.attack_min) ||
+            !parseInteger(fields[16], visual.attack_max) ||
+            !parseInteger(fields[18], visual.defense) ||
+            !parseFloat(fields[24], visual.walk_speed) ||
+            !parseFloat(fields[25], visual.run_speed) ||
+            !parseFloat(fields[34], visual.domain_range) ||
+            !parseInteger(fields[37], fore_attack) || fore_attack > 1 ||
+            !parseFloat(fields[38], visual.search_period_ms) ||
+            !parseFloat(fields[40], visual.search_range) ||
+            !parseInteger(fields[43], visual.attack_count) || visual.attack_count > 2 ||
+            !parseInteger(fields[44], visual.attack_skills[0]) ||
+            !parseInteger(fields[45], visual.attack_skills[1]) ||
+            !parseInteger(fields[46], visual.attack_rates[0]) ||
+            !parseInteger(fields[47], visual.attack_rates[1]) ||
+            visual.life == 0 || visual.attack_min > visual.attack_max ||
+            visual.walk_speed < 0.0f || visual.run_speed < 0.0f ||
+            visual.domain_range < 0.0f || visual.search_period_ms < 0.0f ||
+            visual.search_range < 0.0f) continue;
+        visual.aggressive = fore_attack != 0;
+        bool invalid_attack = false;
+        for (std::size_t i = 0; i < visual.attack_count; ++i)
+            invalid_attack = invalid_attack || visual.attack_skills[i] == 0;
+        if (invalid_attack) continue;
         catalog.entries_.push_back(std::move(visual));
     }
     if (catalog.entries_.empty()) return std::nullopt;

@@ -42,6 +42,8 @@ using mxh::server::apply_calc_shop_item_option;
 
 class TestEnv final : public CalcShopItemOptionEnv {
 public:
+    mxh::server::ShopLocale selected_locale = mxh::server::ShopLocale::HongKong;
+    mxh::server::ShopLocale locale() const noexcept override { return selected_locale; }
     bool rate_active = true;
     bool event_rate_active(std::uint16_t rate_id) const noexcept override {
         (void)rate_id;

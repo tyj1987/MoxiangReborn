@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "classification": "development-placeholder",
+  "releaseReady": false,
+  "sourceSha256": "d49dd4b864f09e3880124d31633d1b0860175805a3273284988c2b421d9e31e2",
+  "slot": 13,
+  "baseSlot": 11,
+  "tileIndex": 37295,
+  "expectedAuthoringName": "1",
+  "reason": "Explicit candidate extending the adjacent slot-11 surface across one unresolved tile for in-scene review. This is not recovery of the original missing texture.",
+  "acceptance": "Pending actual scene review and replacement by accepted remaster art before release. Original palette remains incomplete."
+}

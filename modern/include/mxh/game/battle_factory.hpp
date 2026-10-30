@@ -14,7 +14,7 @@
 namespace mxh::game {
 
 // ---- Constants from ?? [CC]Header\ClientGameDefine.h ----
-inline constexpr std::int32_t MAX_CHARACTER_LEVEL_NUM = 99;
+inline constexpr std::int32_t LEGACY_BATTLE_MAX_CHARACTER_LEVEL_NUM = 99;
 inline constexpr std::int32_t MONSTERLEVELRESTRICT_LOWSTARTNUM = 8;
 inline constexpr std::int32_t MAX_MONSTERLEVELPOINTRESTRICT_NUM = 12;
 

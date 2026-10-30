@@ -1,5 +1,6 @@
 ﻿#include "mxh/server/player.hpp"
 #include "mxh/server/money_manager.hpp"
+#include "mxh/game/experience_curve.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -9,7 +10,7 @@ namespace mxh::server {
 namespace {
 constexpr std::uint16_t kInventorySlots = mxh::game::SLOT_INVENTORY_NUM;
 constexpr std::uint16_t kEquipmentBase = mxh::game::TP_WEAREDITEM_START;
-constexpr std::uint16_t kMaxLevel = 99;
+constexpr std::uint16_t kMaxLevel = mxh::game::MAX_CHARACTER_LEVEL_NUM;
 
 bool valid_item(const mxh::game::ItemBase& item) noexcept {
     return item.dwDBIdx != 0 && item.wIconIdx != 0;
@@ -75,7 +76,8 @@ bool Player::set_money(std::uint32_t amount) noexcept {
 
 std::uint32_t Player::add_experience(std::uint32_t amount,
                                      std::uint32_t next_level_exp) noexcept {
-    if ((!is_active() && lifecycle_ != PlayerLifecycle::Loading) || amount == 0) {
+    if ((!is_active() && lifecycle_ != PlayerLifecycle::Loading) || amount == 0 ||
+        state_.progress.level >= kMaxLevel) {
         return 0;
     }
     state_.progress.max_exp = next_level_exp;
@@ -87,12 +89,17 @@ std::uint32_t Player::add_experience(std::uint32_t amount,
                             state_.progress.level_exp;
     state_.progress.level_exp += std::min(applied, level_room);
     std::uint32_t level_ups = 0;
-    while (state_.progress.level < kMaxLevel &&
+    // CPlayer::SetPlayerExpPoint performs one transition per invocation.
+    // Retain excess experience instead of reusing this level's threshold.
+    if (state_.progress.level < kMaxLevel &&
            next_level_exp != 0 &&
            state_.progress.level_exp >= next_level_exp) {
         state_.progress.level_exp -= next_level_exp;
-        ++state_.progress.level;
-        ++level_ups;
+        // SetPlayerExpPoint subtracts first; SetLevel rejects level >= 121.
+        if(state_.progress.level + 1 < kMaxLevel) {
+            ++state_.progress.level;
+            ++level_ups;
+        }
     }
     return level_ups;
 }
@@ -137,6 +144,48 @@ std::uint32_t Player::count_inventory_item(std::uint16_t item_idx) const noexcep
         total += item.ItemParam;
     }
     return static_cast<std::uint32_t>(std::min<std::uint64_t>(total, 0xffffffffu));
+}
+
+std::optional<mxh::game::ItemBase> Player::remove_shop_inventory_item(const mxh::game::ItemBase& expected) noexcept {
+    if (!is_active() || expected.dwDBIdx == 0 || expected.wIconIdx == 0 ||
+        expected.Position < mxh::game::TP_SHOPINVEN_START) return std::nullopt;
+    const auto slot = static_cast<std::size_t>(expected.Position - mxh::game::TP_SHOPINVEN_START);
+    if (slot >= state_.shop_inventory.items.size()) return std::nullopt;
+    auto& stored = state_.shop_inventory.items[slot];
+    if (stored.Position != expected.Position || stored.dwDBIdx != expected.dwDBIdx ||
+        stored.wIconIdx != expected.wIconIdx) return std::nullopt;
+    const auto removed = stored;
+    stored = mxh::game::make_empty_item();
+    stored.Position = removed.Position;
+    return removed;
+}
+
+std::optional<mxh::game::ItemBase> Player::remove_physical_shop_item(
+    const mxh::game::ItemBase& expected) noexcept {
+    if (!is_active() || expected.dwDBIdx == 0u || expected.wIconIdx == 0u) {
+        return std::nullopt;
+    }
+    mxh::game::ItemBase* found = nullptr;
+    bool invalid = false;
+    const auto locate = [&](auto& slots) {
+        for (auto& item : slots) {
+            if (item.dwDBIdx != expected.dwDBIdx) continue;
+            if (found != nullptr || item.wIconIdx != expected.wIconIdx) {
+                invalid = true;
+                continue;
+            }
+            found = &item;
+        }
+    };
+    locate(state_.shop_inventory.items);
+    locate(state_.equipment.items);
+    locate(state_.pet_wear.items);
+    locate(state_.titan_shop_items.items);
+    if (invalid || found == nullptr) return std::nullopt;
+    const auto removed = *found;
+    *found = mxh::game::make_empty_item();
+    found->Position = removed.Position;
+    return removed;
 }
 
 bool Player::remove_inventory_item_by_icon(std::uint16_t item_idx,
@@ -219,10 +268,21 @@ PlayerDamageResult Player::apply_damage(std::uint32_t amount) noexcept {
     return result;
 }
 
+bool Player::mark_dead_if_zero_life() noexcept {
+    if (lifecycle_ != PlayerLifecycle::Active || state_.vitals.current_hp != 0) return false;
+    lifecycle_ = PlayerLifecycle::Dead;
+    return true;
+}
+
 bool Player::revive() noexcept {
     if (lifecycle_ != PlayerLifecycle::Dead) return false;
-    state_.vitals.current_hp = std::max<std::uint32_t>(1, state_.vitals.max_hp / 2);
-    state_.vitals.current_shield = 0;
+    // CPlayer::RevivePresentSpot / ReviveLogInPenelty use double 0.3
+    // followed by DWORD truncation. Costs and location belong to the handler.
+    state_.vitals.current_hp = static_cast<std::uint32_t>(state_.vitals.max_hp * 0.3);
+    state_.vitals.current_shield = static_cast<std::uint32_t>(state_.vitals.max_shield * 0.3);
+    state_.vitals.current_mp = 0;
+    // Source Player.cpp RevivePresentSpot clears all three after recovery.
+    state_.death_flags = {};
     lifecycle_ = PlayerLifecycle::Active;
     return true;
 }
@@ -234,4 +294,3 @@ void Player::heal_full() noexcept {
 }
 
 }
-

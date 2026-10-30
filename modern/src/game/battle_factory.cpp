@@ -157,7 +157,7 @@ std::uint32_t compute_player_exp_point(std::int32_t level_gap,
 std::uint32_t clamp_player_x_monster_lookup(std::int32_t level,
                                           std::int32_t level_gap,
                                           PlayerXMonsterPointLookup lookup) {
-    if (level == MAX_CHARACTER_LEVEL_NUM) return 0;
+    if (level == LEGACY_BATTLE_MAX_CHARACTER_LEVEL_NUM) return 0;
     if (level < 1) return 0;
     if (level_gap < -MONSTERLEVELRESTRICT_LOWSTARTNUM)
         level_gap = -MONSTERLEVELRESTRICT_LOWSTARTNUM;
@@ -315,7 +315,6 @@ std::uint32_t compute_titan_attribute_attack(
 }
 
 }  // namespace mxh::game
-
 
 
 

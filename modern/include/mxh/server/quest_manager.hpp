@@ -32,6 +32,14 @@ enum class QuestSubKind : std::uint8_t {
     Survive   = 5,  // survive timer
 };
 
+enum class QuestCountFilterKind : std::uint8_t {
+    None = 0,
+    WeaponItem = 1,
+    WeaponKind = 2,
+    PlayerMonsterLevelGap = 3,
+    MonsterLevel = 4,
+};
+
 // ---- Sub-condition (legacy QUEST_SUB) ----
 struct QuestSub final {
     QuestSubKind kind        = QuestSubKind::None;
@@ -41,10 +49,22 @@ struct QuestSub final {
     // Legacy $SUBQUEST index.  It is runtime-only metadata; persistence keeps
     // the flattened sub rows and reconstructs this value from QuestScript.bin.
     std::uint32_t stage      = 0;
+    // Several legacy @HUNT triggers may execute *ADDCOUNT for the same
+    // subquest counter. Any listed monster then advances this shared count.
+    // Empty retains the scalar target_id behavior.
+    std::vector<std::uint32_t> accepted_target_ids;
+    QuestCountFilterKind count_filter = QuestCountFilterKind::None;
+    std::uint32_t filter_value1 = 0;
+    std::uint32_t filter_value2 = 0;
 };
 
 struct QuestItemCost final {
     std::uint16_t item_idx = 0;
+    std::uint32_t quantity = 0;
+};
+
+struct QuestItemReward final {
+    std::uint32_t item_idx = 0;
     std::uint32_t quantity = 0;
 };
 
@@ -62,6 +82,7 @@ struct QuestDefinition final {
     std::uint32_t timer_seconds   = 0;     // 0 = no timer
     std::vector<QuestSub> subs;
     std::vector<QuestItemCost> item_costs;
+    std::vector<QuestItemReward> item_rewards;
 };
 
 // ---- Quest runtime progress (one player x one quest) ----
@@ -130,6 +151,13 @@ struct QuestEvent final {
     QuestSubKind kind      = QuestSubKind::None;
     std::uint32_t target_id = 0;   // monster_kind / item_idx / map_num / npc_idx
     std::uint32_t delta     = 1;   // amount to add (1 = single kill / pickup)
+    std::uint16_t player_level = 0;
+    std::uint16_t monster_level = 0;
+    std::uint16_t weapon_kind = 0;
+    std::uint16_t weapon_item = 0;
+    // Nonzero for legacy NpcTalk, whose second event value is the quest id.
+    // It prevents a forged/ambiguous NPC event from advancing other quests.
+    std::uint32_t quest_id = 0;
 };
 
 // ---- Per-quest effect of dispatch_quest_event. ----

@@ -199,7 +199,7 @@
 
 ### MoxianClientE2E pre-existing race — RESOLVED (2026-09-06)
 
-- Previously excluded with `ctest -E MoxianClientE2E` per `docs/EXECUTION_PLAN_STATUS_2026-09-05.md` §3.
+- Historical exclusion used `ctest -E MoxianClientE2E`; the superseded execution report is recoverable through [HISTORICAL_EVIDENCE_INDEX.md](HISTORICAL_EVIDENCE_INDEX.md), not the current acceptance plan.
 - Resolved without code changes to `modern/tools/MoxianClientE2E/main.cpp` (in this turn); the actual root-cause fix was commit `00018e11` from 2026-08-21 ("db: 统一三服版本化迁移入口"), which restructured the spawn order so that the E2E tool prepares the SQLite database (`migrate_modern_schema` + `create_account`) **before** spawning any of the three servers, instead of letting `LoginServer` do it via its own `--init-schema` flag at server-startup time.
 - The old race window was: spawn `LoginServer` (which needed to call SQLite's `create_account` during its own startup) → race against the E2E tool sending `RequestLogin` before the server finished the schema + account creation. With `00018e11` the DB is fully prepared before the first server is spawned, so the E2E `RequestLogin` always finds the `test` / `Pass1234` account already there.
 - That commit also bumped the default E2E password from `test` to `Pass1234` to match the PBKDF2-based `create_account` registered in `75be0998` ("account: PBKDF2 注册登录闭环 + 4 tests").

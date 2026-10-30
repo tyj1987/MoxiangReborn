@@ -1,0 +1,28 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.189640+00:00",
+  "asset_id": "MX_ENV_WUGUAN_LANTERN_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_LANTERN_001.fbx",
+  "export_sha256": "905456cab876f3c6e7a5182323f1c79c34f97c7623158e7bcdfb42004072aa15",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_LANTERN_001",
+    "MX_ENV_WUGUAN_LANTERN_001__BOT_X",
+    "MX_ENV_WUGUAN_LANTERN_001__FRAME_-0.36_-0.36",
+    "MX_ENV_WUGUAN_LANTERN_001__FRAME_-0.36_0.36",
+    "MX_ENV_WUGUAN_LANTERN_001__FRAME_0.36_-0.36",
+    "MX_ENV_WUGUAN_LANTERN_001__FRAME_0.36_0.36",
+    "MX_ENV_WUGUAN_LANTERN_001__PAPER_E",
+    "MX_ENV_WUGUAN_LANTERN_001__PAPER_N",
+    "MX_ENV_WUGUAN_LANTERN_001__PAPER_S",
+    "MX_ENV_WUGUAN_LANTERN_001__PAPER_W",
+    "MX_ENV_WUGUAN_LANTERN_001__RING",
+    "MX_ENV_WUGUAN_LANTERN_001__TOP_X"
+  ]
+}

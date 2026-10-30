@@ -1,274 +1,50 @@
-# AGENTS.md — Mavis 协作指南
+# Moxiang 开发接续规则
 
-> 指导 Mavis（以及任何其他 AI agent）在这个项目上工作。
-> **终极目标**：1:1 完美复现 2003-2010 韩国 2D MMORPG《墨香》。目标见 `ROADMAP.md`。
-> **可玩性以 `docs/PLAYABLE_STATUS.md` 为准**。不要把 ROADMAP 里旧的 M3/M4 GREEN、ctest 全绿、或 `--auto-create` 截图当成玩家能选角/能看见人和 UI。
-> **最近一次重置**：2026-08-22（以代码重写可玩性文档）。
+更新：2026-10-09。入口为 README → ROADMAP → 分线状态和验收矩阵。本文件只保留持续有效的约束；提交、测试数量和运行状态从本轮证据核对，不继承旧 PASS。
 
----
+## 路径与协作
 
-## 0. 不可破坏的约束
+- 先读 `E:\Workspaces\AGENTS.md`、`WORKSPACE_REGISTRY.json`、项目 `WORKSPACE_NOTICE.md`，以及当前 checkout 的 `.workflow/project.json`、`state.json`、`handoff.json`。
+- `E:\Workspaces\moxiang` 是容器，Git 主工作区在 `repo`。重整候选位于 `worktrees/original-integration` 和 `worktrees/unity-integration`；每个 checkout 同时只有一个写入者，开始前核对 HEAD、暂存区、WIP 和当前写入者。
+- 两线工作树、构建、输出、日志、配置和可写数据库分开。长期目标为 `main` 与 `codex/unity-client-remaster`；实际基线和分支去向见重整状态，不凭名称推断内容。
+- 保留他人的修改。不得用 reset --hard、clean -fdx、强推或重写历史整理目录。WIP、忽略文件、LFS、资产和数据库分别核验，refs 相同不代表完整上传。
+- 临时构建和证据放在分线构建目录或项目容器的 `audit`；不在仓库根散落日志、对象文件或数据库，不让构建依赖 scratch、旧盘符或兼容 Junction。
 
-### 2026-09-11 用户批准的 Unity 重制分支例外
+## 原版与 Unity
 
-`codex/unity-client-remaster` 使用 Unity 完整客户端、独立 C++ 核心和现有
-modern 三服。允许在 `unity/` 新建高精度视觉资源与 `unity-remaster-v1`
-派生配置，原始资源字节仍只读保留；玩法、数值、功能地图布局及协议和安全接口
-签名继续受下列约束保护。新美术按重制质量样板验收，不得冒称原版像素级 E5。
-执行状态与证据见 `docs/UNITY_REMASTER_STATUS.md`。该授权不包含正式发布标记。
+1. 原版继续使用 `playdh-current`；资源字节、格式解析、玩法、数值、地图语义、视觉和音频分别验收。`.bin/.pak/.bmhm/.ttb/.chl/.chx/.chr/.mon/.bsad` 兼容性须有实际依据。
+2. 原始源码保留作参考，不修改其逻辑。原始 `[CC]Header/Protocol.h`、`CommonStruct.h` 和 HSEL/HackShield/nProtect 接口签名不变；现代修复不能改变协议字段含义、布局或长度。
+3. 经验、伤害、掉率、Boss、商城和 MurimNet 等不得为演示调值。默认值、简化公式和缺数据显式标为未完成；原版缺资源不能用替代美术宣称 1:1。
+4. 原资源按全量 SHA 和精确文件集验证后只读封存；Unity 导入、overlay、派生资源和原创美术独立存放，禁止回写原资源。
+5. Unity 范围为完整 Unity 客户端、独立 C++ 核心和现有现代三服。`unity-remaster-v1` 允许可追溯视觉重制，不能改玩法、碰撞、地图拓扑、输入或协议语义。重制质量单独验收，不冒称原版 E5；不包含正式发布。
+6. 资源顺序为已有原创 → 合适的免费商用公开资源 → 补充原创。保留可编辑源文件和制作工具；逐包记录来源、作者、版本、许可、哈希、修改、署名，分别核查商用和公开裸资源再分发许可，遵守 NOTICE。
 
-违反任何一条 = 1:1 复现失败。这 4 条是项目宪法：
+## 构建与验收
 
-1. **资源格式二进制兼容** —— `.bin` / `.pak` / `.bmhm` / `.ttb` / `.chl` / `.chx` / `.chr` / `.mon` / `.bsad` 必须能被现代代码读到和老码完全一致的字节
-2. **modern 网络闭环稳定** —— 原 `[CC]Header/Protocol.h` 与 `CommonStruct.h` 不修改并继续作为参考；商业 RC 只要求 modern 客户端/服务端互通，不强制新旧互通
-3. **玩法/数值 1:1 锁定** —— 经验曲线、伤害公式、爆率、Boss 刷新、商城、MurimNet PvP 不能动
-4. **HSEL/HackShield/nProtect 接口签名保持** —— 实现可换，签名不能换
+- 服务端、数据库及相关集成验收在 PVE；PC 运行客户端、纯函数和无需数据库的单元测试。数据库自动化也在 PVE 执行，不因使用内存数据库就改到 PC；mock 测试与真实数据库验收分开报告。不得隐式启动本机三服或回落 loopback。
+- VM112 原版使用 16001/17001/18001，Unity 使用 26101/27101/28101，各用独立数据库。VM100 暂作旧环境对照；CT105 原件保留，恢复诊断只在已保全的副本进行。
+- 入口必须明确远端主机、客户端模式、环境配置；部署校验三服版本、资源摘要、数据库身份和 writer contract，不兼容拒绝启动。凭据留在私有配置/Broker，不写日志、证据命令或 Git。
+- VM112 的 QGA 同时只由一个已协调的拥有者调用。使用显式异步 PID、唯一 runId/nonce 和脚本摘要；每份首次执行/状态响应立即持久化，再做后续读回。退出码、PID、nonce、截断标记和实际目标状态共同核对；回执缺失不代表没有执行，异常时停止修改并只读核实，不盲目重试。
+- VM112 的 WinRM 与 QGA 共用一个已协调的管理拥有者。正常管理只使用已验证的专用身份，凭据在内存中传递，不打印或写入命令行/证据；不放宽认证或加密配置。测试包使用独立目录，运行前后核对两线六个服务的进程身份、文件摘要和部署清单。管理服务失败不能推定游戏服务失败，也不能自动重启游戏或数据库。
+- 在对应 checkout 的独立构建目录运行 CMake、构建和相关 CTest。x86 原版和 x64 Unity/native 不混用；核对实际编译器、SDK、配置。头文件布局变化后确认所有依赖对象重编，必要时空目录验证。
+- `modern/src/ui` 与 `modern/include/mxh/ui` 镜像头须一致，运行 duplicate-header/governance 检查。保持原始 EUC-KR/CN 编码、packed 布局；涉及 locale 宏的改动核对五种目标配置，明确未运行项。PowerShell 的方括号路径使用 `-LiteralPath`。
+- bootstrap 只作审计，先确认适用于当前 checkout；历史 `-CleanKnownArtifacts` 通配删除不能代替逐项恢复与占用证明。
+- 行为修复和 1:1 移植应有必要测试，dialog 至少覆盖实际行为。分别报告通过、失败、跳过、未运行；源码、构建、CI、部署、探针、GUI 和用户验收不能互相替代。
+- 可玩链须正常 GUI 完成登录、建选角、入图、移动/NPC/任务、战斗、自然掉落、点击拾取、装备、切图、重登，并核对权威事件和数据库。锁屏时等待可交互桌面，继续独立工作；截图数量或探针不能替代全链。
+- 完整交付另须全地图/功能、双客户端、断线重连、服务/DB 故障恢复、更新回滚、24 小时稳定性。局部 PASS 不提升整体验收。
 
----
+## 代码与工程事实
 
-## 1. 项目结构（真结构，不是老 session 留下的）
+- 新代码沿用现有 `m_` 成员、`g_` 全局和指针命名，C++17 起步，优先标准库和智能指针；OS/C ABI 保留必要原生类型，头文件用 `#pragma once`，日志用 MLOG。
+- 按独立修复或工具分组提交，不混入无关重构和他人 WIP。共享修复分别进入两线并验证；Unity 专属内容只进入重制线。
+- GitLab 项目 12 为已绑定工程主源，GitHub 为镜像。报告同步前查询两端；候选推送不等于合并、镜像完成或发布。
+- `.workflow` 是绑定与本地接续信息，不授予权限、不存秘密、不维护第二任务看板。当前用户授权决定范围，主机/Broker/沙箱控制仍须遵守，不通过改授权字段解除限制。
+- ChatLink 负责本地执行、Broker 管凭据、Git docs 管技术文档；Notion 仅跨项目知识、Figma 仅设计。未绑定的外部目标不猜测，发送消息须明确授权；不新增付费 API、无关生产操作或正式发布。
 
-> **最近校准**: 2026-08-20 env sniff 校 (4 turn 累积, 详见 `modern/scratch/2026-08-20-env-sniff/FINAL_REPORT_V2.md`)。
-> 老 §1 把 `compat/` `db/` 写成了 src 子目录，把 src 文件数说成 254，测试用例说成 2380 — **全错**。下面是真结构。
+## 清理与历史
 
-```
-C:\moxiang\
-├── 墨香【源码】/                  # 原始源码（不动）
-│   ├── [Client]MH/                # 客户端 ~930 文件 / 35-40 万行
-│   ├── [Server]*/                 # 服务端 3 个进程
-│   ├── [CC]Header/                # 协议头（不可改）
-│   ├── [Lib]*/                    # 引擎库
-│   ├── 4Dyuchi*/                  # 自研 3D 引擎
-│   └── [Tool]*/                   # 工具链源码
-├── 墨香【源码配套资源】/           # 见下面"PlayDH 路径歧义"陷阱
-├── 墨香【教程】/                  # 4 篇中文教程
-├── 墨香【客户端+服务端+工具】/     # 已部署包（参考 + D:\[SWorking] 源）
-├── modern/                        # 现代 C++17/20 重写（**全部在这**）
-│   ├── src/                       # 750 个文件, **15 个子目录**:
-│   │   ├── audio/                 # bgm_player (BgmPlayer 5/5 PASS)
-│   │   ├── client/                # 客户端 (CharSelect/Make/InGame state)
-│   │   ├── console_stub/          # 控制台桩
-│   │   ├── crypto/                # AES-256-GCM + HSEL + HackShield (87/87 PASS)
-│   │   ├── game/                  # 数值/战斗/技能/物品 (CalcAvatarOption, BattleFactory)
-│   │   ├── log/                   # MLOG
-│   │   ├── memory/                # ObjectPool
-│   │   ├── monitor/               # perf monitor
-│   │   ├── net/                   # net + socket + capture_handler (无 asio, 是 raw socket)
-│   │   ├── portal/                # 站点 API (auth/jwt/news/shop)
-│   │   ├── proto/                 # 协议层 (32/32 PASS)
-│   │   ├── render/                # DX11 (terrain/static/sky/entity_scene)
-│   │   ├── server/                # 220 文件: 99 agent_* + 31 side_effect_plan + 4 distribute + 3 handler + 3 network_msg + 2 login + 2 map + 1 chat + 73 other
-│   │   ├── services/              # service interface
-│   │   ├── ui/                    # 402 文件, 1:1 port dialog 库
-│   │   └── (compat/ + db/ 文件平铺在 src 根)  # 见下面"资源兼容层"陷阱
-│   ├── data/PlayDH/               # 完整游戏资源（1.56 GB / 4,971 文件）
-│   ├── tests/unit/                # 1,018 测试文件 (15 子目录, 镜像 src)
-│   ├── tools/                     # 60 文件 (MoxianLoginServer/AgentServer/MapServer/Client 等 17 子目录 + 6 .py 工具)
-│   ├── include/mxh/               # 公共头
-│   ├── docs/                      # 中间过程文档（逐步清理）
-│   ├── scratch/<date>-<topic>/    # 临时产物（每次 session 自建, 命名规范）
-│   └── build/                     # CMake 构建输出 (16 exes / 619 PASS / 0 FAIL, 2026-08-20)
-├── deploy/                        # 现代部署（部分）
-├── docs/                          # 真实数据文档
-│   ├── PLAYABLE_STATUS.md         # **可玩性真理**（2026-08-22 起）
-│   ├── RESOURCE_FORMATS.md        # 资源格式
-│   ├── MoxianProtocolDoc.md       # 协议
-│   ├── DATABASE_SCHEMA.md         # 数据库
-│   ├── KNOWN_BUGS.md              # bug 清单
-│   └── CHANGELOG.md               # 完成明细（历史，不证明可玩）
-├── modern/scratch/2026-08-20-env-sniff/  # 本次 session 全部交付
-├── ROADMAP.md                     # 1:1 复现路线图（**主路线**）
-├── AGENTS.md                      # 本文件
-├── README.md                      # 上手指南
-└── scripts/                       # 启动脚本 (session-bootstrap, no-truncation, start-server)
-```
+用户已批准：确认可再生或完全重复且无占用的产物可永久删除；闲置源码须验证 Git、独有分支、LFS、子模块、二进制、忽略文件及必要配置完整恢复。唯一资产、原资源、数据库和凭据先保全，不连带删除共享 SQL、Docker/WSL、现用编译器、Unity、桌面工具或仍使用的 AI 环境。
 
-### 1.1 ctest 实测状态 (2026-08-20)
+删除清单记录绝对路径、物理目标、大小、类型、独有内容去向和恢复证明；执行前即时复核内容与占用。Junction 只处理入口，不跟随重复删除。清理后重建运行两线，区分删除逻辑字节和磁盘净释放量。
 
-| 维度 | 值 |
-|---|---|
-| ctest 注册 | **12,021** (老 AGENTS.md §3 写的 2,380 是 35% 时的旧数) |
-| 已编译 exes | **16** (2 pre-existing + 14 new in 2026-08-20 session) |
-| 已编译 PASS | **619** (5.15%) |
-| 已编译 FAIL | **0** |
-| 已编译 SKIP | **175** (大部分是缺 D:\[SWorking]\SWorking\Resource\Server 数据) |
-| 仍阻塞 LoginServer.exe build | `mxh_login_sbs_e2e_tests` 1 SKIP (Phase 3) |
-
-### 1.2 关键路径歧义（每次开 session 必看）
-
-- **PlayDH**: 实际位置 `C:\moxiang\modern\data\PlayDH\` (1.56 GB / 4,971 文件)。**不是** `墨香【源码配套资源】\PlayDH\`（那个目录原本是 8-10 资源审计 scratch 留下的，2026-08-20 已建 junction 链过去以兼容 6 个用 `find_playdh_root()` 的旧测试，但 canonical path 仍以 `modern\data\PlayDH` 为准）。
-- **VS BuildTools**: 实际在 `C:\BuildTools\VC\` (vcvarsall.bat x86 跟现有 x86 ninja 配置一致)。**不是** `C:\VS2022\`。**vcvars64.bat** 会触发 LNK4272 (x64 vs x86 arch mismatch)，必须用 **vcvarsall.bat x86**。
-- **SQL Server**: 本机 MSSQLSERVER + SQLEXPRESS 双实例 Running (老 C-32 "缺 SQL Server" 在本机已不存在, 仅 VM 100 winserver 受影响)。
-
----
-
-## 2. 工作流（每天必读 3 件事）
-
-每次开 Mavis session，**先读**：
-
-0. `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\session-bootstrap.ps1` —— 见 §2.5（PowerShell 7 可将 `powershell` 换成 `pwsh`）
-1. `ROADMAP.md` §0-3 —— 当前在哪个里程碑，下一步是什么
-2. `AGENTS.md` 本文件 —— 约束 + 陷阱
-3. `docs/KNOWN_BUGS.md` —— 待修 bug（挑不会破坏 1:1 的来修）
-
-**然后做**：
-
-- 改 `modern/src/` 或 `modern/tests/` 或 `modern/tools/`
-- 写或更新测试
-- 跑 `cmake --build modern/build --config Debug` + `ctest -C Debug`
-- 仅在可复现证据改变模块状态时更新 `ROADMAP.md` §2；完成明细写入 `docs/CHANGELOG.md`
-
-**不要做**：
-
-- 改 `墨香【源码】/`（除非改老编译 bug，且不会改变行为）
-- 改 `[CC]Header/Protocol.h` 或 `CommonStruct.h`
-- 改 `墨香【源码配套资源】/PlayDH/`（实际 canonical 在 `modern/data/PlayDH/`，junction 已兼容）
-- 写 P0/P1/P2/P3 任务队列（已被 ROADMAP §3 替代）
-- 写 session 交接 log（已废弃）
-- 写到根目录的 `.log / .obj / .db` 等临时文件
-
----
-
-## 3. 真实陷阱清单（不要被老 AGENTS.md 误导）
-
-老 AGENTS.md 列了 10 条"陷阱"，其中有些已修、有些过时。下面是**当前仍然成立**的：
-
-| 陷阱 | 当前状态 | 处理 |
-|---|---|---|
-| `[...]` 目录名 | 仍存在 | PowerShell 操作必须用 `-LiteralPath` |
-| `#pragma pack(push,1)` | 仍存在 | 网络包改字段会崩溃 |
-| `LOG` 宏冲突 | **已根治**（2026-07-15） | CConsole::LOG → CConsole::MLOG，新代码用 MLOG |
-| `WS2_32.lib` 链接 | **已修** | CMakeLists.txt 已含 |
-| `d3dx8.lib` 路径 | **已迁移到 DX11** | 用 modern 渲染，不要再碰 DX8 |
-| EUC-KR/CN 注释乱码 | 仍存在 | 保持原编码别动 |
-| 多语言 ifdef (`_KOR_LOCAL_` 等) | 仍存在 | 5 种宏都编，确保每种都能 build |
-| HSEL 硬件狗 | 80% stub | R-1，阻塞运行时 |
-| HackShield 反外挂 | 0% | R-2，阻塞客户端登录 |
-| SQL Server 集成 | **100% 本机 (2026-08-20)** | MSSQLSERVER + SQLEXPRESS 双实例 Running；缺端到端验证，VM 100 winserver 仍受 SQL blocker |
-| **F-1 shell_command JSON 截断** | **每次必踩**（2026-07-30 已根治） | 见 §2.5 + `scripts/no-truncation.ps1`；单行简单 cmdlet，复杂逻辑写到 .ps1 再 `pwsh -File` |
-| F-2 根目录 scratch_*.py 污染 | 反复犯 | `scripts/session-bootstrap.ps1` 第 1 步自动清 |
-
-**根目录散落文件陷阱**（最近 session 反复犯）：
-- 不要往根目录写 `*.log / *.obj / *.db` / `test_*.txt`
-- 临时文件用 `modern/scratch/<source>_<日期>/` 归档
-- 子目录根放 `README.md` 索引
-- `scripts/session-bootstrap.ps1` 第 1 步会清理根目录散落，**不要绕过它**
-- 不要往根目录写 `*.log / *.obj / *.db` / `test_*.txt`
-- 临时文件用 `modern/scratch/<source>_<日期>/` 归档
-- 子目录根放 `README.md` 索引
-
----
-
-## 4. 编码风格
-
-**老代码**（`墨香【源码】/`）：匈牙利命名法，不动。
-**新代码**（`modern/`）：
-- 遵循老代码的 `m_` 成员 / `g_` 全局 / `p` 指针前缀
-- C++17 起步；能用 `std::optional / std::string_view / auto / 范围 for` 就用
-- 智能指针优先；裸指针只在 C ABI / OS 句柄时用
-- 注释中文/英文都行，避免韩文/日文
-- 头文件 `#pragma once`
-- 类成员大括号同行（C++ 风格，不是老 C 的 Allman）
-
----
-
-## 5. 提交规范
-
-每次提交必须：
-
-- **1 个 commit = 1 个对话框 / 1 个 bug fix / 1 个工具**，**不要把多个混在一起**
-- commit message 用 `类型: 简述` 格式：
-  - `ui: cCheckBox 1:1 port + 22 tests`
-  - `crypto: HSEL stub 补 20% 绕过点`
-  - `bug: R-3 CommonStruct.h 编译错误修`
-  - `docs: ROADMAP 重置到 1:1 复现`
-- commit 必跑：`cmake --build modern/build --config Debug` 0 错 + `ctest -C Debug` 全过
-- 1:1 port 必须有 unit test 锁死（dialog 至少 1 个行为断言）
-
----
-
-## 6. 与 Mavis 的协作边界
-
-**Mavis 自动可做**：
-
-- 改 `modern/src/` / `modern/tests/` / `modern/tools/` / `modern/include/`
-- 写新 dialog / service / 工具
-- 跑测试 + 修编译错误
-- 重构 modern/ 内部代码（不改接口）
-
-**Mavis 必须问用户**：
-
-- 改老源码（`墨香【源码】/`）的逻辑
-- 改协议头（`[CC]Header/Protocol.h`）
-- 改资源文件
-- 1:1 复现 vs 功能增强 的取舍
-
-**用户拍板**：
-
-- 删文件（破坏性操作，列清单等确认）
-- 1.0 release 标记
-- 跨平台方向选择
-
----
-
-## 7. 常见问题
-
-**Q：老 MODERNIZATION_PLAN.md / CHANGELOG.md / AI_*.md 还在，能参考吗？**
-A：能读，不要被"Phase 12 已完成"误导。那是 35% 完成的过度表述。看 `ROADMAP.md` §2 现状表和 §5 完成判据。
-
-**Q：能直接用 `SWorking/` 启动老服吗？**
-A：能，那里有完整编译产物。`scripts/start-server.ps1` 还在。
-
-**Q：modern 代码需要和老客户端/老服务端互通吗？**
-A：商业 RC 不强制新旧互通；modern 客户端必须和 modern Login/Agent/Map 完整互通。原协议仍用于结构与行为参考，资源、视觉、音频、地图、玩法和数值继续要求 1:1。
-
-**Q：HSEL 硬件狗真没了怎么办？**
-A：用 `modern/src/crypto/` 的 stub 跑，能进登录但有些功能受限。要真上线得补完 stub（参 ROADMAP §2 R-1）。
-
-**Q：怎么贡献？**
-A：挑 `ROADMAP.md` §3 当前阶段的一个 task → 改 modern/ → 测试过 → 提交。PR 不需要（单分支 + commit history 足够）。
-
-## 2.5 Session Bootstrap（每次开 session **第一件事**）
-
-> **2026-07-30 根因事故**：session `019f9c8e` 和 `019fb254` 先后在 4 天 / 30 分钟内因为同一个 JSON 截断 bug 死亡（详见 §3 陷阱 F-1）。两个 session 都留下未提交的工作和根目录 `scratch_*.py` 污染。修复 = 改 agent 行为，不动模型。
-
-**每个新 Mavis session 在读 ROADMAP / AGENTS / KNOWN_BUGS 之前，先跑**：
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\moxiang\scripts\session-bootstrap.ps1
-```
-
-默认只审计并列出污染数量，不静默删除。查看 `docs/CLEANUP_MANIFEST.md` 并确认目标后，才可显式增加 `-CleanKnownArtifacts`。
-
-脚本会做 4 件事，**全部通过才能继续**：
-
-1. **清根目录散落** —— 删除 `C:\moxiang\scratch_*.py`、临时 `*.log / *.obj / *.db`、空 `Testing\Temporary\`。
-2. **检查 working tree** —— `git status --short` 非空时输出警告（不是阻断，让你知道有没有上一 session 留下的工作要 commit）。
-3. **加载反 JSON 截断工具箱** —— 输出 `scripts/no-truncation.ps1` 的存在性，并把它的使用提示打印到屏幕上。
-4. **打印 1 行确认** —— `AGENTS.md ✓ | scratch clean ✓ | bootstrap loaded ✓ | ready`。
-
-如果第 1 或第 3 步失败，**停下来修，不要带着 broken state 进 session**。
-
-### 反 JSON 截断硬规则（agent 必须遵守）
-
-`MiniMax-M3` 在生成 `shell_command` 工具调用时，arguments 字符串经常被截断
-（不发闭合 `"` / `}`），CLI 端 `EOF while parsing a string at column N` 报错，
-且**没有自动重试 / 降级**。一旦触发必死。
-
-**禁止**：
-
-- 在一条 `shell_command` 里写多语句 PowerShell（`$x = ...; for (...) { ... }`）
-- 在一条 `shell_command` 里用 `\"` / `$()` / backtick `` ` `` 转义
-- 在一条 `shell_command` 里嵌入 here-string `@"..."@`
-- 把 CJK 路径直接拼到 PowerShell 表达式里（用 `-LiteralPath` 也救不了，但能降概率）
-
-**必须**：
-
-- 每条 `shell_command` 是**单行简单命令**（一个 cmdlet 或一个 `|` 管道）
-- 复杂逻辑 → 先 `apply_patch` 写一个 `.ps1` 或 `.py` 文件到 `modern\scratch\<date>-<topic>\`，再 `pwsh -File` / `python` 调用
-- 读文件 → 用 **Read 工具**，不要 `Get-Content` 链
-- 写文件 → 用 **apply_patch 工具**，不要 sed / 流式 PowerShell
-- 跑测试 → `ctest -C Debug --test-dir modern\build`，不要 subprocess hack
-- 跑 build → `cmake --build modern/build --config Debug`，不要手动调 MSBuild
-
-`scripts/no-truncation.ps1` 提供 4 个安全 wrapper（`Get-FileLines`、`Read-JsonObject`、`Test-PathSafe`、`Format-TestOutput`），任何涉及文件读取 / JSON 解析 / 路径判断的操作**优先调用它们**而不是裸 shell_command。
+旧文中的本机 DB 默认、旧路径、历史构建数量和完成声明已从活动入口移除，原文已在私有 PVE `branch-consolidation/main-wip-delta-20261009.zip` 恢复验证。协议/资源/数据库技术依据仍保留。历史恢复指针见 `docs/HISTORICAL_EVIDENCE_INDEX.md`，当前事实见 `docs/REORGANIZATION_STATUS.md`。

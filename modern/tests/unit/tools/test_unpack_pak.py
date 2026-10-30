@@ -60,6 +60,22 @@ def _make_pak(entries: list[tuple[str, bytes]], out_path: Path) -> int:
     return len(entries)
 
 
+def _make_shifted_count_pak(entries: list[tuple[str, bytes]], out_path: Path) -> int:
+    """Build the 96-byte header variant observed in the larger Map.pak."""
+    with out_path.open("wb") as f:
+        f.write(struct.pack("<III", 1, 0, 0))
+        f.write(b"\x00" * (92 - 12))
+        f.write(struct.pack("<I", len(entries)))
+        for name, data in entries:
+            name_b = name.encode("latin-1")
+            total_size = 32 + len(name_b) + 1 + len(data)
+            entry_offset = f.tell()
+            f.write(struct.pack("<IIIIIIII", total_size, len(data), len(name_b),
+                                entry_offset, 0, 0, 0, 0))
+            f.write(name_b + b"\x00" + data)
+    return len(entries)
+
+
 def _make_dummy_hfl(face_size: float = 512.0) -> bytes:
     """Build a 32-byte HFL_DESC-shaped prefix that hfl_header_ok accepts.
 
@@ -145,6 +161,25 @@ class PakExtractNamedModeTests(unittest.TestCase):
             self.assertEqual(stats.written, 1)
             self.assertFalse(out.exists(),
                              "dry-run must not create the output dir")
+
+    def test_shifted_count_header_is_parsed_from_offset_96(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            pak = tdp / "shifted.pak"
+            _make_shifted_count_pak([
+                ("3.hfl", _make_dummy_hfl()),
+                ("note.bin", b"evidence"),
+            ], pak)
+            _, version, count, flag = unpack_pak.parse_pak(str(pak))
+            self.assertEqual((version, count, flag), (1, 2, 0))
+            self.assertEqual(unpack_pak.entry_start_offset(str(pak)), 96)
+            out = tdp / "out"
+            stats = unpack_pak.pak_extract(
+                str(pak), str(out), dry_run=False, write_manifest=True,
+                verify=True)
+            self.assertEqual(stats.parsed, 2)
+            self.assertEqual(stats.written, 2)
+            self.assertEqual((out / "note.bin").read_bytes(), b"evidence")
 
     def test_filter_only_writes_matching(self):
         with tempfile.TemporaryDirectory() as td:

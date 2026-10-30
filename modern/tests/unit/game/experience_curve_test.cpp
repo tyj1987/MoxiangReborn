@@ -46,6 +46,21 @@ TEST(ExperienceCurve, LoadsOneBasedRowsAndLegacyZeroLevel) {
     EXPECT_EQ(curve.max_exp_point(121), 1210u);
 }
 
+TEST(ExperienceCurve, ReviveLossPreservesLegacyDowngradeBoundary) {
+    const auto curve = mxh::game::ExperienceCurve::load_from_text(table_text());
+    auto result = curve.reduce_exp({3, 5}, 5);
+    EXPECT_EQ(result.level, 3);
+    EXPECT_EQ(result.exp_point, 0u);
+    result = curve.reduce_exp({3, 5}, 6);
+    EXPECT_EQ(result.level, 2);
+    EXPECT_EQ(result.exp_point, 18u); // Previous threshold 20 minus 1, then remaining loss 1.
+    result = curve.reduce_exp({1, 5}, 100);
+    EXPECT_EQ(result.level, 1);
+    EXPECT_EQ(result.exp_point, 0u);
+    EXPECT_THROW(curve.reduce_exp({0, 0}, 1), std::invalid_argument);
+    EXPECT_THROW(curve.reduce_exp({2, 0}, 100), std::out_of_range);
+}
+
 TEST(ExperienceCurve, RejectsShortOrNonSequentialTables) {
     EXPECT_THROW(mxh::game::ExperienceCurve::load_from_text("1 10\n2 20\n"), std::runtime_error);
     auto text = table_text();
@@ -183,6 +198,19 @@ TEST(ExperienceCurve, AddExpAtMaxLevelReturnsStateUnchanged) {
     const auto r = curve.add_exp({mxh::game::MAX_CHARACTER_LEVEL_NUM, 999}, 100);
     EXPECT_EQ(r.level, mxh::game::MAX_CHARACTER_LEVEL_NUM);
     EXPECT_EQ(r.exp_point, 999u);
+}
+TEST(ExperienceCurve, LastPlayableLevelSubtractsThresholdWithoutEnteringSentinel) {
+    const auto curve=mxh::game::ExperienceCurve::load_from_text(table_text());
+    const auto threshold=curve.max_exp_point(120);
+    const auto below=curve.add_exp({120,threshold-2},1);
+    EXPECT_EQ(below.level,120u);
+    EXPECT_EQ(below.exp_point,threshold-1);
+    const auto crossing=curve.add_exp(below,2);
+    EXPECT_EQ(crossing.level,120u);
+    EXPECT_EQ(crossing.exp_point,1u);
+    const auto prior=curve.add_exp({119,curve.max_exp_point(119)-1},2);
+    EXPECT_EQ(prior.level,120u);
+    EXPECT_EQ(prior.exp_point,1u);
 }
 TEST(ExperienceCurve, LoadsOriginalPlayDhBinaryWhenAvailable) {
     const auto path = playdh_exp_path();

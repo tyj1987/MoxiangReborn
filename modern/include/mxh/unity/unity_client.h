@@ -21,7 +21,7 @@
 extern "C" {
 #endif
 
-#define MXH_UNITY_API_VERSION UINT32_C(0x00010003)
+#define MXH_UNITY_API_VERSION UINT32_C(0x00010011)
 #define MXH_UNITY_MAX_HOST_BYTES UINT32_C(255)
 #define MXH_UNITY_MAX_CREDENTIAL_BYTES UINT32_C(17)
 #define MXH_UNITY_MAX_NAME_BYTES UINT32_C(64)
@@ -62,7 +62,8 @@ typedef enum mxh_unity_state {
     MXH_UNITY_STATE_IN_GAME = 8,
     MXH_UNITY_STATE_FAILED = 9,
     MXH_UNITY_STATE_SHUTTING_DOWN = 10,
-    MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE = 11
+    MXH_UNITY_STATE_AWAIT_CHARACTER_CREATE = 11,
+    MXH_UNITY_STATE_AWAIT_MAP_CHANGE = 12
 } mxh_unity_state;
 
 typedef enum mxh_unity_event_type {
@@ -88,6 +89,9 @@ typedef enum mxh_unity_event_type {
        wire payload verbatim, length = text_length. */
     MXH_UNITY_EVENT_TIMED_MOVEMENT_OBSERVER_STATE = 11
     ,MXH_UNITY_EVENT_MONSTER_ADDED = 12
+    /* Monster/NPC added: argument0=stable spawned object ID,
+       argument1=x|(z<<16), reserved0=visual kind. NPC kind is resolved through
+       NpcChxList.bin; monster kind is resolved through MonsterList.bin. */
     ,MXH_UNITY_EVENT_NPC_ADDED = 13
     ,MXH_UNITY_EVENT_ENTITY_REMOVED = 14
     /* Monster LifeNotify: argument0=object ID, argument1=current life. */
@@ -100,6 +104,69 @@ typedef enum mxh_unity_event_type {
     ,MXH_UNITY_EVENT_PICKUP_CONFIRMED = 18
     ,MXH_UNITY_EVENT_QUEST_UPDATED = 19
     ,MXH_UNITY_EVENT_CHAT_MESSAGE = 20
+    /* SpeechAck/Nack: argument0=NPC ID, result=OK/REJECTED. No wire request ID. */
+    ,MXH_UNITY_EVENT_NPC_RESPONSE = 21
+    /* Atomic-enqueue shop chunks: argument0=NPC ID, argument1=total entries,
+       reserved0=entry offset; text holds <=40 literal 6-byte LE item/price
+       records. Publish only after receiving all entries. Empty list: one
+       event with total=offset=text_length=0. */
+    ,MXH_UNITY_EVENT_SHOP_CATALOG = 22
+    /* BuyAck/Nack: argument0=item ID, argument1=quantity; request_id is the
+       single pending local command, matched against the echoed wire fields. */
+    ,MXH_UNITY_EVENT_BUY_RESPONSE = 23
+    /* ItemTotalInfo: argument0=player, argument1=124 slots, reserved0=slot
+       offset, text=up to 11 raw 22-byte ItemBase records in legacy order.
+       Complete batch must be assembled before replacing visible inventory. */
+    ,MXH_UNITY_EVENT_INVENTORY = 24
+    /* argument0=requested map, argument1=actual map; result=OK/REJECTED.
+       Emitted after accepted GameIn, or immediately on source-side rejection. */
+    ,MXH_UNITY_EVENT_MAP_CHANGE = 25
+    /* Raw admitted GameIn SHOPITEMOPTION, exact 120 bytes in text.
+       argument0=player id, argument1=wire schema (1). Receipt alone does not
+       prove that the server loaded persistent shop state. */
+    ,MXH_UNITY_EVENT_SHOP_APPEARANCE = 26
+    /* Legacy MP_ITEM_SHOPITEM_USEEND (106): argument0=shop item icon ID.
+       The server remains authoritative for removing its gameplay effects and
+       inventory record; this event is the player-facing expiry notification. */
+    ,MXH_UNITY_EVENT_SHOP_ITEM_USE_END = 27
+    /* Legacy MP_ITEM_SHOPITEM_ONEMINUTE (108): argument0=shop item icon ID. */
+    ,MXH_UNITY_EVENT_SHOP_ITEM_ONE_MINUTE = 28
+    /* Item UseAck/Nack: argument0=inventory position, argument1=item ID (zero
+       for Nack); request_id matches the single pending local command. Ack text
+       contains the exact 20-byte response and updates snapshot HP/MP. */
+    ,MXH_UNITY_EVENT_ITEM_USE_RESPONSE = 29
+    /* MoveAck/Nack: argument0=source position, argument1=target position;
+       request_id matches the one pending inventory/equipment move. */
+    ,MXH_UNITY_EVENT_ITEM_MOVE_RESPONSE = 30
+    /* SellAck/Nack: argument0=inventory position, argument1=item ID;
+       request_id matches the pending sale and reserved0 carries quantity. */
+    ,MXH_UNITY_EVENT_SELL_RESPONSE = 31
+    /* DiscardAck/Nack: argument0=inventory position; request_id matches the
+       pending destructive action. The request wire is exactly two bytes. */
+    ,MXH_UNITY_EVENT_DISCARD_RESPONSE = 32
+    /* Quest NpcTalk Ack/Nack: argument0=NPC index, argument1=quest id. */
+    ,MXH_UNITY_EVENT_QUEST_NPC_RESPONSE = 33
+    /* Server Skill SingleResult: argument0=target object, argument1=positive
+       damage (zero for miss/non-damage), reserved0=legacy hit result. */
+    ,MXH_UNITY_EVENT_SKILL_HIT = 34
+    /* Server Skill StartAck: argument0=caster, argument1=skill index,
+       request_id=server skill object ID. */
+    ,MXH_UNITY_EVENT_SKILL_RELEASE = 35
+    /* Original MP_CHAR_LIFE_ACK signed delta applied to the authoritative
+       snapshot: argument0=player, argument1=current life, reserved0=delta bits. */
+    ,MXH_UNITY_EVENT_PLAYER_LIFE = 36
+    /* Original MP_CHAR_SHIELD_ACK: argument0=player, reserved0=signed delta bits. */
+    ,MXH_UNITY_EVENT_PLAYER_SHIELD_DELTA = 37
+    /* CharacterDie: argument0=victim, argument1=attacker. */
+    ,MXH_UNITY_EVENT_PLAYER_DEATH = 38
+    /* Protection consumed: reserved0=109/110/150; argument0=item ID for
+       individual protection, remaining count (including zero) for combined. */
+    ,MXH_UNITY_EVENT_SHOP_PROTECTION = 39
+    /* NaeryukAck: argument0=player, argument1=current MP, reserved0=signed delta bits. */
+    ,MXH_UNITY_EVENT_PLAYER_MP = 40
+    /* MOVE_POS: argument0=revived player, argument1=packed uint16 x/z.
+       Does not set life; independent vitality messages remain authoritative. */
+    ,MXH_UNITY_EVENT_CHARACTER_REVIVE = 41
 } mxh_unity_event_type;
 
 typedef enum mxh_unity_command_type {
@@ -123,6 +190,29 @@ typedef enum mxh_unity_command_type {
     MXH_UNITY_COMMAND_PICKUP = 9,
     MXH_UNITY_COMMAND_QUEST = 10
     ,MXH_UNITY_COMMAND_CHAT = 11
+    /* NPC SpeechSyn: argument0=known NPC ID, argument1=0, no payload.
+       MapChange roles resolve the loaded catalog; missing catalog=NOT_READY. */
+    ,MXH_UNITY_COMMAND_NPC_INTERACT = 12
+    /* argument0=uint16 item ID, argument1=uint16 quantity, both nonzero. */
+    ,MXH_UNITY_COMMAND_BUY = 13
+    /* argument0=uint16 inventory position; argument1=payload_size=0. */
+    ,MXH_UNITY_COMMAND_USE_ITEM = 14
+    /* argument0=source, argument1=target in the legacy 0..89 inventory/worn
+       position space. The core serializes its authoritative ItemBase copy. */
+    ,MXH_UNITY_COMMAND_MOVE_ITEM = 15
+    /* argument0=inventory position; argument1=quantity|(dealer NPC << 16). */
+    ,MXH_UNITY_COMMAND_SELL = 16
+    /* argument0=carried inventory position; argument1=payload_size=0. */
+    ,MXH_UNITY_COMMAND_DISCARD_ITEM = 17
+    /* Legacy Quest NpcTalk: argument0=semantic NPC index, argument1=quest id. */
+    ,MXH_UNITY_COMMAND_QUEST_NPC_TALK = 18
+    /* Present-spot CharRevive protocol 0. Empty MSGBASE. Allowed only while
+       the authoritative local life snapshot is zero. Login and village
+       revival are separate server paths and are not selected here. */
+    ,MXH_UNITY_COMMAND_PRESENT_REVIVE = 19
+    /* Login-point CharRevive protocol 3. Empty MSGBASE. Same zero-life gate
+       as present-spot. The server chooses the shipped login coordinate. */
+    ,MXH_UNITY_COMMAND_LOGIN_REVIVE = 20
 } mxh_unity_command_type;
 
 #define MXH_UNITY_SKILL_PAYLOAD_SIZE UINT32_C(8)
@@ -230,6 +320,7 @@ typedef struct mxh_unity_game_snapshot {
     uint32_t mp;
     uint32_t max_mp;
     uint64_t experience;
+    uint64_t max_experience;
     uint32_t money;
     uint16_t gen_gol;
     uint16_t min_chub;
@@ -272,11 +363,11 @@ static_assert(sizeof(mxh_unity_extended_command) == 140,
               "mxh_unity_extended_command ABI changed");
 static_assert(sizeof(mxh_unity_character_slot) == 108,
               "mxh_unity_character_slot ABI changed");
-static_assert(sizeof(mxh_unity_game_snapshot) == 132,
+static_assert(sizeof(mxh_unity_game_snapshot) == 140,
               "mxh_unity_game_snapshot ABI changed");
 static_assert(sizeof(mxh_unity_event) == 320,
               "mxh_unity_event ABI changed");
-static_assert(sizeof(mxh_unity_snapshot) == 992,
+static_assert(sizeof(mxh_unity_snapshot) == 1000,
               "mxh_unity_snapshot ABI changed");
 static_assert(std::is_trivially_copyable_v<mxh_unity_connect_args> &&
               std::is_trivially_copyable_v<mxh_unity_command> &&
@@ -291,6 +382,11 @@ MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_create(
     mxh_unity_handle* out_handle);
 MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_destroy(
     mxh_unity_handle handle);
+/* Read an explicitly selected MapChange.bin before connecting. UTF-8 path,
+   1..4096 bytes, no embedded NUL. Caller owns bytes; no pointer is retained.
+   A failed load clears the prior catalog. Never changes original file bytes. */
+MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_load_map_routes(
+    mxh_unity_handle handle, const char* utf8_path, uint32_t path_length);
 MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_connect(
     mxh_unity_handle handle, const mxh_unity_connect_args* args);
 MXH_UNITY_API uint32_t MXH_UNITY_CALL mxh_unity_disconnect(

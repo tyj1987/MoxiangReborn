@@ -38,8 +38,7 @@
 //     PtIdxInComboList / SetMargin / GetComboText /
 //     SelectComboText / GetCurSelectedIdx / SetCurSelectedIdx
 //     / SetComboTextColor / SetOverImageScale. All 1:1 with
-//     legacy surface; the engine-side dispatch (cbWindowFunc +
-//     cWindowManager + cImage render) is stubbed.
+//     legacy surface; image and text rendering use the shared adapters.
 //
 // Modern-port simplifications (all documented in the .cpp file
 // header):
@@ -62,8 +61,8 @@
 // 4. **Render uses the shared adapters.** The dropdown list
 //    (top + middle + down sprites + per-item text + over-image
 //    on hover) is drawn through cImage and TextRender.
-// 5. **ActionEvent owns the local interaction state.** It
-//    toggles the list, tracks hover and commits the selected row.
+// 5. **ActionEvent owns local interaction state.** It toggles
+//    the list, tracks hover and commits the selected row.
 // 6. **Engine singletons stubbed.** cWindowManager->IsMouseOverUsed
 //    / IsMouseDownUsed / SetMouseOverUsed / SetMouseDownUsed
 //    are all no-op. The data-side state (select-idx / over-idx /

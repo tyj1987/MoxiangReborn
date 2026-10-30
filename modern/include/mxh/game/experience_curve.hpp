@@ -23,6 +23,7 @@ public:
     std::size_t size() const noexcept { return required_exp_.size(); }
     std::uint64_t max_exp_point(std::uint16_t level) const;
     ExperienceState add_exp(ExperienceState state, std::uint64_t amount) const;
+    ExperienceState reduce_exp(ExperienceState state, std::uint64_t amount) const;
 
 private:
     explicit ExperienceCurve(std::vector<std::uint64_t> required_exp)

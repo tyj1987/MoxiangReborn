@@ -71,9 +71,14 @@ BOOL __stdcall FilesystemFileStorage::Initialize(
     if (!std::filesystem::is_directory(root_)) return FALSE;
     packs_.clear();
     std::error_code ec;
+    std::vector<std::filesystem::path> pack_paths;
     for (const auto& item : std::filesystem::directory_iterator(root_, ec)) {
         if (!item.is_regular_file(ec) || item.path().extension() != ".pak") continue;
-        if (auto pack = mxh::compat::PackFile::open(item.path()))
+        pack_paths.push_back(item.path());
+    }
+    std::sort(pack_paths.begin(), pack_paths.end());
+    for (const auto& path : pack_paths) {
+        if (auto pack = mxh::compat::PackFile::open(path))
             packs_.push_back(std::move(pack));
     }
     return TRUE;
@@ -105,12 +110,6 @@ BOOL __stdcall FilesystemFileStorage::ExtractAllFiles() { return FALSE; }
 std::uint32_t __stdcall FilesystemFileStorage::ExtractAllFilesFromPackFile(void*) { return 0; }
 
 void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
-    const auto path = resolve(name);
-    if (!path.empty() && std::filesystem::is_regular_file(path)) {
-        auto* file = new OpenFile(path);
-        if (file->stream) return file;
-        delete file;
-    }
     if (!name || !*name) return nullptr;
     std::string normalized(name);
     std::replace(normalized.begin(), normalized.end(), '/', '\\');
@@ -119,6 +118,15 @@ void* __stdcall FilesystemFileStorage::FSOpenFile(char* name, std::uint32_t) {
         auto bytes = pack->read(normalized);
         if (bytes.empty() && basename != normalized) bytes = pack->read(basename);
         if (!bytes.empty()) return new OpenFile(std::move(bytes));
+    }
+    // Loose files are development overlays. Original PAK bytes win whenever
+    // both sources expose the same logical name; explicit Unity source
+    // selections handle remaster derivation separately.
+    const auto path = resolve(name);
+    if (!path.empty() && std::filesystem::is_regular_file(path)) {
+        auto* file = new OpenFile(path);
+        if (file->stream) return file;
+        delete file;
     }
     return nullptr;
 }

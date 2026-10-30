@@ -1,0 +1,21 @@
+{
+  "schema": "moxiang.blender-export-receipt.v1",
+  "generated_utc": "2026-09-28T02:47:44.147612+00:00",
+  "asset_id": "MX_ENV_WUGUAN_DAIS_4M_001",
+  "category": "Environment",
+  "source_file": "MX_ENV_WUGUAN_KIT_001.blend",
+  "source_sha256": "9b43fb32590dc1e97696e4baa5aee0e98fecb17e33e15c614c9f15e0bbc17938",
+  "export_file": "MX_ENV_WUGUAN_DAIS_4M_001.fbx",
+  "export_sha256": "a7441d5406b630ed2e0c4b568ad7048cc0b6db3f9a4bcb54c3458a058f1ce1da",
+  "blender_version": "5.2.1 LTS",
+  "scale_meters": 1.0,
+  "forward_axis": "-Z",
+  "up_axis": "Y",
+  "objects": [
+    "MX_ENV_WUGUAN_DAIS_4M_001",
+    "MX_ENV_WUGUAN_DAIS_4M_001__PLATFORM",
+    "MX_ENV_WUGUAN_DAIS_4M_001__STEP_1",
+    "MX_ENV_WUGUAN_DAIS_4M_001__STEP_2",
+    "MX_ENV_WUGUAN_DAIS_4M_001__STONE_PLINTH"
+  ]
+}

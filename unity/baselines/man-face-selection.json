@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "profileId": "unity-remaster-v1",
+  "releaseReady": false,
+  "sourceFile": "modern/data/PlayDH/Resource/Client/FaceList_M.bin",
+  "sourceSha256": "7234f94ebfffce101cd123fd9faec1c7ee0c1156c6893e77ea8df3eeb5300cdb",
+  "parser": "mxh::compat::CharacterAppearanceCatalog::parse_part_list_bin",
+  "faces": ["M_face01.MOD", "M_face02.MOD", "M_face03.MOD", "M_face04.MOD", "M_face05.MOD"],
+  "previewFaceType": 0,
+  "attachmentNode": "Bip01 Head",
+  "sourceRule": "reference/legacy-source/4dddd9a6/[Client]MH/AppearanceManager.cpp:796-802",
+  "limitations": "Preview selects type 0. Runtime selection from server appearance and import of other face types remain incomplete."
+}

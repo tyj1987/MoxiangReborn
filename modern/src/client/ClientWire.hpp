@@ -81,6 +81,7 @@ struct GameInInfo {
     // Legacy EXPTYPE is 64-bit (the production Map DB path uses _atoi64 and
     // %I64d), and HERO_TOTALINFO carries all eight bytes on the wire.
     std::uint64_t exp = 0;
+    std::uint64_t max_exp = 0;
     std::uint32_t money = 0;
     std::uint8_t gender = 0;
     std::uint8_t face_type = 0;

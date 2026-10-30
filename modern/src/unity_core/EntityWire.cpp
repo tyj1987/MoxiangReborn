@@ -73,6 +73,29 @@ mxh::net::Message make_quest_message(std::uint32_t player_id,
     return message;
 }
 
+mxh::net::Message make_quest_npc_talk_message(std::uint32_t player_id,
+                                              std::uint16_t npc_index,
+                                              std::uint16_t quest_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Quest);
+    message.header.protocol = static_cast<std::uint8_t>(mxh::proto::QuestProtocol::NpcTalk);
+    message.header.object_id = player_id;
+    message.payload = {
+        static_cast<std::uint8_t>(npc_index), static_cast<std::uint8_t>(npc_index >> 8),
+        static_cast<std::uint8_t>(quest_id), static_cast<std::uint8_t>(quest_id >> 8)};
+    return message;
+}
+
+std::optional<QuestNpcTalkResponse> parse_quest_npc_talk_response(
+    std::span<const std::uint8_t> payload) noexcept {
+    if (payload.size() < 4u) return std::nullopt;
+    QuestNpcTalkResponse response;
+    response.npc_index = static_cast<std::uint16_t>(payload[0] | (payload[1] << 8));
+    response.quest_id = static_cast<std::uint16_t>(payload[2] | (payload[3] << 8));
+    if (response.npc_index == 0u || response.quest_id == 0u) return std::nullopt;
+    return response;
+}
+
 mxh::net::Message make_chat_message(std::uint32_t player_id, const std::string& text) {
     mxh::net::Message message;
     message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Chat);

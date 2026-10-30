@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -35,6 +36,10 @@ public:
 
     [[nodiscard]] bool push(ClientRuntimeEvent event);
     [[nodiscard]] std::vector<ClientRuntimeEvent> drain();
+    // Predicate runs under the queue lock: it must not block or access this queue.
+    // A rejected head remains in place, preserving FIFO and the capacity bound.
+    [[nodiscard]] bool try_pop(ClientRuntimeEvent& event,
+        const std::function<bool(const ClientRuntimeEvent&)>& ready);
     [[nodiscard]] std::size_t size() const;
     [[nodiscard]] std::uint64_t dropped_count() const;
     void clear();
