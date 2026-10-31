@@ -62,6 +62,7 @@
 #   下一条是 deploy_client.ps1 在未设置 MXH_PLAYDH_ROOT 且未给 -ResourceDir 时必须失败。
 #   用例名是 PLAYDH_ROOT_CASE，不使用 rog 标签。
 #   客户端 ServerPort 用例核对 -SyntheticPackage 生成的登录端口，只写临时目录，不监听、不连接。
+#   windows-client-compile 的 paths 也包含 deploy_client.ps1 和该测试，打包改动仍跑警告门禁。
 # - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
 # - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
 #   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。

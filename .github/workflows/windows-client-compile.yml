@@ -97,6 +97,8 @@ on:
       - scripts/playdh_external_only.py
       - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
+      - deploy/scripts/deploy_client.ps1
+      - scripts/tests/test-deploy-client-serverport.ps1
 
 permissions:
   contents: read
