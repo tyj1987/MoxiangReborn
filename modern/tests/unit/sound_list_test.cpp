@@ -1,11 +1,21 @@
+#include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/compat/sound_list.hpp"
 
 #include <gtest/gtest.h>
 
-#include <cstdlib>
-#include <filesystem>
 #include <string>
-#include "../support/playdh_env.hpp"
+#include "../support/rog_playdh.hpp"
+#include "../support/synthetic_fixture.hpp"
+
+namespace {
+
+const std::string kHandWrittenSoundList =
+    "3\r\n"
+    "0 fx/tap.wav 0 0 2 90 1\r\n"
+    "1 NULL.WAV 0 0 0 0 0\r\n"
+    "2 bgm/theme.mp3 1 1 12 600 0.5\r\n";
+
+}  // namespace
 
 TEST(SoundList, ParsesLegacyFieldsAndNullSentinel) {
     const std::string payload =
@@ -32,26 +42,31 @@ TEST(SoundList, RejectsNonSequentialIndex) {
         {reinterpret_cast<const std::uint8_t*>(payload.data()), payload.size()}, list));
 }
 
+TEST(SoundList, LoadsHandWrittenEncryptedBin) {
+    mxh::test::SyntheticFixtureDir dir;
+    ASSERT_TRUE(dir.created());
+    const auto path = dir.write_bytes("SoundList.bin", "x");
+    ASSERT_FALSE(path.empty());
+    const auto written = mxh::compat::write_mh_bin(
+        path, {reinterpret_cast<const std::uint8_t*>(kHandWrittenSoundList.data()),
+               kHandWrittenSoundList.size()});
+    ASSERT_EQ(written, mxh::compat::MhError::Ok) << path.string();
+    mxh::compat::SoundList list;
+    std::string error;
+    ASSERT_TRUE(mxh::compat::load_sound_list(path, list, &error)) << error;
+    ASSERT_EQ(list.entries.size(), 3u);
+    EXPECT_EQ(list.entries[0].file_name, "fx/tap.wav");
+    EXPECT_FALSE(list.entries[0].streaming);
+    EXPECT_TRUE(list.entries[0].available);
+    EXPECT_FALSE(list.entries[1].available);
+    EXPECT_EQ(list.entries[2].file_name, "bgm/theme.mp3");
+    EXPECT_TRUE(list.entries[2].streaming);
+    EXPECT_EQ(list.entries[2].index, 2u);
+}
+
 TEST(SoundList, LoadsRealPlayDhSoundListWhenAvailable) {
-    std::filesystem::path path;
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
-        path = *playdh_override / "Sound" / "SoundList.bin";
-    }
-    auto root = std::filesystem::current_path();
-    for (int level = 0; path.empty() && level < 8; ++level) {
-        for (const auto& first : std::filesystem::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto direct = first.path() / "PlayDH" / "Sound" / "SoundList.bin";
-            if (std::filesystem::exists(direct)) { path = direct; break; }
-            const auto nested = first.path() / "Sound" / "SoundList.bin";
-            if (first.path().filename() == "PlayDH" && std::filesystem::exists(nested)) {
-                path = nested; break;
-            }
-        }
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
-    }
-    if (path.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto root = mxh::test::require_rog_playdh_root();
+    const auto path = root / "Sound" / "SoundList.bin";
     mxh::compat::SoundList list;
     std::string error;
     ASSERT_TRUE(mxh::compat::load_sound_list(path, list, &error)) << error;
