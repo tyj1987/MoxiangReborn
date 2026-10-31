@@ -268,8 +268,8 @@ cxx_resource_reference_linux:
 # Kept in sync with the GitHub job of the same name. Same image digest as
 # .linux_trusted. Downloads pinned gitleaks 8.30.1, verifies sha256, and runs
 # gitleaks dir on the checkout. GIT_LFS_SKIP_SMUDGE stays 1. No :latest image.
-# Before the scan, print Titan.pak byte size and whether it is an LFS pointer.
-# A non-pointer file does not have its contents printed.
+# Tracked *.pak files that are not Git LFS pointers print
+# NON_LFS_PAK <path> bytes=<n> and fail the job. File contents are not printed.
 gitleaks_tree_scan:
   extends: .linux_trusted
   stage: verify
@@ -301,23 +301,11 @@ gitleaks_tree_scan:
       PY
       tar -xzf "${tarball}" -C "${gitleaks_dir}"
       chmod +x "${gitleaks_dir}/gitleaks"
-      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml
-      python3 - <<'PY'
-      import pathlib
-      pak = pathlib.Path("modern/data/PlayDH/Titan.pak")
-      if not pak.is_file():
-          print("TITAN_PAK missing")
-      else:
-          size = pak.stat().st_size
-          prefix = pak.read_bytes()[:80]
-          marker = b"version https://git-lfs.github.com/spec/v1"
-          if prefix.startswith(marker):
-              print(f"TITAN_PAK pointer bytes={size}")
-              print("TITAN_PAK first-line: version https://git-lfs.github.com/spec/v1")
-          else:
-              print(f"TITAN_PAK not-a-pointer bytes={size}")
-      PY
-      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan .
+      status=0
+      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml || status=1
+      python3 scripts/gitleaks-selftest.py --check-paks . || status=1
+      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan . || status=1
+      exit "$status"
 
 original_lfs_integrity:
   extends: .linux_trusted

@@ -110,13 +110,6 @@ paths = ['''(?:^|/)reference/manifests/ui-header-duplicates-2026-08-25\.txt$''']
 regexTarget = "line"
 regexes = ['''(?m)^".+","[0-9A-F]{64}"\s*$''']
 
-# CI with GIT_LFS_SKIP_SMUDGE=1 still checks out Titan.pak as a full blob:
-# TITAN_PAK not-a-pointer bytes=28109888, and aws-access-token matched inside it.
-# Skip only *.pak under modern/data/PlayDH. Text files are not skipped.
-[[allowlists]]
-description = "Binary PlayDH pak archives. Not LFS pointers in this checkout, so the scan was reading archive bytes."
-paths = ['''(?:^|/)modern/data/PlayDH/.+\.pak$''']
-
 [[allowlists]]
 description = "Synthetic samples written by the self-test. The literals are example-not-a-key, the 0x00..0x07 sequence, and the two password placeholders."
 targetRules = ["python-byte-literal-key", "python-named-byte-array", "cpp-key-byte-array", "parser-file-key-table", "hardcoded-password-literal"]
