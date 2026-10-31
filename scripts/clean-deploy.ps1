@@ -1250,25 +1250,25 @@ function Invoke-CleanDeploySelfTestCases {
     Assert-CleanDeploySelfTest -Name "refusing to write the supplemental pak under D:\MX" -Condition ((-not $forbidden.Result.Ok) -and ($forbiddenText.Contains("[ERROR] refusing to write supplemental pak under D:\MX")))
     Assert-CleanDeploySelfTest -Name "D:\MX refusal does not create the pak" -Condition (-not (Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"))
 
-    $validNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "zz_supplement.pak")
+    $validNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "synth-c.pak", "zz_supplement.pak")
     $validLine = Format-CleanDeploySelfTestMountLine -Names $validNames
     $validResult = Test-CleanDeploySupplementMountOrder -LogText $validLine
     Assert-CleanDeploySelfTest -Name "valid 8-pak mount order passes" -Condition $validResult.Ok
     Assert-CleanDeploySelfTest -Name "valid 8-pak mount order prints the 8-pak info line" -Condition ($validResult.Lines -contains "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak")
 
-    $sevenNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak")
+    $sevenNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak")
     $sevenResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $sevenNames)
     Assert-CleanDeploySelfTest -Name "7-pak mount order is an error" -Condition ((-not $sevenResult.Ok) -and ($sevenResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
 
-    $nineNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "extra.pak", "zz_supplement.pak")
+    $nineNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "synth-c.pak", "extra.pak", "zz_supplement.pak")
     $nineResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $nineNames)
     Assert-CleanDeploySelfTest -Name "9-pak mount order is an error" -Condition ((-not $nineResult.Ok) -and ($nineResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
 
-    $dupNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "zz_supplement.pak")
+    $dupNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak", "zz_supplement.pak")
     $dupResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $dupNames)
     Assert-CleanDeploySelfTest -Name "duplicated zz_supplement.pak is an error" -Condition ((-not $dupResult.Ok) -and ($dupResult.Lines -contains "[ERROR] [pak] mount order must include zz_supplement.pak exactly once"))
 
-    $notLastNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "Titan.pak")
+    $notLastNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak", "synth-c.pak")
     $notLastResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $notLastNames)
     Assert-CleanDeploySelfTest -Name "zz_supplement.pak not last is an error" -Condition ((-not $notLastResult.Ok) -and ($notLastResult.Lines -contains "[ERROR] [pak] mount order must end with zz_supplement.pak"))
 

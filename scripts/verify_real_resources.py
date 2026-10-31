@@ -11,7 +11,20 @@ import sys
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parents[1]
-RES = WORKSPACE / "modern" / "data" / "PlayDH"
+_root_text = os.environ.get("MXH_PLAYDH_ROOT", "").strip()
+if not _root_text:
+    print(
+        "ERROR: MXH_PLAYDH_ROOT is unset; this rog check does not read the repo tree",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+RES = Path(_root_text)
+if not RES.is_dir():
+    print(
+        "ERROR: MXH_PLAYDH_ROOT is not a directory: %s" % RES,
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def find_explorer() -> Path:

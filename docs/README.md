@@ -1,6 +1,7 @@
 # Moxian-Reborn 文档
 
 - [RESOURCE_FORMATS.md](RESOURCE_FORMATS.md)：资源格式与真实样本约束。
+- [ROG_QUEUE.md](ROG_QUEUE.md)：ROG 只读复核（跳过不是通过）。
 - [formats/pak.md](formats/pak.md)：`.pak` 的两种包头和条目布局。
 - [MoxianProtocolDoc.md](MoxianProtocolDoc.md)：网络协议说明。
 - [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md)：数据库 schema 与后端差异。
