@@ -97,6 +97,14 @@ inline constexpr char kMxhPython[] = R\"p(${MXH_PYTHON})p\";
 ")
 gtest_add_tests(TARGET mxh_protocol_hash_tests)
 
+# Login Item-protocol gate. Header-only decision and nack text. Synthetic
+# hashes only; the generated protocol hash is not an input.
+add_executable(mxh_login_protocol_gate_tests login_protocol_gate_test.cpp)
+target_include_directories(mxh_login_protocol_gate_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_login_protocol_gate_tests PRIVATE gtest_main)
+target_compile_features(mxh_login_protocol_gate_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_login_protocol_gate_tests)
+
 # Audio decisions shared with the Windows playback path. Header-only.
 # Synthetic inputs only: no PlayDH, no pak, no SoundList.bin.
 add_executable(mxh_audio_contract_tests audio_contract_test.cpp)
