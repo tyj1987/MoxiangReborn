@@ -268,12 +268,12 @@ TEST(InGameEffects, ConfirmedSkillMessagesProduceDeterministicTimeline) {
     result.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::SkillProtocol::SingleResult);
     result.header.object_id = 90001u;
-    result.payload.resize(9);
+    result.payload.resize(13);
     const std::uint32_t target = 50001u;
     const std::int32_t damage = 123;
     std::memcpy(result.payload.data(), &target, sizeof(target));
     std::memcpy(result.payload.data() + 4, &damage, sizeof(damage));
-    result.payload[8] = 1u;
+    result.payload[12] = 1u;
     state.on_message({}, result);
 
     ASSERT_EQ(state.effect_events().size(), 3u);

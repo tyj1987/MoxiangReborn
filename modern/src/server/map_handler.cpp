@@ -1249,7 +1249,8 @@ void MapHandler::load_experience_curve(const std::string& path) {
 std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
     std::uint32_t attacker_player_id,
     std::uint32_t monster_object_id,
-    std::uint32_t damage,
+    std::uint32_t life_damage,
+    std::uint32_t shield_damage,
     std::uint32_t rng_value,
     OriginalVitalsCommitState* award_state) {
     if (award_state) *award_state = OriginalVitalsCommitState::KnownNotCommitted;
@@ -1264,19 +1265,18 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             return monster.object_id == monster_object_id;
         });
         if (monster_it == monsters_.end() || monster_it->is_dead) return std::nullopt;
-        if (damage == 0u) {
+        if (life_damage == 0u && shield_damage == 0u) {
             if (award_state) *award_state = OriginalVitalsCommitState::Committed;
             return std::nullopt;
         }
 
         updated_monster = *monster_it;
-        // Monster shields absorb damage before life, matching the player
-        // vitals path and the wire snapshot sent to the client.  Keeping the
-        // shield intact while reducing life made lethal/drop timing diverge
-        // from the original combat contract.
-        const auto shield_damage = std::min(damage, updated_monster.current_shield);
-        updated_monster.current_shield -= shield_damage;
-        const auto life_damage = damage - shield_damage;
+        // CObject::CalcShieldDamage (Object.cpp:525-533) already decided
+        // the shield removal. Cap here so a stale caller cannot drive the
+        // shield below zero. Life is RESULTINFO::RealDamage and is applied
+        // on the same hit, including while shield remains.
+        const auto absorbed = std::min(shield_damage, updated_monster.current_shield);
+        updated_monster.current_shield -= absorbed;
         updated_monster.current_life = life_damage >= updated_monster.current_life
             ? 0u : updated_monster.current_life - life_damage;
         if (updated_monster.current_life == 0u) {
@@ -4697,7 +4697,10 @@ void MapHandler::tick_monster_ai() {
         // published from the quarantined session.
         if (!may_publish) continue;
         broadcast_skill_object_add(0, attack.skill, attack.monster_id);
-        send_skill_single_result(attack.player_id, attack.player_id, -attack.life_delta, 1);
+        send_skill_single_result(attack.player_id, attack.player_id,
+            -attack.life_delta,
+            static_cast<std::uint32_t>(attack.shield_delta < 0 ? -attack.shield_delta : 0),
+            1);
         if (attack.shield_delta != 0) {
             mxh::net::Message shield;
             shield.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Character);
@@ -5258,18 +5261,24 @@ void MapHandler::broadcast_skill_object_remove(
 void MapHandler::send_skill_single_result(
     std::uint32_t target_player_id,
     std::uint32_t target_id,
-    std::int32_t damage,
+    std::int32_t real_damage,
+    std::uint32_t shield_damage,
     std::uint8_t hit_result) {
-    // MP_SKILL_SINGLE_RESULT payload: [target_id:u32][damage:i32][hit_result:u8]
+    // MP_SKILL_SKILL_SINGLE_RESULT carries RESULTINFO, not one total.
+    // RealDamage is the life portion (Object.cpp:499). ShieldDamage is
+    // the CalcShieldDamage out-param (AttackManager.cpp:124, Object.cpp:523).
+    // The client copies both via GetTargetData (SkillObjectSingleUnit_Attack.cpp:125).
+    // Payload: [target_id:u32][RealDamage:i32][ShieldDamage:u32][hit_result:u8]
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::SkillProtocol::SingleResult);
     msg.header.object_id = target_id;
-    msg.payload.resize(9);
+    msg.payload.resize(13);
     std::uint8_t* p = msg.payload.data();
     std::memcpy(p, &target_id, 4); p += 4;
-    std::memcpy(p, &damage, 4); p += 4;
+    std::memcpy(p, &real_damage, 4); p += 4;
+    std::memcpy(p, &shield_damage, 4); p += 4;
     std::memcpy(p, &hit_result, 1);
 
     // Send to the target player's connection
@@ -5568,6 +5577,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             if (revisioned_caster) {
                 mxh::game::PlayerCombatStats monster_stats;
                 bool monster_found = false;
+                std::uint32_t monster_shield = 0;
                 {
                     std::lock_guard<std::mutex> monster_lock(monsters_mu_);
                     const auto monster = std::find_if(monsters_.begin(), monsters_.end(),
@@ -5579,6 +5589,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                         monster_stats.max_hp = monster->max_life;
                         monster_stats.current_hp = monster->current_life;
                         monster_stats.phy_defence = monster->defense;
+                        monster_shield = monster->current_shield;
                         monster_found = true;
                     }
                 }
@@ -5587,19 +5598,22 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                     break;  // MP was committed; no second cast in this session.
                 }
                 const auto dmg = mxh::server::skill_caster_calculate_monster_damage(
-                    caster->combat, monster_stats, *skill, skill_damage_rng_);
-                const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
+                    caster->combat, monster_stats, *skill, skill_damage_rng_,
+                    monster_shield);
+                const auto life_damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
                 std::cout << "[Map] revisioned skill damage caster=" << caster_id
                           << " target=" << main_target
                           << " skill=" << skill_idx
                           << " attack=" << caster->combat.phy_attack_min << "-"
                           << caster->combat.phy_attack_max
                           << " defence=" << monster_stats.phy_defence
-                          << " damage=" << damage << " hit=" << dmg.hit_result << "\n";
+                          << " life=" << life_damage
+                          << " shield=" << dmg.shield_damage
+                          << " hit=" << dmg.hit_result << "\n";
                 static thread_local std::mt19937 drop_rng(std::random_device{}());
                 OriginalVitalsCommitState reward_result = OriginalVitalsCommitState::KnownNotCommitted;
-                (void)apply_monster_damage(caster_id, main_target, damage,
-                    drop_rng(), &reward_result);
+                (void)apply_monster_damage(caster_id, main_target, life_damage,
+                    dmg.shield_absorbed, drop_rng(), &reward_result);
                 if (reward_result != OriginalVitalsCommitState::Committed) {
                     // The MP spend committed, but this cast never acquired a
                     // monster result. A known failure gets a Nack and its
@@ -5684,6 +5698,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
             if (revisioned_monster_damage) {
                 send_skill_single_result(caster_id, main_target,
                     revisioned_monster_damage->damage,
+                    revisioned_monster_damage->shield_damage,
                     revisioned_monster_damage->hit_result);
             } else if (main_target != 0 &&
                        (simple.skill_kind == mxh::game::SkillKind::Combo ||
@@ -5701,26 +5716,33 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 if (target) {
                     auto dmg = calculate_damage(caster->combat, target->combat,
                                                *skill);
+                    std::uint32_t life_sent = 0;
+                    std::uint32_t shield_sent = 0;
                     {
                         std::lock_guard<std::mutex> state_lock(players_mu_);
                         auto runtime_it = player_runtimes_.find(main_target);
                         if (runtime_it != player_runtimes_.end()) {
-                            runtime_it->second.actor.apply_damage(
+                            const auto applied = runtime_it->second.actor.apply_damage(
                                 static_cast<std::uint32_t>(std::max(0, dmg.damage)));
+                            life_sent = applied.life_damage;
+                            shield_sent = applied.shield_damage;
                             target->combat.current_hp = runtime_it->second.actor.state().vitals.current_hp;
                         } else {
                             const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
+                            life_sent = damage;
                             target->combat.current_hp = target->combat.current_hp > damage
                                 ? target->combat.current_hp - damage : 0u;
                         }
                     }
                     // Send SingleResult to target
                     send_skill_single_result(main_target, main_target,
-                                            dmg.damage, dmg.hit_result);
+                                            static_cast<std::int32_t>(life_sent),
+                                            shield_sent, dmg.hit_result);
 
                     // Also send to caster for display
                     send_skill_single_result(caster_id, main_target,
-                                            dmg.damage, dmg.hit_result);
+                                            static_cast<std::int32_t>(life_sent),
+                                            shield_sent, dmg.hit_result);
 
                     std::cout << "[Map] Skill damage: " << dmg.damage
                               << " hit=" << (int)dmg.hit_result
@@ -5729,6 +5751,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                 } else {
                     mxh::game::PlayerCombatStats monster_stats;
                     bool monster_found = false;
+                    std::uint32_t monster_shield = 0;
                     {
                         std::lock_guard<std::mutex> monster_lock(monsters_mu_);
                         const auto monster_it = std::find_if(monsters_.begin(), monsters_.end(), [&](const auto& monster) {
@@ -5739,16 +5762,20 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                             monster_stats.max_hp = monster_it->max_life;
                             monster_stats.current_hp = monster_it->current_life;
                             monster_stats.phy_defence = monster_it->defense;
+                            monster_shield = monster_it->current_shield;
                             monster_found = true;
                         }
                     }
                     if (monster_found) {
                         const auto dmg = mxh::server::skill_caster_calculate_monster_damage(
-                            caster->combat, monster_stats, *skill, skill_damage_rng_);
-                        const auto damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
+                            caster->combat, monster_stats, *skill, skill_damage_rng_,
+                            monster_shield);
+                        const auto life_damage = static_cast<std::uint32_t>(std::max(0, dmg.damage));
                         static thread_local std::mt19937 drop_rng(std::random_device{}());
-                        apply_monster_damage(caster_id, main_target, damage, drop_rng());
-                        send_skill_single_result(caster_id, main_target, dmg.damage, dmg.hit_result);
+                        apply_monster_damage(caster_id, main_target, life_damage,
+                            dmg.shield_absorbed, drop_rng());
+                        send_skill_single_result(caster_id, main_target, dmg.damage,
+                            dmg.shield_damage, dmg.hit_result);
                     } else {
                         std::cout << "[Map] Skill target " << main_target
                                   << " not found\n";
@@ -5778,7 +5805,7 @@ void MapHandler::handle_skill(mxh::net::ConnectionId id,
                                     target->combat.current_hp + static_cast<std::uint32_t>(std::max(0, heal)));
                             }
                         }                        send_skill_single_result(main_target, main_target,
-                                                -heal, 1);  // negative = heal
+                                                -heal, 0u, 1);  // negative = heal
                         std::cout << "[Map] Skill heal: " << heal
                                   << " target_hp=" << target->combat.current_hp
                                   << "\n";

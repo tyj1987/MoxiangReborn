@@ -119,13 +119,30 @@ mxh::game::DamageResult skill_caster_calculate_damage(
     const mxh::game::SkillInfo& skill,
     std::mt19937& rng) noexcept;
 
-// Player-versus-monster damage uses the original AttackCalc defence curve.
-// It is kept separate from the historical player/PvP helper above because
-// the latter's subtractive contract is part of the existing wire tests.
+// KR/CN CAttackManager shield split, monster (CObject) branch.
+// shield_ratio is SHIELD_COMBO_DAMAGE (0.5f) or SHIELD_OUT_MUGONG_DAMAGE (0.7f).
+// AttackManager.cpp:119-140 / 253-274 and Object.cpp:520-534.
+struct OriginalMonsterPhysicalHit {
+    std::uint32_t real_damage = 0;
+    std::uint32_t shield_damage = 0;
+    std::uint32_t shield_absorbed = 0;
+};
+
+OriginalMonsterPhysicalHit original_monster_physical_split(
+    double pre_defence_attack,
+    float shield_ratio,
+    std::uint32_t current_shield,
+    double defence_level) noexcept;
+
+// Player-versus-monster damage. Combo uses the 0.5 shield ratio; outer and
+// inner mugong use 0.7. `target_shield` is the monster's current shield.
+// `damage` is RESULTINFO::RealDamage (life). `shield_damage` is the
+// reported ShieldDamage out-param. `shield_absorbed` is what leaves the shield.
 mxh::game::DamageResult skill_caster_calculate_monster_damage(
     const mxh::game::PlayerCombatStats& attacker,
     const mxh::game::PlayerCombatStats& defender,
     const mxh::game::SkillInfo& skill,
-    std::mt19937& rng) noexcept;
+    std::mt19937& rng,
+    std::uint32_t target_shield = 0u) noexcept;
 
 }  // namespace mxh::server

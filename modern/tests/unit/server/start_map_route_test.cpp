@@ -298,49 +298,222 @@ TEST(StartAreaRoute, Level1StarterGearDamagesMap17MonsterAfterShield) {
 
     std::mt19937 rng(156u);
     mxh::game::SkillInfo skill{};
-    bool life_dropped_after_shield = false;
-    for (int guard = 0; guard < 100000; ++guard) {
+    // Intentional: life falls on the same hit that still leaves shield.
+    // CAttackManager::GetComboPhyDamage (AttackManager.cpp:120-140) and
+    // GetMugongPhyDamage (AttackManager.cpp:253-274) subtract only
+    // CObject::CalcShieldDamage's return (Object.cpp:520-534) and then
+    // floor the defended remainder at 1. The old assertion required life
+    // to stay unchanged while shield remained.
+    bool life_dropped_while_shield_remains = false;
+    bool life_dropped = false;
+    for (int guard = 0; guard < 8; ++guard) {
         const auto before = map.monster_vitals_for_test(monster.object_id);
         ASSERT_TRUE(before);
         if (before->dead || before->life == 0u) break;
         const auto rolled = mxh::server::skill_caster_calculate_monster_damage(
-            attacker, monster_stats, skill, rng);
+            attacker, monster_stats, skill, rng, before->shield);
         ASSERT_GT(rolled.damage, 0) << "kind=" << visual->kind
                                     << " defense=" << visual->defense
                                     << " shield=" << visual->shield
                                     << " life=" << visual->life;
         (void)map.apply_monster_damage(1u, monster.object_id,
-            static_cast<std::uint32_t>(rolled.damage), static_cast<std::uint32_t>(guard));
+            static_cast<std::uint32_t>(rolled.damage), rolled.shield_absorbed,
+            static_cast<std::uint32_t>(guard));
         const auto after = map.monster_vitals_for_test(monster.object_id);
         ASSERT_TRUE(after);
-        if (before->shield == 0u) {
-            EXPECT_LT(after->life, before->life);
-            life_dropped_after_shield = after->life < before->life;
-            break;
-        }
-        if (after->shield > 0u) {
-            EXPECT_EQ(after->life, before->life);
-            continue;
-        }
-        if (after->life < before->life) {
-            life_dropped_after_shield = true;
-            break;
-        }
-        const auto next = mxh::server::skill_caster_calculate_monster_damage(
-            attacker, monster_stats, skill, rng);
-        ASSERT_GT(next.damage, 0);
-        (void)map.apply_monster_damage(1u, monster.object_id,
-            static_cast<std::uint32_t>(next.damage), static_cast<std::uint32_t>(guard));
-        const auto later = map.monster_vitals_for_test(monster.object_id);
-        ASSERT_TRUE(later);
-        EXPECT_LT(later->life, after->life);
-        life_dropped_after_shield = later->life < after->life;
+        EXPECT_LT(after->life, before->life);
+        EXPECT_GE(before->life - after->life, 1u);
+        life_dropped = after->life < before->life;
+        if (before->shield > 0u && after->life < before->life)
+            life_dropped_while_shield_remains = true;
         break;
     }
-    EXPECT_TRUE(life_dropped_after_shield) << "kind=" << visual->kind
-                                           << " defense=" << visual->defense
-                                           << " shield=" << visual->shield
-                                           << " life=" << visual->life
-                                           << " attack=" << attacker.phy_attack_min
-                                           << "-" << attacker.phy_attack_max;
+    EXPECT_TRUE(life_dropped) << "kind=" << visual->kind
+                              << " defense=" << visual->defense
+                              << " shield=" << visual->shield
+                              << " life=" << visual->life
+                              << " attack=" << attacker.phy_attack_min
+                              << "-" << attacker.phy_attack_max;
+    if (visual->shield > 0u)
+        EXPECT_TRUE(life_dropped_while_shield_remains);
+}
+
+// TYJ-156 Map10 half. Kind 102 鬼吊 from MonsterList.bin column 18:
+// level 59, life 6150, table shield 2294, defence 541. Per-hit life
+// decrease only; this row is not a kill target. The sword matches the
+// synthetic template in PlayerEquipmentStats (attack 29-35). Values only.
+TEST(Map10FirstCombat, Level1StarterHitReducesLifeByOriginalSplit) {
+    mxh::game::ItemInfo sword;
+    sword.ItemIdx = 11000;
+    sword.ItemKind = 2049;
+    sword.EquipKind = mxh::game::WEARED_WEAPON;
+    sword.WeaponType = 1;
+    sword.MeleeAttackMin = 13;
+    sword.MeleeAttackMax = 17;
+    sword.LimitLevel = 1;
+    const auto lookup = [&](std::uint16_t id, mxh::game::ItemInfo& out) {
+        if (id != sword.ItemIdx) return false;
+        out = sword;
+        return true;
+    };
+    mxh::server::CalcBaseStats base;
+    base.gengol = base.minchub = base.cheryuk = base.simmek = 12;
+    auto state = mxh::server::make_player_state(1, 1, 1, base, {});
+    state.equipment.items[mxh::game::WEARED_WEAPON] = mxh::game::make_item(
+        101u, sword.ItemIdx, mxh::game::TP_WEAREDITEM_START + mxh::game::WEARED_WEAPON);
+    mxh::game::PlayerCombatStats attacker;
+    ASSERT_TRUE(mxh::server::rebuild_equipment_stats(state, attacker, lookup));
+    EXPECT_EQ(attacker.phy_attack_min, 29u);
+    EXPECT_EQ(attacker.phy_attack_max, 35u);
+    attacker.level = 1;
+    attacker.critical_rate = 0;
+    attacker.dodge_rate = 0;
+
+    // MonsterList.bin column 18, kind 102 鬼吊. Table shield is 2294;
+    // the 2026-10-15 LifeNotify showed 2291 after hits had already landed.
+    // This row is only a per-hit life check, never a kill target.
+    constexpr std::uint32_t kMap10Life = 6150u;
+    constexpr std::uint32_t kMap10Shield = 2294u;
+    constexpr std::uint16_t kMap10Defense = 541u;
+    mxh::game::PlayerCombatStats monster_stats;
+    monster_stats.level = 59;
+    monster_stats.phy_defence = kMap10Defense;
+    monster_stats.dodge_rate = 0;
+    mxh::game::SkillInfo skill{};
+
+    QuietDb db;
+    mxh::server::MapHandler map(db, 10, [](mxh::net::ConnectionId, const mxh::net::Message&) {});
+    mxh::game::MonsterInstance monster;
+    monster.object_id = 50143u;
+    monster.monster_kind = 102u;
+    monster.map_num = 10;
+    monster.level = 59;
+    monster.max_life = monster.current_life = kMap10Life;
+    monster.max_shield = monster.current_shield = kMap10Shield;
+    monster.defense = kMap10Defense;
+    ASSERT_TRUE(map.add_monster_instance(monster));
+
+    // Combo 0.5 (AttackManager.cpp:30, 120). Defence 541 at level 1 clamps
+    // to 0.9 (AttackCalc.cpp:543-552). Table shield 2294 covers every request,
+    // so reported ShieldDamage equals the amount removed (Object.cpp:531-533).
+    // Life is the defended remainder, floored at 1 (AttackManager.cpp:139-140).
+    const auto defence = mxh::game::compute_phy_defence_level(kMap10Defense, 1);
+    EXPECT_DOUBLE_EQ(defence, 0.9);
+    const struct {
+        std::uint32_t attack;
+        std::uint32_t shield;
+        std::uint32_t life;
+    } rows[] = {
+        {29u, 14u, 1u}, {30u, 15u, 1u}, {31u, 15u, 1u}, {32u, 16u, 1u},
+        {33u, 16u, 1u}, {34u, 17u, 1u}, {35u, 17u, 1u},
+    };
+    std::uint32_t life = kMap10Life;
+    std::uint32_t shield = kMap10Shield;
+    for (const auto& row : rows) {
+        attacker.phy_attack_min = attacker.phy_attack_max = row.attack;
+        std::mt19937 rng(1u);
+        const auto rolled = mxh::server::skill_caster_calculate_monster_damage(
+            attacker, monster_stats, skill, rng, shield);
+        EXPECT_FALSE(rolled.is_miss);
+        EXPECT_EQ(rolled.shield_damage, row.shield) << "attack=" << row.attack;
+        EXPECT_EQ(rolled.shield_absorbed, row.shield) << "attack=" << row.attack;
+        EXPECT_EQ(rolled.damage, static_cast<std::int32_t>(row.life))
+            << "attack=" << row.attack;
+        const auto split = mxh::server::original_monster_physical_split(
+            static_cast<double>(row.attack), 0.5f, shield, defence);
+        EXPECT_EQ(split.real_damage, row.life);
+        EXPECT_EQ(split.shield_damage, row.shield);
+        (void)map.apply_monster_damage(1u, monster.object_id,
+            static_cast<std::uint32_t>(rolled.damage), rolled.shield_absorbed, 0u);
+        const auto now = map.monster_vitals_for_test(monster.object_id);
+        ASSERT_TRUE(now);
+        EXPECT_EQ(now->life, life - row.life);
+        EXPECT_EQ(now->shield, shield - row.shield);
+        EXPECT_FALSE(now->dead);
+        life = now->life;
+        shield = now->shield;
+    }
+    EXPECT_EQ(life, kMap10Life - 7u);
+    EXPECT_GT(shield, 0u);
+}
+
+// Isolated MonsterList.bin column 18 values (read-only confirmation).
+// Swap this table if the spawn-map check names a different row.
+// No original file bytes.
+struct BeginnerColumn18 {
+    const char* name;
+    std::uint16_t kind;
+    std::uint8_t level;
+    std::uint32_t life;
+    std::uint32_t shield;
+    std::uint16_t defense;
+};
+
+TEST(BeginnerColumn18Kill, OriginalSplitKillsMap17AndLoginPointRows) {
+    const BeginnerColumn18 rows[] = {
+        // Map17 start area.
+        {"小呆呆", 1u, 1u, 53u, 14u, 10u},
+        // Nearest row to the classic Distribute login point (8303,9403).
+        // The confirmation did not include this row's display name.
+        {"", 6u, 6u, 188u, 92u, 25u},
+    };
+    mxh::game::ItemInfo sword;
+    sword.ItemIdx = 11000;
+    sword.ItemKind = 2049;
+    sword.EquipKind = mxh::game::WEARED_WEAPON;
+    sword.WeaponType = 1;
+    sword.MeleeAttackMin = 13;
+    sword.MeleeAttackMax = 17;
+    sword.LimitLevel = 1;
+    const auto lookup = [&](std::uint16_t id, mxh::game::ItemInfo& out) {
+        if (id != sword.ItemIdx) return false;
+        out = sword;
+        return true;
+    };
+    mxh::server::CalcBaseStats base;
+    base.gengol = base.minchub = base.cheryuk = base.simmek = 12;
+    auto state = mxh::server::make_player_state(1, 1, 1, base, {});
+    state.equipment.items[mxh::game::WEARED_WEAPON] = mxh::game::make_item(
+        101u, sword.ItemIdx, mxh::game::TP_WEAREDITEM_START + mxh::game::WEARED_WEAPON);
+    mxh::game::PlayerCombatStats attacker;
+    ASSERT_TRUE(mxh::server::rebuild_equipment_stats(state, attacker, lookup));
+    attacker.level = 1;
+    attacker.critical_rate = 0;
+    attacker.dodge_rate = 0;
+    mxh::game::SkillInfo skill{};
+    QuietDb db;
+    mxh::server::MapHandler map(db, 17, [](mxh::net::ConnectionId, const mxh::net::Message&) {});
+    std::uint32_t next_id = 170001u;
+    for (const auto& row : rows) {
+        mxh::game::MonsterInstance monster;
+        monster.object_id = next_id++;
+        monster.monster_kind = row.kind;
+        monster.map_num = 17;
+        monster.level = row.level;
+        monster.max_life = monster.current_life = row.life;
+        monster.max_shield = monster.current_shield = row.shield;
+        monster.defense = row.defense;
+        ASSERT_TRUE(map.add_monster_instance(monster)) << row.kind;
+        mxh::game::PlayerCombatStats stats;
+        stats.level = row.level;
+        stats.phy_defence = row.defense;
+        stats.dodge_rate = 0;
+        bool died = false;
+        for (int hit = 0; hit < 40 && !died; ++hit) {
+            const auto before = map.monster_vitals_for_test(monster.object_id);
+            ASSERT_TRUE(before);
+            std::mt19937 rng(static_cast<std::uint32_t>(hit + 1));
+            const auto rolled = mxh::server::skill_caster_calculate_monster_damage(
+                attacker, stats, skill, rng, before->shield);
+            ASSERT_GE(rolled.damage, 1) << row.name << " kind=" << row.kind;
+            (void)map.apply_monster_damage(1u, monster.object_id,
+                static_cast<std::uint32_t>(rolled.damage), rolled.shield_absorbed,
+                static_cast<std::uint32_t>(hit));
+            const auto after = map.monster_vitals_for_test(monster.object_id);
+            ASSERT_TRUE(after);
+            EXPECT_LT(after->life, before->life);
+            died = after->dead || after->life == 0u;
+        }
+        EXPECT_TRUE(died) << "kind=" << row.kind << " name=" << row.name;
+    }
 }
