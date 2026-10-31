@@ -468,9 +468,9 @@ enum class GuildProtocol : std::uint8_t {
 
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
-// Current modern-to-modern Item profile. The separately generated
-// original_item::ItemProtocol records the SHA-pinned C enum; values diverge
-// after MoveNack because modern Pickup occupies original Buy's 19..21.
+// Shared values match original_item::ItemProtocol. Modern ground-drop
+// claim is an extension above the last original item number so it does
+// not occupy Buy 19..21. Payload layouts are unchanged.
 // ============================================================================
 enum class ItemProtocol : std::uint8_t {
     TotalInfoLocal       = 0,   // client-local dispatch from GameInAck
@@ -497,51 +497,52 @@ enum class ItemProtocol : std::uint8_t {
     MoveAck              = 17,  // S -> C: move success
     MoveNack             = 18,
 
-    // Modern-only ground-drop claim. The original YY_MOVE lines are comments,
-    // so these 19..21 values collide with original BuySyn/Ack/Nack.
-    PickupSyn            = 19,  // C -> S: claim ground drop [object_id:u32]
-    PickupAck            = 20,  // S -> C: [object_id:u32][item_id:u16][count:u16]
-    PickupNack           = 21,  // S -> C: claim failed
+    BuySyn               = 19,  // C -> S: buy from NPC
+    BuyAck               = 20,  // S -> C: buy success
+    BuyNack              = 21,
 
-    BuySyn               = 22,  // C -> S: buy from NPC
-    BuyAck               = 23,  // S -> C: buy success
-    BuyNack              = 24,
+    SellSyn              = 22,  // C -> S: sell to NPC
+    SellAck              = 23,  // S -> C: sell success
+    SellNack             = 24,
 
-    SellSyn              = 25,  // C -> S: sell to NPC
-    SellAck              = 26,  // S -> C: sell success
-    SellNack             = 27,
+    DealerSyn            = 25,  // C -> S: open dealer (street stall)
+    DealerAck            = 26,
+    DealerNack           = 27,
 
-    DealerSyn            = 28,  // C -> S: open dealer (street stall)
-    DealerAck            = 29,
-    DealerNack           = 30,
+    Money                = 28,  // S -> C: update money
+    MoneyError           = 29,
 
-    Money                = 31,  // S -> C: update money
-    MoneyError           = 32,
+    AppearanceChange     = 30,
+    ObtainMoney          = 31,  // S -> C: obtained money
+    MonsterObtainNotify  = 32,  // S -> C: monster obtained item
 
-    AppearanceChange     = 33,
-    ObtainMoney          = 34,  // S -> C: obtained money
-    MonsterObtainNotify  = 35,  // S -> C: monster obtained item
+    UpgradeSyn           = 33,  // C -> S: upgrade item
+    UpgradeSuccessAck    = 34,
+    UpgradeFailedAck     = 35,
+    UpgradeNack          = 36,
 
-    UpgradeSyn           = 36,  // C -> S: upgrade item
-    UpgradeSuccessAck    = 37,
-    UpgradeFailedAck     = 38,
-    UpgradeNack          = 39,
+    MixSyn               = 37,
+    MixSuccessAck        = 38,
+    MixBigFailedAck      = 39,
+    MixFailedAck         = 40,
+    MixMsg               = 41,
 
-    MixSyn               = 40,
-    MixSuccessAck        = 41,
-    MixBigFailedAck      = 42,
-    MixFailedAck         = 43,
-    MixMsg                = 44,
+    ReinforceSyn         = 42,
+    ReinforceSuccessAck  = 43,
+    ReinforceFailedAck   = 44,
+    ReinforceNack        = 45,
 
-    ReinforceSyn         = 45,
-    ReinforceSuccessAck  = 46,
-    ReinforceFailedAck   = 47,
-    ReinforceNack        = 48,
+    DissolveSyn          = 46,
+    DissolveSuccessAck   = 47,
+    DissolveFailedAck    = 48,
+    DissolveNack         = 49,
 
-    DissolveSyn          = 49,
-    DissolveSuccessAck   = 50,
-    DissolveFailedAck    = 51,
-    DissolveNack         = 52,
+    // Modern-only ground-drop claim. Slots above the last original item
+    // number. Not a Buy substitute. Payload stays
+    // syn [object_id:u32], ack [object_id:u32][item_id:u16][count:u16].
+    PickupSyn            = 251, // C -> S: claim ground drop
+    PickupAck            = 252, // S -> C: claim succeeded
+    PickupNack           = 253, // S -> C: claim failed
 
     // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_CHASE_*
     // (positions 154/155/156 in [CC]Header/Protocol.h).

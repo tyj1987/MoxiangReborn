@@ -200,9 +200,9 @@ TEST(SideBySideReplay, AllEightScenariosHaveFixedSizes) {
     EXPECT_EQ(attack_scenario().client_packets.front().category, 22u);
     EXPECT_EQ(attack_scenario().client_packets.front().protocol, 0u);
     EXPECT_EQ(attack_scenario().client_packets.front().payload.size(), 16u);
-    // shop: cat=Item(5), proto=BuySyn(22), payload=[item:u16][qty:u16] = 4B.
+    // shop: cat=Item(5), proto=BuySyn(19), payload=[item:u16][qty:u16] = 4B.
     EXPECT_EQ(shop_scenario().client_packets.front().category, 5u);
-    EXPECT_EQ(shop_scenario().client_packets.front().protocol, 22u);
+    EXPECT_EQ(shop_scenario().client_packets.front().protocol, 19u);
     EXPECT_EQ(shop_scenario().client_packets.front().payload.size(), 4u);
     // quest: cat=Quest(39), proto=StartSyn(9), payload=[quest:u16] = 2B.
     EXPECT_EQ(quest_scenario().client_packets.front().category, 39u);
