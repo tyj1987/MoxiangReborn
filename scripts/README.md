@@ -70,16 +70,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\rog-gate-build.p
   -SourceDir E:\work\trial-merge `
   -BuildDir D:\build-mxr\pr20 `
   -ExpectedSha <40位SHA> `
+  -PlayDhRoot E:\work\trial-merge\modern\data\PlayDH `
   -Config Debug
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\rog-gate-build.ps1 `
   -SourceDir E:\work\trial-merge `
   -BuildDir D:\build-mxr\pr20 `
   -ExpectedSha <40位SHA> `
+  -PlayDhRoot E:\work\trial-merge\modern\data\PlayDH `
   -Generator Ninja `
   -DriveMinFreeGB E=20 `
   -WhatIf
 ```
+
+ROG 验收必须传 `-PlayDhRoot`，值为这次门禁 worktree 自己导出的 PlayDH 目录（`<SourceDir>\modern\data\PlayDH`）。门禁主流程不读取已有的 `MXH_PLAYDH_ROOT`；子进程会被改写成这个显式路径。另一份 worktree 或 `D:\MX` 上残留的变量不能静默继承。
 
 `-SelfTest` 不需要编译器。它检查路径安全、生成器判定、盘符去重和剩余空间阈值。
 
