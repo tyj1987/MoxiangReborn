@@ -6273,7 +6273,7 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     const auto character = static_cast<std::uint32_t>(std::get<std::int64_t>(rows.rows[0][0]));
     const std::vector<mxh::db::Bind> grant_args{mxh::db::bind(static_cast<std::int64_t>(character))};
     ASSERT_TRUE(db.execute("INSERT INTO modern_item_grant(idempotency_key,character_id,item_id,item_count,status,created_by,reason) "
-                           "VALUES('equipment-test',?,900001,1,'pending','unit-test','ordinary starter')", grant_args).ok());
+                           "VALUES('equipment-test',?,9999,1,'pending','unit-test','ordinary starter')", grant_args).ok());
     mxh::net::Message game_in;
     game_in.header = create.header;
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -6281,11 +6281,13 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     game_in.payload.assign(16, 0);
     std::memcpy(game_in.payload.data(), &account, 4);
     const auto configure = [&](MapHandler& handler) {
-        // Hand-written weapon. ItemKind 2048 is ordinary equipment and
-        // EquipKind 1 is the weapon slot (position 81). Melee 40-50 with
-        // GenGol 12 is attack 72-88 while worn and 16 while unarmed.
+        // Hand-written weapon. ItemIdx is a 16-bit field and pending grants
+        // reject ids above 65535, so the synthetic id is 9999 rather than a
+        // 9xxxxx value. ItemKind 2048 is ordinary equipment and EquipKind 1
+        // is the weapon slot (position 81). Melee 40-50 with GenGol 12 is
+        // attack 72-88 while worn and 16 while unarmed.
         mxh::game::ItemInfo weapon{};
-        weapon.ItemIdx = 900001;
+        weapon.ItemIdx = 9999;
         std::memcpy(weapon.ItemName, "TestBlade", 9);
         weapon.ItemKind = 2048;
         weapon.EquipKind = mxh::game::WEARED_WEAPON;
