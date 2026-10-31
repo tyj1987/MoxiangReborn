@@ -27,6 +27,18 @@ gtest_add_tests(TARGET mxh_map_leave_sender_tests
     PRE_SHIP_BUILD
 )
 
+add_executable(mxh_agent_cli_tests
+    agent_default_map_test.cpp
+)
+target_link_libraries(mxh_agent_cli_tests PRIVATE gtest_main)
+target_include_directories(mxh_agent_cli_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/MoxianAgentServer
+)
+gtest_add_tests(TARGET mxh_agent_cli_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
     item_id_test.cpp

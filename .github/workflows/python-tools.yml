@@ -48,9 +48,13 @@
 #     pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
 #     pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
 #     pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+#     pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+#     pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 #   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
 #   第三条是 commercial-smoke 的 LocalDB 可用性脚本测试，加在这个已有的 pwsh job 上。
 #   第四条是 gui-client-smoke 的 ephemeral 安全检查，加在同一个 pwsh job 上。
+#   第五条核对 start_modern.ps1 的 --default-map 与 map 进程的 --map 都是 $MapNumber，加在同一个 pwsh job 上。
+#   第六条是 24h soak harness 的 Linux stub 测试，加在同一个 pwsh job 上。
 # - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
 # - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
 #   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
@@ -63,6 +67,8 @@
 #   modern/data/PlayDH/Resource. They read no LFS .pak (only
 #   Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
 # - Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
+#   The same build runs mxh_agent_cli_tests. Required-Passed includes
+#   AgentCli.OmittedDefaultMapIs17. The ctest regex matches the GitLab job.
 #   The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 # - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
 #   其他 job 在这些路径上一起触发。GitLab 不把这些路径并进 python_tooling_changes。
@@ -87,6 +93,11 @@ on:
       - scripts/gui-client-smoke-ephemeral.ps1
       - scripts/tests/test-gui-client-smoke-ephemeral.ps1
       - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      - scripts/soak-24h.ps1
+      - scripts/soak-24h.cmd
+      - scripts/tests/test-soak-24h.ps1
+      - scripts/tests/test-deploy-default-map.ps1
+      - deploy/scripts/start_modern.ps1
       - .gitignore
       - "**.[Pp][Aa][Kk]"
       - .gitlab-ci.yml
@@ -247,6 +258,8 @@ jobs:
           pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
           pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
           pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+          pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+          pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 
   cxx_resource_reference_linux:
     runs-on: ubuntu-latest
@@ -295,14 +308,14 @@ jobs:
           set -eu
           cmake --version
           cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target mxh_resource_reference_tests --target mxh_map_leave_sender_tests
+          cmake --build build --target mxh_resource_reference_tests --target mxh_agent_cli_tests --target mxh_map_leave_sender_tests
 
       - name: Run MxhResourceReference ctest
         run: |
           # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
           # so ctest runs under bash and a failing ctest still fails the step.
           bash -euo pipefail <<'EOF'
-          ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
+          ctest --test-dir build -R '^(MxhResourceReference|AgentCli|MapLeaveSenderTest)\.' --output-on-failure 2>&1 | tee ctest.log
           EOF
 
       - name: Require PlayDH reference tests passed
@@ -327,13 +340,11 @@ jobs:
           require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
           require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
           require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+          require_passed AgentCli.OmittedDefaultMapIs17 || status=1
+          require_passed MapLeaveSenderTest.ConnectedRouteForwardsLeave || status=1
+          require_passed MapLeaveSenderTest.MissingRouteStillClearsRetainedMapPlayer || status=1
           if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1
           fi
           exit "$status"
-
-      - name: Run MapLeaveSenderTest ctest
-        run: |
-          set -eu
-          ctest --test-dir build -R '^MapLeaveSenderTest\.' --output-on-failure

@@ -517,7 +517,7 @@ public:
 
 void register_birth_map(mxh::server::AgentHandler& handler,
                         RegisteredMapSender& sender,
-                        std::uint16_t map_num = 12) {
+                        std::uint16_t map_num) {
     handler.set_map_server_for_map(
         map_num, &sender, mxh::net::make_connection_id(17000u + map_num));
 }
@@ -525,9 +525,9 @@ void register_birth_map(mxh::server::AgentHandler& handler,
 TEST(AgentCharacterCreateTest, PersistsDefaultClothesBeforeAcknowledging) {
     CharacterCreateDb db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9001),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -546,9 +546,9 @@ TEST(AgentCharacterCreateTest, EquipmentFailureRollsBackAndRejectsCreation) {
     CharacterCreateDb db;
     db.fail_equipment = true;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9002),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -567,9 +567,9 @@ TEST(AgentCharacterCreateTest, PendingVitalsFailureRollsBackCharacterAndClothes)
     CharacterCreateDb db;
     db.fail_pending_vitals = true;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9003),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -588,9 +588,9 @@ TEST(AgentCharacterCreateTest, ProgressFailureRollsBackCharacterBeforeClothes) {
     CharacterCreateDb db;
     db.fail_progress = true;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9006),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -609,9 +609,9 @@ TEST(AgentCharacterCreateTest, UnknownCommitRetiresAdapterWithoutFalseNack) {
     CharacterCreateDb db;
     db.fail_commit = true;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9004),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -626,9 +626,9 @@ TEST(AgentCharacterCreateTest, FailedRollbackRetiresAdapterWithoutFalseNack) {
     db.fail_pending_vitals = true;
     db.fail_rollback = true;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     handler.on_message(mxh::net::make_connection_id(9005),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.rollbacks, 1);
@@ -645,9 +645,9 @@ TEST(AgentCharacterCreateTest, SharedAdapterSerializesCreationFriendTxnAndSessio
         [&](mxh::net::ConnectionId, const mxh::net::Message& msg) {
             std::lock_guard<std::mutex> lock(reply_mu);
             replies.push_back(msg);
-        }, true);
+        }, true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
-    register_birth_map(handler, birth);
+    register_birth_map(handler, birth, /*map_num=*/12);
     const auto friend_connection = mxh::net::make_connection_id(9101);
     handler.register_session(friend_connection, 1u, 123u, 10u, 0u);
     std::thread creator([&] {
@@ -858,14 +858,14 @@ TEST(LoginHandlerTest, OnDisconnectDoesNotCrash) {
 
 TEST(AgentHandlerTest, DefaultConstructionDoesNotCrash) {
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
     SUCCEED();
 }
 
 TEST(AgentHandlerTest, LegacyFlagIsOptional) {
     MockDbAdapter db;
-    mxh::server::AgentHandler h1(db, mxh::server::ReplyFn{});
-    mxh::server::AgentHandler h2(db, mxh::server::ReplyFn{}, true);
+    mxh::server::AgentHandler h1(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
+    mxh::server::AgentHandler h2(db, mxh::server::ReplyFn{}, true, false, {}, /*default_map_num=*/12);
     SUCCEED();
 }
 
@@ -873,7 +873,7 @@ TEST(AgentHandlerTest, GetMapConnectionDefaultsToInvalid) {
     // Before set_map_server() is called, the map connection should
     // be the invalid (zero) ConnectionId.
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
     auto map_id = handler.get_map_connection();
     EXPECT_FALSE(map_id.valid());
     EXPECT_EQ(map_id.value, 0u);
@@ -884,7 +884,7 @@ TEST(AgentHandlerTest, SetMapServerStoresConnection) {
     // return that conn. The TcpClient pointer is stored as-is (no
     // copy), so we pass nullptr to avoid any real network setup.
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
 
     auto map_conn = mxh::net::make_connection_id(42);
     handler.set_map_server(nullptr, map_conn);
@@ -897,7 +897,7 @@ TEST(AgentHandlerTest, SetMapServerStoresConnection) {
 TEST(AgentHandlerTest, SetMapServerOverwritesPrevious) {
     // Calling set_map_server twice replaces the previous connection.
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
 
     handler.set_map_server(nullptr, mxh::net::make_connection_id(100));
     EXPECT_EQ(handler.get_map_connection().value, 100u);
@@ -910,7 +910,7 @@ TEST(AgentHandlerTest, OnConnectNonLegacyDoesNotCallReply) {
     // In non-legacy mode, on_connect just logs and returns true.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     EXPECT_TRUE(handler.on_connect({}, "10.0.0.1:9999"));
     EXPECT_EQ(reply.call_count.load(), 0);
     EXPECT_EQ(db.query_count.load(), 0);
@@ -919,7 +919,7 @@ TEST(AgentHandlerTest, OnConnectNonLegacyDoesNotCallReply) {
 TEST(AgentHandlerTest, OnDisconnectDoesNotCrash) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.on_disconnect({}, mxh::net::NetError::Disconnected);
     EXPECT_EQ(reply.call_count.load(), 0);
     EXPECT_EQ(db.exec_count.load(), 0);
@@ -933,7 +933,7 @@ TEST(AgentHandlerTest, OnDisconnectWithoutMapServerDoesNotCrash) {
     // any null TcpClient.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.on_disconnect(mxh::net::make_connection_id(99),
                           mxh::net::NetError::Disconnected);
     EXPECT_EQ(reply.call_count.load(), 0);
@@ -951,7 +951,7 @@ TEST(AgentHandlerTest, OnDisconnectWithMapServerNullptrDoesNotCrash) {
     // line and continue cleanly.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.set_map_server(/*client=*/nullptr,
                            mxh::net::make_connection_id(7));
     handler.on_disconnect(mxh::net::make_connection_id(100),
@@ -986,7 +986,7 @@ TEST(AgentHandlerTest, OnDisconnectWithMockSenderNoSessionDoesNotSend) {
     MockDbAdapter db;
     ReplySpy reply;
     MockTcpSender mock;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.set_map_server(&mock, mxh::net::make_connection_id(42));
     handler.on_disconnect(mxh::net::make_connection_id(100),
                           mxh::net::NetError::Disconnected);
@@ -1006,7 +1006,7 @@ TEST(AgentHandlerTest, OnDisconnectWithMockSenderDisconnectedSenderNoSend) {
     ReplySpy reply;
     MockTcpSender mock;
     mock.set_connected(false);
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.set_map_server(&mock, mxh::net::make_connection_id(42));
     handler.on_disconnect(mxh::net::make_connection_id(100),
                           mxh::net::NetError::Disconnected);
@@ -1020,7 +1020,7 @@ TEST(AgentHandlerTest, ForwardFromMapWithMockSenderNoRoute) {
     MockDbAdapter db;
     ReplySpy reply;
     MockTcpSender mock;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.set_map_server(&mock, mxh::net::make_connection_id(42));
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Move);
@@ -1032,7 +1032,7 @@ TEST(AgentHandlerTest, ForwardFromMapWithMockSenderNoRoute) {
 TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
     handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 12u);
 
@@ -1056,7 +1056,7 @@ TEST(AgentHandlerTest, ForwardFromMapRoutesPartyAndGuildToOffMapSession) {
 TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
 
     mxh::net::Message request;
@@ -1075,7 +1075,7 @@ TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
 TEST(AgentHandlerTest, CompletesOnlineFriendInviteHandshake) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(100), 1u, 123u, 10u);
     handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 10u);
 
@@ -1104,7 +1104,7 @@ TEST(AgentHandlerTest, CompletesOnlineFriendInviteHandshake) {
 TEST(AgentHandlerTest, DisconnectRemovesOffMapSocialRoute) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(101), 2u, 456u, 12u);
     MockTcpSender map_sender;
     handler.set_map_server(&map_sender, mxh::net::make_connection_id(77));
@@ -1127,7 +1127,7 @@ TEST(AgentHandlerTest, SetMapServerAcceptsITcpSender) {
     MockDbAdapter db;
     ReplySpy reply;
     MockTcpSender mock;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     // Compile-time check: this line is only valid if set_map_server
     // takes ITcpSender* (or something more permissive). If the type
     // regresses to TcpClient*, the implicit upcast fails and the
@@ -1150,7 +1150,7 @@ TEST(AgentHandlerTest, RegisterSessionStoresUserCharMap) {
     // protocol. It is also what tests use to drive the on_disconnect
     // forwarding path. Verify all three state slots are reachable.
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
     handler.register_session(
         mxh::net::make_connection_id(100),
         /*user_id=*/3001, /*char_id=*/450035712, /*map_num=*/12);
@@ -1183,7 +1183,7 @@ TEST(AgentHandlerTest, RegisterSessionOverridesPriorSession) {
     // previous entry. The new char_id wins (so the forwarded message
     // uses the new char_id as the object_id).
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(100),
                               3001, 450035712, 12);
     handler.register_session(mxh::net::make_connection_id(100),
@@ -1207,7 +1207,7 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
     // AFTER a different conn was registered (proving the maps are
     // keyed by conn_id correctly).
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{});
+    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, false, false, {}, /*default_map_num=*/12);
     handler.register_session(mxh::net::make_connection_id(100),
                               3001, 450035712, 12);
     MockTcpSender mock;
@@ -1546,7 +1546,7 @@ TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
 TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(1001);
     handler.register_session(connection, 3001, 450035712, 12, 5);
     MockTcpSender map;
@@ -1576,7 +1576,7 @@ TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
 TEST(AgentHandlerTest, DisconnectSynWithoutCharacterDoesNotTouchMap) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(1002);
     handler.register_session(connection, 3002, 0, 0);
     MockTcpSender map;
@@ -1658,7 +1658,7 @@ TEST(AgentHandlerTest, AbortiveDisconnectClearsMapPlayerWhenMapRouteIsMissing) {
 TEST(AgentHandlerHackShieldTest, RegisterSessionStoresUserLevel) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(101);
     handler.register_session(cid, /*user_id=*/777, /*char_id=*/9001,
                               /*map_num=*/12, /*user_level=*/5);
@@ -1668,7 +1668,7 @@ TEST(AgentHandlerHackShieldTest, RegisterSessionStoresUserLevel) {
 TEST(AgentHandlerHackShieldTest, DefaultUserLevelIsZero) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(102);
     handler.register_session(cid, 1, 2, 3);  // no user_level -> default 0
     EXPECT_EQ(handler.user_level(cid), 0u);
@@ -1681,7 +1681,7 @@ TEST(AgentHandlerHackShieldTest, GuidReqNonSuperuserIsNoOp) {
     // returns hackshield_none(), so no reply should fire.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(200);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/2);
 
@@ -1701,7 +1701,7 @@ TEST(AgentHandlerHackShieldTest, GuidAckSuperuserSendsReq) {
     // m_bHSCheck to 0, then re-issues Req (proto=2, 160B).
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(201);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1729,7 +1729,7 @@ TEST(AgentHandlerHackShieldTest, AckSuperuserClearsState) {
     // state machine clears m_bHSCheck to 0, no reply.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(202);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1750,7 +1750,7 @@ TEST(AgentHandlerHackShieldTest, ClientDisconnectProtocolSetsPendingFlag) {
     // proto=4 (Disconnect) from client -> queue drop session.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(203);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1770,7 +1770,7 @@ TEST(AgentHandlerHackShieldTest, ReqSecondCallQueuesDisconnect) {
     // returns Send. Second Req with m_bHSCheck==1 returns Disconnect.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(204);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1800,7 +1800,7 @@ TEST(AgentHandlerHackShieldTest, ReqSecondCallQueuesDisconnect) {
 TEST(AgentHandlerHackShieldTest, OnDisconnectClearsPendingFlag) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(205);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1826,7 +1826,7 @@ TEST(AgentHandlerHackShieldTest, NonHackShieldCatIsNotRouted) {
     // log "unhandled category" and not touch the HackShield map.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(206);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
 
@@ -1846,7 +1846,7 @@ TEST(AgentHandlerHackShieldTest, ConnIdMismatchDoesNotLeakState) {
     // user_level should not interfere.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
 
     auto cid_a = mxh::net::make_connection_id(300);
     auto cid_b = mxh::net::make_connection_id(301);
@@ -1882,7 +1882,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListPopulatesUserLevelFromDb) {
     MockDbAdapter db;
     db.userlevel_to_return.store(5u);  // superuser
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(700);
 
     // Drive CharacterListSyn with user_id=42 in the payload.
@@ -1927,7 +1927,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListNonSuperuserGatesHackShield) {
     MockDbAdapter db;
     db.userlevel_to_return.store(2u);  // NOT a superuser
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(701);
 
     mxh::net::Message msg;
@@ -1959,7 +1959,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListMissingUserLevelDefaultsZero) {
     // conn_user_levels_ is 0 (same as no register_session call).
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(702);
 
     mxh::net::Message msg;
@@ -1993,7 +1993,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListMissingUserLevelDefaultsZero) {
 TEST(AgentHandlerHackShieldTest, TickHackshieldOnEmptyHandlerIsZero) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     EXPECT_EQ(handler.tick_hackshield(), 0u);
     EXPECT_EQ(reply.call_count.load(), 0);
 }
@@ -2004,7 +2004,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldGraceSuperuserNoOpThenDisconnect)
     // Disconnect (timeout exceeded).
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(800);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/5);
     mxh::net::Message req;
@@ -2027,7 +2027,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldNonSuperuserIsNoOp) {
     // finds no entries to walk.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid = mxh::net::make_connection_id(801);
     handler.register_session(cid, 1, 2, 3, /*user_level=*/2);
     mxh::net::Message req;
@@ -2046,7 +2046,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldMixedSuperusersHandlesEach) {
     // disconnect actions on the superusers only.
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     auto cid_super_a = mxh::net::make_connection_id(810);
     auto cid_super_b = mxh::net::make_connection_id(811);
     auto cid_normal = mxh::net::make_connection_id(812);
@@ -2095,7 +2095,7 @@ TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState
         "INSERT INTO modern_item_grant VALUES(1001);").ok());
 
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(501);
     handler.register_session(connection, 42, 0, 0);
 
@@ -2140,7 +2140,7 @@ TEST(AgentHandlerCharacterRemoveTest, RejectsCharacterOwnedByAnotherUser) {
         "INSERT INTO character_info VALUES(1002,'99','OtherHero')", no_args).ok());
 
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true);
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(502);
     handler.register_session(connection, 42, 0, 0);
     mxh::net::Message remove;
@@ -2466,7 +2466,7 @@ TEST(CharacterAddTargetRoute, TwoWayAndThirdPlayerUseOneDeliveryPerPair) {
     mxh::server::AgentHandler agent(db,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
             delivered.emplace_back(id.value, msg);
-        });
+        }, false, false, {}, /*default_map_num=*/12);
     MockTcpSender map_link;
     const auto map_connection = mxh::net::make_connection_id(77);
     agent.set_map_server_for_map(7u, &map_link, map_connection);
@@ -2550,7 +2550,7 @@ TEST(CharacterAddTargetRoute, MapSendsOnlyOnRecipientsOwnLink) {
 TEST(CharacterAddTargetRoute, RejectsCrossMapMalformedAndStaleMapLink) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler agent(db, make_reply_spy(reply));
+    mxh::server::AgentHandler agent(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     MockTcpSender old_link, new_link;
     const auto old_connection = mxh::net::make_connection_id(77);
     const auto new_connection = mxh::net::make_connection_id(88);
@@ -4067,7 +4067,7 @@ TEST(MapHandlerTest, CanonicalMonster10BinSpawnsAllGroups) {
 TEST(AgentHandlerTest, ForwardFromMapMonsterAddReachesRegisteredClient) {
     MockDbAdapter db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler(db, make_reply_spy(reply));
+    mxh::server::AgentHandler handler(db, make_reply_spy(reply), false, false, {}, /*default_map_num=*/12);
     MockTcpSender map_link;
     handler.set_map_server_for_map(10u, &map_link, mxh::net::make_connection_id(42));
     handler.register_session(
@@ -4103,7 +4103,7 @@ TEST(MonsterMapRoute, SharedAgentGetsOneMovePerCharacterAndNoOtherMapLeak) {
     mxh::server::AgentHandler agent(db,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
             delivered.emplace_back(id.value, msg);
-        });
+        }, false, false, {}, /*default_map_num=*/12);
     agent.set_map_server_for_map(7u, &map_link, map_connection);
     agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
     agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
@@ -4188,7 +4188,7 @@ TEST(MonsterMapRoute, SnapshotAndRemoveUseTargetWithinSharedMapConnection) {
     mxh::server::AgentHandler agent(db,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
             delivered.emplace_back(id.value, msg);
-        });
+        }, false, false, {}, /*default_map_num=*/12);
     agent.set_map_server_for_map(7u, &map_link, connection);
     agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
     agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
@@ -4252,7 +4252,7 @@ TEST(MonsterMapRoute, DeathRequiresCurrentMapVictimAndPreservesOriginalWire) {
     mxh::server::AgentHandler agent(db,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
             delivered.emplace_back(id.value, msg);
-        });
+        }, false, false, {}, /*default_map_num=*/12);
     agent.set_map_server_for_map(7u, &current_link, current);
     agent.register_session(mxh::net::make_connection_id(1001), 1u, 101u, 7u);
     agent.register_session(mxh::net::make_connection_id(1002), 2u, 202u, 7u);
@@ -4293,7 +4293,7 @@ TEST(MonsterMapRoute, DeathRequiresCurrentMapVictimAndPreservesOriginalWire) {
     mxh::server::AgentHandler second_agent(db,
         [&](mxh::net::ConnectionId id, const mxh::net::Message& msg) {
             second_delivered.emplace_back(id.value, msg);
-        });
+        }, false, false, {}, /*default_map_num=*/12);
     const auto second_link_id = mxh::net::make_connection_id(99);
     second_agent.set_map_server_for_map(7u, &second_agent_map, second_link_id);
     second_agent.register_session(mxh::net::make_connection_id(2005), 5u, 505u, 7u);
