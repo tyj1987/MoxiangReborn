@@ -22,6 +22,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-client-compile.yml
+      - scripts/protocol_manifest_gate.ps1
       - modern/CMakeLists.txt
       - modern/src/CMakeLists.txt
       - modern/tools/MoxianClient/**
@@ -91,11 +92,93 @@ jobs:
             modern/src
             modern/include
             modern/tools/MoxianClient
+            scripts/protocol_manifest_gate.ps1
             modern/third_party/sqlite
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
             modern/data/PlayDH/monster.pak
+
+      - name: Exercise PowerShell item protocol gate
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Assert-MxhItemProtocolMatch calls exit 1. A child process is required
+          # so that mismatch does not end this step before the other cases run.
+          $PSNativeCommandUseErrorActionPreference = $false
+          $gate = Join-Path (Get-Location) 'scripts\protocol_manifest_gate.ps1'
+          if (-not (Test-Path -LiteralPath $gate -PathType Leaf)) {
+            throw "protocol gate script is not in the checkout: $gate"
+          }
+          $tempParent = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) {
+            [System.IO.Path]::GetTempPath()
+          } else {
+            $env:RUNNER_TEMP
+          }
+          $temp = Join-Path $tempParent ('mxh-ps-gate-' + [guid]::NewGuid().ToString('N'))
+          New-Item -ItemType Directory -Path $temp | Out-Null
+          try {
+            $hashA = 'a' * 64
+            $hashB = 'b' * 64
+
+            function New-MxhGateSide {
+              param(
+                [Parameter(Mandatory)][string]$Name,
+                [Parameter(Mandatory)][string]$Hash
+              )
+              $dir = Join-Path $temp $Name
+              New-Item -ItemType Directory -Path $dir | Out-Null
+              $exe = Join-Path $dir 'side.exe'
+              [System.IO.File]::WriteAllBytes($exe, (New-Object byte[] 1))
+              $manifest = Join-Path $dir 'protocol.manifest'
+              [System.IO.File]::WriteAllText($manifest, "item_protocol_sha256=$Hash`n")
+              return $exe
+            }
+
+            function Invoke-MxhGateCase {
+              param(
+                [Parameter(Mandatory)][string]$Name,
+                [Parameter(Mandatory)][string]$MapExecutable,
+                [Parameter(Mandatory)][string]$ClientExecutable,
+                [Parameter(Mandatory)][bool]$ExpectZero,
+                [Parameter(Mandatory)][string]$ExpectText
+              )
+              $command = ". '" + $gate.Replace("'", "''") + "'; Assert-MxhItemProtocolMatch -MapExecutable '" + $MapExecutable.Replace("'", "''") + "' -ClientExecutable '" + $ClientExecutable.Replace("'", "''") + "'"
+              $output = & pwsh -NoProfile -Command $command 2>&1 | Out-String
+              $code = $LASTEXITCODE
+              $textOk = $output.Contains($ExpectText)
+              $exitOk = if ($ExpectZero) { $code -eq 0 } else { $code -ne 0 }
+              if (-not $textOk -or -not $exitOk) {
+                Write-Host "PS_GATE_CASE $Name exit=$code FAIL"
+                Write-Host $output
+                throw "protocol gate case ${Name} failed (exit=$code expectZero=$ExpectZero text=$ExpectText)"
+              }
+              Write-Host "PS_GATE_CASE $Name exit=$code OK"
+            }
+
+            $mapMatch = New-MxhGateSide -Name 'map-match' -Hash $hashA
+            $clientMatch = New-MxhGateSide -Name 'client-match' -Hash $hashA
+            Invoke-MxhGateCase -Name 'match' -MapExecutable $mapMatch -ClientExecutable $clientMatch -ExpectZero $true -ExpectText "PROTOCOL_MATCH item=$hashA"
+
+            $mapDiff = New-MxhGateSide -Name 'map-diff' -Hash $hashA
+            $clientDiff = New-MxhGateSide -Name 'client-diff' -Hash $hashB
+            Invoke-MxhGateCase -Name 'mismatch' -MapExecutable $mapDiff -ClientExecutable $clientDiff -ExpectZero $false -ExpectText "PROTOCOL_MISMATCH item=$hashA/$hashB"
+
+            $clientOnly = New-MxhGateSide -Name 'client-only' -Hash $hashB
+            $missingMap = Join-Path $temp 'absent-map\side.exe'
+            Invoke-MxhGateCase -Name 'server-missing' -MapExecutable $missingMap -ClientExecutable $clientOnly -ExpectZero $false -ExpectText "PROTOCOL_MISMATCH item=missing/$hashB"
+
+            $mapOnly = New-MxhGateSide -Name 'map-only' -Hash $hashA
+            $missingClient = Join-Path $temp 'absent-client\side.exe'
+            Invoke-MxhGateCase -Name 'client-missing' -MapExecutable $mapOnly -ClientExecutable $missingClient -ExpectZero $false -ExpectText "PROTOCOL_MISMATCH item=$hashA/missing"
+
+            $missingBothMap = Join-Path $temp 'absent-both-map\side.exe'
+            $missingBothClient = Join-Path $temp 'absent-both-client\side.exe'
+            Invoke-MxhGateCase -Name 'both-missing' -MapExecutable $missingBothMap -ClientExecutable $missingBothClient -ExpectZero $false -ExpectText 'PROTOCOL_MISMATCH item=missing/missing'
+          } finally {
+            if (Test-Path -LiteralPath $temp) {
+              Remove-Item -LiteralPath $temp -Recurse -Force
+            }
+          }
 
       - name: Prove no pak binary was checked out
         run: |
