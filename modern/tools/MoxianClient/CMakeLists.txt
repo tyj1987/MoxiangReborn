@@ -5,7 +5,15 @@
 # profile seams; staged world loading and state transitions are implemented in
 # main.cpp and the linked client libraries.
 # -----------------------------------------------------------------------------
-add_executable(mxh_client WIN32 main.cpp)
+# MSVC embeds a .manifest listed in add_executable (manifest input merged by
+# the link rule). This target does not pass /MANIFEST:NO. The embedded
+# settings are PerMonitorV2 plus the older true/pm dpiAware fallback. WinMain
+# still calls SetProcessDpiAwarenessContext when that manifest is absent.
+if(MSVC)
+    add_executable(mxh_client WIN32 main.cpp mxh_client.manifest)
+else()
+    add_executable(mxh_client WIN32 main.cpp)
+endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(mxh_client PRIVATE MXH_DEV_AUTOMATION=1)
 endif()
