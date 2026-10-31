@@ -40,12 +40,22 @@ function Clear-PlayDhEnv {
     Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
 }
 
+function Compress-PathForCompare {
+    param([AllowEmptyString()][string]$Text)
+    if ([string]::IsNullOrEmpty($Text)) { return '' }
+    # JSON writes one backslash as two characters. Collapse both forms.
+    $text = $Text -replace '\\\\', '/'
+    $text = $text -replace '\\', '/'
+    return $text.ToLowerInvariant()
+}
+
 function Test-MentionsRepoPlayDh {
     param([AllowEmptyString()][string]$Text)
     if ([string]::IsNullOrEmpty($Text)) { return $false }
-    $full = [IO.Path]::GetFullPath($repoPlay)
-    if ($Text.IndexOf($full, [StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
-    return $Text -match 'modern[/\\]data[/\\]PlayDH'
+    $folded = Compress-PathForCompare $Text
+    $full = Compress-PathForCompare ([IO.Path]::GetFullPath($repoPlay))
+    if ($folded.Contains($full)) { return $true }
+    return $folded.Contains('modern/data/playdh')
 }
 
 function Invoke-PlayDhScript {
@@ -183,7 +193,7 @@ try {
     Write-PlayDhCase -Name 'human-unset' -Ok $unsetHumanOk
 
     $synHuman = Invoke-PlayDhScript -File $human -Arguments @('-PlanOnly', '-ResourceRoot', $syntheticFull)
-    $synHumanOk = ($synHuman.Code -eq 0) -and ($synHuman.Text.Contains($syntheticFull)) -and (-not (Test-MentionsRepoPlayDh $synHuman.Text))
+    $synHumanOk = ($synHuman.Code -eq 0) -and ((Compress-PathForCompare $synHuman.Text).Contains((Compress-PathForCompare $syntheticFull))) -and (-not (Test-MentionsRepoPlayDh $synHuman.Text))
     if (-not $synHumanOk) {
         Write-Host "human-explicit exit=$($synHuman.Code)"
         Write-Host $synHuman.Text
