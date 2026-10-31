@@ -150,7 +150,9 @@ protected:
                 std::lock_guard<std::mutex> lk(replies_mu_);
                 replies_[id.value].push_back(m);
             },
-            /*use_legacy_framing=*/true);
+            /*use_legacy_framing=*/true, false,
+            mxh::server::HselSessionManager::DirectSendFn{},
+            /*default_map_num=*/12);
 
         server_ = std::make_unique<TcpServer>(*handler_);
         ServerConfig scfg;
