@@ -378,6 +378,11 @@ public:
     void set_experience_curve_for_test(mxh::game::ExperienceCurve curve) {
         experience_curve_ = std::make_unique<mxh::game::ExperienceCurve>(std::move(curve));
     }
+    // Test-only. 0 when no curve is installed, so a missing load is not a threshold.
+    std::uint64_t experience_level_threshold_for_test(std::uint16_t level) const {
+        if (!experience_curve_) return 0;
+        return experience_curve_->max_exp_point(level);
+    }
 
     // D1.3 call-site hook: load the real SkillList.bin into skill_manager_
     // so init_skill_table() / find_skill() resolve from the real
