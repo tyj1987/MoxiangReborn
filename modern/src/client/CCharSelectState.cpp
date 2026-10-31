@@ -11,7 +11,9 @@
 #include <utility>
 
 #include "mxh/log/mlog.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 #include "mxh/ui/cPushupButton.hpp"
 #include "mxh/ui/cWindowManager.hpp"
 
@@ -274,7 +276,7 @@ void CCharSelectState::Start(CEngine* engine, bool use_hsel) {
         fail_with(std::string("TcpClient::connect to AgentServer failed: ") +
                   mxh::net::to_string(e));
     } else if (session.is_ready()) {
-        send_list_syn();
+        send_item_protocol_check();
     }
 }
 
@@ -296,6 +298,7 @@ void CCharSelectState::Release() {
     m_removeSent    = false;
     m_logoutSent    = false;
     m_listSynSent   = false;
+    m_protocolCheckSent = false;
     m_removeChrid   = 0;
     m_releasing     = false;
     m_failed        = false;
@@ -379,7 +382,7 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
     switch (proto) {
         case UserConnProtocol::AgentConnectSuccess: {
             MLOG_INFO("CCharSelectState: got AgentConnectSuccess");
-            send_list_syn();
+            send_item_protocol_check();
             break;
         }
         case UserConnProtocol::CharacterListAck: {
@@ -466,6 +469,18 @@ void CCharSelectState::on_message(mxh::net::ConnectionId id,
             break;
         }
         default:
+            if (msg.header.protocol == mxh::proto::kModernNotifyVersionAck) {
+                send_list_syn();
+                break;
+            }
+            if (msg.header.protocol == mxh::proto::kModernNotifyVersionNack) {
+                m_listAckDeadline = {};
+                const auto reason = mxh::proto::version_nack_reason(
+                    msg.payload.empty() ? nullptr : msg.payload.data(),
+                    msg.payload.size());
+                fail_with(mxh::proto::login_protocol_user_message(reason));
+                break;
+            }
             if (proto == static_cast<UserConnProtocol>(
                              mxh::proto::kModernHselKey)) {
                 if (msg.payload.size() < sizeof(mxh::crypto::HselInit)) {
@@ -496,6 +511,30 @@ void CCharSelectState::on_disconnect(mxh::net::ConnectionId id,
         fail_with(std::string("disconnected before CharacterSelectAck: ") +
                   mxh::net::to_string(reason));
     }
+}
+
+void CCharSelectState::send_item_protocol_check() {
+    if (m_protocolCheckSent || m_failed) return;
+    if (!m_pEngine) {
+        fail_with("send CheckVersion failed: no engine");
+        return;
+    }
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    out.header.protocol = mxh::proto::kModernCheckVersion;
+    out.header.object_id = m_login.user_idx;
+    out.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "MoxianClient",
+        mxh::proto::kItemProtocolSha256);
+    const auto e = m_pEngine->agent_session().send(out);
+    if (e != mxh::net::NetError::Ok) {
+        fail_with(std::string("send CheckVersion failed: ") +
+                  mxh::net::to_string(e));
+        return;
+    }
+    m_protocolCheckSent = true;
+    MLOG_INFO("CCharSelectState: sent CheckVersion");
+    m_listAckDeadline = std::chrono::steady_clock::now() + m_ackTimeout;
 }
 
 void CCharSelectState::send_list_syn() {

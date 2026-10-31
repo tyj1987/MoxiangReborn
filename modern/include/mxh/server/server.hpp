@@ -85,6 +85,7 @@ private:
                       const mxh::net::Message& msg);
     void handle_legacy_login(mxh::net::ConnectionId id,
                              const mxh::net::Message& msg);
+    void reject_missing_item_protocol(mxh::net::ConnectionId id);
 
     mxh::db::IDbAdapter& db_;
     std::string agent_addr_;
@@ -94,7 +95,7 @@ private:
     bool use_hsel_;
     HselSessionManager hsel_;
 
-    // Phase 4.3: track connections that passed version check.
+    // Connections that passed the version range and the Item protocol hash.
     std::mutex version_mu_;
     std::unordered_set<std::uint64_t> version_verified_;
 
@@ -198,6 +199,11 @@ public:
 private:
     void handle_userconn(mxh::net::ConnectionId id,
                          const mxh::net::Message& msg);
+    void handle_item_protocol_check(mxh::net::ConnectionId id,
+                                    const mxh::net::Message& msg);
+    bool item_protocol_verified(mxh::net::ConnectionId id) const;
+    void reject_item_protocol(mxh::net::ConnectionId id,
+                              std::string_view client_hash);
     void handle_legacy_disconnect(mxh::net::ConnectionId id);
     void handle_legacy_character_list(mxh::net::ConnectionId id,
                                       const mxh::net::Message& msg);
@@ -247,6 +253,9 @@ private:
     std::uint16_t default_map_num_;
     std::uint16_t configured_start_area_;
     bool allow_dev_gamein_fallback_ = true;
+    // Connections that presented a matching Item protocol hash.
+    // Guarded by user_mu_.
+    std::unordered_set<std::uint64_t> item_protocol_verified_;
 
     // Track user_id per connection (set during CharacterListSyn).
     mutable std::mutex user_mu_;

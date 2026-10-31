@@ -25,6 +25,8 @@
 
 #include "mxh/server/server.hpp"
 #include "mxh/server/start_area_route.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/server/original_vitals_store.hpp"
 #include "mxh/net/packet_trace.hpp"
@@ -268,6 +270,7 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
 
         conn_char_ids_.erase(id.value);
         conn_map_nums_.erase(id.value);
+        item_protocol_verified_.erase(id.value);
     }
 
     // Phase 12.1: forward GameOutSyn to MapServer so the Map side
@@ -338,6 +341,10 @@ void AgentHandler::on_message(mxh::net::ConnectionId id,
                               const mxh::net::Message& msg) {
     std::lock_guard<std::recursive_mutex> dispatch(db_dispatch_mu_);
     auto cat = static_cast<mxh::proto::Category>(msg.header.category);
+    if (cat != mxh::proto::Category::UserConn && !item_protocol_verified(id)) {
+        reject_item_protocol(id, "");
+        return;
+    }
     if (cat == mxh::proto::Category::UserConn) {
         handle_userconn(id, msg);
     } else if (cat == mxh::proto::Category::Friend) {
@@ -740,12 +747,97 @@ std::size_t AgentHandler::tick_hackshield() {
 }
 
 
+namespace {
+
+mxh::net::Message make_item_protocol_ack() {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = mxh::proto::kModernNotifyVersionAck;
+    m.payload.resize(3);
+    m.payload[0] = static_cast<std::uint8_t>(mxh::proto::kProtocolVersion & 0xFF);
+    m.payload[1] = static_cast<std::uint8_t>((mxh::proto::kProtocolVersion >> 8) & 0xFF);
+    m.payload[2] = 0;
+    return m;
+}
+
+mxh::net::Message make_item_protocol_nack(std::uint8_t reason) {
+    mxh::net::Message m;
+    m.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    m.header.protocol = mxh::proto::kModernNotifyVersionNack;
+    m.payload.resize(3);
+    mxh::proto::write_version_nack_payload(
+        m.payload.data(), mxh::proto::kProtocolVersion, reason);
+    return m;
+}
+
+}  // namespace
+
+bool AgentHandler::item_protocol_verified(mxh::net::ConnectionId id) const {
+    std::lock_guard<std::mutex> lk(user_mu_);
+    return item_protocol_verified_.find(id.value) != item_protocol_verified_.end();
+}
+
+void AgentHandler::reject_item_protocol(mxh::net::ConnectionId id,
+                                        std::string_view client_hash) {
+    const auto decision = mxh::proto::evaluate_login_item_protocol(
+        client_hash, mxh::proto::kItemProtocolSha256);
+    std::cout << decision.log_line << '\n';
+    reply_(id, make_item_protocol_nack(decision.reason));
+}
+
+void AgentHandler::handle_item_protocol_check(mxh::net::ConnectionId id,
+                                              const mxh::net::Message& msg) {
+    std::uint16_t client_version = 0;
+    if (msg.payload.size() >= 2) {
+        client_version = static_cast<std::uint16_t>(msg.payload[0])
+                       | (static_cast<std::uint16_t>(msg.payload[1]) << 8);
+    }
+    if (client_version < mxh::proto::kMinProtocolVersion) {
+        reply_(id, make_item_protocol_nack(
+            static_cast<std::uint8_t>(mxh::proto::VersionRejectReason::TooOld)));
+        return;
+    }
+    if (client_version > mxh::proto::kProtocolVersion) {
+        reply_(id, make_item_protocol_nack(
+            static_cast<std::uint8_t>(mxh::proto::VersionRejectReason::TooNew)));
+        return;
+    }
+    const auto client_hash = mxh::proto::item_hash_from_check_version(
+        msg.payload.data(), msg.payload.size());
+    const auto decision = mxh::proto::evaluate_login_item_protocol(
+        client_hash, mxh::proto::kItemProtocolSha256);
+    if (!decision.accepted) {
+        {
+            std::lock_guard<std::mutex> lk(user_mu_);
+            item_protocol_verified_.erase(id.value);
+        }
+        std::cout << decision.log_line << '\n';
+        reply_(id, make_item_protocol_nack(decision.reason));
+        return;
+    }
+    {
+        std::lock_guard<std::mutex> lk(user_mu_);
+        item_protocol_verified_.insert(id.value);
+    }
+    reply_(id, make_item_protocol_ack());
+}
+
 void AgentHandler::handle_userconn(mxh::net::ConnectionId id,
                                    const mxh::net::Message& msg) {
     auto proto = static_cast<mxh::proto::UserConnProtocol>(msg.header.protocol);
 
+    if (msg.header.protocol == mxh::proto::kModernCheckVersion) {
+        handle_item_protocol_check(id, msg);
+        return;
+    }
+
     if (proto == mxh::proto::UserConnProtocol::DisconnectSyn) {
         handle_legacy_disconnect(id);
+        return;
+    }
+
+    if (!item_protocol_verified(id)) {
+        reject_item_protocol(id, "");
         return;
     }
 
