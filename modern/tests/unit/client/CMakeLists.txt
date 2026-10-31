@@ -114,11 +114,12 @@ set_tests_properties(
     EffectRuntime.CapsBurstInstancesWithoutDroppingExistingTimelines
     PROPERTIES LABELS "rog")
 
-# Keep one aggregate entry in addition to the per-case entries above.  The
-# aggregate is the stable client regression gate: it executes the complete
-# binary (including any parameterized tests that gtest_add_tests cannot
-# enumerate) and lets CI invoke the client suite by one predictable name.
+# The aggregate runs every case in the binary, including the PlayDH-backed
+# ones labeled rog. Label the aggregate rog so `ctest -LE rog` does not
+# execute those cases. Each non-PlayDH case stays registered on its own
+# and still runs outside rog.
 add_test(NAME mxh_client_all_tests
     COMMAND mxh_client_tests --gtest_brief=1)
 set_tests_properties(mxh_client_all_tests PROPERTIES
+    LABELS "rog"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
