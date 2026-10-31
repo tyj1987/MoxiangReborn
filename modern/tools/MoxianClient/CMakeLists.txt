@@ -6,6 +6,12 @@
 # main.cpp and the linked client libraries.
 # -----------------------------------------------------------------------------
 add_executable(mxh_client WIN32 main.cpp)
+if(MSVC)
+    # Embeds PerMonitorV2, with the older true/pm dpiAware setting as fallback.
+    # CMake passes the manifest to the linker; the WinMain call is only used
+    # when that manifest was not applied.
+    target_sources(mxh_client PRIVATE mxh_client.manifest)
+endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(mxh_client PRIVATE MXH_DEV_AUTOMATION=1)
 endif()

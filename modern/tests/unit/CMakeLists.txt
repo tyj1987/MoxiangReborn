@@ -58,6 +58,13 @@ endif()
 gtest_add_tests(TARGET mxh_e2e_soak_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# DPI math for the fixed game client. No window, no renderer, no game bytes.
+add_executable(mxh_dpi_scale_tests dpi_scale_test.cpp)
+target_include_directories(mxh_dpi_scale_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_dpi_scale_tests PRIVATE gtest_main)
+target_compile_features(mxh_dpi_scale_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_dpi_scale_tests)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
