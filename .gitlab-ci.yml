@@ -171,7 +171,7 @@ cxx_resource_reference_linux:
       cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference|AgentCli|E2eSoak)\.' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu

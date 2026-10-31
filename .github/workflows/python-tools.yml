@@ -317,7 +317,7 @@ jobs:
           # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
           # so ctest runs under bash and a failing ctest still fails the step.
           bash -euo pipefail <<'EOF'
-          ctest --test-dir build -R '^(MxhResourceReference|AgentCli|E2eSoak)\.' --output-on-failure 2>&1 | tee ctest.log
+          ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
           EOF
 
       - name: Require PlayDH reference tests passed
