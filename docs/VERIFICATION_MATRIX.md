@@ -30,7 +30,7 @@
 | G8 | 移动、战斗、掉落与换图 | PARTIAL | 当前提交已在本机 SQLite 与 VM112 隔离 MSSQL 的 canonical Map17 完成 1 级首发权威攻击→死亡→自然掉落→点击拾取→背包移动→重登回读（本次 PVE 216 怪物、5/5、退出码 0）；Map10 1 级首战、真人 GUI、Map17 九个准确纹理、任务奖励、全地图覆盖和 Unity 同等玩法仍未闭合。
 | G9 | 特效与音频 | 未运行 | 本轮没有配套 Player、事件轨迹和原版对照证据。 |
 | G10 | 全部资源、地图与 UI | 未通过 | 资源依赖及来源仍有缺项；本轮 PVE Map10 没有 canonical Dealer，商店目录/购买/重登无法开始，回执 `docs/evidence/original-pve-shop-current-20261015.json`。工作区发现的 16 份 `Dealitem.bin` 全部同一哈希且解码后 Map10 行数为 0，来源审计 `docs/evidence/original-dealitem-map10-provenance-audit-20261015.json`；未完成全地图/功能覆盖矩阵。 |
-| G11 | RC 稳定性 | 未运行 | 未做本轮干净机器、故障注入、更新/回滚和 24 小时 soak。 |
+| G11 | RC 稳定性 | 未运行 | Linux ctest 覆盖合成目录上的更新/回滚事务（成功替换、坏摘要、`..`/绝对路径、用户数据删除拒绝、清单摘要不符、日志续跑、回滚字节一致、版本比较）。交互验收、Windows HTTPS 下载、干净机器、故障注入和 24 小时 soak 仍未运行。 |
 
 ## 分线局部证据（不升级整体验收）
 

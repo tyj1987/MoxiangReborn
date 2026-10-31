@@ -320,6 +320,18 @@ if(WIN32)
 endif()
 gtest_add_tests(TARGET mxh_patch_security_tests)
 
+add_executable(mxh_patch_transaction_tests
+    patch_transaction_test.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher/patch_transaction.cpp)
+target_include_directories(mxh_patch_transaction_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher)
+target_link_libraries(mxh_patch_transaction_tests PRIVATE gtest_main)
+target_compile_features(mxh_patch_transaction_tests PRIVATE cxx_std_17)
+if(WIN32)
+    target_link_libraries(mxh_patch_transaction_tests PRIVATE bcrypt)
+endif()
+gtest_add_tests(TARGET mxh_patch_transaction_tests)
+
 add_executable(mxh_sqlite_backup_script_tests sqlite_backup_script_test.cpp)
 target_link_libraries(mxh_sqlite_backup_script_tests PRIVATE gtest_main)
 target_compile_definitions(mxh_sqlite_backup_script_tests PRIVATE MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
