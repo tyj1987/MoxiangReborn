@@ -73,6 +73,14 @@ With `-InstallPrereqs`, the script installs missing tools via chocolatey:
 
 All installs run silently and require Administrator elevation.
 
+## Item protocol gate
+
+`scripts/clean-deploy.ps1` reads `protocol.manifest` beside `mxh_map_server_CHINA.exe` and `mxh_client.exe` before it starts commercial smoke. `deploy/scripts/start_modern.ps1` does the same before start or restart, using the selected locale's map server. `scripts/gui-client-smoke.ps1` and `scripts/visual-smoke.ps1` check before they start a map server and client together.
+
+CMake builds a host tool that prints the compiled Item protocol as `Name=Value` lines in `MXH_ITEM_PROTOCOL_EACH` order. The hash script normalizes that list to LF and writes `item_protocol_sha256=<hex>` into `protocol.manifest` next to each of those binaries, plus `mxh/proto/protocol_hash.hpp` (`kItemProtocolSha256`). The hex is not stored in git. Comment and whitespace edits in the header do not change it. A count of zero, or a count other than `kItemProtocolCount`, fails the build.
+
+A match prints `PROTOCOL_MATCH item=<hash>`. A missing manifest or a different value prints `PROTOCOL_MISMATCH item=<map_hash>/<client_hash>` (`missing` for that side) and the script exits non-zero without starting a process. There is no Linux map-and-client starter. `scripts/protocol_manifest_gate.py` is the check the tests call.
+
 ## Next Step After Deployment
 
 Manual start of the server stack:

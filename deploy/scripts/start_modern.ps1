@@ -231,7 +231,6 @@ function Test-LocalPort {
 }
 
 if ($Mode -eq 'stop') { Stop-Modern; exit 0 }
-if ($Mode -eq 'restart') { Stop-Modern; Start-Sleep -Seconds 1 }
 if ($Mode -eq 'status') {
     foreach ($entry in @(Read-ModernState)) {
         $running = Test-ExpectedProcess $entry
@@ -242,6 +241,13 @@ if ($Mode -eq 'status') {
     }
     exit 0
 }
+if ($Mode -eq 'start' -or $Mode -eq 'restart') {
+    . (Join-Path $repoRoot 'scripts\protocol_manifest_gate.ps1')
+    $protocolMap = Resolve-MxhBuiltExecutable -ToolsRoot $buildRoot -ToolDirectory 'MoxianMapServer' -FileName "mxh_map_server_$Locale.exe" -Config $Config
+    $protocolClient = Resolve-MxhBuiltExecutable -ToolsRoot $buildRoot -ToolDirectory 'MoxianClient' -FileName 'mxh_client.exe' -Config $Config
+    Assert-MxhItemProtocolMatch -MapExecutable $protocolMap -ClientExecutable $protocolClient
+}
+if ($Mode -eq 'restart') { Stop-Modern; Start-Sleep -Seconds 1 }
 
 New-Item -ItemType Directory -Force -Path $stateDir, $DataDir, $logDir | Out-Null
 $ResourceRoot = (Resolve-Path -LiteralPath $ResourceRoot).Path
