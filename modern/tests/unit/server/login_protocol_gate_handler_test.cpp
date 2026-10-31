@@ -147,146 +147,227 @@ void expect_protocol_mismatch(const mxh::net::Message& message) {
     EXPECT_EQ(message.payload[2], 3u);
 }
 
-class LoginGate : public ::testing::TestWithParam<bool> {
-protected:
-    bool legacy() const { return GetParam(); }
+struct LoginGate {
     CountingDb db;
     ReplySpy reply;
-    mxh::server::LoginHandler handler{
-        db, "127.0.0.1", 7000, spy_reply(reply), legacy()};
+    mxh::server::LoginHandler handler;
     mxh::net::ConnectionId id = mxh::net::make_connection_id(41);
+
+    explicit LoginGate(bool legacy)
+        : handler(db, "127.0.0.1", 7000, spy_reply(reply), legacy) {}
 };
 
-TEST_P(LoginGate, MismatchRejectedWithReason3AndLog) {
+void login_mismatch_rejected(bool legacy) {
+    LoginGate gate(legacy);
     CoutCapture capture;
-    handler.on_message(id, check_version_message(std::string(64, 'a')));
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
+    gate.handler.on_message(gate.id, check_version_message(std::string(64, 'a')));
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
     EXPECT_NE(capture.str().find("PROTOCOL_MISMATCH item="), std::string::npos);
-    EXPECT_EQ(db.query_count, 0);
+    EXPECT_EQ(gate.db.query_count, 0);
 }
 
-TEST_P(LoginGate, MissingHashRejectedWithReason3) {
+void login_missing_hash_rejected(bool legacy) {
+    LoginGate gate(legacy);
     CoutCapture capture;
-    handler.on_message(id, check_version_without_hash());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
+    gate.handler.on_message(gate.id, check_version_without_hash());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
     EXPECT_NE(capture.str().find("PROTOCOL_MISMATCH item=missing/"), std::string::npos);
-    EXPECT_EQ(db.query_count, 0);
+    EXPECT_EQ(gate.db.query_count, 0);
 }
 
-TEST_P(LoginGate, RequestLoginBeforeVerificationLeavesDbUntouched) {
-    const auto login = legacy() ? legacy_login_message() : modern_login_message();
-    handler.on_message(id, login);
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
-    EXPECT_EQ(db.query_count, 0);
-    EXPECT_EQ(db.execute_count, 0);
+void login_before_verification_leaves_db_untouched(bool legacy) {
+    LoginGate gate(legacy);
+    gate.handler.on_message(gate.id, legacy ? legacy_login_message()
+                                            : modern_login_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
+    EXPECT_EQ(gate.db.query_count, 0);
+    EXPECT_EQ(gate.db.execute_count, 0);
 }
 
-TEST_P(LoginGate, MatchThenRequestLoginCompletes) {
-    handler.on_message(id, check_version_message(mxh::proto::kItemProtocolSha256));
-    ASSERT_EQ(reply.call_count, 1);
-    EXPECT_EQ(reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
-    reply.reset();
-    const int queries_before = db.query_count;
-    handler.on_message(id, legacy() ? legacy_login_message() : modern_login_message());
-    ASSERT_EQ(reply.call_count, 1);
-    EXPECT_EQ(reply.last.header.protocol, static_cast<std::uint8_t>(
+void login_match_then_request_completes(bool legacy) {
+    LoginGate gate(legacy);
+    gate.handler.on_message(
+        gate.id, check_version_message(mxh::proto::kItemProtocolSha256));
+    ASSERT_EQ(gate.reply.call_count, 1);
+    EXPECT_EQ(gate.reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
+    gate.reply.reset();
+    const int queries_before = gate.db.query_count;
+    gate.handler.on_message(gate.id, legacy ? legacy_login_message()
+                                            : modern_login_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    EXPECT_EQ(gate.reply.last.header.protocol, static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::NotifyUserLoginAck));
-    EXPECT_GT(db.query_count, queries_before);
+    EXPECT_GT(gate.db.query_count, queries_before);
 }
 
-TEST_P(LoginGate, DisconnectThenSameIdMustCheckAgain) {
-    handler.on_message(id, check_version_message(mxh::proto::kItemProtocolSha256));
-    ASSERT_EQ(reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
-    handler.on_disconnect(id, mxh::net::NetError::Disconnected);
-    reply.reset();
-    handler.on_message(id, legacy() ? legacy_login_message() : modern_login_message());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
-    EXPECT_EQ(db.query_count, 0);
+void login_disconnect_requires_check_again(bool legacy) {
+    LoginGate gate(legacy);
+    gate.handler.on_message(
+        gate.id, check_version_message(mxh::proto::kItemProtocolSha256));
+    ASSERT_EQ(gate.reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
+    gate.handler.on_disconnect(gate.id, mxh::net::NetError::Disconnected);
+    gate.reply.reset();
+    gate.handler.on_message(gate.id, legacy ? legacy_login_message()
+                                            : modern_login_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
+    EXPECT_EQ(gate.db.query_count, 0);
 }
 
-INSTANTIATE_TEST_SUITE_P(LegacyAndModern, LoginGate, ::testing::Bool(),
-    [](const ::testing::TestParamInfo<bool>& info) {
-        return info.param ? "Legacy" : "Modern";
-    });
-
-TEST(LoginHandlerProtocolGate, LegacyRequestLoginWithoutCheckVersionRejected) {
+void login_without_check_version_rejected(bool legacy) {
     CountingDb db;
     ReplySpy reply;
-    mxh::server::LoginHandler handler(db, "127.0.0.1", 7000, spy_reply(reply), true);
+    mxh::server::LoginHandler handler(db, "127.0.0.1", 7000, spy_reply(reply), legacy);
     const auto id = mxh::net::make_connection_id(7);
-    handler.on_message(id, legacy_login_message());
+    handler.on_message(id, legacy ? legacy_login_message() : modern_login_message());
     ASSERT_EQ(reply.call_count, 1);
     expect_protocol_mismatch(reply.last);
     EXPECT_EQ(db.query_count, 0);
 }
 
-class AgentGate : public ::testing::TestWithParam<bool> {
-protected:
-    bool legacy() const { return GetParam(); }
+TEST(LoginHandlerProtocolGate, LegacyMismatchRejectedWithReason3AndLog) {
+    login_mismatch_rejected(true);
+}
+TEST(LoginHandlerProtocolGate, ModernMismatchRejectedWithReason3AndLog) {
+    login_mismatch_rejected(false);
+}
+TEST(LoginHandlerProtocolGate, LegacyMissingHashRejectedWithReason3) {
+    login_missing_hash_rejected(true);
+}
+TEST(LoginHandlerProtocolGate, ModernMissingHashRejectedWithReason3) {
+    login_missing_hash_rejected(false);
+}
+TEST(LoginHandlerProtocolGate, LegacyRequestLoginBeforeVerificationLeavesDbUntouched) {
+    login_before_verification_leaves_db_untouched(true);
+}
+TEST(LoginHandlerProtocolGate, ModernRequestLoginBeforeVerificationLeavesDbUntouched) {
+    login_before_verification_leaves_db_untouched(false);
+}
+TEST(LoginHandlerProtocolGate, LegacyMatchThenRequestLoginCompletes) {
+    login_match_then_request_completes(true);
+}
+TEST(LoginHandlerProtocolGate, ModernMatchThenRequestLoginCompletes) {
+    login_match_then_request_completes(false);
+}
+TEST(LoginHandlerProtocolGate, LegacyDisconnectThenSameIdMustCheckAgain) {
+    login_disconnect_requires_check_again(true);
+}
+TEST(LoginHandlerProtocolGate, ModernDisconnectThenSameIdMustCheckAgain) {
+    login_disconnect_requires_check_again(false);
+}
+TEST(LoginHandlerProtocolGate, LegacyRequestLoginWithoutCheckVersionRejected) {
+    login_without_check_version_rejected(true);
+}
+TEST(LoginHandlerProtocolGate, ModernRequestLoginWithoutCheckVersionRejected) {
+    login_without_check_version_rejected(false);
+}
+
+struct AgentGate {
     CountingDb db;
     ReplySpy reply;
-    mxh::server::AgentHandler handler{
-        db, spy_reply(reply), legacy(), false, {}, /*default_map_num=*/12};
+    mxh::server::AgentHandler handler;
     mxh::net::ConnectionId id = mxh::net::make_connection_id(88);
+
+    explicit AgentGate(bool legacy)
+        : handler(db, spy_reply(reply), legacy, false, {}, /*default_map_num=*/12) {}
 };
 
-TEST_P(AgentGate, MismatchRejectedWithReason3AndLog) {
+void agent_mismatch_rejected(bool legacy) {
+    AgentGate gate(legacy);
     CoutCapture capture;
-    handler.on_message(id, check_version_message(std::string(64, 'b')));
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
+    gate.handler.on_message(gate.id, check_version_message(std::string(64, 'b')));
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
     EXPECT_NE(capture.str().find("PROTOCOL_MISMATCH item="), std::string::npos);
 }
 
-TEST_P(AgentGate, MissingHashRejectedWithReason3) {
-    handler.on_message(id, check_version_without_hash());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
+void agent_missing_hash_rejected(bool legacy) {
+    AgentGate gate(legacy);
+    gate.handler.on_message(gate.id, check_version_without_hash());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
 }
 
-TEST_P(AgentGate, CharacterListBeforeVerificationLeavesDbUntouched) {
-    const int queries_before = db.query_count;
-    handler.on_message(id, character_list_message());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
-    EXPECT_EQ(db.query_count, queries_before);
+void agent_character_list_before_verification(bool legacy) {
+    AgentGate gate(legacy);
+    const int queries_before = gate.db.query_count;
+    gate.handler.on_message(gate.id, character_list_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
+    EXPECT_EQ(gate.db.query_count, queries_before);
 }
 
-TEST_P(AgentGate, NonUserConnBeforeVerificationRejected) {
-    handler.on_message(id, item_message());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
-    EXPECT_EQ(db.query_count, 0);
+void agent_non_userconn_before_verification(bool legacy) {
+    AgentGate gate(legacy);
+    gate.handler.on_message(gate.id, item_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
+    EXPECT_EQ(gate.db.query_count, 0);
 }
 
-TEST_P(AgentGate, MatchThenCharacterListCompletes) {
-    handler.on_message(id, check_version_message(mxh::proto::kItemProtocolSha256));
-    ASSERT_EQ(reply.call_count, 1);
-    EXPECT_EQ(reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
-    reply.reset();
-    handler.on_message(id, character_list_message());
-    ASSERT_EQ(reply.call_count, 1);
-    EXPECT_EQ(reply.last.header.protocol, static_cast<std::uint8_t>(
+void agent_match_then_character_list(bool legacy) {
+    AgentGate gate(legacy);
+    gate.handler.on_message(
+        gate.id, check_version_message(mxh::proto::kItemProtocolSha256));
+    ASSERT_EQ(gate.reply.call_count, 1);
+    EXPECT_EQ(gate.reply.last.header.protocol, mxh::proto::kModernNotifyVersionAck);
+    gate.reply.reset();
+    gate.handler.on_message(gate.id, character_list_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    EXPECT_EQ(gate.reply.last.header.protocol, static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::CharacterListAck));
-    EXPECT_NE(reply.last.header.protocol, mxh::proto::kModernNotifyVersionNack);
+    EXPECT_NE(gate.reply.last.header.protocol, mxh::proto::kModernNotifyVersionNack);
 }
 
-TEST_P(AgentGate, DisconnectThenSameIdMustCheckAgain) {
-    handler.on_message(id, check_version_message(mxh::proto::kItemProtocolSha256));
-    handler.on_disconnect(id, mxh::net::NetError::Disconnected);
-    reply.reset();
-    handler.on_message(id, character_list_message());
-    ASSERT_EQ(reply.call_count, 1);
-    expect_protocol_mismatch(reply.last);
+void agent_disconnect_requires_check_again(bool legacy) {
+    AgentGate gate(legacy);
+    gate.handler.on_message(
+        gate.id, check_version_message(mxh::proto::kItemProtocolSha256));
+    gate.handler.on_disconnect(gate.id, mxh::net::NetError::Disconnected);
+    gate.reply.reset();
+    gate.handler.on_message(gate.id, character_list_message());
+    ASSERT_EQ(gate.reply.call_count, 1);
+    expect_protocol_mismatch(gate.reply.last);
 }
 
-INSTANTIATE_TEST_SUITE_P(LegacyAndModern, AgentGate, ::testing::Bool(),
-    [](const ::testing::TestParamInfo<bool>& info) {
-        return info.param ? "Legacy" : "Modern";
-    });
+TEST(AgentHandlerProtocolGate, LegacyMismatchRejectedWithReason3AndLog) {
+    agent_mismatch_rejected(true);
+}
+TEST(AgentHandlerProtocolGate, ModernMismatchRejectedWithReason3AndLog) {
+    agent_mismatch_rejected(false);
+}
+TEST(AgentHandlerProtocolGate, LegacyMissingHashRejectedWithReason3) {
+    agent_missing_hash_rejected(true);
+}
+TEST(AgentHandlerProtocolGate, ModernMissingHashRejectedWithReason3) {
+    agent_missing_hash_rejected(false);
+}
+TEST(AgentHandlerProtocolGate, LegacyCharacterListBeforeVerificationLeavesDbUntouched) {
+    agent_character_list_before_verification(true);
+}
+TEST(AgentHandlerProtocolGate, ModernCharacterListBeforeVerificationLeavesDbUntouched) {
+    agent_character_list_before_verification(false);
+}
+TEST(AgentHandlerProtocolGate, LegacyNonUserConnBeforeVerificationRejected) {
+    agent_non_userconn_before_verification(true);
+}
+TEST(AgentHandlerProtocolGate, ModernNonUserConnBeforeVerificationRejected) {
+    agent_non_userconn_before_verification(false);
+}
+TEST(AgentHandlerProtocolGate, LegacyMatchThenCharacterListCompletes) {
+    agent_match_then_character_list(true);
+}
+TEST(AgentHandlerProtocolGate, ModernMatchThenCharacterListCompletes) {
+    agent_match_then_character_list(false);
+}
+TEST(AgentHandlerProtocolGate, LegacyDisconnectThenSameIdMustCheckAgain) {
+    agent_disconnect_requires_check_again(true);
+}
+TEST(AgentHandlerProtocolGate, ModernDisconnectThenSameIdMustCheckAgain) {
+    agent_disconnect_requires_check_again(false);
+}
 
 }  // namespace
