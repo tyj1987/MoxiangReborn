@@ -558,6 +558,23 @@ jobs:
           foreach ($line in $result.Lines) { Write-Host $line }
           exit $result.ExitCode
 
+      # Not part of the 84-name behavior list. MoxianClientE2E itself is
+      # not selected here. DumpCli has no password; PasswordRequired must
+      # exit 3. This step is after the behavior gate so a failure here
+      # still leaves REQUIRED SUMMARY in the log.
+      - name: Build mxh_client_e2e and run password ctests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & cmake --build build-behavior --config Debug --target mxh_client_e2e -- /m /nologo
+          if ($LASTEXITCODE -ne 0) { throw "mxh_client_e2e build failed ($LASTEXITCODE)" }
+          $log = Join-Path (Get-Location) 'e2e-password-ctest.log'
+          & ctest --test-dir build-behavior -C Debug --output-on-failure -V `
+            --output-log $log --no-tests=error --timeout 30 `
+            -R '^(MoxianClientE2EPasswordRequired|MoxianClientE2EDumpCli)$'
+          $code = $LASTEXITCODE
+          if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
+          if ($code -ne 0) { exit $code }
+
       - name: Upload behavior ctest log
         if: always()
         uses: actions/upload-artifact@v4
