@@ -32,16 +32,20 @@ namespace mxh::proto {
 constexpr std::uint16_t kProtocolVersion   = 1;   // current server version
 constexpr std::uint16_t kMinProtocolVersion = 0;   // minimum accepted (0 = legacy compat)
 
-// Version check payload format:
+// Version check payload format (modern protocol 200 only):
 //   [client_version: u16] [client_name: u8 len + bytes]
+//   [item_protocol_hash: u8 len + ASCII]
+// The hash trailer is not part of original RequestLogin (protocol 1,
+// 墨香【源码】/[CC]Header/Protocol.h:522).
 // Version ack payload format:
 //   [server_version: u16] [encryption_required: u8]
 // Version nack payload format:
 //   [server_version: u16] [reason: u8]
 enum class VersionRejectReason : std::uint8_t {
-    TooOld     = 0,
-    TooNew     = 1,
-    ServerFull = 2,
+    TooOld            = 0,
+    TooNew            = 1,
+    ServerFull        = 2,
+    ProtocolMismatch  = 3,
 };
 
 // Categories (1:1 with [CC]Header/Protocol.h MP_CATEGORY).

@@ -6,7 +6,9 @@
 // against MoxianLoginServer:
 //
 //   client.Connect()            ->  recv DistConnectSuccess (auth_key)
-//                                  ->  send RequestLogin (legacy 38B payload)
+//                                  ->  send CheckVersion (protocol 200) with
+//                                     the Item protocol hash
+//                                  ->  recv VersionAck, then RequestLogin
 //                                  ->  recv LoginAck (23B legacy payload)
 //                                  ->  RequestStateChange(CharSelect)
 //
@@ -170,6 +172,8 @@ public:
 
 private:
     void handle_message(mxh::net::ConnectionId id, const mxh::net::Message& msg);
+    void send_item_protocol_check();
+    void send_request_login();
     void handle_disconnect(mxh::net::ConnectionId id, mxh::net::NetError reason);
     void dispatch_login_ack(const LegacyLoginAck& ack);
     void fail_with(const std::string& reason);
@@ -204,6 +208,7 @@ private:
     std::atomic<bool>        m_started    {false};
     std::atomic<bool>        m_ackReceived {false};
     std::atomic<bool>        m_failed     {false};
+    bool                     m_requestLoginSent = false;
     std::string              m_failureReason;
 
     // Phase 1 §7.2: application-level LoginAck timeout.  The deadline

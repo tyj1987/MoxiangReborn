@@ -7,6 +7,8 @@
 #include "mxh/server/server.hpp"
 #include "mxh/server/account_service.hpp"
 #include "mxh/server/account_moderation.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 
 #include <cstring>
 #include <cstdlib>
@@ -64,9 +66,9 @@ mxh::net::Message make_version_nack(mxh::proto::VersionRejectReason reason) {
         mxh::proto::Category::UserConn);
     m.header.protocol = mxh::proto::kModernNotifyVersionNack;
     m.payload.resize(3);
-    m.payload[0] = static_cast<std::uint8_t>(mxh::proto::kProtocolVersion & 0xFF);
-    m.payload[1] = static_cast<std::uint8_t>((mxh::proto::kProtocolVersion >> 8) & 0xFF);
-    m.payload[2] = static_cast<std::uint8_t>(reason);
+    mxh::proto::write_version_nack_payload(
+        m.payload.data(), mxh::proto::kProtocolVersion,
+        static_cast<std::uint8_t>(reason));
     return m;
 }
 
@@ -188,10 +190,23 @@ void LoginHandler::handle_userconn(mxh::net::ConnectionId id,
     // Phase 7.6: Legacy 4DyuchiNET protocol support.
     // Original client sends MP_USERCONN_LOGIN_SYN (protocol=1) directly.
     // Modern protocol requires version check first.
+    if (msg.header.protocol == mxh::proto::kModernCheckVersion) {
+        handle_version_check(id, msg);
+        return;
+    }
+
     if (use_legacy_framing_) {
         dbg_log("[handle_userconn] legacy mode, proto=" + std::to_string((int)proto));
-        // Legacy mode: skip version check, handle login directly.
         if (proto == mxh::proto::UserConnProtocol::RequestLogin) {
+            bool verified = false;
+            {
+                std::lock_guard<std::mutex> lk(version_mu_);
+                verified = version_verified_.find(id.value) != version_verified_.end();
+            }
+            if (!verified) {
+                reject_missing_item_protocol(id);
+                return;
+            }
             handle_legacy_login(id, msg);
         } else {
             std::cout << "[Login] legacy: unexpected proto=" << (int)proto << "\n";
@@ -199,21 +214,17 @@ void LoginHandler::handle_userconn(mxh::net::ConnectionId id,
         return;
     }
 
-    // Modern mode: version check required.
-    if (msg.header.protocol == mxh::proto::kModernCheckVersion) {
-        handle_version_check(id, msg);
-        return;
-    }
-
-    // All other messages require prior version verification.
+    // All other messages require a matching Item protocol hash.
+    bool verified = false;
     {
         std::lock_guard<std::mutex> lk(version_mu_);
-        if (version_verified_.find(id.value) == version_verified_.end()) {
-            std::cout << "[Login] rejecting unverified client (id=" << id.value
-                      << " proto=" << (int)proto << ")\n";
-            reply_(id, make_version_nack(mxh::proto::VersionRejectReason::TooOld));
-            return;
-        }
+        verified = version_verified_.find(id.value) != version_verified_.end();
+    }
+    if (!verified) {
+        std::cout << "[Login] rejecting unverified client (id=" << id.value
+                  << " proto=" << (int)proto << ")\n";
+        reject_missing_item_protocol(id);
+        return;
     }
 
     if (proto == mxh::proto::UserConnProtocol::RequestLogin) {
@@ -261,13 +272,36 @@ void LoginHandler::handle_version_check(mxh::net::ConnectionId id,
         return;
     }
 
-    // Version OK — mark as verified and send ACK.
+    const auto client_hash = mxh::proto::item_hash_from_check_version(
+        msg.payload.data(), msg.payload.size());
+    const auto decision = mxh::proto::evaluate_login_item_protocol(
+        client_hash, mxh::proto::kItemProtocolSha256);
+    if (!decision.accepted) {
+        {
+            std::lock_guard<std::mutex> lk(version_mu_);
+            version_verified_.erase(id.value);
+        }
+        std::cout << decision.log_line << '\n';
+        reply_(id, make_version_nack(
+            static_cast<mxh::proto::VersionRejectReason>(decision.reason)));
+        return;
+    }
+
+    // Version and Item protocol hash match — mark as verified and send ACK.
     {
         std::lock_guard<std::mutex> lk(version_mu_);
         version_verified_.insert(id.value);
     }
     std::cout << "[Login] version OK, sending VersionAck\n";
     reply_(id, make_version_ack(/*encryption_required=*/false));
+}
+
+void LoginHandler::reject_missing_item_protocol(mxh::net::ConnectionId id) {
+    const auto decision = mxh::proto::evaluate_login_item_protocol(
+        "", mxh::proto::kItemProtocolSha256);
+    std::cout << decision.log_line << '\n';
+    reply_(id, make_version_nack(
+        static_cast<mxh::proto::VersionRejectReason>(decision.reason)));
 }
 
 void LoginHandler::handle_login(mxh::net::ConnectionId id,

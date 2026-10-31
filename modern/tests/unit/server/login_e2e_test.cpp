@@ -21,7 +21,9 @@
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 
 #include <gtest/gtest.h>
@@ -131,6 +133,24 @@ std::vector<std::uint8_t> make_legacy_login_payload(
     out.insert(out.end(), id17.begin(), id17.end());
     out.insert(out.end(), pw17.begin(), pw17.end());
     return out;
+}
+
+// CheckVersion (protocol 200) plus NotifyVersionAck (201) before RequestLogin.
+// The RequestLogin and LoginAck bytes that follow are unchanged.
+template <typename Client>
+void send_matching_check_version(mxh::net::TcpClient& tcp, Client& client) {
+    const auto before = client.snapshot().size();
+    Message cv;
+    cv.header.category = 7;
+    cv.header.protocol = mxh::proto::kModernCheckVersion;
+    cv.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "MoxianClient",
+        mxh::proto::kItemProtocolSha256);
+    ASSERT_EQ(tcp.send(cv), NetError::Ok);
+    ASSERT_TRUE(client.wait_for(before + 1, std::chrono::seconds(2)));
+    const auto msgs = client.snapshot();
+    ASSERT_FALSE(msgs.empty());
+    EXPECT_EQ(msgs.back().header.protocol, mxh::proto::kModernNotifyVersionAck);
 }
 
 class LoginServerFixture : public ::testing::Test {
@@ -286,6 +306,7 @@ TEST_F(LoginServerFixture, LegacyLoginValidCredsReceivesAck) {
     std::uint32_t auth_key = dcs.header.object_id;
     ASSERT_GT(auth_key, 0u);
 
+    send_matching_check_version(tcp, client);
     Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -294,10 +315,10 @@ TEST_F(LoginServerFixture, LegacyLoginValidCredsReceivesAck) {
     auto se = tcp.send(login);
     ASSERT_EQ(se, NetError::Ok) << mxh::net::to_string(se);
 
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    const auto& ack = msgs[1];
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& ack = msgs[2];
     EXPECT_EQ(ack.header.category, 7);
     EXPECT_EQ(ack.header.protocol, 2);
     ASSERT_EQ(ack.payload.size(), 23u);
@@ -327,6 +348,7 @@ TEST_F(LoginServerFixture, LegacyLoginInvalidCredsReceivesNack) {
     auto dcs = client.snapshot()[0];
     std::uint32_t auth_key = dcs.header.object_id;
 
+    send_matching_check_version(tcp, client);
     Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -334,10 +356,10 @@ TEST_F(LoginServerFixture, LegacyLoginInvalidCredsReceivesNack) {
     login.payload = make_legacy_login_payload(auth_key, "test", "wrong");
     ASSERT_EQ(tcp.send(login), NetError::Ok);
 
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    const auto& nack = msgs[1];
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& nack = msgs[2];
     EXPECT_EQ(nack.header.category, 7);
     // Protocol=3 (NotifyUserLoginNack), not the request's protocol=1
     // (RequestLogin). The legacy Moxian client fails cleanly on proto=3
@@ -424,6 +446,7 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginAck) {
     ASSERT_EQ(dcs.header.protocol, 0);
     std::uint32_t auth_key = dcs.header.object_id;
     ASSERT_EQ(auth_key, 1000u);
+    send_matching_check_version(tcp, client);
     Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -431,10 +454,10 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginAck) {
     login.payload = make_legacy_login_payload(auth_key, "test", "test");
     auto se = tcp.send(login);
     ASSERT_EQ(se, NetError::Ok);
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    const auto& ack = msgs[1];
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& ack = msgs[2];
     EXPECT_EQ(ack.header.protocol, 2);
     tcp.disconnect();
     const auto actual = reconstruct_wire(ack);
@@ -456,6 +479,7 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginNack) {
     ASSERT_EQ(dcs.header.protocol, 0);
     std::uint32_t auth_key = dcs.header.object_id;
     ASSERT_EQ(auth_key, 1000u);
+    send_matching_check_version(tcp, client);
     Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -463,10 +487,10 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginNack) {
     login.payload = make_legacy_login_payload(auth_key, "test", "wrong");
     auto se = tcp.send(login);
     ASSERT_EQ(se, NetError::Ok);
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    const auto& nack = msgs[1];
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& nack = msgs[2];
     // The server's NACK uses protocol=3 (NotifyUserLoginNack), not the
     // request's protocol=1 (RequestLogin). Golden login_nack.bin is
     // regenerated to match the protocol-correct wire bytes.
@@ -643,6 +667,7 @@ TEST_F(EncryptedLoginFixture, EncryptedLoginAckMatchesGolden) {
     ASSERT_EQ(dcs.header.protocol, 0);
     std::uint32_t auth_key = dcs.header.object_id;
     ASSERT_EQ(auth_key, 1000u);
+    send_matching_check_version(tcp, client);
     mxh::net::Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -650,10 +675,10 @@ TEST_F(EncryptedLoginFixture, EncryptedLoginAckMatchesGolden) {
     login.payload = make_legacy_login_payload(auth_key, "test", "test");
     auto se = tcp.send(login);
     ASSERT_EQ(se, mxh::net::NetError::Ok);
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    const auto& ack = msgs[1];
+    ASSERT_EQ(msgs.size(), 3u);
+    const auto& ack = msgs[2];
     EXPECT_EQ(ack.header.protocol, 2);
     EXPECT_EQ(ack.header.category, 7);
     EXPECT_EQ(ack.header.object_id, 0u);
@@ -804,6 +829,7 @@ TEST_F(HselLoginFixture, HselEncryptedLoginFlow) {
 
     // The imported cipher is ready; RequestLogin goes out encrypted.
     EXPECT_TRUE(client.cipher_.initialized());
+    send_matching_check_version(tcp, client);
     mxh::net::Message login;
     login.header.category = 7;
     login.header.protocol = 1;
@@ -811,10 +837,10 @@ TEST_F(HselLoginFixture, HselEncryptedLoginFlow) {
     login.payload = make_legacy_login_payload(auth_key, "test", "test");
     ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
 
-    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(4, std::chrono::seconds(2)));
     msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 3u);
-    const auto& ack = msgs[2];
+    ASSERT_EQ(msgs.size(), 4u);
+    const auto& ack = msgs[3];
     EXPECT_EQ(ack.header.protocol, 2);
     EXPECT_EQ(ack.header.category, 7);
     EXPECT_EQ(ack.header.object_id, 0u);
@@ -1064,16 +1090,17 @@ TEST_F(LoginServerFixture, DisconnectReconnectKeepsAuthKeysIsolated) {
         EXPECT_TRUE(dcs.payload.empty());
 
         // Run the legacy login flow on the reconnect.
+        send_matching_check_version(tcp2, client2);
         mxh::net::Message login;
         login.header.category = 7;
         login.header.protocol = 1;
         login.header.object_id = 0;
         login.payload = make_legacy_login_payload(1001u, "test", "test");
         ASSERT_EQ(tcp2.send(login), mxh::net::NetError::Ok);
-        ASSERT_TRUE(client2.wait_for(2, std::chrono::seconds(2)));
+        ASSERT_TRUE(client2.wait_for(3, std::chrono::seconds(2)));
         msgs = client2.snapshot();
-        ASSERT_EQ(msgs.size(), 2u);
-        const auto& ack = msgs[1];
+        ASSERT_EQ(msgs.size(), 3u);
+        const auto& ack = msgs[2];
         EXPECT_EQ(ack.header.category, 7);
         EXPECT_EQ(ack.header.protocol, 2);
         ASSERT_EQ(ack.payload.size(), 23u);
@@ -1131,16 +1158,17 @@ TEST_F(LoginServerFixture, MultipleConcurrentClientsGetDistinctAuthKeys) {
                 auth_keys[i] = dcs.header.object_id;
 
                 // Send the legacy login flow and expect Ack.
+                send_matching_check_version(tcp, client);
                 mxh::net::Message login;
                 login.header.category = 7;
                 login.header.protocol = 1;
                 login.header.object_id = 0;
                 login.payload = make_legacy_login_payload(auth_keys[i], "test", "test");
                 ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
-                ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(3)));
+                ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(3)));
                 msgs = client.snapshot();
-                ASSERT_EQ(msgs.size(), 2u);
-                const auto& ack = msgs[1];
+                ASSERT_EQ(msgs.size(), 3u);
+                const auto& ack = msgs[2];
                 EXPECT_EQ(ack.header.category, 7);
                 EXPECT_EQ(ack.header.protocol, 2);
                 ASSERT_EQ(ack.payload.size(), 23u);
@@ -1214,16 +1242,17 @@ TEST_F(LoginServerFixture, TenConcurrentClientsStress) {
 
 
 
+                send_matching_check_version(tcp, client);
                 mxh::net::Message login;
                 login.header.category = 7;
                 login.header.protocol = 1;
                 login.header.object_id = 0;
                 login.payload = make_legacy_login_payload(auth_keys[i], "test", "test");
                 ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
-                ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(5)));
+                ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(5)));
                 msgs = client.snapshot();
-                ASSERT_EQ(msgs.size(), 2u);
-                const auto& ack = msgs[1];
+                ASSERT_EQ(msgs.size(), 3u);
+                const auto& ack = msgs[2];
                 EXPECT_EQ(ack.header.category, 7);
                 EXPECT_EQ(ack.header.protocol, 2);
                 ASSERT_EQ(ack.payload.size(), 23u);
@@ -1284,15 +1313,16 @@ TEST_F(LoginServerFixture, SustainsSequentialLoginThroughputAboveFloor) {
         auto msgs = client.snapshot();
         ASSERT_EQ(msgs.size(), 1u);
         const auto& dcs = msgs[0];
+        send_matching_check_version(tcp, client);
         mxh::net::Message login;
         login.header.category = 7;
         login.header.protocol = 1;
         login.header.object_id = 0;
         login.payload = make_legacy_login_payload(dcs.header.object_id, "test", "test");
         ASSERT_EQ(tcp.send(login), mxh::net::NetError::Ok);
-        ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(5)));
+        ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(5)));
         msgs = client.snapshot();
-        ASSERT_EQ(msgs.size(), 2u);
+        ASSERT_EQ(msgs.size(), 3u);
         tcp.disconnect();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
@@ -1793,16 +1823,17 @@ TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
     std::uint32_t auth_key = dcs.header.object_id;
 
     // First attempt: invalid creds (wrong password).
+    send_matching_check_version(tcp, client);
     Message bad;
     bad.header.category = 7;
     bad.header.protocol = 1;
     bad.header.object_id = 0;
     bad.payload = make_legacy_login_payload(auth_key, "test", "wrong");
     ASSERT_EQ(tcp.send(bad), NetError::Ok);
-    ASSERT_TRUE(client.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
     auto msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 2u);
-    EXPECT_EQ(msgs[1].header.protocol, 3);  // Nack (NotifyUserLoginNack)
+    ASSERT_EQ(msgs.size(), 3u);
+    EXPECT_EQ(msgs[2].header.protocol, 3);  // Nack (NotifyUserLoginNack)
 
     // Second attempt on the SAME connection: valid creds.
     Message good;
@@ -1811,12 +1842,12 @@ TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
     good.header.object_id = 0;
     good.payload = make_legacy_login_payload(auth_key, "test", "test");
     ASSERT_EQ(tcp.send(good), NetError::Ok);
-    ASSERT_TRUE(client.wait_for(3, std::chrono::seconds(2)));
+    ASSERT_TRUE(client.wait_for(4, std::chrono::seconds(2)));
     msgs = client.snapshot();
-    ASSERT_EQ(msgs.size(), 3u);
-    EXPECT_EQ(msgs[2].header.protocol, 2);  // Ack
-    EXPECT_EQ(msgs[2].payload.size(), 23u);
-    EXPECT_EQ(msgs[2].payload[22], 2);       // userLevel
+    ASSERT_EQ(msgs.size(), 4u);
+    EXPECT_EQ(msgs[3].header.protocol, 2);  // Ack
+    EXPECT_EQ(msgs[3].payload.size(), 23u);
+    EXPECT_EQ(msgs[3].payload[22], 2);       // userLevel
 
     tcp.disconnect();
 }
@@ -1863,8 +1894,9 @@ TEST_F(LoginServerFixtureGolden, GoldenCapturesLoginRequest) {
     EXPECT_EQ(actual, golden);
     ASSERT_EQ(actual.size(), 48u);
 
-    // Still send the login so the server-side state remains clean
-    // (in case gtest runs additional tests in this fixture).
+    // The locked request bytes stay the original RequestLogin frame.
+    // CheckVersion is a separate round trip before that frame is sent.
+    send_matching_check_version(tcp, client);
     ASSERT_EQ(tcp.send(login), NetError::Ok);
     tcp.disconnect();
 }

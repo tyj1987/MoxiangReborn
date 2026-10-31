@@ -21,7 +21,9 @@
 
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/original_item_obtain_codec.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 #include "mxh/server/server.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "client/CInGameState.hpp"
@@ -490,6 +492,30 @@ inline mxh::server::ReplyFn make_reply_spy(ReplySpy& spy) {
     };
 }
 
+// Matching CheckVersion so later messages are not rejected by the Item
+// protocol gate. Replies produced by the check itself are removed so
+// existing call counts stay on the message under test.
+inline void grant_item_protocol(mxh::server::AgentHandler& handler,
+                                mxh::net::ConnectionId id,
+                                ReplySpy* reply) {
+    const auto before = reply ? reply->messages.size() : 0;
+    mxh::net::Message gate;
+    gate.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    gate.header.protocol = mxh::proto::kModernCheckVersion;
+    gate.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "test", mxh::proto::kItemProtocolSha256);
+    handler.on_message(id, gate);
+    if (!reply) return;
+    if (reply->messages.size() > before) reply->messages.resize(before);
+    reply->call_count.store(static_cast<int>(reply->messages.size()));
+    if (before == 0) {
+        reply->last_message = {};
+        reply->last_id = {};
+    } else {
+        reply->last_message = reply->messages.back();
+    }
+}
+
 mxh::net::Message character_make_with_default_clothes() {
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(
@@ -530,6 +556,7 @@ TEST(AgentCharacterCreateTest, PersistsDefaultClothesBeforeAcknowledging) {
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9001), &reply);
     handler.on_message(mxh::net::make_connection_id(9001),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -551,6 +578,7 @@ TEST(AgentCharacterCreateTest, EquipmentFailureRollsBackAndRejectsCreation) {
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9002), &reply);
     handler.on_message(mxh::net::make_connection_id(9002),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -572,6 +600,7 @@ TEST(AgentCharacterCreateTest, PendingVitalsFailureRollsBackCharacterAndClothes)
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9003), &reply);
     handler.on_message(mxh::net::make_connection_id(9003),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -593,6 +622,7 @@ TEST(AgentCharacterCreateTest, ProgressFailureRollsBackCharacterBeforeClothes) {
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9006), &reply);
     handler.on_message(mxh::net::make_connection_id(9006),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -614,6 +644,7 @@ TEST(AgentCharacterCreateTest, UnknownCommitRetiresAdapterWithoutFalseNack) {
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9004), &reply);
     handler.on_message(mxh::net::make_connection_id(9004),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.begins, 1);
@@ -631,6 +662,7 @@ TEST(AgentCharacterCreateTest, FailedRollbackRetiresAdapterWithoutFalseNack) {
     mxh::server::AgentHandler handler(db, make_reply_spy(reply), true, false, {}, /*default_map_num=*/12);
     RegisteredMapSender birth;
     register_birth_map(handler, birth, /*map_num=*/12);
+    grant_item_protocol(handler, mxh::net::make_connection_id(9005), &reply);
     handler.on_message(mxh::net::make_connection_id(9005),
                        character_make_with_default_clothes());
     EXPECT_EQ(db.rollbacks, 1);
@@ -653,6 +685,7 @@ TEST(AgentCharacterCreateTest, SharedAdapterSerializesCreationFriendTxnAndSessio
     const auto friend_connection = mxh::net::make_connection_id(9101);
     handler.register_session(friend_connection, 1u, 123u, 10u, 0u);
     std::thread creator([&] {
+        grant_item_protocol(handler, mxh::net::make_connection_id(9102), nullptr);
         handler.on_message(mxh::net::make_connection_id(9102),
                            character_make_with_default_clothes());
     });
@@ -680,6 +713,7 @@ TEST(AgentCharacterCreateTest, SharedAdapterSerializesCreationFriendTxnAndSessio
     auto read_done_future = read_done.get_future();
     std::thread friend_thread([&] {
         friend_started.set_value();
+        grant_item_protocol(handler, friend_connection, nullptr);
         handler.on_message(friend_connection, friend_del);
         friend_done.set_value();
     });
@@ -776,6 +810,7 @@ TEST(AgentCharacterCreateTest, PersistsCanonicalBirthMapWhenRouteIsRegistered) {
     auto request = character_make_with_default_clothes();
     ASSERT_GE(request.payload.size(), 26u);
     request.payload[25] = 17;  // canonical StartArea from LoginPoint.bin
+    grant_item_protocol(handler, mxh::net::make_connection_id(9017), &reply);
     handler.on_message(mxh::net::make_connection_id(9017), request);
 
     ASSERT_TRUE(db.created_map_num.has_value());
@@ -1065,6 +1100,7 @@ TEST(AgentHandlerTest, RejectsFriendRequestForOfflineTarget) {
     request.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
     request.header.protocol = 0; // FriendAddSyn
     request.header.object_id = 456u;
+    grant_item_protocol(handler, mxh::net::make_connection_id(100), &reply);
     handler.on_message(mxh::net::make_connection_id(100), request);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -1085,6 +1121,7 @@ TEST(AgentHandlerTest, CompletesOnlineFriendInviteHandshake) {
     add.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
     add.header.protocol = 0;
     add.header.object_id = 456u;
+    grant_item_protocol(handler, mxh::net::make_connection_id(100), &reply);
     handler.on_message(mxh::net::make_connection_id(100), add);
     ASSERT_EQ(reply.messages.size(), 2u);
     EXPECT_EQ(reply.messages[0].header.protocol, 3u);
@@ -1095,6 +1132,7 @@ TEST(AgentHandlerTest, CompletesOnlineFriendInviteHandshake) {
     accept.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Friend);
     accept.header.protocol = 4;
     accept.header.object_id = 123u;
+    grant_item_protocol(handler, mxh::net::make_connection_id(101), &reply);
     handler.on_message(mxh::net::make_connection_id(101), accept);
     ASSERT_EQ(reply.messages.size(), 4u);
     EXPECT_EQ(reply.messages[2].header.protocol, 5u);
@@ -1222,8 +1260,9 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
 
 TEST(AgentHandlerTest, GameInUsesMapSpecificServerRoute) {
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, true,
-                                      false, {}, /*default_map_num=*/12);
+    mxh::server::AgentHandler handler(
+        db, [](mxh::net::ConnectionId, const mxh::net::Message&) {}, true,
+        false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(1100);
     handler.register_session(connection, 3001u, 450035712u, 10u);
 
@@ -1240,6 +1279,7 @@ TEST(AgentHandlerTest, GameInUsesMapSpecificServerRoute) {
         mxh::proto::UserConnProtocol::GameInSyn);
     game_in.header.object_id = 450035712u;
     game_in.payload.resize(8, 0);
+    grant_item_protocol(handler, connection, nullptr);
     handler.on_message(connection, game_in);
 
     ASSERT_EQ(target_map.sent_msgs.size(), 1u);
@@ -1264,6 +1304,7 @@ TEST(AgentHandlerTest, ProductionGameInRejectsWhenMapServerIsUnavailable) {
     game_in.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::GameInSyn);
     game_in.header.object_id = 450035716u;
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, game_in);
 
     ASSERT_EQ(reply.messages.size(), 1u);
@@ -1289,6 +1330,7 @@ TEST(AgentHandlerTest, GameInSendFailureReturnsNackInsteadOfHanging) {
     game_in.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::GameInSyn);
     game_in.header.object_id = 450035717u;
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, game_in);
 
     ASSERT_EQ(reply.messages.size(), 1u);
@@ -1319,6 +1361,7 @@ TEST(AgentHandlerTest, ChangeMapUsesTargetRouteAndClosesCurrentRoute) {
     change.payload.resize(4, 0);
     const std::uint16_t target_num = 10u;
     std::memcpy(change.payload.data(), &target_num, sizeof(target_num));
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, change);
 
     ASSERT_EQ(current_map.sent_msgs.size(), 1u);
@@ -1378,6 +1421,8 @@ TEST(CharacterAddTargetRoute, ChangeMapPublishesRouteBeforeSynchronousMapReply) 
     change.payload.resize(4u);
     const std::uint16_t target_num = 10u;
     std::memcpy(change.payload.data(), &target_num, 2);
+    grant_item_protocol(agent, moving_connection, nullptr);
+    delivered.clear();
     agent.on_message(moving_connection, change);
 
     ASSERT_EQ(delivered.size(), 3u);
@@ -1410,6 +1455,7 @@ TEST(CharacterAddTargetRoute, FailedChangeMapSendRestoresPriorRoute) {
     change.payload.resize(2u);
     const std::uint16_t target_num = 10u;
     std::memcpy(change.payload.data(), &target_num, 2);
+    grant_item_protocol(agent, client, &reply);
     agent.on_message(client, change);
     ASSERT_EQ(reply.messages.size(), 1u);
     EXPECT_EQ(reply.messages.front().header.protocol,
@@ -1449,8 +1495,10 @@ TEST(CharacterAddTargetRoute, DisconnectDuringTargetSendDoesNotRestoreSession) {
     change.payload.resize(2u);
     const std::uint16_t target_num = 10u;
     std::memcpy(change.payload.data(), &target_num, 2);
+    grant_item_protocol(agent, client, &reply);
     agent.on_message(client, change);
     EXPECT_TRUE(reply.messages.empty()) << "disconnected client must not receive ChangeMapAck";
+    grant_item_protocol(agent, client, &reply);
     mxh::net::Message out;
     out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     out.header.protocol = static_cast<std::uint8_t>(
@@ -1483,6 +1531,7 @@ TEST(AgentHandlerTest, ChangeMapWithoutTargetRouteReturnsNackAndKeepsCurrentMap)
     const std::uint16_t unavailable_map = 99u;
     std::memcpy(change.payload.data(), &unavailable_map,
                 sizeof(unavailable_map));
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, change);
 
     EXPECT_TRUE(current_map.sent_msgs.empty());
@@ -1522,6 +1571,7 @@ TEST(AgentHandlerTest, ChangeMapBootstrapsTargetMapHandlerAndRelaysGameInAck) {
     change.header.object_id = char_id;
     change.payload.resize(4, 0);
     std::memcpy(change.payload.data(), &target_map, sizeof(target_map));
+    grant_item_protocol(handler, client_connection, &reply);
     handler.on_message(client_connection, change);
 
     const auto snapshot = target_handler.player_runtime_snapshot(char_id);
@@ -1559,6 +1609,7 @@ TEST(AgentHandlerTest, DisconnectSynAcknowledgesAndClearsMapRoute) {
         mxh::proto::Category::UserConn);
     disconnect.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::DisconnectSyn);
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, disconnect);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -1589,6 +1640,7 @@ TEST(AgentHandlerTest, DisconnectSynWithoutCharacterDoesNotTouchMap) {
         mxh::proto::Category::UserConn);
     disconnect.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::DisconnectSyn);
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, disconnect);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -1648,6 +1700,7 @@ TEST(AgentHandlerHackShieldTest, GuidReqNonSuperuserIsNoOp) {
         mxh::proto::Category::HackShield);
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::GuidReq);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(reply.call_count.load(), 0);
@@ -1669,6 +1722,7 @@ TEST(AgentHandlerHackShieldTest, GuidAckSuperuserSendsReq) {
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::GuidAck);
     msg.payload.assign(mxh::server::HACKSHIELD_GUID_ACK_SIZE, 0xAB);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -1697,6 +1751,7 @@ TEST(AgentHandlerHackShieldTest, AckSuperuserClearsState) {
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::Ack);
     msg.payload.assign(mxh::server::HACKSHIELD_ACK_SIZE, 0xCD);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(reply.call_count.load(), 0);
@@ -1717,6 +1772,7 @@ TEST(AgentHandlerHackShieldTest, ClientDisconnectProtocolSetsPendingFlag) {
         mxh::proto::Category::HackShield);
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::Disconnect);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(reply.call_count.load(), 0);
@@ -1738,6 +1794,7 @@ TEST(AgentHandlerHackShieldTest, ReqSecondCallQueuesDisconnect) {
         mxh::proto::Category::HackShield);
     req1.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::Req);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, req1);
     ASSERT_EQ(reply.call_count.load(), 1);
     EXPECT_EQ(reply.last_message.header.protocol,
@@ -1768,6 +1825,7 @@ TEST(AgentHandlerHackShieldTest, OnDisconnectClearsPendingFlag) {
         mxh::proto::Category::HackShield);
     msg.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::Disconnect);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
     ASSERT_TRUE(handler.is_hackshield_disconnect_pending(cid));
 
@@ -1792,6 +1850,7 @@ TEST(AgentHandlerHackShieldTest, NonHackShieldCatIsNotRouted) {
     msg.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::Chat);
     msg.header.protocol = 0;
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_FALSE(handler.has_hackshield_state(cid));
@@ -1852,6 +1911,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListPopulatesUserLevelFromDb) {
     msg.payload.resize(8, 0);
     std::uint32_t user_id = 42u;
     std::memcpy(msg.payload.data(), &user_id, 4);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(handler.user_level(cid), 5u);
@@ -1896,6 +1956,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListNonSuperuserGatesHackShield) {
     msg.payload.resize(8, 0);
     std::uint32_t user_id = 99u;
     std::memcpy(msg.payload.data(), &user_id, 4);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(handler.user_level(cid), 2u);
@@ -1928,6 +1989,7 @@ TEST(AgentHandlerHackShieldTest, CharacterListMissingUserLevelDefaultsZero) {
     msg.payload.resize(8, 0);
     std::uint32_t user_id = 7u;
     std::memcpy(msg.payload.data(), &user_id, 4);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, msg);
 
     EXPECT_EQ(handler.user_level(cid), 0u);
@@ -1970,6 +2032,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldGraceSuperuserNoOpThenDisconnect)
         mxh::proto::Category::HackShield);
     req.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::GuidReq);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, req);
     EXPECT_TRUE(handler.has_hackshield_state(cid));
     reply.call_count.store(0);
@@ -1993,6 +2056,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldNonSuperuserIsNoOp) {
         mxh::proto::Category::HackShield);
     req.header.protocol = static_cast<std::uint8_t>(
         mxh::server::HackShieldProtocol::GuidReq);
+    grant_item_protocol(handler, cid, &reply);
     handler.on_message(cid, req);
     EXPECT_FALSE(handler.has_hackshield_state(cid));
     EXPECT_EQ(handler.tick_hackshield(), 0u);
@@ -2017,6 +2081,7 @@ TEST(AgentHandlerHackShieldTest, TickHackshieldMixedSuperusersHandlesEach) {
             mxh::proto::Category::HackShield);
         req.header.protocol = static_cast<std::uint8_t>(
             mxh::server::HackShieldProtocol::GuidReq);
+        grant_item_protocol(handler, id, &reply);
         handler.on_message(id, req);
     };
     send_guid(cid_super_a);
@@ -2065,6 +2130,7 @@ TEST(AgentHandlerCharacterRemoveTest, DeletesOnlyOwnedCharacterAndDependentState
     remove.payload.resize(sizeof(std::uint32_t));
     const std::uint32_t character_id = 1001;
     std::memcpy(remove.payload.data(), &character_id, sizeof(character_id));
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, remove);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -2109,6 +2175,7 @@ TEST(AgentHandlerCharacterRemoveTest, RejectsCharacterOwnedByAnotherUser) {
     remove.payload.resize(sizeof(std::uint32_t));
     const std::uint32_t character_id = 1002;
     std::memcpy(remove.payload.data(), &character_id, sizeof(character_id));
+    grant_item_protocol(handler, connection, &reply);
     handler.on_message(connection, remove);
 
     ASSERT_EQ(reply.call_count.load(), 1);
@@ -6179,6 +6246,7 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     std::memcpy(create.payload.data() + 51, &scale, 4);
     std::memcpy(create.payload.data() + 55, &scale, 4);
     create.payload[25] = 17;
+    grant_item_protocol(agent, {90}, &reply);
     agent.on_message({90}, create);
     mxh::db::ResultSet rows;
     ASSERT_TRUE(db.query("SELECT chrid,base_gengol,base_minchub,base_cheryuk,base_simmek FROM character_info", {}, rows).ok());
@@ -6195,7 +6263,18 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     game_in.payload.assign(16, 0);
     std::memcpy(game_in.payload.data(), &account, 4);
     const auto configure = [&](MapHandler& handler) {
-        handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+        // Hand-written weapon. ItemKind 2048 is ordinary equipment and
+        // EquipKind 1 is the weapon slot (position 81). Melee 13-17 with
+        // GenGol 12 is attack 29-35 while worn and 16 while unarmed.
+        mxh::game::ItemInfo weapon{};
+        weapon.ItemIdx = 11000;
+        std::memcpy(weapon.ItemName, "TestBlade", 9);
+        weapon.ItemKind = 2048;
+        weapon.EquipKind = mxh::game::WEARED_WEAPON;
+        weapon.WeaponType = 1;
+        weapon.MeleeAttackMin = 13;
+        weapon.MeleeAttackMax = 17;
+        handler.add_item_info_for_test(weapon);
     };
     std::uint32_t database_id = 0;
     const auto move = [&](MapHandler& handler, std::uint16_t destination) {

@@ -27,6 +27,7 @@ gtest_add_tests(TARGET mxh_agent_cli_tests
 
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
+    login_protocol_gate_handler_test.cpp
     item_id_test.cpp
     player_equipment_stats_test.cpp
     start_map_route_test.cpp

@@ -9,8 +9,8 @@
 //                     immediately after TCP accept.
 //   3. on_message()
 //        - cat=UserConn, proto=0 (DistConnectSuccess): stash auth_key
-//          from MSGBASE.object_id, then send RequestLogin (38B legacy
-//          payload).
+//          from MSGBASE.object_id, then send CheckVersion with the Item
+//          protocol hash. RequestLogin follows VersionAck.
 //        - cat=UserConn, proto=2 (NotifyUserLoginAck): parse the 23B
 //          legacy ack and request a state switch to CharSelect.
 //        - anything else: log + ignore.
@@ -35,7 +35,9 @@
 #include <utility>
 
 #include "mxh/log/mlog.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 
 namespace mxh::client {
 
@@ -122,6 +124,7 @@ void CLoginState::Release() {
     m_started.store(false, std::memory_order_release);
     m_ackReceived.store(false, std::memory_order_release);
     m_failed.store(false, std::memory_order_release);
+    m_requestLoginSent = false;
     // Phase 1 §7.2: clear the LoginAck timeout so a re-entry does not
     // carry a stale deadline from a previous Start().
     m_loginAckDeadline = {};
@@ -299,26 +302,7 @@ void CLoginState::handle_message(mxh::net::ConnectionId id,
             // in developer builds.  Only the protocol event is useful for
             // diagnosing the login state machine.
             MLOG_INFO("CLoginState: got DistConnectSuccess");
-            // Build and send the RequestLogin legacy payload.
-            const auto pl = legacy_request_login_payload(
-                m_authKey, m_userId, m_password);
-            mxh::net::Message out;
-            out.header.category = static_cast<std::uint8_t>(Category::UserConn);
-            out.header.protocol = static_cast<std::uint8_t>(
-                UserConnProtocol::RequestLogin);
-            out.header.object_id = 0;
-            out.payload          = pl;
-            const auto e = m_client->send(out);
-            clear_secret(m_password);
-            if (e != mxh::net::NetError::Ok) {
-                fail_with(std::string("send RequestLogin failed: ") +
-                          mxh::net::to_string(e));
-                return;
-            }
-            MLOG_INFO("CLoginState: sent RequestLogin (38B legacy payload)");
-            // Phase 1 §7.2: arm the application-level LoginAck timeout
-            // (default 10 s, overridable via SetLoginAckTimeoutForTest).
-            m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
+            send_item_protocol_check();
             break;
         }
         case UserConnProtocol::NotifyUserLoginAck: {
@@ -342,6 +326,17 @@ void CLoginState::handle_message(mxh::net::ConnectionId id,
             // connection; ignore silently (legacy client does the same).
             break;
         default:
+            if (msg.header.protocol == mxh::proto::kModernNotifyVersionAck) {
+                send_request_login();
+                break;
+            }
+            if (msg.header.protocol == mxh::proto::kModernNotifyVersionNack) {
+                const auto reason = mxh::proto::version_nack_reason(
+                    msg.payload.empty() ? nullptr : msg.payload.data(),
+                    msg.payload.size());
+                fail_with(mxh::proto::login_protocol_user_message(reason));
+                break;
+            }
             if (proto == static_cast<UserConnProtocol>(
                              mxh::proto::kModernHselKey)) {
                 // Phase R-1: HSEL session key from the LoginServer.
@@ -384,6 +379,54 @@ void CLoginState::handle_disconnect(mxh::net::ConnectionId id,
         fail_with(std::string("disconnected before LoginAck: ") +
                   mxh::net::to_string(reason));
     }
+}
+
+void CLoginState::send_item_protocol_check() {
+    if (!m_client) {
+        fail_with("send CheckVersion failed: login client is not connected");
+        return;
+    }
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    out.header.protocol = mxh::proto::kModernCheckVersion;
+    out.header.object_id = 0;
+    out.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "MoxianClient",
+        mxh::proto::kItemProtocolSha256);
+    const auto e = m_client->send(out);
+    if (e != mxh::net::NetError::Ok) {
+        fail_with(std::string("send CheckVersion failed: ") +
+                  mxh::net::to_string(e));
+        return;
+    }
+    MLOG_INFO("CLoginState: sent CheckVersion");
+    m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
+}
+
+void CLoginState::send_request_login() {
+    if (m_requestLoginSent || m_failed.load(std::memory_order_acquire)) return;
+    if (!m_client) {
+        fail_with("send RequestLogin failed: login client is not connected");
+        return;
+    }
+    const auto pl = legacy_request_login_payload(
+        m_authKey.load(std::memory_order_acquire), m_userId, m_password);
+    mxh::net::Message out;
+    out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    out.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::RequestLogin);
+    out.header.object_id = 0;
+    out.payload = pl;
+    const auto e = m_client->send(out);
+    clear_secret(m_password);
+    if (e != mxh::net::NetError::Ok) {
+        fail_with(std::string("send RequestLogin failed: ") +
+                  mxh::net::to_string(e));
+        return;
+    }
+    m_requestLoginSent = true;
+    MLOG_INFO("CLoginState: sent RequestLogin (38B legacy payload)");
+    m_loginAckDeadline = std::chrono::steady_clock::now() + m_loginAckTimeout;
 }
 
 void CLoginState::dispatch_login_ack(const LegacyLoginAck& ack) {

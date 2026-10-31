@@ -228,6 +228,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     }
 
 private:
+    void send_item_protocol_check();
     void send_list_syn();
     bool send_remove_syn(std::uint32_t character_id);
     void auto_select_first();
@@ -255,6 +256,7 @@ private:
     bool                     m_removeSent   = false;
     bool                     m_logoutSent   = false;
     bool                     m_listSynSent  = false;
+    bool                     m_protocolCheckSent = false;
     std::uint32_t            m_removeChrid  = 0;
     bool                     m_autoSelectForTest = false;
     // Phase 1 §7.3: opt-in flag for ccharselect_state_test to call
