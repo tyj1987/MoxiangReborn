@@ -130,6 +130,7 @@ on:
       - .github/workflows/python-tools.yml
       - .gitleaks.toml
       - scripts/gitleaks-selftest.py
+      - scripts/tests/test_check_client_warnings.py
       - reference/manifests/**
       - modern/CMakeLists.txt
       - modern/tests/**
@@ -184,6 +185,7 @@ jobs:
           python3 scripts/check-project-governance.py
           python3 scripts/check-no-pak-changes.py
           python3 scripts/check-ps1-encoding.py
+          python3 scripts/tests/test_check_client_warnings.py
           python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
           python3 -B -m unittest modern/tests/unit/tools/test_pak_writer.py
           python3 -B -m unittest modern/tests/unit/tools/test_check_no_pak_changes.py
