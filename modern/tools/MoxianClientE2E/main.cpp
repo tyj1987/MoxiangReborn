@@ -54,6 +54,12 @@
 //                      # require CharacterAdd for NAME (default timeout 30s)
 //                      # seen: CLIENT_E2E PEER_SEEN <name>
 //                      # missed: CLIENT_E2E PEER_TIMEOUT <name> and exit 2
+//                  [--report-peer-gone]
+//                      # requires --expect-peer; off by default
+//                      # after PEER_SEEN, one line when that name leaves
+//                      # remote_players (CInGameState ObjectRemove):
+//                      # CLIENT_E2E PEER_GONE <name> char_id=<id> t=<ms>
+//                      # state-dump adds peer_gone_ms (null if never)
 //                  [--state-dump PATH]
 //                      # JSON at map entry and at exit: position (x, y, map),
 //                      # hp, mp, shield, money, inventory sorted by slot
@@ -113,6 +119,7 @@
 //   CLIENT_E2E MAP_ENTER
 //   CLIENT_E2E KEEPALIVE
 //   CLIENT_E2E PEER_SEEN <name>
+//   CLIENT_E2E PEER_GONE <name> char_id=<id> t=<ms>
 //   CLIENT_E2E PEER_TIMEOUT <name>
 //   CLIENT_E2E HOLD_DONE
 //   CLIENT_E2E STATE_DUMP <path>
@@ -402,6 +409,13 @@ CliArgs parse_cli(int argc, char** argv) {
         a.agent_port == a.map12_port || a.map_port == a.map12_port) {
         std::fprintf(stderr, "login, agent, map and map12 ports must be distinct\n");
         std::exit(3);
+    }
+    {
+        std::string soak_error;
+        if (!mxh::e2e::validate_soak_options(a.soak, soak_error)) {
+            std::fprintf(stderr, "%s\n", soak_error.c_str());
+            std::exit(3);
+        }
     }
     return a;
 }
@@ -748,6 +762,7 @@ int run_in_map_soak(mxh::client::CEngine& engine,
     mxh::e2e::SessionDump dump;
     dump.entry = capture_character_snapshot(game);
     dump.exit = dump.entry;
+    dump.report_peer_gone = soak.report_peer_gone;
 
     const bool wait = soak.hold || soak.expect_peer || soak.drop;
     if (wait) {
@@ -755,6 +770,9 @@ int run_in_map_soak(mxh::client::CEngine& engine,
         const auto start = clock::now();
         auto next_keepalive = start;
         bool peer_seen = false;
+        std::uint32_t remembered_peer_id = 0;
+        bool remembered_peer = false;
+        bool peer_gone_emitted = false;
         const auto peer_deadline = start + std::chrono::seconds(
             soak.expect_peer ? soak.expect_peer_timeout_s : 0);
         const auto hold_deadline = start + std::chrono::seconds(
@@ -768,6 +786,38 @@ int run_in_map_soak(mxh::client::CEngine& engine,
                 peer_is_visible(game, soak.expect_peer_name)) {
                 peer_seen = true;
                 write_client_e2e_event("PEER_SEEN " + soak.expect_peer_name);
+            }
+            if (soak.report_peer_gone && peer_seen && !peer_gone_emitted) {
+                if (!remembered_peer) {
+                    for (const auto& entry : game.remote_players()) {
+                        if (entry.second.name != soak.expect_peer_name) continue;
+                        remembered_peer_id = entry.first;
+                        remembered_peer = true;
+                        break;
+                    }
+                }
+                if (remembered_peer) {
+                    std::vector<mxh::e2e::NamedPeer> before{
+                        {remembered_peer_id, soak.expect_peer_name}};
+                    std::vector<mxh::e2e::NamedPeer> after;
+                    after.reserve(game.remote_players().size());
+                    for (const auto& entry : game.remote_players()) {
+                        after.push_back({entry.first, entry.second.name});
+                    }
+                    const auto removed = mxh::e2e::detect_peer_gone(
+                        soak.expect_peer_name, before, after);
+                    if (removed.gone) {
+                        const auto elapsed = std::chrono::duration_cast<
+                            std::chrono::milliseconds>(now - start).count();
+                        write_client_e2e_event(
+                            "PEER_GONE " + soak.expect_peer_name +
+                            " char_id=" + std::to_string(removed.id) +
+                            " t=" + std::to_string(elapsed));
+                        dump.peer_removed = true;
+                        dump.peer_gone_ms = elapsed;
+                        peer_gone_emitted = true;
+                    }
+                }
             }
             // Drop wins when it is the earlier end (ties included). A later
             // --hold-seconds still logs out normally and does not wait.

@@ -58,6 +58,19 @@ endif()
 # -----------------------------------------------------------------------------
 # Sub-projects
 # -----------------------------------------------------------------------------
+# Default OFF keeps the full tree. The Windows mxh_client compile job sets
+# this ON so configure only adds that executable's link closure. It does
+# not search for PlayDH or other original game resources and it does not
+# read MXH_PLAYDH_ROOT. There is no separate resource-lookup switch: the
+# client target does not probe those files at configure time.
+option(MXH_CLIENT_COMPILE_ONLY "Configure only the mxh_client link closure" OFF)
+
+if(MXH_CLIENT_COMPILE_ONLY)
+    add_subdirectory(src)
+    add_subdirectory(src/game)
+    add_subdirectory(src/client)
+    add_subdirectory(tools/MoxianClient)
+else()
 add_subdirectory(src)
 add_subdirectory(src/game)
 add_subdirectory(src/client)
@@ -80,3 +93,4 @@ add_subdirectory(tools/MoxianSideBySide)
 add_subdirectory(tools/dialog_children_type_scan)
 add_subdirectory(tools/MoxianPortal)
 add_subdirectory(tools/MxDumpInspect)
+endif()

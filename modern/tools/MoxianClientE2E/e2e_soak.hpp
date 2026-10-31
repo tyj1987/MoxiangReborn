@@ -36,6 +36,8 @@ struct SoakOptions {
     std::string state_dump_path;
     bool drop = false;
     int drop_socket_after_s = 0;
+    // Off unless --report-peer-gone is passed. Requires --expect-peer.
+    bool report_peer_gone = false;
 };
 
 inline bool in_map_soak_requested(const SoakOptions& opt) noexcept {
@@ -45,7 +47,8 @@ inline bool in_map_soak_requested(const SoakOptions& opt) noexcept {
 inline bool is_soak_flag(std::string_view flag) noexcept {
     return flag == "--reuse-character" || flag == "--hold-seconds" ||
            flag == "--expect-peer" || flag == "--expect-peer-timeout" ||
-           flag == "--state-dump" || flag == "--drop-socket-after";
+           flag == "--state-dump" || flag == "--drop-socket-after" ||
+           flag == "--report-peer-gone";
 }
 
 inline bool valid_character_name(std::string_view name, std::string& error) {
@@ -159,8 +162,22 @@ inline bool consume_soak_flag(SoakOptions& opt, int argc, char** argv, int& inde
         opt.expect_peer_timeout_s = seconds;
         return true;
     }
+    if (flag == "--report-peer-gone") {
+        opt.report_peer_gone = true;
+        return true;
+    }
     error = std::string("unknown arg: ") + std::string(flag);
     return false;
+}
+
+// After every soak flag has been applied. --report-peer-gone is rejected
+// unless --expect-peer was also supplied, in either order.
+inline bool validate_soak_options(const SoakOptions& opt, std::string& error) {
+    if (opt.report_peer_gone && !opt.expect_peer) {
+        error = "--report-peer-gone requires --expect-peer";
+        return false;
+    }
+    return true;
 }
 
 // Soak flags only. Any other token is a usage error so this parser cannot
@@ -184,8 +201,41 @@ inline bool parse_soak_args(const std::vector<std::string>& args, SoakOptions& o
         }
         if (!consume_soak_flag(parsed, argc, argv.data(), index, error)) return false;
     }
+    if (!validate_soak_options(parsed, error)) return false;
     opt = std::move(parsed);
     return true;
+}
+
+// One remote character as seen by the client (id is the ObjectRemove key).
+struct NamedPeer {
+    std::uint32_t id = 0;
+    std::string name;
+};
+
+// True when `name` was in `before` and is absent from `after`. The id is
+// the one recorded in `before`. A name that was never present is not a removal.
+struct PeerGoneDetection {
+    bool gone = false;
+    std::uint32_t id = 0;
+};
+
+inline PeerGoneDetection detect_peer_gone(std::string_view name,
+                                          const std::vector<NamedPeer>& before,
+                                          const std::vector<NamedPeer>& after) {
+    PeerGoneDetection result;
+    bool was_present = false;
+    for (const auto& peer : before) {
+        if (peer.name != name) continue;
+        was_present = true;
+        result.id = peer.id;
+        break;
+    }
+    if (!was_present) return {};
+    for (const auto& peer : after) {
+        if (peer.name == name) return {};
+    }
+    result.gone = true;
+    return result;
 }
 
 // One occupied inventory slot. The writer sorts by slot, then item_index,
@@ -211,6 +261,11 @@ struct CharacterSnapshot {
 struct SessionDump {
     CharacterSnapshot entry;
     CharacterSnapshot exit;
+    // Set only for --report-peer-gone. Unused dumps omit peer_gone_ms so
+    // their JSON stays identical to a dump that does not ask for it.
+    bool report_peer_gone = false;
+    bool peer_removed = false;
+    std::int64_t peer_gone_ms = 0;
 };
 
 inline void append_indent(std::string& out, int spaces) {
@@ -286,6 +341,13 @@ inline std::string format_session_dump_json(const SessionDump& dump) {
     append_indent(out, 2);
     out += "\"exit\": ";
     append_snapshot_json(out, dump.exit);
+    if (dump.report_peer_gone) {
+        out += ",\n";
+        append_indent(out, 2);
+        out += "\"peer_gone_ms\": ";
+        if (dump.peer_removed) out += std::to_string(dump.peer_gone_ms);
+        else out += "null";
+    }
     out += "\n}\n";
     return out;
 }

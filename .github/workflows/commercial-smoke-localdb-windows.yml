@@ -1,0 +1,177 @@
+# Windows LocalDB check for the owned-process job object.
+# GitLab has no windows-latest SqlLocalDB runner, so this job is GitHub-only.
+# pull_request (not pull_request_target) runs it when the smoke script, its
+# test, or this workflow changes. workflow_dispatch remains. It is not a
+# required check. The job reads contents only and references no secrets, so
+# a public fork pull request can run it. A SKIPPED or E2E_UNAVAILABLE
+# result is not a pass.
+
+name: commercial-smoke-localdb-windows
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/commercial-smoke.ps1
+      - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      - .github/workflows/commercial-smoke-localdb-windows.yml
+
+permissions:
+  contents: read
+
+jobs:
+  localdb_jobobject_windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require pwsh 7 and SqlLocalDB
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($PSVersionTable.PSVersion.Major -lt 7) {
+            throw "pwsh 7 required, found $($PSVersionTable.PSVersion)"
+          }
+          $names = @(
+            'SqlLocalDB.exe',
+            'sqllocaldb.exe'
+          )
+          $found = $null
+          foreach ($name in $names) {
+            $cmd = Get-Command -Name $name -CommandType Application -ErrorAction SilentlyContinue
+            if ($null -ne $cmd) { $found = [string]$cmd.Source; break }
+          }
+          if ([string]::IsNullOrWhiteSpace($found)) {
+            $candidates = @(
+              "$env:ProgramFiles\Microsoft SQL Server\170\Tools\Binn\SqlLocalDB.exe",
+              "$env:ProgramFiles\Microsoft SQL Server\160\Tools\Binn\SqlLocalDB.exe",
+              "$env:ProgramFiles\Microsoft SQL Server\150\Tools\Binn\SqlLocalDB.exe",
+              "$env:ProgramFiles\Microsoft SQL Server\140\Tools\Binn\SqlLocalDB.exe",
+              "$env:ProgramFiles\Microsoft SQL Server\130\Tools\Binn\SqlLocalDB.exe"
+            )
+            foreach ($candidate in $candidates) {
+              if (Test-Path -LiteralPath $candidate) { $found = $candidate; break }
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($found)) {
+            $root = Join-Path $env:ProgramFiles 'Microsoft SQL Server'
+            if (Test-Path -LiteralPath $root) {
+              $hit = Get-ChildItem -LiteralPath $root -Filter SqlLocalDB.exe -Recurse -ErrorAction SilentlyContinue |
+                Where-Object { $_.FullName -match '\\Tools\\Binn\\SqlLocalDB.exe$' } |
+                Select-Object -First 1
+              if ($null -ne $hit) { $found = [string]$hit.FullName }
+            }
+          }
+          if ([string]::IsNullOrWhiteSpace($found)) {
+            throw 'SqlLocalDB.exe was not found; refusing to skip'
+          }
+          Write-Host "SQLLOCALDB $found"
+          & $found info
+          if ($LASTEXITCODE -ne 0) { throw "SqlLocalDB info exited $LASTEXITCODE" }
+          & $found start MSSQLLocalDB
+          if ($LASTEXITCODE -ne 0) { throw "SqlLocalDB start MSSQLLocalDB exited $LASTEXITCODE" }
+          $dir = Split-Path -Parent $found
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $dir
+          Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'sqllocaldb-path.txt') -Value $found -Encoding ascii
+
+      - name: Windows commercial-smoke tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path $env:RUNNER_TEMP 'mssql-e2e-test.log'
+          $err = Join-Path $env:RUNNER_TEMP 'mssql-e2e-test.err'
+          $pwsh = (Get-Process -Id $PID).Path
+          $proc = Start-Process -FilePath $pwsh -ArgumentList @(
+            '-NoProfile', '-File', (Join-Path $PWD 'scripts\tests\test-commercial-smoke-mssql-e2e.ps1')
+          ) -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError $err -NoNewWindow
+          $stdout = ''
+          $stderr = ''
+          if (Test-Path -LiteralPath $log) { $stdout = [IO.File]::ReadAllText($log) }
+          if (Test-Path -LiteralPath $err) { $stderr = [IO.File]::ReadAllText($err) }
+          Write-Host $stdout
+          if (-not [string]::IsNullOrWhiteSpace($stderr)) { Write-Host $stderr }
+          $combined = $stdout + "`n" + $stderr
+          if ($combined -match '(?m)^FAIL\b') { throw 'test log contains a FAIL line' }
+          if ([int]$proc.ExitCode -ne 0) { throw "test exit $($proc.ExitCode)" }
+          if ($combined -notmatch '(?m)^PASS orphan job close') { throw 'orphan job close case did not pass' }
+          if ($combined -notmatch '(?m)^PASS owned executable timeout') { throw 'owned executable timeout case did not pass' }
+          if ($combined -notmatch 'PASS: assertions ') { throw 'missing assertion summary; a skip is not a pass' }
+
+      - name: LocalDB path against a synthetic build
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+          if (-not (Test-Path -LiteralPath $csc)) {
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+          }
+          if (-not (Test-Path -LiteralPath $csc)) { throw 'csc.exe was not found; refusing to skip' }
+          $root = Join-Path $env:RUNNER_TEMP 'mxh-localdb-synthetic'
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          $stubBin = Join-Path $root 'bin'
+          $build = Join-Path $root 'build'
+          New-Item -ItemType Directory -Force -Path $stubBin | Out-Null
+          $ctestCs = Join-Path $root 'ctest-stub.cs'
+          $e2eCs = Join-Path $root 'e2e-stub.cs'
+          $ctestSource = @'
+          using System;
+          using System.IO;
+          class CtestStub {
+              static int Main(string[] args) {
+                  string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                  File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+                  return 0;
+              }
+          }
+          '@
+          Set-Content -LiteralPath $ctestCs -Value $ctestSource -Encoding ascii
+          $e2eSource = @'
+          using System;
+          using System.IO;
+          class E2eStub {
+              static int Main(string[] args) {
+                  string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+                  File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+                  Console.WriteLine("MXH_LOCALDB_STUB_OK");
+                  return 0;
+              }
+          }
+          '@
+          Set-Content -LiteralPath $e2eCs -Value $e2eSource -Encoding ascii
+          $ctestExe = Join-Path $stubBin 'ctest.exe'
+          $e2eDir = Join-Path $build 'tools\MoxianClientE2E'
+          New-Item -ItemType Directory -Force -Path $e2eDir | Out-Null
+          $e2eExe = Join-Path $e2eDir 'mxh_client_e2e.exe'
+          & $csc /nologo /platform:x64 /out:$ctestExe $ctestCs
+          if ($LASTEXITCODE -ne 0) { throw "csc ctest stub exited $LASTEXITCODE" }
+          & $csc /nologo /platform:x64 /out:$e2eExe $e2eCs
+          if ($LASTEXITCODE -ne 0) { throw "csc e2e stub exited $LASTEXITCODE" }
+          Set-Content -LiteralPath (Join-Path $build 'CTestTestfile.cmake') -Value "# synthetic`n" -Encoding ascii
+          $env:PATH = $stubBin + ';' + $env:PATH
+          $log = Join-Path $root 'smoke.log'
+          $err = Join-Path $root 'smoke.err'
+          $pwsh = (Get-Process -Id $PID).Path
+          $proc = Start-Process -FilePath $pwsh -ArgumentList @(
+            '-NoProfile', '-File', (Join-Path $PWD 'scripts\commercial-smoke.ps1'),
+            '-BuildDir', $build, '-SkipGui'
+          ) -Wait -PassThru -RedirectStandardOutput $log -RedirectStandardError $err -NoNewWindow
+          $stdout = ''
+          $stderr = ''
+          if (Test-Path -LiteralPath $log) { $stdout = [IO.File]::ReadAllText($log) }
+          if (Test-Path -LiteralPath $err) { $stderr = [IO.File]::ReadAllText($err) }
+          Write-Host $stdout
+          if (-not [string]::IsNullOrWhiteSpace($stderr)) { Write-Host $stderr }
+          $combined = $stdout + "`n" + $stderr
+          if ($combined -match '(?m)^FAIL\b') { throw 'smoke log contains a FAIL line' }
+          if ([int]$proc.ExitCode -ne 0) { throw "commercial-smoke exit $($proc.ExitCode)" }
+          if ($combined -match 'MSSQL_E2E SKIPPED') { throw 'LocalDB path skipped; a skip is not a pass' }
+          if ($combined -match 'E2E_UNAVAILABLE') { throw 'LocalDB path was unavailable; a skip is not a pass' }
+          if ($combined -match 'COMMERCIAL_SMOKE TIMEOUT') { throw 'synthetic LocalDB path timed out' }
+          if ($combined -notmatch 'MXH_LOCALDB_STUB_OK') { throw 'synthetic e2e stdout was not printed' }
+          if ($combined -notmatch 'MSSQL_E2E PASS \(LocalDB, one command\)') { throw 'LocalDB pass line missing' }
+          if ($combined -notmatch 'COMMERCIAL_SMOKE PASS') { throw 'commercial smoke pass line missing' }
+          $invokedPath = $e2eExe + '.invoked'
+          if (-not (Test-Path -LiteralPath $invokedPath)) { throw 'synthetic e2e was not invoked' }
+          $invoked = [IO.File]::ReadAllText($invokedPath)
+          if ($invoked -notmatch 'mssql_odbc') { throw "synthetic e2e args were [$invoked]" }

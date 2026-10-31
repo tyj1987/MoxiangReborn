@@ -31,6 +31,9 @@ workflow:
         - scripts/gui-client-smoke-ephemeral.ps1
         - scripts/tests/test-gui-client-smoke-ephemeral.ps1
         - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+        - scripts/soak-24h.ps1
+        - scripts/soak-24h.cmd
+        - scripts/tests/test-soak-24h.ps1
         - scripts/tests/test-deploy-default-map.ps1
         - deploy/scripts/start_modern.ps1
         - .gitignore
@@ -120,6 +123,7 @@ rog_gate_self_test:
       pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
       pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
       pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+      pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 
 # cxx_resource_reference_linux
 # Kept in sync with the GitHub job of the same name. Same image digest as
@@ -130,8 +134,11 @@ rog_gate_self_test:
 # Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
 # MXH_PLAYDH_ROOT is not set.
 # Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
-# The same build runs mxh_session_retry_contract_tests. Required-Passed includes
-# those login/session cases. The ctest regex matches the GitHub job.
+# The same build runs mxh_agent_cli_tests, mxh_e2e_soak_tests, and
+# mxh_session_retry_contract_tests. Required-Passed includes
+# AgentCli.OmittedDefaultMapIs17, the extra-map AgentCli cases, the E2eSoak
+# report-peer-gone cases, and the SessionRetryContract login/session cases.
+# The ctest regex matches the GitHub job.
 # The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 cxx_resource_reference_linux:
   extends: .linux_trusted
@@ -162,10 +169,10 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests mxh_session_retry_contract_tests
+      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_session_retry_contract_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference|SessionRetryContract)\.' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|SessionRetryContract\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -187,6 +194,14 @@ cxx_resource_reference_linux:
       require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
       require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
       require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+      require_passed AgentCli.OmittedDefaultMapIs17 || status=1
+      require_passed AgentCli.ExtraMapEqualsExplicitDefaultRejected || status=1
+      require_passed AgentCli.ExtraMapEqualsOmittedDefaultRejected || status=1
+      require_passed AgentCli.MapServerMapBeforeDefaultMapRejected || status=1
+      require_passed AgentCli.ExtraMapDifferentFromDefaultAccepted || status=1
+      require_passed E2eSoakArgs.ReportPeerGoneRequiresExpectPeer || status=1
+      require_passed E2eSoakPeer.DetectsRemovalFromPeerList || status=1
+      require_passed E2eSoakStateDump.PeerGoneMsIsNullUntilRemoval || status=1
       require_passed SessionRetryContract.ConnectRetriesUntilDeadlineThenFails || status=1
       require_passed SessionRetryContract.ConnectSucceedsBeforeDeadline || status=1
       require_passed SessionRetryContract.LoginAndAgentUseThreeSecondConnectBudget || status=1
