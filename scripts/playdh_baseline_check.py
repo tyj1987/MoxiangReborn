@@ -21,6 +21,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+import playdh_external_only
+
 LFS_MARKER = b"version https://git-lfs.github.com/spec/v1"
 DECODED_MAPS_FIELD = "derivation.localDecoder.decodedMaps"
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -117,11 +122,29 @@ def _manifest_entries(document: dict) -> tuple[dict[str, tuple[str, int]], list[
     return expected, lines
 
 
-def check_playdh(root: Path, manifest_path: Path) -> tuple[int, list[str]]:
+def check_playdh(
+    root: Path,
+    manifest_path: Path,
+    external_list: Path | None = None,
+    *,
+    use_repo_list: bool = False,
+    require_production_counts: bool = False,
+) -> tuple[int, list[str]]:
     document = _load_json(manifest_path)
     expected, lines = _manifest_entries(document)
     if not expected:
         return 1, lines
+    listed: list[str] = []
+    if use_repo_list or external_list is not None:
+        try:
+            listed = playdh_external_only.playdh_names(external_list if not use_repo_list else None)
+        except (OSError, ValueError) as exc:
+            lines.append("PLAYDH_BASELINE EXTERNAL_LIST %s" % exc)
+            return 1, lines
+    listed_set = set(listed)
+    for rel in listed:
+        if rel not in expected:
+            lines.append("PLAYDH_BASELINE EXTERNAL_NOT_IN_MANIFEST %s" % rel)
     actual: dict[str, Path] = {}
     if not root.is_dir():
         lines.append("PLAYDH_BASELINE MISSING_ROOT %s" % root.as_posix())
@@ -132,8 +155,20 @@ def check_playdh(root: Path, manifest_path: Path) -> tuple[int, list[str]]:
             path = Path(directory) / name
             rel = path.relative_to(root).as_posix()
             actual[rel] = path
-    failed = any(line.startswith("PLAYDH_BASELINE COUNT") or line.startswith("PLAYDH_BASELINE BAD") or line.startswith("PLAYDH_BASELINE DUPLICATE") for line in lines)
-    for rel in sorted(set(actual) - set(expected)):
+    for rel in listed:
+        if rel in actual:
+            lines.append("PLAYDH_BASELINE EXTERNAL_PRESENT %s" % rel)
+    tree_expected = {rel: value for rel, value in expected.items() if rel not in listed_set}
+    failed = any(
+        line.startswith("PLAYDH_BASELINE COUNT")
+        or line.startswith("PLAYDH_BASELINE BAD")
+        or line.startswith("PLAYDH_BASELINE DUPLICATE")
+        or line.startswith("PLAYDH_BASELINE EXTERNAL_")
+        for line in lines
+    )
+    for rel in sorted(set(actual) - set(tree_expected)):
+        if rel in listed_set:
+            continue
         kind, digest, _size = _inspect(actual[rel])
         if kind == "symlink":
             lines.append("PLAYDH_BASELINE SYMLINK %s" % rel)
@@ -142,10 +177,10 @@ def check_playdh(root: Path, manifest_path: Path) -> tuple[int, list[str]]:
         else:
             lines.append("PLAYDH_BASELINE EXTRA %s actual=%s" % (rel, digest))
         failed = True
-    for rel in sorted(set(expected) - set(actual)):
-        lines.append("PLAYDH_BASELINE MISSING %s expected=%s" % (rel, expected[rel][0]))
+    for rel in sorted(set(tree_expected) - set(actual)):
+        lines.append("PLAYDH_BASELINE MISSING %s expected=%s" % (rel, tree_expected[rel][0]))
         failed = True
-    for rel in sorted(set(actual) & set(expected)):
+    for rel in sorted(set(actual) & set(tree_expected)):
         kind, digest, size = _inspect(actual[rel])
         want, want_size = expected[rel]
         if kind == "symlink":
@@ -173,8 +208,22 @@ def check_playdh(root: Path, manifest_path: Path) -> tuple[int, list[str]]:
                 "PLAYDH_BASELINE MISMATCH %s expected=%s actual=%s" % (rel, want, digest)
             )
             failed = True
+    if not failed and require_production_counts:
+        if (
+            len(tree_expected) != EXPECTED_TREE_FILES
+            or len(listed) != EXPECTED_EXTERNAL_ONLY
+            or len(expected) != EXPECTED_MANIFEST_FILES
+        ):
+            lines.append(
+                "PLAYDH_BASELINE COUNT files=%s external_only=%s manifest=%s"
+                % (len(tree_expected), len(listed), len(expected))
+            )
+            failed = True
     if not failed:
-        lines.append("PLAYDH_BASELINE OK files=%s" % len(expected))
+        lines.append(
+            "PLAYDH_BASELINE OK files=%s external_only=%s manifest=%s"
+            % (len(tree_expected), len(listed), len(expected))
+        )
         return 0, lines
     return 1, lines
 
@@ -241,6 +290,10 @@ def list_tracked(repo: Path) -> list[str]:
 
 
 ORIGINAL_MAP_REGISTRY_COUNT = 82
+# Tracked checkout count. The manifest count stays separate.
+EXPECTED_TREE_FILES = 5277
+EXPECTED_MANIFEST_FILES = 5280
+EXPECTED_EXTERNAL_ONLY = 3
 
 
 def check_decoded(
@@ -366,7 +419,7 @@ def self_test() -> int:
             code or decoded_code,
             green,
             False,
-            "PLAYDH_BASELINE OK files=2",
+            "PLAYDH_BASELINE OK files=2 external_only=0 manifest=2",
         ) or "ORIGINAL_MAP_HITS 0 of 1 registered" not in green:
             if "PLAYDH_BASELINE SELFTEST FAIL green-ok" not in green:
                 print("PLAYDH_BASELINE SELFTEST FAIL green-ok")
@@ -488,6 +541,143 @@ def self_test() -> int:
         if "TRACKED_MAP_FORBIDDEN nested/X.MAP" not in lines:
             print("PLAYDH_BASELINE SELFTEST FAIL tracked-map")
             failed = True
+
+    with tempfile.TemporaryDirectory(prefix="playdh-external-", dir=base) as temporary:
+        root = Path(temporary)
+        playdh = root / "playdh"
+        playdh.mkdir()
+        keep = b"synthetic-keep"
+        other = b"synthetic-other"
+        listed_bytes = b"synthetic-listed"
+        (playdh / "keep.bin").write_bytes(keep)
+        (playdh / "other.bin").write_bytes(other)
+        manifest = root / "manifest.json"
+        listed_list = root / "external.txt"
+        listed_list.write_text(
+            "# synthetic\nmodern/data/PlayDH/listed.bin\n",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            manifest,
+            [("keep.bin", keep), ("other.bin", other), ("listed.bin", listed_bytes)],
+        )
+        code, lines = check_playdh(playdh, manifest, listed_list)
+        if not _expect(
+            "external-absent-ok",
+            code,
+            lines,
+            False,
+            "PLAYDH_BASELINE OK files=2 external_only=1 manifest=3",
+        ):
+            failed = True
+
+        missing_list = root / "external-missing.txt"
+        missing_list.write_text(
+            "modern/data/PlayDH/not-in-manifest.bin\n",
+            encoding="utf-8",
+        )
+        code, lines = check_playdh(playdh, manifest, missing_list)
+        if not _expect(
+            "external-not-in-manifest",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE EXTERNAL_NOT_IN_MANIFEST not-in-manifest.bin",
+        ):
+            failed = True
+
+        (playdh / "listed.bin").write_bytes(listed_bytes)
+        code, lines = check_playdh(playdh, manifest, listed_list)
+        if not _expect(
+            "external-present",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE EXTERNAL_PRESENT listed.bin",
+        ):
+            failed = True
+        (playdh / "listed.bin").unlink()
+
+        (playdh / "other.bin").unlink()
+        code, lines = check_playdh(playdh, manifest, listed_list)
+        other_hash = hashlib.sha256(other).hexdigest()
+        listed_also_missing = any(
+            line.startswith("PLAYDH_BASELINE MISSING listed.bin") for line in lines
+        )
+        if listed_also_missing or not _expect(
+            "other-missing",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE MISSING other.bin expected=%s" % other_hash,
+        ):
+            if listed_also_missing:
+                print("PLAYDH_BASELINE SELFTEST FAIL other-missing")
+                for line in lines:
+                    print(line)
+            failed = True
+
+    listed_payload = b"synthetic-listed-ok"
+    listed_hash = hashlib.sha256(listed_payload).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="playdh-external-root-", dir=base) as temporary:
+        root = Path(temporary)
+        external_root = root / "external-root"
+        external_root.mkdir()
+        (external_root / "keep.bin").write_bytes(b"synthetic-keep")
+        (external_root / "listed.bin").write_bytes(listed_payload)
+        manifest = root / "manifest.json"
+        listed_list = root / "external.txt"
+        listed_list.write_text(
+            "# synthetic\nmodern/data/PlayDH/listed.bin\n",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            manifest,
+            [("keep.bin", b"synthetic-keep"), ("listed.bin", listed_payload)],
+        )
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        coverage = "PLAYDH_BASELINE COVERAGE MATCH=2 MISSING=0 MISMATCH=0 CASE_MISMATCH=0"
+        matched = "PLAYDH_BASELINE MATCH listed.bin %s" % listed_hash
+        if code != 0 or coverage not in lines or matched not in lines:
+            print("PLAYDH_BASELINE SELFTEST FAIL external-root-match")
+            for line in lines:
+                print(line)
+            failed = True
+        else:
+            print("PLAYDH_BASELINE SELFTEST OK external-root-match")
+
+        (external_root / "listed.bin").write_bytes(b"synthetic-listed-bad")
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-mismatch",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE MISMATCH listed.bin expected=%s" % listed_hash,
+        ):
+            failed = True
+
+        (external_root / "listed.bin").unlink()
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-missing",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE MISSING listed.bin expected=%s" % listed_hash,
+        ):
+            failed = True
+
+        (external_root / "Listed.bin").write_bytes(listed_payload)
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-case",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE CASE_MISMATCH listed.bin",
+        ):
+            failed = True
     if failed:
         return 1
     print("PLAYDH_BASELINE SELFTEST OK")
@@ -505,7 +695,9 @@ def main(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test()
-    status, lines = check_playdh(args.playdh, args.manifest)
+    status, lines = check_playdh(
+        args.playdh, args.manifest, use_repo_list=True, require_production_counts=True
+    )
     for line in lines:
         print(line)
     try:

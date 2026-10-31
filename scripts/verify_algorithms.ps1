@@ -132,7 +132,22 @@ $foundAny = $false
 foreach ($name in $pakFiles) {
     # .pak files live in PlayDH/ root, not in Resource/
 $pakPath = Join-Path (Split-Path $Res -Parent) $name
-    if (-not (Test-Path $pakPath)) { continue }
+    if (-not (Test-Path $pakPath)) {
+        $externalList = Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'reference') 'manifests\playdh-external-only.txt'
+        $listed = $false
+        if (Test-Path -LiteralPath $externalList) {
+            foreach ($row in [System.IO.File]::ReadAllLines($externalList)) {
+                $trimmed = $row.Trim()
+                if ($trimmed.Length -eq 0 -or $trimmed.StartsWith('#')) { continue }
+                $leaf = $trimmed.Replace('\', '/')
+                $slash = $leaf.LastIndexOf('/')
+                if ($slash -ge 0) { $leaf = $leaf.Substring($slash + 1) }
+                if ($leaf -eq $name) { $listed = $true }
+            }
+        }
+        if ($listed) { Write-Host "  SKIP real $name absent: external-only" }
+        continue
+    }
     $foundAny = $true
     $raw = [System.IO.File]::ReadAllBytes($pakPath)
     if ($raw.Length -lt 92) {

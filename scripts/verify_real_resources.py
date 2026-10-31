@@ -10,6 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+import playdh_external_only
+
+_EXTERNAL_NAMES = set(playdh_external_only.playdh_names())
+
 WORKSPACE = Path(__file__).resolve().parents[1]
 RES = WORKSPACE / "modern" / "data" / "PlayDH"
 
@@ -88,6 +95,13 @@ expected_counts = {
 }
 all_ok = True
 for p in pak_files:
+    if p in _EXTERNAL_NAMES and not (RES / p).is_file():
+        print(f"  SKIP real {p} absent: external-only")
+        continue
+    if p in _EXTERNAL_NAMES and (RES / p).is_file():
+        check(False, f"external-only archive is present: {p}")
+        all_ok = False
+        continue
     f = RES / p
     rc, out, err = run(["list", str(f)])
     if rc != 0:

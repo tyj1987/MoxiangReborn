@@ -1944,6 +1944,23 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     strict = strict_enabled(args.strict)
+    _scripts = Path(__file__).resolve().parents[2] / "scripts"
+    if str(_scripts) not in sys.path:
+        sys.path.insert(0, str(_scripts))
+    import playdh_external_only
+    _manifest_path = _scripts.parent / "reference" / "manifests" / "playdh-current.sha256.json"
+    _manifest_paths: set[str] = set()
+    if _manifest_path.is_file():
+        _document = _load_json(_manifest_path)
+        for _entry in _document.get("files", []):
+            _rel = _entry.get("path") if isinstance(_entry, dict) else None
+            if isinstance(_rel, str):
+                _manifest_paths.add(_rel.replace("\\", "/"))
+    _external_errors = playdh_external_only.errors_for_tree(args.root, _manifest_paths)
+    if _external_errors:
+        for _line in _external_errors:
+            print(_line, file=sys.stderr)
+        return 1
     report = check(_load_json(args.manifest), args.root, strict=strict, pak=args.pak)
     text = format_report(report)
     print(text, end="")

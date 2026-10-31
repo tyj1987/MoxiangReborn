@@ -11,6 +11,11 @@ import stat
 import sys
 from pathlib import Path
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+import playdh_external_only
+
 
 def safe_path(root: Path, relative: str) -> Path:
     candidate = (root / relative).resolve()
@@ -29,7 +34,7 @@ def digest(path: Path) -> str:
     return hasher.hexdigest()
 
 
-def verify_exact_file_set(root: Path, entries: list[dict]) -> int:
+def verify_exact_file_set(root: Path, entries: list[dict], external: set[str] | None = None) -> int:
     """Reject unlisted resources and directory links without traversing them."""
     expected = [entry.get("path") for entry in entries]
     if any(not isinstance(path, str) or not path for path in expected):
@@ -47,8 +52,19 @@ def verify_exact_file_set(root: Path, entries: list[dict]) -> int:
                 raise ValueError(f"linked resource path is not an exact baseline: {path.relative_to(root)}")
         for name in files:
             actual.add((Path(directory) / name).relative_to(root).as_posix())
-    wanted = set(expected)
-    extra = sorted(actual - wanted)
+    allowed_absent = external or set()
+    present_external = sorted(allowed_absent & actual)
+    if present_external:
+        raise ValueError(
+            "external-only path is present in the tree: " + ", ".join(present_external[:8])
+        )
+    unknown = sorted(name for name in allowed_absent if name not in set(expected))
+    if unknown:
+        raise ValueError(
+            "external-only path is not in the manifest: " + ", ".join(unknown[:8])
+        )
+    wanted = set(expected) - allowed_absent
+    extra = sorted(actual - set(expected))
     missing = sorted(wanted - actual)
     if extra or missing:
         raise ValueError(f"resource file set mismatch: extra={extra[:8]}, missing={missing[:8]}")
@@ -77,14 +93,29 @@ def main() -> int:
         entries = document.get("files")
         if not isinstance(entries, list):
             raise ValueError("manifest files must be an array")
+        external: set[str] = set()
+        if args.profile_id == "playdh-current":
+            manifest_paths = {
+                entry.get("path")
+                for entry in entries
+                if isinstance(entry, dict) and isinstance(entry.get("path"), str)
+            }
+            external = set(playdh_external_only.playdh_names())
+            for name in sorted(external):
+                if name not in manifest_paths:
+                    raise ValueError(f"external-only path is not in the manifest: {name}")
+                if safe_path(root, name).exists():
+                    raise ValueError(f"external-only path is present in the tree: {name}")
         if args.exact:
-            verify_exact_file_set(root, entries)
+            verify_exact_file_set(root, entries, external)
         selected = set(args.path)
         checked = 0
         total_bytes = 0
         for entry in entries:
             relative = entry.get("path")
             if not isinstance(relative, str) or (selected and relative not in selected):
+                continue
+            if relative in external:
                 continue
             file_path = safe_path(root, relative)
             if not file_path.is_file():

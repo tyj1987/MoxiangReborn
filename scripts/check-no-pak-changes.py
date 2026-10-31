@@ -21,8 +21,10 @@ new or different fails.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
+from pathlib import Path
 
 DEFAULT_BASE = "origin/codex/reorg-original-20261009"
 PINNED_PAKS = {
@@ -91,6 +93,26 @@ def main(argv: list[str] | None = None) -> int:
         print("Original game bytes are not committed; build paks locally (modern/tools/pak_writer.py).",
               file=sys.stderr)
         return 1
+    _script_dir = Path(__file__).resolve().parent
+    if str(_script_dir) not in sys.path:
+        sys.path.insert(0, str(_script_dir))
+    import playdh_external_only
+    repo = Path(args.repo)
+    manifest_path = repo / "reference" / "manifests" / "playdh-current.sha256.json"
+    if manifest_path.is_file():
+        document = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_paths = set()
+        for entry in document.get("files", []):
+            rel = entry.get("path") if isinstance(entry, dict) else None
+            if isinstance(rel, str):
+                manifest_paths.add(rel.replace("\\", "/"))
+        external_errors = playdh_external_only.errors_for_tree(
+            repo / "modern" / "data" / "PlayDH", manifest_paths
+        )
+        for line in external_errors:
+            print(line, file=sys.stderr)
+        if external_errors:
+            return 1
     print("check-no-pak-changes: OK")
     return 0
 
