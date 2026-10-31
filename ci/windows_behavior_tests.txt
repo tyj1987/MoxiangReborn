@@ -1,0 +1,13 @@
+# Windows behavior tests. One fully-qualified ctest name per line.
+# Blank lines and # comments are ignored.
+# Append a line to add the test to both ctest -R and require_passed.
+# If the test lives in a new binary, also append that target to
+# $behaviorTargets in .github/workflows/windows-client-compile.yml.
+
+MapHandlerTest.MonsterDeathNotifyReachesClientThenPickupSynClaims
+MapHandlerTest.MonsterDeathCreatesNotifiesAndClaimsGroundDrop
+MapHandlerTest.RevisionedKillPublishesGroundObtainAndPersistsPickup
+MapHandlerTest.DirectObtainEmitsProtocol32AndRejectsGroundDecode
+InGamePlayable.GroundItemAddBecomesGroundDropAndPickupAckClearsIt
+InGamePlayable.InvalidPickupAckDoesNotConsumeGroundDrop
+InGamePlayable.DirectObtainUpdatesInventoryAndRejectsGroundBody

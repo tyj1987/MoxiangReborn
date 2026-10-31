@@ -17,10 +17,13 @@
 #
 # MapHandlerTest and InGamePlayable behavior tests link mxh_server and
 # mxh_client_lib, so they are not in the compile-only closure. A second
-# directory, build-behavior, is configured with MXH_CLIENT_COMPILE_ONLY=OFF
-# and builds only mxh_server_handler_tests and mxh_client_tests. ctest runs
-# the seven named cases. require_passed fails the job when any of them is
-# missing, not run, skipped, or failed. Those cases call MapHandler and
+# directory, build-behavior, is configured with MXH_CLIENT_COMPILE_ONLY=OFF.
+# Extension point: append one ctest name to ci/windows_behavior_tests.txt.
+# That file is the only test list. ctest -R and require_passed both read it.
+# Append a CMake target to $behaviorTargets in the build step when the new
+# test is not already in mxh_server_handler_tests or mxh_client_tests.
+# require_passed fails the job when any listed test is missing, not run,
+# skipped, or failed. Those cases call MapHandler and
 # CInGameState::Init(nullptr) / on_message. They do not call
 # Device::createSwapChain, which is the only D3D11CreateDeviceAndSwapChain
 # site. A device-creation failure is a job failure, not a skip.
@@ -32,6 +35,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-client-compile.yml
+      - ci/windows_behavior_tests.txt
       - scripts/protocol_manifest_gate.ps1
       - modern/CMakeLists.txt
       - modern/src/CMakeLists.txt
@@ -107,6 +111,7 @@ jobs:
             modern/src
             modern/include
             modern/tools/MoxianClient
+            ci/windows_behavior_tests.txt
             scripts/protocol_manifest_gate.ps1
             modern/third_party/sqlite
             modern/third_party/googletest-src
@@ -392,19 +397,48 @@ jobs:
           Select-String -LiteralPath $cache -Pattern 'CMAKE_GENERATOR:|CMAKE_GENERATOR_PLATFORM:|MXH_CLIENT_COMPILE_ONLY:' |
             ForEach-Object { Write-Host $_.Line }
 
+      # Extension point: $behaviorTargets is the only target list. Test names
+      # are not listed here. Append one line to ci/windows_behavior_tests.txt
+      # to add a case to ctest -R and require_passed together.
       - name: Build behavior test targets
         run: |
           $ErrorActionPreference = 'Stop'
-          cmake --build build-behavior --config Debug --target mxh_server_handler_tests --target mxh_client_tests -- /m /nologo
+          $behaviorTargets = @(
+            'mxh_server_handler_tests',
+            'mxh_client_tests'
+          )
+          if ($behaviorTargets.Count -lt 1) { throw 'behavior target list is empty' }
+          $buildArgs = @('--build', 'build-behavior', '--config', 'Debug')
+          foreach ($target in $behaviorTargets) {
+            Write-Host "BEHAVIOR_TARGET $target"
+            $buildArgs += @('--target', $target)
+          }
+          & cmake @buildArgs -- /m /nologo
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Run the seven behavior tests
+      - name: Run listed behavior tests
         run: |
           $ErrorActionPreference = 'Stop'
           $log = Join-Path (Get-Location) 'behavior-ctest.log'
           $err = Join-Path (Get-Location) 'behavior-ctest.err'
-          $regex = '^(MapHandlerTest\.(MonsterDeathNotifyReachesClientThenPickupSynClaims|MonsterDeathCreatesNotifiesAndClaimsGroundDrop|RevisionedKillPublishesGroundObtainAndPersistsPickup|DirectObtainEmitsProtocol32AndRejectsGroundDecode)|InGamePlayable\.(GroundItemAddBecomesGroundDropAndPickupAckClearsIt|InvalidPickupAckDoesNotConsumeGroundDrop|DirectObtainUpdatesInventoryAndRejectsGroundBody))$'
+          $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
+            throw "behavior test list is missing: $list"
+          }
+          $names = New-Object System.Collections.Generic.List[string]
+          foreach ($raw in [System.IO.File]::ReadLines($list)) {
+            $line = $raw.Trim()
+            if ($line.Length -eq 0 -or $line.StartsWith('#')) { continue }
+            $hash = $line.IndexOf('#')
+            if ($hash -ge 0) { $line = $line.Substring(0, $hash).Trim() }
+            if ($line.Length -eq 0) { continue }
+            $names.Add($line)
+          }
+          if ($names.Count -lt 1) { throw 'behavior test list has no test names' }
+          $escaped = foreach ($name in $names) { [regex]::Escape($name) }
+          $regex = '^(' + ($escaped -join '|') + ')$'
           Write-Host "CTEST_REGEX $regex"
+          foreach ($name in $names) { Write-Host "CTEST_LIST $name" }
           $ctestArgs = @(
             '--test-dir', 'build-behavior',
             '-C', 'Debug',
@@ -421,39 +455,55 @@ jobs:
           Get-Content -LiteralPath $log
           exit $proc.ExitCode
 
-      - name: Require the seven behavior tests passed
+      - name: Require listed behavior tests passed
         if: always()
         run: |
           $ErrorActionPreference = 'Stop'
           $log = Join-Path (Get-Location) 'behavior-ctest.log'
-          if (-not (Test-Path -LiteralPath $log) -or (Get-Item -LiteralPath $log).Length -eq 0) {
-            Write-Host 'BEHAVIOR_REQUIRED NOT PASSED (behavior-ctest.log missing)'
+          $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          $names = New-Object System.Collections.Generic.List[string]
+          if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
+            Write-Host 'REQUIRED NOT PASSED ci/windows_behavior_tests.txt'
+            Write-Host 'REQUIRED SUMMARY passed=0 not_passed=1'
             exit 1
           }
-          $names = @(
-            'MapHandlerTest.MonsterDeathNotifyReachesClientThenPickupSynClaims',
-            'MapHandlerTest.MonsterDeathCreatesNotifiesAndClaimsGroundDrop',
-            'MapHandlerTest.RevisionedKillPublishesGroundObtainAndPersistsPickup',
-            'MapHandlerTest.DirectObtainEmitsProtocol32AndRejectsGroundDecode',
-            'InGamePlayable.GroundItemAddBecomesGroundDropAndPickupAckClearsIt',
-            'InGamePlayable.InvalidPickupAckDoesNotConsumeGroundDrop',
-            'InGamePlayable.DirectObtainUpdatesInventoryAndRejectsGroundBody'
-          )
-          $status = 0
+          foreach ($raw in [System.IO.File]::ReadLines($list)) {
+            $line = $raw.Trim()
+            if ($line.Length -eq 0 -or $line.StartsWith('#')) { continue }
+            $hash = $line.IndexOf('#')
+            if ($hash -ge 0) { $line = $line.Substring(0, $hash).Trim() }
+            if ($line.Length -eq 0) { continue }
+            $names.Add($line)
+          }
+          $logReady = (Test-Path -LiteralPath $log) -and ((Get-Item -LiteralPath $log).Length -gt 0)
+          if (-not $logReady) {
+            Write-Host 'REQUIRED NOT PASSED behavior-ctest.log'
+          }
+          $passedCount = 0
+          $notPassedCount = 0
+          if ($names.Count -lt 1) {
+            Write-Host 'REQUIRED NOT PASSED (list empty)'
+            $notPassedCount = 1
+          }
           foreach ($name in $names) {
-            $hits = @(Select-String -LiteralPath $log -SimpleMatch -Pattern $name)
             $skipped = $false
             $passed = $false
-            foreach ($hit in $hits) {
-              Write-Host "CTEST_LINE $($hit.Line)"
-              if ($hit.Line -match 'Skipped|Not Run') { $skipped = $true }
-              if ($hit.Line -match '(^|\s)Passed(\s|$)') { $passed = $true }
+            if ($logReady) {
+              $hits = @(Select-String -LiteralPath $log -SimpleMatch -Pattern $name)
+              foreach ($hit in $hits) {
+                if ($hit.Line -match 'Skipped|Not Run') { $skipped = $true }
+                if ($hit.Line -match '(^|\s)Passed(\s|$)') { $passed = $true }
+              }
+              if ($hits.Count -eq 0) { $skipped = $true }
             }
-            if ($hits.Count -eq 0 -or $skipped -or -not $passed) {
-              Write-Host "BEHAVIOR_REQUIRED NOT PASSED $name"
-              $status = 1
+            if ($logReady -and $passed -and -not $skipped) {
+              Write-Host "REQUIRED PASSED $name"
+              $passedCount++
             } else {
-              Write-Host "BEHAVIOR_REQUIRED PASSED $name"
+              Write-Host "REQUIRED NOT PASSED $name"
+              $notPassedCount++
             }
           }
-          exit $status
+          Write-Host "REQUIRED SUMMARY passed=$passedCount not_passed=$notPassedCount"
+          if ($notPassedCount -ne 0 -or -not $logReady) { exit 1 }
+          exit 0
