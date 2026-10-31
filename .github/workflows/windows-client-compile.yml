@@ -99,6 +99,7 @@ jobs:
             modern/data/PlayDH/Effect.pak
             modern/data/PlayDH/monster.pak
 
+      # Standalone. Does not read the build tree or share state with a ctest step.
       - name: Exercise PowerShell item protocol gate
         run: |
           $ErrorActionPreference = 'Stop'
@@ -179,6 +180,9 @@ jobs:
               Remove-Item -LiteralPath $temp -Recurse -Force
             }
           }
+          # The last child pwsh exits 1. pwsh -Command keeps that code unless cleared.
+          $global:LASTEXITCODE = 0
+          exit 0
 
       - name: Prove no pak binary was checked out
         run: |
