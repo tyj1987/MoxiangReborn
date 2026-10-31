@@ -4,8 +4,8 @@
   "source": "canonical PlayDH current resource tree (derived runtime files excluded)",
   "root": "C:\\moxiang\\modern\\data\\PlayDH",
   "generatedAtUtc": "2026-08-25T00:49:35.7063415Z",
-  "fileCount": 5297,
-  "byteCount": 1691253485,
+  "fileCount": 5280,
+  "byteCount": 1672294142,
   "files": [
     {
       "path": "ANRaster.tga",
@@ -21,11 +21,6 @@
       "path": "BaseNetwork.dll",
       "bytes": 794747,
       "sha256": "374b29ac3e1a2522f73bc23262f163f5cbbcf1343e55c49023a273beb83d1dee"
-    },
-    {
-      "path": "Character_unpacked/00000_87504.bin",
-      "bytes": 87504,
-      "sha256": "7547b0ce252789522e4756a321e5bb03f484f211522d6b3545345a8217e863e4"
     },
     {
       "path": "Character.pak",
@@ -5433,11 +5428,6 @@
       "sha256": "0161f3065dd3d389a009bd6dc406f0d8761e05d69e5b53cb257d8bf43ffb758e"
     },
     {
-      "path": "Log/Assert_20260715.txt",
-      "bytes": 167,
-      "sha256": "38fd133209f2c71e84f6676ca68f919347cfe650026488bb3a08afe757cc7626"
-    },
-    {
       "path": "Log/debug.txt",
       "bytes": 171,
       "sha256": "b8fc4924a270534eb8c1867ae33d4403396c6b46183d14984457a73ffd4fbb35"
@@ -5458,36 +5448,6 @@
       "sha256": "385ea2a454172e3f9b1b18778d4d29318a12be9f0c0c0602db72e2cce136e823"
     },
     {
-      "path": "MHClient-Connect.exe",
-      "bytes": 2891776,
-      "sha256": "77aac7fde0970d1e7e5470736becead0afdffd3c852b934222a447ba289cb6e7"
-    },
-    {
-      "path": "MHClient-Connect.exe.bak_crc2",
-      "bytes": 2891776,
-      "sha256": "77aac7fde0970d1e7e5470736becead0afdffd3c852b934222a447ba289cb6e7"
-    },
-    {
-      "path": "MHClient-Connect.exe.bak_preparam",
-      "bytes": 2891776,
-      "sha256": "32f687a9ec28ca70fad5db604d312d1dd49dadffc3742bebe7de5735cf37bcf0"
-    },
-    {
-      "path": "MHClient-Connect.exe.bak2",
-      "bytes": 4280320,
-      "sha256": "40bde136c7028b1054411302a6795d8f874920402ee50db274ca8853cbacb5eb"
-    },
-    {
-      "path": "MHClient-Connect.exe.bak3",
-      "bytes": 2891776,
-      "sha256": "32f687a9ec28ca70fad5db604d312d1dd49dadffc3742bebe7de5735cf37bcf0"
-    },
-    {
-      "path": "MHClient-Connect.exe.broken_patches",
-      "bytes": 2891776,
-      "sha256": "21cf91182cd3b7cd651d3cb4fda8216a8b27eb041bd5165e2a9abdc533fbdd0e"
-    },
-    {
       "path": "MHClient-GMTool-Debug.exe",
       "bytes": 4354048,
       "sha256": "4a643531a1004e9086a88e8847b0748235b7ab957730edc93f489fea22b27a62"
@@ -5506,36 +5466,6 @@
       "path": "MHVerInfo.ver",
       "bytes": 12,
       "sha256": "5188cfbecbdbea01c4cfe85404e10730d3ec3feae16de3a67cc1a3cea195a788"
-    },
-    {
-      "path": "modern/build/runtime/soak-comparison/data/map.db",
-      "bytes": 4096,
-      "sha256": "4c34b48e33536be849e9810707c97ff2b5625bb5cbf1637dbe384cfffdda3b9d"
-    },
-    {
-      "path": "modern/build/runtime/soak-comparison/data/map.db-shm",
-      "bytes": 32768,
-      "sha256": "96301f15c444d3fa8eb968dee0139dda616de0475cb9e258ab810a6692ba9bc2"
-    },
-    {
-      "path": "modern/build/runtime/soak-comparison/data/map.db-wal",
-      "bytes": 16512,
-      "sha256": "09ad8612431377df19c6a7629cd21efc061d0bc04f8a786154db75c4317697a5"
-    },
-    {
-      "path": "modern/build/runtime/soak-final-verify/data/map.db",
-      "bytes": 4096,
-      "sha256": "4c34b48e33536be849e9810707c97ff2b5625bb5cbf1637dbe384cfffdda3b9d"
-    },
-    {
-      "path": "modern/build/runtime/soak-final-verify/data/map.db-shm",
-      "bytes": 32768,
-      "sha256": "04b34d71214373917ef4bd616fd935a7901197038e870af8978189bd26eb3e8d"
-    },
-    {
-      "path": "modern/build/runtime/soak-final-verify/data/map.db-wal",
-      "bytes": 16512,
-      "sha256": "da509cfb30de8829c162b5cd2c1744ade16f75d35c8b72a9e11a5702fe203f52"
     },
     {
       "path": "monster.pak",
@@ -5586,11 +5516,6 @@
       "path": "NDSC08070301.mhd",
       "bytes": 61441,
       "sha256": "375d5dcb0cf9b91d09968539c26db3af73a87119b44b99174291d1435ed71c1d"
-    },
-    {
-      "path": "npc_unpacked/00000_24620.bin",
-      "bytes": 24620,
-      "sha256": "893f38d217f0a8397a6d956707a494f7f3da50d5f5ca0f7d2c142b3a3ba8fc2e"
     },
     {
       "path": "npc.pak",
@@ -5869,11 +5794,6 @@
     },
     {
       "path": "Resource/EffectScript/Boss001_Regen.beff",
-      "bytes": 876,
-      "sha256": "9467ea47280fe9b3a5534cda0e6fa77e5153a6db8ba8b6f329f69279a2d62ab0"
-    },
-    {
-      "path": "Resource/EffectScript/Boss001_Regen.beff.bak",
       "bytes": 876,
       "sha256": "9467ea47280fe9b3a5534cda0e6fa77e5153a6db8ba8b6f329f69279a2d62ab0"
     },
@@ -22121,11 +22041,6 @@
       "path": "Resource/Server/attackrate.bin",
       "bytes": 127,
       "sha256": "37684e5d4be525855afde394344c92c98f2a17c99f5a572c1adf36c9c2d386ea"
-    },
-    {
-      "path": "Resource/Server/attackrate.bin_bak",
-      "bytes": 224,
-      "sha256": "86988cf4cca9c67887bdacbd53c0dbf6dc226205be3c9cdaeca5a9f515b10eac"
     },
     {
       "path": "Resource/Server/AttribItemChangeRato.bin",
