@@ -365,6 +365,7 @@ def self_test() -> int:
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--self-test", action="store_true")
+    parser.add_argument("--check", action="store_true")
     parser.add_argument("--manifest", type=Path, default=REPO_ROOT / "reference/manifests/playdh-current.sha256.json")
     parser.add_argument("--playdh", type=Path, default=REPO_ROOT / "modern/data/PlayDH")
     parser.add_argument("--references", type=Path, default=REPO_ROOT / "reference/manifests/original-resource-references.json")

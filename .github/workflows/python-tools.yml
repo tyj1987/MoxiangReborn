@@ -458,6 +458,27 @@ jobs:
           GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=0 git lfs pull
           GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=0 git lfs checkout
           rm -f "$askpass"
+          python3 - <<'PY'
+          from pathlib import Path
+          marker = b"version https://git-lfs.github.com/spec/v1"
+          names = (
+              "modern/data/PlayDH/Map.pak",
+              "modern/data/PlayDH/Character.pak",
+              "modern/data/PlayDH/Effect.pak",
+              "modern/data/PlayDH/monster.pak",
+          )
+          failed = False
+          for name in names:
+              path = Path(name)
+              head = path.read_bytes()[:120]
+              if head.startswith(marker):
+                  print(f"LFS_POINTER {name}")
+                  failed = True
+              else:
+                  print(f"LFS_OBJECT {name} bytes={path.stat().st_size}")
+          if failed:
+              raise SystemExit(1)
+          PY
 
       - name: playdh_baseline_check
         run: python3 scripts/playdh_baseline_check.py --check
