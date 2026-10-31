@@ -50,6 +50,7 @@
 #     pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
 #     pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
 #     pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
+#     pwsh -NoProfile -File scripts/tests/test-forbidden-rog-ports.ps1
 #     pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
 #     pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
 #   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
@@ -57,6 +58,8 @@
 #   第四条是 gui-client-smoke 的 ephemeral 安全检查，加在同一个 pwsh job 上。
 #   第五条核对 start_modern.ps1 的 --default-map 与 map 进程的 --map 都是 $MapNumber，加在同一个 pwsh job 上。
 #   第六条是 24h soak harness 的 Linux stub 测试，加在同一个 pwsh job 上。
+#   紧跟第六条的是 ROG 端口表合成测试：禁止 16001/17001/18001 与 36001/37001/38001，
+#   允许 26001/27001/28001，缺省 Map12Port 必须失败。不启动服务器、不连网络。
 #   第七条是 deploy_client.ps1 的 PlayDH 派生路径排除自测，只用 runner 临时目录里的合成文件。
 #   下一条是 deploy_client.ps1 在未设置 MXH_PLAYDH_ROOT 且未给 -ResourceDir 时必须失败。
 #   用例名是 PLAYDH_ROOT_CASE，不使用 rog 标签。
@@ -96,6 +99,16 @@
 #   NON_LFS_PAK <path> bytes=<n>，不打印文件内容，并且失败。
 #   报告只打印 rule id 和 path:line，并带 --redact=100。
 # - rules 与 original_governance_and_python_tests 相同。
+#
+# gitleaks_history
+# - Report-only full-history scan. Not a GitLab job and not a required check.
+#   continue-on-error: true. Becomes required after history cleanup (owner-only).
+# - actions/checkout fetch-depth: 0 so `gitleaks git` sees full history. The
+#   Alpine jobs stay depth 1 and still scan the working tree only.
+# - Same pinned gitleaks 8.30.1 linux_x64 tarball and sha256 as gitleaks_tree_scan.
+#   `gitleaks git` with --redact=100. The log prints
+#   GITLEAKS_HISTORY REPORT_ONLY findings=N and per-rule counts only.
+#   Secret values, match text, and excerpts are not printed. GIT_LFS_SKIP_SMUDGE=1.
 
 name: original_governance_and_python_tests
 
@@ -121,6 +134,7 @@ on:
       - scripts/soak-24h.ps1
       - scripts/soak-24h.cmd
       - scripts/tests/test-soak-24h.ps1
+      - scripts/tests/test-forbidden-rog-ports.ps1
       - scripts/tests/test-deploy-default-map.ps1
       - scripts/tests/test-deploy-client-playdh-root.ps1
       - deploy/scripts/start_modern.ps1
@@ -134,6 +148,8 @@ on:
       - .github/workflows/python-tools.yml
       - .gitleaks.toml
       - scripts/gitleaks-selftest.py
+      - scripts/tests/test_check_client_warnings.py
+      - scripts/check-client-warnings.py
       - reference/manifests/**
       - modern/CMakeLists.txt
       - modern/tests/**
@@ -188,6 +204,7 @@ jobs:
           python3 scripts/check-project-governance.py
           python3 scripts/check-no-pak-changes.py
           python3 scripts/check-ps1-encoding.py
+          python3 scripts/tests/test_check_client_warnings.py
           python3 -B -m unittest modern/tests/unit/tools/test_unpack_pak.py
           python3 -B -m unittest modern/tests/unit/tools/test_pak_writer.py
           python3 -B -m unittest modern/tests/unit/tools/test_check_no_pak_changes.py
@@ -294,6 +311,7 @@ jobs:
           pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
           pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
           pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
+          pwsh -NoProfile -File scripts/tests/test-forbidden-rog-ports.ps1
           pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
           pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
           pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
@@ -497,6 +515,93 @@ jobs:
           python3 scripts/gitleaks-selftest.py --check-paks . || status=1
           python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan . || status=1
           exit "$status"
+
+  # Report-only. Not a required check. continue-on-error keeps findings from
+  # failing the workflow. Becomes required after history cleanup (owner-only).
+  gitleaks_history:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: gitleaks_history
+        run: |
+          set -eu
+          gitleaks_dir="$(mktemp -d)"
+          tarball="${gitleaks_dir}/gitleaks_8.30.1_linux_x64.tar.gz"
+          python3 - "$tarball" <<'PY'
+          import hashlib, pathlib, sys, urllib.request
+          dest = pathlib.Path(sys.argv[1])
+          url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          expected = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          urllib.request.urlretrieve(url, dest)
+          digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+          if digest != expected:
+              raise SystemExit("gitleaks sha256 mismatch")
+          PY
+          tar -xzf "${tarball}" -C "${gitleaks_dir}"
+          chmod +x "${gitleaks_dir}/gitleaks"
+          report="$(mktemp)"
+          stdout="$(mktemp)"
+          stderr="$(mktemp)"
+          cleanup() { rm -f "$report" "$stdout" "$stderr"; }
+          trap cleanup EXIT
+          set +e
+          "${gitleaks_dir}/gitleaks" git . \
+            --config .gitleaks.toml \
+            --redact=100 \
+            --no-banner \
+            --log-level error \
+            --report-format json \
+            --report-path "$report" \
+            --exit-code 2 \
+            >"$stdout" 2>"$stderr"
+          rc=$?
+          set -e
+          python3 - "$report" "$rc" <<'PY'
+          import json, re, sys
+          from collections import Counter
+          from pathlib import Path
+
+          report = Path(sys.argv[1])
+          rc = int(sys.argv[2])
+          rule_id = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}")
+          data = None
+          if report.is_file() and report.stat().st_size:
+              try:
+                  data = json.loads(report.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = None
+          if data is None and rc == 0:
+              data = []
+          if not isinstance(data, list):
+              print(f"GITLEAKS_HISTORY SCAN_ERROR exit={rc}", file=sys.stderr)
+              raise SystemExit(1)
+          counts = Counter()
+          for item in data:
+              if not isinstance(item, dict):
+                  rule = "unknown"
+              else:
+                  rule = item.get("RuleID")
+                  if not isinstance(rule, str) or rule_id.fullmatch(rule) is None:
+                      rule = "unknown"
+              counts[rule] += 1
+          total = sum(counts.values())
+          print(f"GITLEAKS_HISTORY REPORT_ONLY findings={total}")
+          for rule in sorted(counts):
+              print(f"GITLEAKS_HISTORY RULE {rule} count={counts[rule]}")
+          if rc not in (0, 2):
+              print(f"GITLEAKS_HISTORY SCAN_ERROR exit={rc}", file=sys.stderr)
+              raise SystemExit(1)
+          PY
 
   # playdh_baseline_check
   # Compares modern/data/PlayDH to playdh-current.sha256.json. LFS files stay
