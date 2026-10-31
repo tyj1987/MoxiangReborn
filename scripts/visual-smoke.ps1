@@ -14,10 +14,13 @@ visual-smoke.ps1 — M-R0 视觉基线
 usage:
   pwsh -File scripts/visual-smoke.ps1
   pwsh -File scripts/visual-smoke.ps1 -MapNumber 12 -TimeoutSeconds 60
+  pwsh -File scripts/visual-smoke.ps1 -Config Release
 #>
 
 param(
     [string]$BuildDir = '',
+    [ValidateSet('Debug', 'Release')]
+    [string]$Config = 'Debug',
     [int]$TimeoutSeconds = 300,
     [int]$MapNumber = 12,
     [string]$Username = 'visualsmoke',
@@ -43,10 +46,13 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
 $clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'
+if (-not (Test-Path -LiteralPath $clientExe -PathType Leaf)) {
+    $clientExe = Join-Path $buildRoot ("tools\MoxianClient\$Config\mxh_client.exe")
+}
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 
 if (-not (Test-Path -LiteralPath $clientExe)) {
-    throw "MoxianClient.exe not found: $clientExe`n先 build: cmake --build $buildRoot --config Debug"
+    throw "MoxianClient.exe not found: $clientExe`n先 build: cmake --build $buildRoot --config $Config"
 }
 
 # 截图输出目录
@@ -81,10 +87,10 @@ try {
     if (-not $SkipServerStart) {
         . (Join-Path $PSScriptRoot 'protocol_manifest_gate.ps1')
         $gateTools = Join-Path $buildRoot 'tools'
-        $gateMap = Resolve-MxhBuiltExecutable -ToolsRoot $gateTools -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe' -Config 'Debug'
+        $gateMap = Resolve-MxhBuiltExecutable -ToolsRoot $gateTools -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe' -Config $Config
         Assert-MxhItemProtocolMatch -MapExecutable $gateMap -ClientExecutable $clientExe
         Write-Host "[visual-smoke] starting modern servers..." -ForegroundColor Cyan
-        & $serverScript -Mode start -Backend sqlite -DataDir $dataDir -MapNumber $MapNumber 2>&1
+        & $serverScript -Mode start -Backend sqlite -DataDir $dataDir -MapNumber $MapNumber -Config $Config 2>&1
         Start-Sleep -Seconds 2
         & $serverScript -Mode status 2>&1
     }
@@ -93,6 +99,9 @@ try {
     # Remote LoginHost talks to VM 100, whose DSN is live MSSQL — do not
     # register into a throwaway local sqlite file the servers never read.
     $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
+    if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {
+        $dbTool = Join-Path $buildRoot ("tools\MoxianDbTool\$Config\mxh_db_tool.exe")
+    }
     if ($SkipRegister) {
         Write-Host "[visual-smoke] account registration skipped by explicit -SkipRegister" -ForegroundColor Yellow
     } elseif (Test-Path -LiteralPath $dbTool) {
