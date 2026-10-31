@@ -13,6 +13,20 @@ gtest_add_tests(TARGET mxh_start_area_registration_tests
     PRE_SHIP_BUILD
 )
 
+# Header-only leave decision. Linux CI can build this without the Winsock
+# server handlers. mxh_server_handler_tests covers the same leak end to end.
+add_executable(mxh_map_leave_sender_tests
+    map_leave_sender_test.cpp
+)
+target_link_libraries(mxh_map_leave_sender_tests PRIVATE gtest_main)
+target_include_directories(mxh_map_leave_sender_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+)
+gtest_add_tests(TARGET mxh_map_leave_sender_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
+    PRE_SHIP_BUILD
+)
+
 add_executable(mxh_server_handler_tests
     server_handler_test.cpp
     item_id_test.cpp

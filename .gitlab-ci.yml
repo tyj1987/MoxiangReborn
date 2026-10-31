@@ -157,7 +157,7 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests
+      cmake --build build --target mxh_resource_reference_tests --target mxh_map_leave_sender_tests
     - |
       bash -euo pipefail <<'EOF'
       ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
@@ -187,6 +187,9 @@ cxx_resource_reference_linux:
         status=1
       fi
       exit "$status"
+    - |
+      set -eu
+      ctest --test-dir build -R '^MapLeaveSenderTest\.' --output-on-failure
 
 original_lfs_integrity:
   extends: .linux_trusted
