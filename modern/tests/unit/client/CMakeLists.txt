@@ -84,6 +84,15 @@ set_tests_properties(
     ClientUiRuntime.LoadsOptionBinAsConcreteOptionDialog
     ClientUiRuntime.ResolutionChangeUpdatesWindowManagerMode
     InGameUiRuntime.OptionOkActivationDispatchesConcreteDialogAction
+    InGameUiRuntime.PartyInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.GuildInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.FriendInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.InventoryTabButtonsSwitchRealGridDialog
+    InGameUiRuntime.CharacterInfoHudButtonTogglesLiveDialog
+    InGameUiRuntime.ChatOptionButtonOpensAndClosesRealOptionDialog
+    InGameUiRuntime.EnterAndEscapeOwnRealChatDialog
+    InGameUiRuntime.FocusedChatEditboxSynchronizesAndEnterSubmits
+    InGameUiRuntime.ChatEditingUsesUtf8CodepointBoundaries
     InGameUiRuntime.InventoryCloseActivatesHandleUiActivation
     InGameUiRuntime.MainBarButtonConsumesClickInActiveDialog
     ClientUiRuntime.ConfirmationOwnsModalInputAndCleansUpAfterEnter
