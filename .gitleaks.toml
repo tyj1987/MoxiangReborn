@@ -1,0 +1,124 @@
+title = "moxiang gitleaks"
+
+[extend]
+useDefault = true
+
+# Python: key-like name assigned a byte literal (key, KEY, xor_key, _key).
+[[rules]]
+id = "python-byte-literal-key"
+description = "Python byte literal assigned to a key-like name."
+regex = '''(?i)(?:^|[^A-Za-z0-9])(?:xor_)?_?key(?:_[A-Za-z0-9]+)*\s*=\s*b['"]([^'"]+)['"]'''
+keywords = ["key", "Key", "KEY"]
+
+# Python: bytes([...]) / bytearray([...]) of at least 8 ints, name contains key/table/xor.
+[[rules]]
+id = "python-named-byte-array"
+description = "Python bytes or bytearray literal of at least 8 elements assigned to a key, table, or xor name."
+regex = '''(?i)\b[A-Za-z_]\w*(?:key|table|xor)\w*\s*=\s*(?:bytes|bytearray)\(\s*\[\s*(?:0x[0-9a-fA-F]+|\d+)(?:\s*,\s*(?:0x[0-9a-fA-F]+|\d+)){7,}\s*\]'''
+keywords = ["bytes", "bytearray"]
+
+[[rules.allowlists]]
+description = "Unit-test fixture TEST_XOR_KEY in the resource-reference gate test. The source comment says the sequence is made up for that test."
+condition = "AND"
+paths = ['''(?:^|/)modern/tests/unit/tools/test_resource_reference_gate\.py$''']
+regexTarget = "line"
+regexes = ['''TEST_XOR_KEY\s*=\s*bytes\s*\(''']
+
+# C/C++: key/xor/table byte arrays and std::array equivalents.
+[[rules]]
+id = "cpp-key-byte-array"
+description = "C or C++ byte array or std::array assigned to a key, xor, or table name."
+regex = '''(?:(?:static|const)\s+){0,2}(?:(?:std::uint8_t|uint8_t|unsigned char|BYTE|char)\s+\w*(?:key|Key|KEY|xor|Xor|XOR|table|Table)\w*\s*\[\s*\d*\s*\]\s*=\s*\{\s*0x[0-9A-Fa-f]|std::array\s*<\s*(?:std::uint8_t|uint8_t|unsigned char|BYTE|char)\s*,\s*\d+\s*>\s+\w*(?:key|Key|KEY|xor|Xor|XOR|table|Table)\w*\s*(?:=\s*)?\{\s*0x[0-9A-Fa-f])'''
+keywords = ["key", "Key", "KEY", "xor", "Xor", "XOR", "table", "Table"]
+
+[[rules.allowlists]]
+description = "Unit-test golden encryptor stub kGoldenEncKey. It is a fixed test vector for wire-layout checks."
+condition = "AND"
+paths = ['''(?:^|/)modern/tests/unit/server/login_e2e_test\.cpp$''']
+regexTarget = "line"
+regexes = ['''kGoldenEncKey''']
+
+# Path-restricted: the four parser tools. Literal key / xor / byte-table assignments only.
+[[rules]]
+id = "parser-file-key-table"
+description = "Key, xor, or byte-table literal in the four parser tools."
+path = '''(?:^|[/\\])modern[/\\]tools[/\\](?:unpack_pak|mh_bin|repack_titan_bin|compat_round_trip)\.py$'''
+regex = '''(?i)(?:\b[\w]*(?:key|xor|table)[\w]*\s*=\s*b['"][^'"]+['"]|\b[\w]*(?:key|xor|table)[\w]*\s*=\s*(?:bytes|bytearray)\s*\(\s*\[|\b[\w]*(?:key|xor|table)[\w]*\s*=\s*\[\s*(?:0x[0-9a-fA-F]+|\d+)(?:\s*,\s*(?:0x[0-9a-fA-F]+|\d+)){7,}|(?:bytes|bytearray)\s*\(\s*\[\s*(?:0x[0-9a-fA-F]+|\d+)(?:\s*,\s*(?:0x[0-9a-fA-F]+|\d+)){7,})'''
+keywords = ["key", "Key", "KEY", "xor", "Xor", "XOR", "table", "Table", "bytes", "bytearray"]
+
+# Default rules do not match password = "..." or PowerShell parameter defaults.
+[[rules]]
+id = "hardcoded-password-literal"
+description = "Quoted password assignment or PowerShell password parameter default."
+regex = '''(?i)[A-Za-z0-9_.]*password[A-Za-z0-9_.]*\s*=\s*['"]([^'"]+)['"]'''
+keywords = ["password", "Password", "PASSWORD"]
+
+[[rules.allowlists]]
+description = "Exact placeholder tokens in the synthetic self-test sample. Not credentials."
+condition = "AND"
+paths = ['''(?:^|/)gitleaks-selftest/allowlisted/placeholder_password\.py$''']
+regexes = [
+  '''^test-only-not-a-password$''',
+  '''^<从环境变量读取>$''',
+]
+
+[[rules.allowlists]]
+description = "ConnectToInvalidServerFails uses the synthetic literal no-such-password against an invalid host."
+condition = "AND"
+paths = ['''(?:^|/)modern/tests/unit/db/mssql_odbc_adapter_test\.cpp$''']
+regexes = ['''^no-such-password$''']
+
+[[rules.allowlists]]
+description = "SQLCMD variable name GameSrvPassword. Both setup scripts say the value is supplied outside the repo."
+condition = "AND"
+paths = [
+  '''(?:^|/)scripts/setup_gamesrv\.sql$''',
+  '''(?:^|/)scripts/setup_gamesrv2\.sql$''',
+]
+regexes = ['''^\$\(GameSrvPassword\)$''']
+
+# Obvious generic-api-key false positives. Each entry is one path family plus a line regex.
+[[allowlists]]
+description = "Unit-test bearer token is the hex sequence 0123456789abcdef repeated twice, not a credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(?:^|/)modern/tests/unit/gm_security_test\.cpp$''']
+regexTarget = "line"
+regexes = ['''(?:0123456789abcdef){2}''']
+
+[[allowlists]]
+description = "SQLite amalgamation: generic-api-key matches macro names and an FTS debug if-statement, not a credential."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''(?:^|/)modern/third_party/sqlite/sqlite3\.c$''',
+  '''(?:^|/)modern/third_party/sqlite/sqlite3ext\.h$''',
+]
+regexTarget = "line"
+regexes = [
+  '''#define sqlite3_column_bytes16''',
+  '''#define sqlite3_soft_heap_limit64''',
+  '''#define sqlite3_hard_heap_limit64''',
+  '''^\s*if\( i.+\)\{\s*$''',
+]
+
+[[allowlists]]
+description = "Header-duplicate inventory rows are quoted paths plus sha256 digests, not credentials."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''(?:^|/)reference/manifests/ui-header-duplicates-2026-08-25\.txt$''']
+regexTarget = "line"
+regexes = ['''(?m)^".+","[0-9A-F]{64}"\s*$''']
+
+[[allowlists]]
+description = "Synthetic samples written by the self-test. The literals are example-not-a-key, the 0x00..0x07 sequence, and the two password placeholders."
+targetRules = ["python-byte-literal-key", "python-named-byte-array", "cpp-key-byte-array", "parser-file-key-table", "hardcoded-password-literal"]
+condition = "AND"
+paths = ['''(?:^|/)scripts/gitleaks-selftest\.py$''']
+regexTarget = "line"
+regexes = [
+  '''example-not-a-key''',
+  '''0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07''',
+  '''test-only-not-a-password''',
+  '''从环境变量读取''',
+]
