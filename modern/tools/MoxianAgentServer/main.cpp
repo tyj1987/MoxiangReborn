@@ -157,6 +157,11 @@ int main(int argc, char** argv) {
     // test char_make_options_test.cpp:66) and Linear comment 6e08ed6d on
     // TYJ-156 (original MP_CHARACTER_CreateCharacter writes map 17).
     auto args = parse_args(argc, argv);
+    if (const auto conflict = mxh::agent_cli::extra_map_equals_default_error(args);
+        !conflict.empty()) {
+        std::cerr << conflict << "\n";
+        return 2;
+    }
     std::vector<std::uint16_t> configured_maps;
     configured_maps.reserve(args.map_routes.size());
     for (const auto& route : args.map_routes) configured_maps.push_back(route.map_num);
