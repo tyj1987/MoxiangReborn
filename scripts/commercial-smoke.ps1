@@ -7,9 +7,9 @@
       0  ctest passed. MSSQL E2E passed, was skipped with -SkipMssql, or was
          skipped because mxh_client_e2e is not built while LocalDB resolved.
          GUI smoke passed or -SkipGui was set.
-      1  a step failed, GUI smoke refused a host below PowerShell 7.4,
-         -MssqlDb was rejected before connect, the named database already
-         existed, or DROP DATABASE failed after E2E.
+      1  a step failed, the owned executable timed out, GUI smoke refused
+         a host below PowerShell 7.4, -MssqlDb was rejected before connect,
+         the named database already existed, or DROP DATABASE failed after E2E.
       6  MSSQL_E2E E2E_UNAVAILABLE. sqllocaldb / SqlLocalDB did not resolve
          on PATH and -SkipMssql was not passed. The run prints
          MSSQL_E2E E2E_UNAVAILABLE (LocalDB not found; pass -SkipMssql to record as not-run)
@@ -41,12 +41,24 @@
     host, and a port suffix are rejected before connect.
     -SkipMssql together with -MssqlDb is refused.
     The explicit -MssqlDb path and the LocalDB path start
-    mxh_client_e2e with Start-Process -PassThru and remember that
-    process plus descendants it starts. Cleanup stops only those
-    PIDs, and only while StartTime still matches (UTC ticks on
-    Windows, boot-relative starttime on Linux). Any fallback after
-    Kill() re-checks that identity immediately before signaling the
-    PID. Cleanup does not stop other processes by image name.
+    mxh_client_e2e through Invoke-CommercialSmokeOwnedExecutable.
+    On Windows that helper starts the child with CreateProcess
+    CREATE_SUSPENDED, assigns only that child to a new job whose
+    LimitFlags include JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, then
+    ResumeThread. The PowerShell process is not placed in the job.
+    Child stdout and stderr are files, printed after the child
+    exits, so a descendant cannot hold this script's output pipe.
+    TimeoutSeconds on that helper defaults to 600. If the child is
+    still running, the helper prints COMMERCIAL_SMOKE TIMEOUT and
+    returns exit code 1. Closing the job handle then reaps leftover
+    descendants. On Linux the helper still uses Start-Process
+    -PassThru and waits until that child exits. Both platforms
+    remember the process plus descendants the scan records.
+    Cleanup stops only those PIDs, and only while StartTime still
+    matches (UTC ticks on Windows, boot-relative starttime on
+    Linux). Any fallback after Kill() re-checks that identity
+    immediately before signaling the PID. Cleanup does not stop
+    other processes by image name.
 
 .EXAMPLE
     pwsh -NoProfile -File scripts/commercial-smoke.ps1 -MssqlDb "backend=mssql_odbc;host=.\SQLEXPRESS;database=MxE2E_RogSmoke;encrypt=no;trust_server_certificate=yes;"
@@ -801,13 +813,660 @@ function Get-CommercialSmokeOwnedReportToken {
     return [string]$kernel
 }
 
-function Invoke-CommercialSmokeOwnedExecutable {
+function Format-CommercialSmokeOwnedCommandLine {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$ArgumentList
     )
+    # lpApplicationName is the path. The command line still begins with
+    # a quoted argv0 because CreateProcess parses it that way.
+    if ($FilePath.IndexOf('"') -ge 0) {
+        throw 'owned executable path contains a double quote'
+    }
+    $argLine = ''
+    if ($null -ne $ArgumentList) {
+        $argLine = Format-CommercialSmokeNativeArgumentLine -ArgumentList @($ArgumentList)
+    }
+    $command = '"' + $FilePath + '"'
+    if (-not [string]::IsNullOrEmpty($argLine)) {
+        $command = $command + ' ' + $argLine
+    }
+    if ($command.Length -ge 32767) {
+        throw 'owned executable command line is too long'
+    }
+    return $command
+}
+
+function Test-CommercialSmokePidAlive {
+    param([int]$ProcessId)
+    if ($ProcessId -le 0) { return $false }
+    $live = $null
+    try { $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue } catch { return $false }
+    if ($null -eq $live) { return $false }
+    try { $live.Refresh() } catch { }
+    try { return -not [bool]$live.HasExited } catch { return $false }
+}
+
+function Wait-CommercialSmokeJobMembers {
+    param([int[]]$ProcessIds)
+    # Bounded confirm after the job handle is closed. Returns the PIDs
+    # that are still alive. Does not signal them.
+    $pending = New-Object System.Collections.Generic.List[int]
+    foreach ($raw in @($ProcessIds)) {
+        $id = 0
+        try { $id = [int]$raw } catch { $id = 0 }
+        if ($id -gt 0) { $pending.Add($id) }
+    }
+    $alive = New-Object System.Collections.Generic.List[int]
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($true) {
+        $alive.Clear()
+        foreach ($id in $pending) {
+            if (Test-CommercialSmokePidAlive -ProcessId $id) { $alive.Add($id) }
+        }
+        if ($alive.Count -eq 0) { return ,@($alive.ToArray()) }
+        if ($sw.ElapsedMilliseconds -ge 5000) { return ,@($alive.ToArray()) }
+        $pending = $alive
+        $alive = New-Object System.Collections.Generic.List[int]
+        Start-Sleep -Milliseconds 50
+    }
+}
+
+function Write-CommercialSmokeCapturedOutput {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $text = ''
+    try {
+        $stream = New-Object System.IO.FileStream(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite)
+        $reader = New-Object System.IO.StreamReader($stream)
+        $text = $reader.ReadToEnd()
+        $reader.Dispose()
+    } catch {
+        return
+    }
+    if ([string]::IsNullOrEmpty($text)) { return }
+    $text = $text.Replace("`r`n", "`n").Replace("`r", "`n")
+    $lines = @($text -split "`n", -1)
+    $last = $lines.Count - 1
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($i -eq $last -and $lines[$i].Length -eq 0) { continue }
+        Write-Host $lines[$i]
+    }
+}
+
+function Initialize-CommercialSmokeProcessJob {
+    if ($null -ne ('Mxh.CommercialSmokeLaunch' -as [type])) { return }
+    $code = @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace Mxh {
+    public sealed class CommercialSmokeLaunch : IDisposable {
+        const uint CREATE_SUSPENDED = 0x00000004;
+        const uint EXTENDED_STARTUPINFO_PRESENT = 0x00080000;
+        const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
+        const int STARTF_USESTDHANDLES = 0x00000100;
+        const int PROC_THREAD_ATTRIBUTE_HANDLE_LIST = 0x00020002;
+        const int JobObjectExtendedLimitInformation = 9;
+        const int JobObjectBasicProcessIdList = 3;
+        const uint GENERIC_READ = 0x80000000;
+        const uint GENERIC_WRITE = 0x40000000;
+        const uint OPEN_EXISTING = 3;
+        const uint CREATE_ALWAYS = 2;
+
+        IntPtr processHandle;
+        IntPtr threadHandle;
+        IntPtr jobHandle;
+        public int ProcessId;
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SECURITY_ATTRIBUTES {
+            public int nLength;
+            public IntPtr lpSecurityDescriptor;
+            [MarshalAs(UnmanagedType.Bool)]
+            public bool bInheritHandle;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct STARTUPINFO {
+            public int cb;
+            public IntPtr lpReserved;
+            public IntPtr lpDesktop;
+            public IntPtr lpTitle;
+            public int dwX;
+            public int dwY;
+            public int dwXSize;
+            public int dwYSize;
+            public int dwXCountChars;
+            public int dwYCountChars;
+            public int dwFillAttribute;
+            public int dwFlags;
+            public short wShowWindow;
+            public short cbReserved2;
+            public IntPtr lpReserved2;
+            public IntPtr hStdInput;
+            public IntPtr hStdOutput;
+            public IntPtr hStdError;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct STARTUPINFOEX {
+            public STARTUPINFO StartupInfo;
+            public IntPtr lpAttributeList;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct PROCESS_INFORMATION {
+            public IntPtr hProcess;
+            public IntPtr hThread;
+            public int dwProcessId;
+            public int dwThreadId;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct IO_COUNTERS {
+            public ulong ReadOperationCount;
+            public ulong WriteOperationCount;
+            public ulong OtherOperationCount;
+            public ulong ReadTransferCount;
+            public ulong WriteTransferCount;
+            public ulong OtherTransferCount;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct JOBOBJECT_BASIC_LIMIT_INFORMATION {
+            public long PerProcessUserTimeLimit;
+            public long PerJobUserTimeLimit;
+            public uint LimitFlags;
+            public UIntPtr MinimumWorkingSetSize;
+            public UIntPtr MaximumWorkingSetSize;
+            public uint ActiveProcessLimit;
+            public UIntPtr Affinity;
+            public uint PriorityClass;
+            public uint SchedulingClass;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
+            public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+            public IO_COUNTERS IoInfo;
+            public UIntPtr ProcessMemoryLimit;
+            public UIntPtr JobMemoryLimit;
+            public UIntPtr PeakProcessMemoryUsed;
+            public UIntPtr PeakJobMemoryUsed;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        static extern bool CreateProcessW(
+            string lpApplicationName,
+            StringBuilder lpCommandLine,
+            IntPtr lpProcessAttributes,
+            IntPtr lpThreadAttributes,
+            bool bInheritHandles,
+            uint dwCreationFlags,
+            IntPtr lpEnvironment,
+            string lpCurrentDirectory,
+            ref STARTUPINFOEX lpStartupInfo,
+            out PROCESS_INFORMATION lpProcessInformation);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        static extern IntPtr CreateJobObjectW(IntPtr lpJobAttributes, string lpName);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool SetInformationJobObject(IntPtr hJob, int jobObjectInfoClass, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool QueryInformationJobObject(IntPtr hJob, int jobObjectInfoClass, IntPtr lpJobObjectInfo, uint cbJobObjectInfoLength, IntPtr lpReturnLength);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern uint ResumeThread(IntPtr hThread);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool GetExitCodeProcess(IntPtr hProcess, out uint lpExitCode);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        static extern IntPtr CreateFileW(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool SetHandleInformation(IntPtr hObject, uint dwMask, uint dwFlags);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool InitializeProcThreadAttributeList(IntPtr lpAttributeList, int dwAttributeCount, int dwFlags, ref IntPtr lpSize);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool UpdateProcThreadAttribute(IntPtr lpAttributeList, uint dwFlags, IntPtr attribute, IntPtr lpValue, IntPtr cbSize, IntPtr lpPreviousValue, IntPtr lpReturnSize);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern void DeleteProcThreadAttributeList(IntPtr lpAttributeList);
+
+        public static string ProbeLayouts() {
+            int startup = Marshal.SizeOf(typeof(STARTUPINFO));
+            int extended = Marshal.SizeOf(typeof(STARTUPINFOEX));
+            int basic = Marshal.SizeOf(typeof(JOBOBJECT_BASIC_LIMIT_INFORMATION));
+            int io = Marshal.SizeOf(typeof(IO_COUNTERS));
+            int job = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+            int sa = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+            string text = "startup=" + startup.ToString()
+                + " extended=" + extended.ToString()
+                + " job=" + job.ToString()
+                + " basic=" + basic.ToString()
+                + " io=" + io.ToString()
+                + " sa=" + sa.ToString();
+            if (IntPtr.Size != 8 || startup != 104 || extended != 112 || job != 144 || basic != 64 || io != 48 || sa != 24) {
+                throw new InvalidOperationException("unexpected Win32 struct size " + text);
+            }
+            return text;
+        }
+
+        static Exception Fail(string api) {
+            int err = Marshal.GetLastWin32Error();
+            return new Win32Exception(err, api + " failed with Win32 " + err.ToString());
+        }
+
+        static void Close(ref IntPtr handle) {
+            if (handle == IntPtr.Zero || handle == new IntPtr(-1)) {
+                handle = IntPtr.Zero;
+                return;
+            }
+            CloseHandle(handle);
+            handle = IntPtr.Zero;
+        }
+
+        static IntPtr CreateInheritSa() {
+            var sa = new SECURITY_ATTRIBUTES();
+            sa.nLength = Marshal.SizeOf(typeof(SECURITY_ATTRIBUTES));
+            sa.lpSecurityDescriptor = IntPtr.Zero;
+            sa.bInheritHandle = true;
+            IntPtr ptr = Marshal.AllocHGlobal(sa.nLength);
+            Marshal.StructureToPtr(sa, ptr, false);
+            return ptr;
+        }
+
+        static IntPtr OpenInherited(IntPtr saPtr, string path, uint access, uint disposition) {
+            IntPtr handle = CreateFileW(path, access, 7, saPtr, disposition, 0x80, IntPtr.Zero);
+            if (handle == IntPtr.Zero || handle == new IntPtr(-1)) throw Fail("CreateFile");
+            if (!SetHandleInformation(handle, 1, 1)) {
+                int err = Marshal.GetLastWin32Error();
+                CloseHandle(handle);
+                throw new Win32Exception(err, "SetHandleInformation failed with Win32 " + err.ToString());
+            }
+            return handle;
+        }
+
+        static IntPtr CreateAttributeList(IntPtr handleMem, int count) {
+            IntPtr bytes = IntPtr.Zero;
+            InitializeProcThreadAttributeList(IntPtr.Zero, 1, 0, ref bytes);
+            if (bytes == IntPtr.Zero) throw Fail("InitializeProcThreadAttributeList");
+            IntPtr list = Marshal.AllocHGlobal(bytes);
+            if (!InitializeProcThreadAttributeList(list, 1, 0, ref bytes)) {
+                int err = Marshal.GetLastWin32Error();
+                Marshal.FreeHGlobal(list);
+                throw new Win32Exception(err, "InitializeProcThreadAttributeList failed with Win32 " + err.ToString());
+            }
+            bool updated = UpdateProcThreadAttribute(
+                list,
+                0,
+                new IntPtr(PROC_THREAD_ATTRIBUTE_HANDLE_LIST),
+                handleMem,
+                new IntPtr(IntPtr.Size * count),
+                IntPtr.Zero,
+                IntPtr.Zero);
+            if (!updated) {
+                int err = Marshal.GetLastWin32Error();
+                DeleteProcThreadAttributeList(list);
+                Marshal.FreeHGlobal(list);
+                throw new Win32Exception(err, "UpdateProcThreadAttribute failed with Win32 " + err.ToString());
+            }
+            return list;
+        }
+
+        static void SetKillOnClose(IntPtr job) {
+            var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+            var basic = info.BasicLimitInformation;
+            basic.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            info.BasicLimitInformation = basic;
+            int size = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+            IntPtr mem = Marshal.AllocHGlobal(size);
+            try {
+                Marshal.StructureToPtr(info, mem, false);
+                if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, mem, (uint)size)) {
+                    throw Fail("SetInformationJobObject");
+                }
+            } finally {
+                Marshal.FreeHGlobal(mem);
+            }
+        }
+
+        public static CommercialSmokeLaunch Start(string application, string commandLine, string workingDirectory, string stdoutPath, string stderrPath) {
+            ProbeLayouts();
+            if (string.IsNullOrEmpty(application)) throw new ArgumentException("application");
+            if (string.IsNullOrEmpty(commandLine)) throw new ArgumentException("commandLine");
+            if (string.IsNullOrEmpty(stdoutPath) || string.IsNullOrEmpty(stderrPath)) throw new ArgumentException("output path");
+            if (string.IsNullOrEmpty(workingDirectory)) workingDirectory = null;
+
+            IntPtr saPtr = IntPtr.Zero;
+            IntPtr stdin = IntPtr.Zero;
+            IntPtr stdout = IntPtr.Zero;
+            IntPtr stderr = IntPtr.Zero;
+            IntPtr attrList = IntPtr.Zero;
+            IntPtr handleMem = IntPtr.Zero;
+            IntPtr process = IntPtr.Zero;
+            IntPtr thread = IntPtr.Zero;
+            IntPtr job = IntPtr.Zero;
+            bool haveList = false;
+            try {
+                saPtr = CreateInheritSa();
+                stdin = OpenInherited(saPtr, "NUL", GENERIC_READ, OPEN_EXISTING);
+                stdout = OpenInherited(saPtr, stdoutPath, GENERIC_WRITE, CREATE_ALWAYS);
+                stderr = OpenInherited(saPtr, stderrPath, GENERIC_WRITE, CREATE_ALWAYS);
+                handleMem = Marshal.AllocHGlobal(IntPtr.Size * 3);
+                Marshal.WriteIntPtr(handleMem, 0, stdin);
+                Marshal.WriteIntPtr(handleMem, IntPtr.Size, stdout);
+                Marshal.WriteIntPtr(handleMem, IntPtr.Size * 2, stderr);
+                attrList = CreateAttributeList(handleMem, 3);
+                haveList = true;
+
+                var startup = new STARTUPINFOEX();
+                startup.StartupInfo.cb = Marshal.SizeOf(typeof(STARTUPINFOEX));
+                startup.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+                startup.StartupInfo.hStdInput = stdin;
+                startup.StartupInfo.hStdOutput = stdout;
+                startup.StartupInfo.hStdError = stderr;
+                startup.lpAttributeList = attrList;
+
+                var command = new StringBuilder(commandLine, commandLine.Length + 16);
+                PROCESS_INFORMATION created;
+                uint flags = CREATE_SUSPENDED | EXTENDED_STARTUPINFO_PRESENT;
+                // Assign only this suspended child. Never the hosting PowerShell process.
+                bool ok = CreateProcessW(
+                    application,
+                    command,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    true,
+                    flags,
+                    IntPtr.Zero,
+                    workingDirectory,
+                    ref startup,
+                    out created);
+                if (!ok) throw Fail("CreateProcess");
+                process = created.hProcess;
+                thread = created.hThread;
+
+                job = CreateJobObjectW(IntPtr.Zero, null);
+                if (job == IntPtr.Zero) throw Fail("CreateJobObject");
+                SetKillOnClose(job);
+                if (!AssignProcessToJobObject(job, process)) throw Fail("AssignProcessToJobObject");
+
+                var launch = new CommercialSmokeLaunch();
+                launch.processHandle = process;
+                launch.threadHandle = thread;
+                launch.jobHandle = job;
+                launch.ProcessId = created.dwProcessId;
+                process = IntPtr.Zero;
+                thread = IntPtr.Zero;
+                job = IntPtr.Zero;
+                return launch;
+            } catch {
+                if (process != IntPtr.Zero) {
+                    TerminateProcess(process, 1);
+                    CloseHandle(process);
+                    process = IntPtr.Zero;
+                }
+                if (thread != IntPtr.Zero) {
+                    CloseHandle(thread);
+                    thread = IntPtr.Zero;
+                }
+                if (job != IntPtr.Zero) {
+                    CloseHandle(job);
+                    job = IntPtr.Zero;
+                }
+                throw;
+            } finally {
+                if (haveList && attrList != IntPtr.Zero) {
+                    DeleteProcThreadAttributeList(attrList);
+                }
+                if (attrList != IntPtr.Zero) {
+                    Marshal.FreeHGlobal(attrList);
+                    attrList = IntPtr.Zero;
+                }
+                if (handleMem != IntPtr.Zero) {
+                    Marshal.FreeHGlobal(handleMem);
+                    handleMem = IntPtr.Zero;
+                }
+                Close(ref stdin);
+                Close(ref stdout);
+                Close(ref stderr);
+                if (saPtr != IntPtr.Zero) {
+                    Marshal.FreeHGlobal(saPtr);
+                    saPtr = IntPtr.Zero;
+                }
+            }
+        }
+
+        public void Resume() {
+            if (threadHandle == IntPtr.Zero) throw new InvalidOperationException("thread handle is closed");
+            uint rc = ResumeThread(threadHandle);
+            if (rc == uint.MaxValue) throw Fail("ResumeThread");
+        }
+
+        public bool Wait(int milliseconds) {
+            if (processHandle == IntPtr.Zero) throw new InvalidOperationException("process handle is closed");
+            uint rc = WaitForSingleObject(processHandle, (uint)milliseconds);
+            if (rc == 0u) return true;
+            if (rc == 258u) return false;
+            throw Fail("WaitForSingleObject");
+        }
+
+        public int ReadExitCode() {
+            uint code;
+            if (!GetExitCodeProcess(processHandle, out code)) throw Fail("GetExitCodeProcess");
+            return (int)code;
+        }
+
+        public int[] JobProcessIds() {
+            if (jobHandle == IntPtr.Zero) return new int[0];
+            int slots = 16;
+            while (slots <= 4096) {
+                int bytes = 8 + (8 * slots);
+                IntPtr buf = Marshal.AllocHGlobal(bytes);
+                try {
+                    for (int i = 0; i < bytes; i++) Marshal.WriteByte(buf, i, 0);
+                    bool ok = QueryInformationJobObject(jobHandle, JobObjectBasicProcessIdList, buf, (uint)bytes, IntPtr.Zero);
+                    int assigned = Marshal.ReadInt32(buf, 0);
+                    int listed = Marshal.ReadInt32(buf, 4);
+                    if (!ok) {
+                        int err = Marshal.GetLastWin32Error();
+                        if (err == 234) {
+                            int next = assigned + 8;
+                            if (next <= slots) next = slots * 2;
+                            slots = next;
+                            continue;
+                        }
+                        throw new Win32Exception(err, "QueryInformationJobObject failed with Win32 " + err.ToString());
+                    }
+                    if (listed < 0) listed = 0;
+                    if (listed > slots) listed = slots;
+                    int[] ids = new int[listed];
+                    for (int i = 0; i < listed; i++) {
+                        long pid = Marshal.ReadInt64(buf, 8 + (i * 8));
+                        ids[i] = (int)pid;
+                    }
+                    return ids;
+                } finally {
+                    Marshal.FreeHGlobal(buf);
+                }
+            }
+            return new int[0];
+        }
+
+        public void CloseJob() {
+            if (jobHandle == IntPtr.Zero) return;
+            CloseHandle(jobHandle);
+            jobHandle = IntPtr.Zero;
+        }
+
+        public void AbandonJob() {
+            // Leak the handle on purpose when it contains this process.
+            // Closing it would kill the hosting PowerShell process.
+            jobHandle = IntPtr.Zero;
+        }
+
+        public void Dispose() {
+            if (threadHandle != IntPtr.Zero) {
+                CloseHandle(threadHandle);
+                threadHandle = IntPtr.Zero;
+            }
+            if (processHandle != IntPtr.Zero) {
+                CloseHandle(processHandle);
+                processHandle = IntPtr.Zero;
+            }
+            if (jobHandle != IntPtr.Zero) {
+                CloseHandle(jobHandle);
+                jobHandle = IntPtr.Zero;
+            }
+        }
+    }
+}
+'@
+    Add-Type -TypeDefinition $code -Language CSharp | Out-Null
+}
+
+function Invoke-CommercialSmokeOwnedExecutableOnWindows {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList,
+        [int]$TimeoutSeconds = 600
+    )
+    # Windows only. The PowerShell process stays outside the job.
+    # stdout and stderr are files so a descendant cannot hold our pipe.
+    Initialize-CommercialSmokeProcessJob
+    $owned = New-Object System.Collections.Generic.List[object]
+    $ownedSeen = @{}
+    $exitCode = 1
+    $launch = $null
+    $captureDir = $null
+    $timedOut = $false
+    try {
+        $captureDir = Join-Path ([IO.Path]::GetTempPath()) ('mxh-owned-' + [guid]::NewGuid().ToString('n'))
+        New-Item -ItemType Directory -Force -Path $captureDir | Out-Null
+        $stdoutPath = Join-Path $captureDir 'stdout.txt'
+        $stderrPath = Join-Path $captureDir 'stderr.txt'
+        $command = Format-CommercialSmokeOwnedCommandLine -FilePath $FilePath -ArgumentList $ArgumentList
+        $workDir = [IO.Path]::GetDirectoryName($FilePath)
+        $launch = [Mxh.CommercialSmokeLaunch]::Start($FilePath, $command, $workDir, $stdoutPath, $stderrPath)
+        $launch.Resume()
+        $rootId = 0
+        try { $rootId = [int]$launch.ProcessId } catch { $rootId = 0 }
+        $rootProc = $null
+        if ($rootId -gt 0) {
+            try { $rootProc = Get-Process -Id $rootId -ErrorAction SilentlyContinue } catch { $rootProc = $null }
+        }
+        if ($null -ne $rootProc) {
+            try { $null = $rootProc.Handle } catch { }
+            Add-CommercialSmokeOwnedProcess -Owned $owned -Seen $ownedSeen -Process $rootProc
+        }
+        $deadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($true) {
+            Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+            $signaled = $false
+            try { $signaled = [bool]$launch.Wait(50) } catch { $signaled = $true }
+            if ($signaled) { break }
+            if ($deadline.Elapsed.TotalSeconds -ge $TimeoutSeconds) {
+                $timedOut = $true
+                break
+            }
+        }
+        Add-CommercialSmokeOwnedDescendants -Owned $owned -Seen $ownedSeen -RootId $rootId
+        if ($timedOut) {
+            $exitCode = 1
+        } else {
+            try { $exitCode = [int]$launch.ReadExitCode() } catch { $exitCode = 1 }
+        }
+        Write-CommercialSmokeCapturedOutput -Path $stdoutPath
+        Write-CommercialSmokeCapturedOutput -Path $stderrPath
+        if ($timedOut) {
+            Write-Host ('COMMERCIAL_SMOKE TIMEOUT (owned executable still running after ' + $TimeoutSeconds + 's)')
+        }
+    } finally {
+        $queryFailed = $false
+        $containsSelf = $false
+        $jobIds = $null
+        if ($null -ne $launch) {
+            try { $jobIds = $launch.JobProcessIds() } catch { $queryFailed = $true }
+            foreach ($rawId in @($jobIds)) {
+                $jobPid = 0
+                try { $jobPid = [int]$rawId } catch { $jobPid = 0 }
+                if ($jobPid -gt 0 -and $jobPid -eq $PID) { $containsSelf = $true }
+            }
+            if ($containsSelf) {
+                try { $launch.AbandonJob() } catch { }
+                $exitCode = 1
+                Write-Host 'COMMERCIAL_SMOKE JOB (refusing to close a job that contains this process)'
+            } else {
+                try { $launch.CloseJob() } catch { }
+                if ($queryFailed) {
+                    $exitCode = 1
+                    Write-Host 'COMMERCIAL_SMOKE JOB (could not list processes before job close)'
+                    Start-Sleep -Milliseconds 500
+                } else {
+                    $leftovers = $null
+                    try { $leftovers = Wait-CommercialSmokeJobMembers -ProcessIds $jobIds } catch { $leftovers = $null }
+                    if ($null -ne $leftovers -and $leftovers.Count -gt 0) {
+                        $exitCode = 1
+                        foreach ($left in $leftovers) {
+                            Write-Host ('COMMERCIAL_SMOKE JOB (pid ' + $left + ' still running after job close)')
+                        }
+                    }
+                }
+            }
+            try { $launch.Dispose() } catch { }
+        }
+        try { Stop-CommercialSmokeOwnedProcesses -Owned $owned } catch { }
+        if (-not [string]::IsNullOrWhiteSpace($captureDir)) {
+            try { Remove-Item -LiteralPath $captureDir -Recurse -Force -ErrorAction SilentlyContinue } catch { }
+        }
+    }
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Owned = $owned
+    }
+}
+
+function Invoke-CommercialSmokeOwnedExecutable {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList,
+        [int]$TimeoutSeconds = 600
+    )
+    if ($TimeoutSeconds -lt 1) {
+        throw 'owned executable TimeoutSeconds must be at least 1'
+    }
+    if (Test-CommercialSmokeWindowsHost) {
+        return Invoke-CommercialSmokeOwnedExecutableOnWindows -FilePath $FilePath -ArgumentList $ArgumentList -TimeoutSeconds $TimeoutSeconds
+    }
     # Record the process this run starts and the descendants it launches.
     # finally stops only those PIDs, and only when StartTime still matches.
+    # Linux does not apply TimeoutSeconds; it waits until the child exits.
     $owned = New-Object System.Collections.Generic.List[object]
     $ownedSeen = @{}
     $exitCode = 1
@@ -849,6 +1508,7 @@ function Invoke-CommercialSmokeOwnedExecutable {
         Owned = $owned
     }
 }
+
 
 function Invoke-CommercialSmokeExplicitMssqlE2E {
     param(
@@ -911,10 +1571,10 @@ function Invoke-CommercialSmokeExplicitMssqlE2E {
     $confirmedAbsent = $true
     $e2eExit = 1
     $dropFailed = $false
-    # mxh_client_e2e is the process this run starts. Its descendants are
-    # the server processes it launches. Start-Process -PassThru records
-    # that PID and the process tree. Cleanup stops only those PIDs, and
-    # only when StartTime still matches. No name-based fallback.
+    # mxh_client_e2e is the process this run starts. On Windows it is
+    # the only process assigned to the kill-on-close job. Descendants
+    # the scan records are stopped only when StartTime still matches.
+    # No name-based fallback.
     try {
         $e2eArgumentLine = '--login-host 127.0.0.1 --login-port 26001 --agent-port 27001 --map-port 28001 --backend mssql_odbc --init-schema --db'
         $e2eArguments = @($e2eArgumentLine.Split(' '))
@@ -1038,9 +1698,9 @@ function Invoke-CommercialSmokeMssqlE2E {
     }
     if (-not [string]::IsNullOrWhiteSpace($E2eExe) -and (Test-Path -LiteralPath $E2eExe)) {
         Write-Host ('MSSQL_E2E EXE ' + $E2eExe)
-        # Same owned-PID stop as -MssqlDb. Record this process and the
-        # descendants it starts, then stop only those PIDs while the
-        # recorded StartTime still matches. Never select by image name.
+        # Same owned-PID stop as -MssqlDb. On Windows the child is in a
+        # kill-on-close job and its output goes to files. Never select
+        # by image name.
         $localDbArgumentLine = '--login-host 127.0.0.1 --backend mssql_odbc --init-schema'
         $localDbArguments = @($localDbArgumentLine.Split(' '))
         $localRun = Invoke-CommercialSmokeOwnedExecutable -FilePath $E2eExe -ArgumentList $localDbArguments

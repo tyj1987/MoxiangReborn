@@ -177,6 +177,52 @@ function Stop-TestProcess {
     } catch { }
 }
 
+function Invoke-OwnedCapture {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList,
+        [int]$TimeoutSeconds = 600
+    )
+    $items = @(
+        Invoke-CommercialSmokeOwnedExecutable -FilePath $FilePath -ArgumentList $ArgumentList -TimeoutSeconds $TimeoutSeconds 6>&1
+    )
+    $lines = New-Object System.Collections.Generic.List[string]
+    $result = $null
+    foreach ($item in $items) {
+        if ($null -eq $item) { continue }
+        $isResult = $false
+        try {
+            if ($null -ne $item.PSObject.Properties['ExitCode'] -and $null -ne $item.PSObject.Properties['Owned']) {
+                $isResult = $true
+            }
+        } catch { $isResult = $false }
+        if ($isResult) {
+            $result = $item
+            continue
+        }
+        $lines.Add([string]$item)
+    }
+    return [pscustomobject]@{
+        Result = $result
+        Text = ($lines.ToArray() -join "`n")
+    }
+}
+
+function Invoke-WindowsCsc {
+    param(
+        [Parameter(Mandatory = $true)][string]$Source,
+        [Parameter(Mandatory = $true)][string]$Output
+    )
+    if (-not $IsWindows) { throw 'FAIL: csc helper is Windows-only' }
+    $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    if (-not (Test-Path -LiteralPath $csc)) {
+        $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+    }
+    if (-not (Test-Path -LiteralPath $csc)) { throw 'FAIL: Windows stub needs csc.exe' }
+    & $csc /nologo /platform:x64 /out:$Output $Source
+    if ($LASTEXITCODE -ne 0) { throw "FAIL: csc exited $LASTEXITCODE for $Output" }
+}
+
 function New-MxhServerNamedExe {
     param([Parameter(Mandatory = $true)][string]$ProcessName)
     $dir = Join-Path $script:Root ('named-' + [guid]::NewGuid().ToString('n'))
@@ -809,6 +855,67 @@ Invoke-Case 'script function contract' {
     Assert-True (-not $smokeText.Contains('$args')) 'commercial-smoke must not assign or splat $args'
     Assert-True (-not $smokeText.Contains('@cmdArgs')) 'sqlcmd must not use array splat'
     Assert-True ($smokeText.Contains('Test-CommercialSmokeLiveIdentity')) 'fallback stop must re-check process identity'
+    Assert-True ($functions.Name -contains 'Invoke-CommercialSmokeOwnedExecutableOnWindows') 'Windows job-object helper missing'
+    Assert-True ($functions.Name -contains 'Format-CommercialSmokeOwnedCommandLine') 'owned command line formatter missing'
+    Assert-True ($ownedExeBody.Contains('Invoke-CommercialSmokeOwnedExecutableOnWindows')) 'Windows host must use the job-object helper'
+    Assert-True ($ownedExeBody.Contains('TimeoutSeconds')) 'owned helper must accept TimeoutSeconds'
+}
+
+Invoke-Case 'owned timeout parameter' {
+    $ownedExeFn = @($functions | Where-Object { $_.Name -eq 'Invoke-CommercialSmokeOwnedExecutable' })
+    Assert-True ($ownedExeFn.Count -eq 1) 'owned executable helper missing'
+    $timeoutParam = @($ownedExeFn[0].Body.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'TimeoutSeconds' })
+    Assert-True ($timeoutParam.Count -eq 1) 'TimeoutSeconds parameter missing'
+    Assert-True ($timeoutParam[0].DefaultValue.Extent.Text -eq '600') "TimeoutSeconds default was $($timeoutParam[0].DefaultValue.Extent.Text)"
+    foreach ($bad in @(0, -1)) {
+        $rejected = $false
+        $detail = ''
+        try {
+            Invoke-CommercialSmokeOwnedExecutable -FilePath 'not-used' -TimeoutSeconds $bad
+        } catch {
+            $rejected = $true
+            $detail = [string]$_.Exception.Message
+        }
+        Assert-True $rejected "TimeoutSeconds $bad must be rejected before a process starts"
+        Assert-True ($detail.Contains('TimeoutSeconds')) "validation message was [$detail]"
+    }
+    $line = Format-CommercialSmokeOwnedCommandLine -FilePath 'C:\Tools\mxh_client_e2e.exe' -ArgumentList @('--login-host', '127.0.0.1')
+    Assert-True ($line -eq '"C:\Tools\mxh_client_e2e.exe" --login-host 127.0.0.1') "command line was [$line]"
+    $spaced = Format-CommercialSmokeOwnedCommandLine -FilePath 'C:\Program Files\mxh_client_e2e.exe' -ArgumentList @('a b')
+    Assert-True ($spaced -eq '"C:\Program Files\mxh_client_e2e.exe" "a b"') "spaced command line was [$spaced]"
+    $quoteRejected = $false
+    try {
+        Format-CommercialSmokeOwnedCommandLine -FilePath 'C:\Tools\mxh_client_e2e.exe' -ArgumentList @('bad"quote')
+    } catch { $quoteRejected = $true }
+    Assert-True $quoteRejected 'a double quote in an argument must be rejected'
+    $pathRejected = $false
+    try {
+        Format-CommercialSmokeOwnedCommandLine -FilePath 'C:\Tools\bad"name.exe' -ArgumentList @('a')
+    } catch { $pathRejected = $true }
+    Assert-True $pathRejected 'a double quote in the executable path must be rejected'
+    foreach ($token in @(
+        'CreateProcess',
+        'CreateJobObject',
+        'SetInformationJobObject',
+        'AssignProcessToJobObject',
+        'ResumeThread',
+        'JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE',
+        'CREATE_SUSPENDED',
+        '0x00002000',
+        'STARTF_USESTDHANDLES',
+        '0x00020002',
+        'COMMERCIAL_SMOKE TIMEOUT (owned executable still running after ',
+        'refusing to close a job that contains this process'
+    )) {
+        Assert-True ($smokeText.Contains($token)) "commercial-smoke missing [$token]"
+    }
+    Assert-True (-not $smokeText.Contains('GetCurrentProcess')) 'script must not open its own process for the job'
+}
+
+Invoke-Case 'job object layout' {
+    Initialize-CommercialSmokeProcessJob
+    $layout = [Mxh.CommercialSmokeLaunch]::ProbeLayouts()
+    Assert-True ($layout -eq 'startup=104 extended=112 job=144 basic=64 io=48 sa=24') "Win32 struct layout was [$layout]"
 }
 
 $temp = [IO.Path]::GetTempPath()
@@ -1474,6 +1581,216 @@ try {
         Assert-True (-not (Test-Path -LiteralPath $marker)) 'ctest.cmd stub was invoked'
         Assert-True ($null -eq (Read-InvokedArgs -Exe (Join-Path $laterExeDir 'ctest.exe'))) 'a later ctest.exe must not be started'
     }
+    }
+
+    if ($IsWindows) {
+        Invoke-Case 'owned executable timeout' {
+            $outside = $null
+            $ownedPid = 0
+            try {
+                $sleeper = New-MxhServerNamedExe -ProcessName 'mxh_map_server_CHINA'
+                $warm = Invoke-OwnedCapture -FilePath $sleeper -ArgumentList @('0') -TimeoutSeconds 30
+                Assert-True ($null -ne $warm.Result) 'warmup did not return a result'
+                Assert-True ([int]$warm.Result.ExitCode -eq 0) "warmup exit $($warm.Result.ExitCode) text [$($warm.Text)]"
+                $outside = Start-Process -FilePath $sleeper -ArgumentList '120' -PassThru -NoNewWindow
+                try { $null = $outside.Handle } catch { }
+                $outsideName = ''
+                $nameDeadline = [Diagnostics.Stopwatch]::StartNew()
+                while ($nameDeadline.ElapsedMilliseconds -lt 5000 -and $outsideName -ne 'mxh_map_server_CHINA') {
+                    try { $outside.Refresh() } catch { }
+                    $outsideName = [string]$outside.ProcessName
+                    if ($outsideName -ne 'mxh_map_server_CHINA') { Start-Sleep -Milliseconds 50 }
+                }
+                Assert-True ($outsideName -eq 'mxh_map_server_CHINA') "outside process name was [$outsideName]"
+                Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'outside process exited before the timeout run'
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                $cap = Invoke-OwnedCapture -FilePath $sleeper -ArgumentList @('60') -TimeoutSeconds 3
+                $sw.Stop()
+                Assert-True ($null -ne $cap.Result) 'timeout run did not return a result'
+                Assert-True ($sw.Elapsed.TotalSeconds -gt 1) 'timeout returned before the deadline'
+                Assert-True ($sw.Elapsed.TotalSeconds -lt 40) "timeout run took $($sw.Elapsed.TotalSeconds)s"
+                Assert-True ($cap.Text.Contains('COMMERCIAL_SMOKE TIMEOUT (owned executable still running after 3s)')) "timeout line missing [$($cap.Text)]"
+                Assert-True ([int]$cap.Result.ExitCode -ne 0) "timeout exit was $($cap.Result.ExitCode)"
+                foreach ($entry in @($cap.Result.Owned)) {
+                    if ($null -eq $entry) { continue }
+                    $ownedPid = [int]$entry.Id
+                    break
+                }
+                Assert-True ($ownedPid -gt 0 -and $ownedPid -ne [int]$outside.Id) "owned pid was $ownedPid outside $($outside.Id)"
+                $gone = [Diagnostics.Stopwatch]::StartNew()
+                while ($gone.ElapsedMilliseconds -lt 5000 -and (Test-PidStillRunning -ProcessId $ownedPid)) {
+                    Start-Sleep -Milliseconds 50
+                }
+                Assert-True (-not (Test-PidStillRunning -ProcessId $ownedPid)) "timed out pid $ownedPid still running"
+                Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'timeout cleanup stopped a same-named process outside the job'
+                $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's'
+            } finally {
+                Stop-TestProcess -Process $outside
+                if ($ownedPid -gt 0) {
+                    try {
+                        if (Test-PidStillRunning -ProcessId $ownedPid) {
+                            Stop-Process -Id $ownedPid -Force -ErrorAction SilentlyContinue
+                        }
+                    } catch { }
+                }
+            }
+        }
+
+        Invoke-Case 'orphan job close' {
+            # Synthetic parent exits after spawning a long-lived child that
+            # inherits stdout. A same-named process started outside the job
+            # must survive. No original game bytes.
+            $outside = $null
+            $orphanPid = 0
+            try {
+                $dir = Join-Path $script:Root ('orphan-' + [guid]::NewGuid().ToString('n'))
+                New-Item -ItemType Directory -Force -Path $dir | Out-Null
+                $holderCs = Join-Path $dir 'holder.cs'
+                $parentCs = Join-Path $dir 'parent.cs'
+                $holder = Join-Path $dir 'mxh_login_server.exe'
+                $parentExe = Join-Path $dir 'mxh_client_e2e.exe'
+                @'
+using System;
+using System.Threading;
+class Holder {
+    static int Main(string[] args) {
+        int seconds = 180;
+        if (args.Length > 0) {
+            int parsed;
+            if (int.TryParse(args[0], out parsed) && parsed >= 0) seconds = parsed;
+        }
+        Console.Out.WriteLine("MXH_ORPHAN_HOLDING_STDOUT");
+        Console.Out.Flush();
+        if (seconds > 0) Thread.Sleep(seconds * 1000);
+        return 0;
+    }
+}
+'@ | Set-Content -LiteralPath $holderCs -Encoding ascii
+                @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Text;
+class OrphanParent {
+    const int STARTF_USESTDHANDLES = 0x00000100;
+    const uint CREATE_NO_WINDOW = 0x08000000;
+    const int STD_INPUT_HANDLE = -10;
+    const int STD_OUTPUT_HANDLE = -11;
+    const int STD_ERROR_HANDLE = -12;
+    [StructLayout(LayoutKind.Sequential)]
+    struct STARTUPINFO {
+        public int cb;
+        public IntPtr lpReserved;
+        public IntPtr lpDesktop;
+        public IntPtr lpTitle;
+        public int dwX;
+        public int dwY;
+        public int dwXSize;
+        public int dwYSize;
+        public int dwXCountChars;
+        public int dwYCountChars;
+        public int dwFillAttribute;
+        public int dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    struct PROCESS_INFORMATION {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    static extern bool CreateProcessW(string app, StringBuilder cmd, IntPtr pa, IntPtr ta, bool inherit, uint flags, IntPtr env, string dir, ref STARTUPINFO si, out PROCESS_INFORMATION pi);
+    [DllImport("kernel32.dll")]
+    static extern IntPtr GetStdHandle(int n);
+    [DllImport("kernel32.dll")]
+    static extern bool CloseHandle(IntPtr h);
+    static int Main(string[] args) {
+        string exe = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+        File.WriteAllText(exe + ".invoked", string.Join("\n", args));
+        Console.Out.WriteLine("MXH_OWNED_STDOUT_MARKER");
+        Console.Out.Flush();
+        string folder = Path.GetDirectoryName(exe);
+        string holder = Path.Combine(folder, "mxh_login_server.exe");
+        var si = new STARTUPINFO();
+        si.cb = Marshal.SizeOf(typeof(STARTUPINFO));
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+        si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+        si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+        var command = new StringBuilder("\"" + holder + "\" 180", 2048);
+        PROCESS_INFORMATION pi;
+        if (!CreateProcessW(holder, command, IntPtr.Zero, IntPtr.Zero, true, CREATE_NO_WINDOW, IntPtr.Zero, folder, ref si, out pi)) {
+            File.WriteAllText(exe + ".spawnerr", Marshal.GetLastWin32Error().ToString());
+            return 22;
+        }
+        File.WriteAllText(exe + ".orphanpid", pi.dwProcessId.ToString());
+        if (pi.hThread != IntPtr.Zero) CloseHandle(pi.hThread);
+        if (pi.hProcess != IntPtr.Zero) CloseHandle(pi.hProcess);
+        return 0;
+    }
+}
+'@ | Set-Content -LiteralPath $parentCs -Encoding ascii
+                Invoke-WindowsCsc -Source $holderCs -Output $holder
+                Invoke-WindowsCsc -Source $parentCs -Output $parentExe
+                $warm = Invoke-OwnedCapture -FilePath $holder -ArgumentList @('0') -TimeoutSeconds 30
+                Assert-True ($null -ne $warm.Result -and [int]$warm.Result.ExitCode -eq 0) "holder warmup exit text [$($warm.Text)]"
+                $outside = Start-Process -FilePath $holder -ArgumentList '120' -PassThru -NoNewWindow
+                try { $null = $outside.Handle } catch { }
+                $outsideName = ''
+                $nameDeadline = [Diagnostics.Stopwatch]::StartNew()
+                while ($nameDeadline.ElapsedMilliseconds -lt 5000 -and $outsideName -ne 'mxh_login_server') {
+                    try { $outside.Refresh() } catch { }
+                    $outsideName = [string]$outside.ProcessName
+                    if ($outsideName -ne 'mxh_login_server') { Start-Sleep -Milliseconds 50 }
+                }
+                Assert-True ($outsideName -eq 'mxh_login_server') "outside process name was [$outsideName]"
+                Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'outside process exited before the orphan run'
+                $sw = [Diagnostics.Stopwatch]::StartNew()
+                $cap = Invoke-OwnedCapture -FilePath $parentExe -ArgumentList @('orphan-parent') -TimeoutSeconds 90
+                $sw.Stop()
+                $spawnErr = ''
+                $spawnErrPath = $parentExe + '.spawnerr'
+                if (Test-Path -LiteralPath $spawnErrPath) { $spawnErr = [IO.File]::ReadAllText($spawnErrPath).Trim() }
+                Assert-True ($null -ne $cap.Result) 'orphan run did not return a result'
+                Assert-True ($sw.Elapsed.TotalSeconds -lt 40) "orphan run took $($sw.Elapsed.TotalSeconds)s"
+                Assert-True (-not $cap.Text.Contains('COMMERCIAL_SMOKE TIMEOUT')) "orphan run timed out [$($cap.Text)]"
+                Assert-True ([int]$cap.Result.ExitCode -eq 0) "parent exit $($cap.Result.ExitCode) spawnerr [$spawnErr] text [$($cap.Text)]"
+                Assert-True ($cap.Text.Contains('MXH_OWNED_STDOUT_MARKER')) "stdout marker missing [$($cap.Text)]"
+                $parentArgs = @(Read-InvokedArgs -Exe $parentExe)
+                Assert-True ($parentArgs -contains 'orphan-parent') "parent args were [$($parentArgs -join '|')]"
+                $orphanRaw = [IO.File]::ReadAllText($parentExe + '.orphanpid').Trim()
+                Assert-True ([int]::TryParse($orphanRaw, [ref]$orphanPid) -and $orphanPid -gt 0) "orphan pid text [$orphanRaw]"
+                Assert-True ($orphanPid -ne [int]$outside.Id) 'orphan pid collided with the outside process'
+                $gone = [Diagnostics.Stopwatch]::StartNew()
+                while ($gone.ElapsedMilliseconds -lt 5000 -and (Test-PidStillRunning -ProcessId $orphanPid)) {
+                    Start-Sleep -Milliseconds 50
+                }
+                Assert-True (-not (Test-PidStillRunning -ProcessId $orphanPid)) "orphan $orphanPid still running after job close"
+                Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'same-named process outside the job was stopped'
+                $inOwned = $false
+                foreach ($entry in @($cap.Result.Owned)) {
+                    if ($null -eq $entry) { continue }
+                    if ([int]$entry.Id -eq $orphanPid) { $inOwned = $true }
+                }
+                $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's inOwned=' + [int]$inOwned
+            } finally {
+                Stop-TestProcess -Process $outside
+                if ($orphanPid -gt 0) {
+                    try {
+                        if (Test-PidStillRunning -ProcessId $orphanPid) {
+                            Stop-Process -Id $orphanPid -Force -ErrorAction SilentlyContinue
+                        }
+                    } catch { }
+                }
+            }
+        }
     }
 } finally {
     Remove-Item -LiteralPath $script:Root -Recurse -Force -ErrorAction SilentlyContinue
