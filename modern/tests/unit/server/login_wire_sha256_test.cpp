@@ -116,6 +116,11 @@ struct WaitingInner final : IConnectionHandler {
         std::unique_lock<std::mutex> lk(mu);
         return cv.wait_for(lk, timeout, [&]{ return messages.size() >= n; });
     }
+
+    std::vector<Message> snapshot() {
+        std::lock_guard<std::mutex> lk(mu);
+        return messages;
+    }
 };
 
 std::vector<std::uint8_t> pad17(const std::string& s) {
