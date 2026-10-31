@@ -1260,8 +1260,9 @@ TEST(AgentHandlerTest, RegisterSessionIsNoOpForUnknownConn) {
 
 TEST(AgentHandlerTest, GameInUsesMapSpecificServerRoute) {
     MockDbAdapter db;
-    mxh::server::AgentHandler handler(db, mxh::server::ReplyFn{}, true,
-                                      false, {}, /*default_map_num=*/12);
+    mxh::server::AgentHandler handler(
+        db, [](mxh::net::ConnectionId, const mxh::net::Message&) {}, true,
+        false, {}, /*default_map_num=*/12);
     const auto connection = mxh::net::make_connection_id(1100);
     handler.register_session(connection, 3001u, 450035712u, 10u);
 
@@ -1421,6 +1422,7 @@ TEST(CharacterAddTargetRoute, ChangeMapPublishesRouteBeforeSynchronousMapReply) 
     const std::uint16_t target_num = 10u;
     std::memcpy(change.payload.data(), &target_num, 2);
     grant_item_protocol(agent, moving_connection, nullptr);
+    delivered.clear();
     agent.on_message(moving_connection, change);
 
     ASSERT_EQ(delivered.size(), 3u);
@@ -1496,6 +1498,7 @@ TEST(CharacterAddTargetRoute, DisconnectDuringTargetSendDoesNotRestoreSession) {
     grant_item_protocol(agent, client, &reply);
     agent.on_message(client, change);
     EXPECT_TRUE(reply.messages.empty()) << "disconnected client must not receive ChangeMapAck";
+    grant_item_protocol(agent, client, &reply);
     mxh::net::Message out;
     out.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     out.header.protocol = static_cast<std::uint8_t>(

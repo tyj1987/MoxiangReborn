@@ -34,7 +34,10 @@ public:
                             mxh::db::ResultSet& out) override {
         ++query_count;
         out = {};
-        if (sql.find("FROM chr_log_info") != std::string_view::npos) {
+        if (sql.find("SELECT userlevel FROM chr_log_info") != std::string_view::npos) {
+            out.columns = {"userlevel"};
+            out.rows.push_back({std::int64_t{2}});
+        } else if (sql.find("FROM chr_log_info") != std::string_view::npos) {
             out.columns = {"id", "pw", "userlevel"};
             out.rows.push_back({std::string("abc"), std::string("password1"),
                                 std::int64_t{2}});

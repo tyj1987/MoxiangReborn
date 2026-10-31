@@ -1846,8 +1846,8 @@ TEST_F(LoginServerFixture, RetryAfterInvalidCredsSucceeds) {
     msgs = client.snapshot();
     ASSERT_EQ(msgs.size(), 4u);
     EXPECT_EQ(msgs[3].header.protocol, 2);  // Ack
-    EXPECT_EQ(msgs[2].payload.size(), 23u);
-    EXPECT_EQ(msgs[2].payload[22], 2);       // userLevel
+    EXPECT_EQ(msgs[3].payload.size(), 23u);
+    EXPECT_EQ(msgs[3].payload[22], 2);       // userLevel
 
     tcp.disconnect();
 }
