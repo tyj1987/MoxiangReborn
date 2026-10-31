@@ -42,6 +42,18 @@ target_compile_features(mxh_cli_playdh_root_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_cli_playdh_root_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
 
+# CInGameState PlayDH resolution. Header-only; the walk under test is the
+# same function CInGameState::Init calls. No game bytes and no Win32.
+add_executable(mxh_ingame_playdh_root_tests
+    ingame_playdh_root_test.cpp
+)
+target_include_directories(mxh_ingame_playdh_root_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/client)
+target_link_libraries(mxh_ingame_playdh_root_tests PRIVATE gtest_main)
+target_compile_features(mxh_ingame_playdh_root_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_ingame_playdh_root_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
+
 # MoxianClientE2E port base. Header-only; no servers and no Win32.
 add_executable(mxh_e2e_ports_tests
     e2e_ports_test.cpp
