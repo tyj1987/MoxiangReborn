@@ -1,6 +1,8 @@
 # Compile-check the Windows game client (mxh_client / MoxianClient).
-# pull_request (not pull_request_target) plus workflow_dispatch.
-# This is not a required check. contents: read only. No secrets.
+# pull_request (not pull_request_target), workflow_dispatch, and push to
+# codex/reorg-original-20261009. A push run exists only after that branch
+# receives the commit (after merge). This is not a required check.
+# contents: read only. No secrets.
 #
 # actions/checkout for pull_request checks out the PR merge ref. Do not
 # override ref. lfs is false, and GIT_LFS_SKIP_SMUDGE stays set, so the
@@ -13,7 +15,9 @@
 #
 # The mxh_client build stays compile-only: -DMXH_CLIENT_COMPILE_ONLY=ON,
 # Debug / Win32 / MSVC, stop at mxh_client. That log is the only input to
-# MXH_CLIENT_WARNINGS. MXH_PLAYDH_ROOT is never set.
+# MXH_CLIENT_WARNINGS. scripts/check-client-warnings.py fails the job when
+# the count is above 36. 36 passes. An unparsable count fails. The threshold
+# is not an environment variable. MXH_PLAYDH_ROOT is never set.
 #
 # MapHandlerTest and InGamePlayable behavior tests link mxh_server and
 # mxh_client_lib, so they are not in the compile-only closure. A second
@@ -97,6 +101,21 @@ on:
       - scripts/playdh_external_only.py
       - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
+      - scripts/check-client-warnings.py
+  push:
+    branches: [codex/reorg-original-20261009]
+    # Existing pull_request paths skip a push that only touches deploy/,
+    # most of scripts/, .github/ files other than this workflow, or modern/
+    # paths outside the list above. Push keeps those paths via the globs,
+    # and still lists the ci/ and reference entries that the globs do not cover.
+    paths:
+      - modern/**
+      - deploy/**
+      - scripts/**
+      - .github/**
+      - ci/windows_behavior_tests.txt
+      - ci/windows_behavior_require.ps1
+      - reference/manifests/playdh-external-only.txt
 
 permissions:
   contents: read
@@ -124,6 +143,7 @@ jobs:
             ci/windows_behavior_tests.txt
             ci/windows_behavior_require.ps1
             scripts/protocol_manifest_gate.ps1
+            scripts/check-client-warnings.py
             modern/third_party/sqlite
             modern/third_party/googletest-src
             modern/tests
@@ -329,6 +349,13 @@ jobs:
             }
           }
           Write-Host "MXH_CLIENT_WARNINGS=$warningCount"
+          $PSNativeCommandUseErrorActionPreference = $false
+          $gate = Join-Path (Get-Location) 'scripts\check-client-warnings.py'
+          if (-not (Test-Path -LiteralPath $gate -PathType Leaf)) {
+            throw "warning gate script is not in the checkout: $gate"
+          }
+          python $gate --count "$warningCount"
+          $gateExit = $LASTEXITCODE
           if ($buildExit -ne 0) {
             Write-Host '----- compiler errors -----'
             foreach ($line in [System.IO.File]::ReadLines($log)) {
@@ -336,6 +363,7 @@ jobs:
             }
             exit $buildExit
           }
+          if ($null -eq $gateExit -or $gateExit -ne 0) { exit 1 }
 
       - name: Check embedded manifest
         run: |
