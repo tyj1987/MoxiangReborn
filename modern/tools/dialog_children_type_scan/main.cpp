@@ -3,7 +3,10 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/ui/interface_script.hpp"
 
+#include "mxh/tools/cli_playdh_root.hpp"
+
 #include <algorithm>
+#include <cstdlib>
 #include <filesystem>
 #include <functional>
 #include <iostream>
@@ -12,28 +15,40 @@
 
 int main(int argc, char** argv) {
     namespace fs = std::filesystem;
-    fs::path playdh_root;
-    if (argc >= 2) {
-        playdh_root = fs::path(argv[1]);
-    } else {
-        std::error_code ec;
-        auto cursor = fs::current_path(ec);
-        for (int depth = 0; !ec && !cursor.empty() && depth < 8; ++depth) {
-            for (const auto& candidate : {
-                     cursor / "modern" / "data" / "PlayDH",
-                     cursor / "data" / "PlayDH",
-                     cursor / "PlayDH"}) {
-                if (fs::is_directory(candidate, ec)) {
-                    playdh_root = candidate;
-                    break;
-                }
+    std::string explicit_root;
+    bool resolve_only = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string arg = argv[i];
+        if (arg == "--resource-root") {
+            if (i + 1 >= argc) {
+                std::cerr << "--resource-root requires an argument\n";
+                return 1;
             }
-            if (!playdh_root.empty()) break;
-            const auto parent = cursor.parent_path();
-            if (parent == cursor) break;
-            cursor = parent;
+            explicit_root = argv[++i];
+        } else if (arg == "--resolve-only") {
+            resolve_only = true;
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "usage: mxh_dialog_children_type_scan [--resource-root DIR] [--resolve-only]\n"
+                         "  MXH_PLAYDH_ROOT is used when --resource-root is omitted.\n";
+            return 0;
+        } else if (!arg.empty() && arg[0] != '-') {
+            explicit_root = arg;
+        } else {
+            std::cerr << "unknown arg: " << arg << "\n";
+            return 1;
         }
     }
+    const auto resolved = mxh::tools::resolve_cli_playdh_root(
+        explicit_root, std::getenv("MXH_PLAYDH_ROOT"));
+    if (!resolved.error.empty()) {
+        std::cerr << resolved.error << "\n";
+        return 1;
+    }
+    if (resolve_only) {
+        std::cout << "resource_root=" << resolved.path.string() << "\n";
+        return 0;
+    }
+    const fs::path playdh_root = resolved.path;
     const auto dir = playdh_root / "Image" / "InterfaceScript";
     if (!fs::is_directory(dir)) {
         std::cerr << "missing: " << dir << "\n";

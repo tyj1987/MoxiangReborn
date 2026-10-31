@@ -54,7 +54,13 @@ param(
 
     [string]$CharacterNamePrefix = 'HA',
 
-    [string]$ClientExe = ''
+    [string]$ClientExe = '',
+
+    # PlayDH root passed as --resource-root. Empty reads MXH_PLAYDH_ROOT.
+    [string]$ResourceRoot = '',
+
+    # Print resource_root= and exit 0. Does not launch the client.
+    [switch]$ResolveOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -69,6 +75,24 @@ if ([System.Net.IPAddress]::TryParse($LoginHost, [ref]$parsedAddress) -and
      $parsedAddress.Equals([System.Net.IPAddress]::Any) -or
      $parsedAddress.Equals([System.Net.IPAddress]::IPv6Any))) {
     throw 'Remote state-frame acceptance refuses loopback or wildcard login hosts.'
+}
+
+$captureResourceRoot = $ResourceRoot
+if ([string]::IsNullOrWhiteSpace($captureResourceRoot)) {
+    $captureResourceRoot = $env:MXH_PLAYDH_ROOT
+}
+if ([string]::IsNullOrWhiteSpace($captureResourceRoot)) {
+    Write-Output 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $captureResourceRoot -PathType Container)) {
+    Write-Output ('MXH_PLAYDH_ROOT is set to "' + $captureResourceRoot + '" but that directory does not exist')
+    exit 1
+}
+$captureResourceRoot = [IO.Path]::GetFullPath($captureResourceRoot)
+if ($ResolveOnly) {
+    Write-Output "resource_root=$captureResourceRoot"
+    exit 0
 }
 
 if ([string]::IsNullOrWhiteSpace($ClientExe)) {
@@ -141,7 +165,7 @@ $arguments = @(
     '--state-frames-dir', $FramesDir,
     '--smoke-settle-frames', '20',
     '--exit-after-gamein',
-    '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH'),
+    '--resource-root', $captureResourceRoot,
     '--width', "$Width",
     '--height', "$Height"
 )

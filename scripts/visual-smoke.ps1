@@ -37,8 +37,30 @@ param(
     [string]$SqlOdbcDriver = 'SQL Server',
     [switch]$SkipServerStart,
     [switch]$SkipRegister,
-    [switch]$ExistingCharacter
+    [switch]$ExistingCharacter,
+    # PlayDH root passed as --resource-root. Empty reads MXH_PLAYDH_ROOT.
+    [string]$ResourceRoot = '',
+    # Print resource_root= and exit 0. Does not launch a client or bind a port.
+    [switch]$ResolveOnly
 )
+
+$ErrorActionPreference = 'Stop'
+$visualChosen = $ResourceRoot
+if ([string]::IsNullOrWhiteSpace($visualChosen)) { $visualChosen = $env:MXH_PLAYDH_ROOT }
+if ([string]::IsNullOrWhiteSpace($visualChosen)) {
+    Write-Output 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $visualChosen -PathType Container)) {
+    Write-Output ('MXH_PLAYDH_ROOT is set to "' + $visualChosen + '" but that directory does not exist')
+    exit 1
+}
+$visualResourceRoot = [IO.Path]::GetFullPath($visualChosen)
+if ($ResolveOnly) {
+    Write-Output "resource_root=$visualResourceRoot"
+    exit 0
+}
+
 if ([string]::IsNullOrWhiteSpace($env:MXH_SMOKE_PASSWORD)) {
     Write-Error "MXH_SMOKE_PASSWORD is unset or empty" -ErrorAction Continue
     exit 1
@@ -165,7 +187,7 @@ try {
         '--state-frames-dir', $stateFramesDir,
         '--smoke-settle-frames', '20',
         '--exit-after-gamein',
-        '--resource-root', (Join-Path $repoRoot 'modern\data\PlayDH')
+        '--resource-root', $visualResourceRoot
     )
     if ($remoteLogin) { $arguments += '--use-hsel' }
 
