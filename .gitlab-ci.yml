@@ -37,6 +37,11 @@ workflow:
         - scripts/tests/test-soak-24h.ps1
         - scripts/tests/test-forbidden-rog-ports.ps1
         - scripts/tests/test-deploy-default-map.ps1
+        - scripts/tests/test-playdh-root-remaining.ps1
+        - scripts/capture-state-frames.ps1
+        - scripts/visual-smoke.ps1
+        - scripts/run-human-acceptance.ps1
+        - scripts/test-gpu-smoke.ps1
         - scripts/tests/test-deploy-client-playdh-root.ps1
         - deploy/scripts/start_modern.ps1
         - deploy/scripts/deploy_client.ps1
@@ -106,6 +111,7 @@ original_governance_and_python_tests:
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_profile.py
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
     - python3 -B -m unittest modern/tests/unit/tools/test_mh_bin.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_audit_minimap_root.py
     - python3 -B -m unittest modern/tests/unit/tools/test_compat_round_trip.py
     - python3 -B -m unittest modern/tests/unit/tools/test_repack_titan_bin.py
 
@@ -132,16 +138,21 @@ rog_gate_self_test:
       tar -xzf "${pwsh_tarball}" -C "${pwsh_dir}"
       export PATH="${pwsh_dir}:${PATH}"
       export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
-      pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
-      pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
-      pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
-      pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
-      pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
-      pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
-      pwsh -NoProfile -File scripts/tests/test-forbidden-rog-ports.ps1
-      pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
-      pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
-      pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
+      status=0
+      run_cmd() { "$@" || status=1; }
+      unset MXH_PLAYDH_ROOT || true
+      run_cmd pwsh -NoProfile -File scripts/tests/test-playdh-root-remaining.ps1
+      run_cmd pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest
+      run_cmd pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
+      run_cmd pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      run_cmd pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+      run_cmd pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+      run_cmd pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
+      run_cmd pwsh -NoProfile -File scripts/tests/test-forbidden-rog-ports.ps1
+      run_cmd pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
+      run_cmd pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
+      run_cmd pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
+      exit "$status"
 
 # cxx_resource_reference_linux
 # Kept in sync with the GitHub job of the same name. Same image digest as
@@ -192,10 +203,10 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests mxh_playdh_env_tests mxh_ingame_playdh_root_tests mxh_pack_file_header_tests
+      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests mxh_cli_playdh_root_tests mxh_playdh_env_tests mxh_ingame_playdh_root_tests mxh_pack_file_header_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.|PlayDhRootRequired\.|InGamePlayDhRoot\.|PackFileHeader\.SyntheticNpcPetTitanArchivesRoundTrip)' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.|CliPlayDhRoot\.|PlayDhRootRequired\.|InGamePlayDhRoot\.|PackFileHeader\.SyntheticNpcPetTitanArchivesRoundTrip)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -269,6 +280,9 @@ cxx_resource_reference_linux:
       require_passed LoginProtocolGate.MissingHashRejected || status=1
       require_passed LoginProtocolGate.MatchAccepted || status=1
       require_passed LoginProtocolGate.ReasonCodeReachesClient || status=1
+      require_passed CliPlayDhRoot.UnsetDoesNotReadRepoTree || status=1
+      require_passed CliPlayDhRoot.SyntheticExplicitRootSucceeds || status=1
+      require_passed CliPlayDhRoot.SyntheticEnvSucceeds || status=1
       require_passed PlayDhRootRequired.UnsetDoesNotReadRepoTree || status=1
       require_passed PlayDhRootRequired.SyntheticEnvSucceeds || status=1
       require_passed InGamePlayDhRoot.UnsetDoesNotReadRepoTree || status=1

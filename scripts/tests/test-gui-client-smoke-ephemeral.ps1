@@ -388,7 +388,8 @@ Assert-True (-not (Test-EphemeralNonLoopbackText '256.1.1.1')) '256 is not an oc
 Assert-Rejects 'non-loopback' @{ ServerArguments = @('--bind-address', '10.0.0.5:16001') }
 
 # -ResourceRoot: the passed PlayDH root reaches the client command line,
-# the ephemeral map server and the audits; empty keeps the repo PlayDH.
+# the ephemeral map server and the audits. Empty is not the repo tree:
+# MXH_PLAYDH_ROOT or --resource-root is required.
 $rrParam = @($ast.ParamBlock.Parameters | Where-Object { $_.Name.VariablePath.UserPath -eq 'ResourceRoot' })
 Assert-True ($rrParam.Count -eq 1) 'ResourceRoot parameter missing'
 Assert-True ($rrParam[0].StaticType.Name -eq 'String') 'ResourceRoot must be a string'
@@ -423,9 +424,17 @@ $rrTemp = Join-Path (Get-EphemeralNormalizedTempRoot) ('mxh-rr-' + [Guid]::NewGu
 $deployRoot = Join-Path $rrTemp 'playdh-deploy'
 New-Item -ItemType Directory -Force -Path $deployRoot | Out-Null
 try {
-    $repoPlayDh = Join-Path $repoRoot 'modern\data\PlayDH'
-    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot '') -eq $repoPlayDh) 'empty -ResourceRoot must keep the repo PlayDH'
-    Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $null) -eq $repoPlayDh) 'null -ResourceRoot must keep the repo PlayDH'
+    $savedPlayDh = [Environment]::GetEnvironmentVariable('MXH_PLAYDH_ROOT', 'Process')
+    [Environment]::SetEnvironmentVariable('MXH_PLAYDH_ROOT', $null, 'Process')
+    try {
+        foreach ($emptyRoot in @('', $null)) {
+            $emptyMessage = $null
+            try { $null = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $emptyRoot } catch { $emptyMessage = $_.Exception.Message }
+            Assert-True (($emptyMessage -like '*MXH_PLAYDH_ROOT*') -and ($emptyMessage -like '*--resource-root*')) "empty -ResourceRoot must name MXH_PLAYDH_ROOT and --resource-root, got '$emptyMessage'"
+        }
+    } finally {
+        [Environment]::SetEnvironmentVariable('MXH_PLAYDH_ROOT', $savedPlayDh, 'Process')
+    }
     Assert-True ((Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $deployRoot) -eq $deployRoot) 'explicit -ResourceRoot must be returned unchanged'
     function Assert-ResourceRootRejected([string]$Value, [string]$Like, [string]$Name) {
         $message = $null
@@ -463,8 +472,6 @@ try {
     $rootValues = Get-ArgValue $clientArgs '--resource-root'
     Assert-True ($rootValues.Count -eq 1) "client must get exactly one --resource-root, got $($rootValues.Count)"
     Assert-True ($rootValues[0] -eq $deployRoot) "client --resource-root must be the passed root, got '$($rootValues[0])'"
-    $defaultArgs = Get-SmokeClientArguments (Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot '')
-    Assert-True ((Get-ArgValue $defaultArgs '--resource-root')[0] -eq $repoPlayDh) 'switch-off client --resource-root must stay the repo PlayDH'
 
     $savedServerRoot = [Environment]::GetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', 'Process')
     try {
@@ -473,8 +480,9 @@ try {
         Assert-True ($layout.ResourceRoot -eq $deployRoot) 'ephemeral layout must use the passed root'
         Assert-True ($layout.ServerResourceRoot -eq (Join-Path $deployRoot 'Resource\Server')) 'ephemeral server root must derive from the passed root'
         Assert-True ($layout.ResourceProfileId -eq 'playdh-current') 'resource profile id must stay playdh-current'
-        $defaultLayout = Get-EphemeralResourceLayout -RepoRoot $repoRoot
-        Assert-True ($defaultLayout.ResourceRoot -eq (Join-Path $repoRoot 'modern/data/PlayDH')) "default layout must stay the profile source, got '$($defaultLayout.ResourceRoot)'"
+        $emptyLayoutMessage = $null
+        try { $null = Get-EphemeralResourceLayout -RepoRoot $repoRoot } catch { $emptyLayoutMessage = $_.Exception.Message }
+        Assert-True (($emptyLayoutMessage -like '*MXH_PLAYDH_ROOT*') -and ($emptyLayoutMessage -like '*--resource-root*')) "empty layout must not use the profile source, got '$emptyLayoutMessage'"
         [Environment]::SetEnvironmentVariable('MXH_SERVER_RESOURCE_ROOT', (Join-Path $rrTemp 'server-override'), 'Process')
         $overrideLayout = Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $deployRoot
         Assert-True ($overrideLayout.ServerResourceRoot -eq (Join-Path $rrTemp 'server-override')) 'MXH_SERVER_RESOURCE_ROOT must still win for the server root'

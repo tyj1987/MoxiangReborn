@@ -141,7 +141,13 @@ param(
     [switch]$SelfTestNoLinks,
     [string]$LastTestLog,
     [string]$CTestStdoutLog,
-    [switch]$AssumeNtfs
+    [switch]$AssumeNtfs,
+    # Required on the gate run. The gate worktree's own exported PlayDH
+    # path. A preset MXH_PLAYDH_ROOT is not a fallback for Invoke-RogGateMain
+    # and is overwritten for child processes.
+    [string]$PlayDhRoot,
+    # Print resource_root= and exit. Does not create links or worktrees.
+    [switch]$ResolvePlayDhOnly
 )
 
 Set-StrictMode -Version 3.0
@@ -1543,48 +1549,43 @@ function Invoke-RogGateVcVarsCommand {
     }
 }
 
-function Get-RogGatePlayDhRootPath {
-    param([Parameter(Mandatory = $true)][string]$SourceDir)
-
-    # tests/support/playdh_env.hpp and the asset tests expect this directory:
-    # Resource\ItemList.bin and Image\2D\login.dds live under it.
-    $modern = Join-Path -Path $SourceDir -ChildPath 'modern'
-    $data = Join-Path -Path $modern -ChildPath 'data'
-    $playdh = Join-Path -Path $data -ChildPath 'PlayDH'
-    return [System.IO.Path]::GetFullPath($playdh)
-}
-
-function Get-RogGatePlayDhAssignment {
+function Set-RogGatePlayDhRootForChildren {
     param(
-        [Parameter(Mandatory = $true)][string]$SourceDir,
-        [AllowNull()][AllowEmptyString()][string]$PreviousValue
+        [string]$SourceDir,
+        [AllowEmptyString()][string]$ExplicitRoot,
+        [switch]$AllowEnv
     )
 
-    $path = Get-RogGatePlayDhRootPath -SourceDir $SourceDir
-    $previous = ''
-    if ($null -ne $PreviousValue) {
-        $previous = [string]$PreviousValue
+    # SourceDir is not a PlayDH root. The gate run passes -PlayDhRoot.
+    # -AllowEnv is only for -ResolvePlayDhOnly. A preset MXH_PLAYDH_ROOT
+    # is overwritten when -PlayDhRoot is set.
+    $null = $SourceDir
+    $chosen = ''
+    $source = ''
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitRoot)) {
+        $chosen = $ExplicitRoot
+        $source = 'explicit'
+    } elseif ($AllowEnv -and -not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
+        $chosen = [string]$env:MXH_PLAYDH_ROOT
+        $source = 'env'
+    } elseif (-not $AllowEnv) {
+        throw 'gate run requires -PlayDhRoot; MXH_PLAYDH_ROOT is not a fallback'
+    } else {
+        throw 'MXH_PLAYDH_ROOT is not set and no -PlayDhRoot was given'
     }
-    $info = "[INFO] MXH_PLAYDH_ROOT=$path (auto)"
-    if (-not [string]::IsNullOrWhiteSpace($previous)) {
-        $info = "[INFO] MXH_PLAYDH_ROOT=$path (overrode '$previous')"
+    if (-not (Test-Path -LiteralPath $chosen -PathType Container)) {
+        throw ('MXH_PLAYDH_ROOT is set to "' + $chosen + '" but that directory does not exist')
     }
+    $path = [System.IO.Path]::GetFullPath($chosen)
+    $env:MXH_PLAYDH_ROOT = $path
+    $info = "[INFO] MXH_PLAYDH_ROOT=$path source=$source"
+    Write-Host $info
     return [pscustomobject]@{
         Path     = $path
-        Previous = $previous
+        Previous = ''
         Info     = $info
+        Source   = $source
     }
-}
-
-function Set-RogGatePlayDhRootForChildren {
-    param([Parameter(Mandatory = $true)][string]$SourceDir)
-
-    # Always the worktree copy. A value inherited from the parent is replaced
-    # so CTest children do not keep searching upward from the build directory.
-    $assignment = Get-RogGatePlayDhAssignment -SourceDir $SourceDir -PreviousValue $env:MXH_PLAYDH_ROOT
-    $env:MXH_PLAYDH_ROOT = $assignment.Path
-    Write-Host $assignment.Info
-    return $assignment
 }
 
 function Test-RogGateGitLfsPointer {
@@ -3584,7 +3585,13 @@ function Invoke-RogGateSelfTest {
     $lowDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=1', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
     $lowDriveRejected = ($lowDrive.ExitCode -eq 1) -and ($lowDrive.Text -match '-DriveMinFreeGB E=1 is below the 10 GB floor') -and ($lowDrive.Text -notmatch 'SourceDir not found')
     Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=1 is rejected before any other work' -Condition $lowDriveRejected
-    $raisedDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=20', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha)
+    $raisedPlayDh = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('rog-gate-floor-playdh-' + [guid]::NewGuid().ToString('n'))
+    New-Item -ItemType Directory -Path $raisedPlayDh -Force | Out-Null
+    try {
+        $raisedDrive = Invoke-RogGateFloorProbe -ProbeArguments @('-DriveMinFreeGB', 'E=20', '-SourceDir', 'C:\src', '-BuildDir', 'D:\build-mxr\pr', '-ExpectedSha', $floorSha, '-PlayDhRoot', $raisedPlayDh)
+    } finally {
+        Remove-Item -LiteralPath $raisedPlayDh -Recurse -Force -ErrorAction SilentlyContinue
+    }
     $raisedDriveAccepted = ($raisedDrive.ExitCode -eq 1) -and ($raisedDrive.Text -match 'SourceDir not found') -and ($raisedDrive.Text -notmatch 'below the 10 GB floor')
     Assert-RogGateSelfTest -Name '-DriveMinFreeGB E=20 is accepted and later checks still run' -Condition $raisedDriveAccepted
 
@@ -4059,19 +4066,68 @@ function Invoke-RogGateSelfTest {
     try {
         $playdhSource = Join-Path -Path $playdhTemp -ChildPath 'src'
         New-Item -ItemType Directory -Path $playdhSource -Force | Out-Null
-        $expectedPlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        $worktreePlayDh = [System.IO.Path]::GetFullPath((Join-Path -Path (Join-Path -Path (Join-Path -Path $playdhSource -ChildPath 'modern') -ChildPath 'data') -ChildPath 'PlayDH'))
+        $syntheticPlayDh = Join-Path -Path $playdhTemp -ChildPath 'synthetic'
+        New-Item -ItemType Directory -Path $syntheticPlayDh -Force | Out-Null
+        $syntheticPlayDhFull = [System.IO.Path]::GetFullPath($syntheticPlayDh)
+        $stalePlayDh = Join-Path -Path $playdhTemp -ChildPath 'stale'
+        New-Item -ItemType Directory -Path $stalePlayDh -Force | Out-Null
+        $stalePlayDhFull = [System.IO.Path]::GetFullPath($stalePlayDh)
+        $missingMessage = 'MXH_PLAYDH_ROOT is not set and no -PlayDhRoot was given'
+        $gateRequires = 'gate run requires -PlayDhRoot; MXH_PLAYDH_ROOT is not a fallback'
         Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
-        $autoPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
-        $autoInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (auto)"
-        $autoOk = ($autoPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($autoPlayDh.Info -eq $autoInfo)
-        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT is set to the worktree PlayDH path' -Condition $autoOk
+        $unsetThrew = $false
+        $unsetMessage = ''
+        try {
+            $null = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        } catch {
+            $unsetThrew = $true
+            $unsetMessage = [string]$_.Exception.Message
+        }
+        $unsetEnv = [Environment]::GetEnvironmentVariable('MXH_PLAYDH_ROOT', 'Process')
+        $unsetOk = $unsetThrew -and ($unsetMessage -eq $gateRequires) -and [string]::IsNullOrWhiteSpace($unsetEnv) -and ($unsetMessage -ne $worktreePlayDh) -and ($unsetEnv -ne $worktreePlayDh)
+        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT exits with a message and does not assign the worktree' -Condition $unsetOk
 
-        $presetPlayDh = 'D:\not-the-worktree\PlayDH'
-        $env:MXH_PLAYDH_ROOT = $presetPlayDh
-        $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
-        $overInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (overrode '$presetPlayDh')"
-        $overOk = ($overPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($overPlayDh.Path -ne $presetPlayDh) -and ($overPlayDh.Info -eq $overInfo)
-        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden to the SourceDir path' -Condition $overOk
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $overThrew = $false
+        $overPlayDh = $null
+        try {
+            $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource -ExplicitRoot $syntheticPlayDhFull
+        } catch {
+            $overThrew = $true
+        }
+        $overPath = ''
+        $overInfo = ''
+        if ($null -ne $overPlayDh) {
+            $overPath = [string]$overPlayDh.Path
+            $overInfo = [string]$overPlayDh.Info
+        }
+        $overOk = (-not $overThrew) -and ($overPath -eq $syntheticPlayDhFull) -and ($env:MXH_PLAYDH_ROOT -eq $syntheticPlayDhFull) -and ($overPath -ne $stalePlayDhFull) -and ($overInfo -match 'source=explicit')
+        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden for children' -Condition $overOk
+
+        $rogPwsh = (Get-Process -Id $PID).Path
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $mainEnv = & $rogPwsh -NoProfile -File $PSCommandPath 2>&1 | Out-String
+        $mainEnvCode = $LASTEXITCODE
+        $mainEnvOk = ($mainEnvCode -eq 1) -and ($mainEnv.Contains($gateRequires))
+        Assert-RogGateSelfTest -Name 'gate main with MXH_PLAYDH_ROOT and no -PlayDhRoot exits 1' -Condition $mainEnvOk
+
+        $missingForMain = Join-Path -Path $playdhTemp -ChildPath 'missing-main'
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $mainMissing = & $rogPwsh -NoProfile -File $PSCommandPath -PlayDhRoot $missingForMain 2>&1 | Out-String
+        $mainMissingCode = $LASTEXITCODE
+        $mainMissingOk = ($mainMissingCode -eq 1) -and ($mainMissing.Contains('does not exist')) -and ($mainMissing.Contains($missingForMain))
+        Assert-RogGateSelfTest -Name 'nonexistent -PlayDhRoot makes main exit 1' -Condition $mainMissingOk
+        Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        $childUnset = & $rogPwsh -NoProfile -File $PSCommandPath -ResolvePlayDhOnly 2>&1 | Out-String
+        $childUnsetCode = $LASTEXITCODE
+        $childUnsetOk = ($childUnsetCode -eq 1) -and ($childUnset.Contains($missingMessage)) -and (-not $childUnset.Contains($worktreePlayDh))
+        Assert-RogGateSelfTest -Name 'ResolvePlayDhOnly with unset MXH_PLAYDH_ROOT exits 1' -Condition $childUnsetOk
+
+        $childSyn = & $rogPwsh -NoProfile -File $PSCommandPath -ResolvePlayDhOnly -PlayDhRoot $syntheticPlayDhFull 2>&1 | Out-String
+        $childSynCode = $LASTEXITCODE
+        $childSynOk = ($childSynCode -eq 0) -and ($childSyn.Contains($syntheticPlayDhFull)) -and (-not $childSyn.Contains($worktreePlayDh))
+        Assert-RogGateSelfTest -Name 'ResolvePlayDhOnly with a synthetic -PlayDhRoot exits 0' -Condition $childSynOk
 
         $missingPlayDh = Join-Path -Path $playdhTemp -ChildPath 'missing'
         $missingCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $missingPlayDh
@@ -4912,6 +4968,11 @@ function Remove-RogGateFixture {
 }
 
 function Invoke-RogGateMain {
+    try {
+        $script:RogGatePlayDh = Set-RogGatePlayDhRootForChildren -ExplicitRoot $PlayDhRoot
+    } catch {
+        return (Resolve-RogGateFailureExit -ExitCode 1 -Message $_.Exception.Message)
+    }
     $null = Assert-RogGateFreeSpaceFloor -MinFreeGB $MinFreeGB -DriveMinFreeGB $DriveMinFreeGB
     if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($BuildDir) -or [string]::IsNullOrWhiteSpace($ExpectedSha)) {
         throw '-SourceDir, -BuildDir, and -ExpectedSha are required.'
@@ -5084,8 +5145,8 @@ function Invoke-RogGateMain {
     }
 
     $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
-    # Before CTest. The variable stays in this process for any later test child.
-    $playdh = Set-RogGatePlayDhRootForChildren -SourceDir $normSource
+    # Before CTest. Children see only the explicit -PlayDhRoot value.
+    $playdh = $script:RogGatePlayDh
     $playdhCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $playdh.Path
     if (-not $playdhCheck.Ok) {
         return (Resolve-RogGateFailureExit -ExitCode 1 -Message $playdhCheck.Reason)
@@ -5182,6 +5243,17 @@ function Invoke-RogGateMain {
         return 1
     }
     return 0
+}
+
+if ($ResolvePlayDhOnly) {
+    try {
+        $resolvedOnly = Set-RogGatePlayDhRootForChildren -SourceDir $SourceDir -ExplicitRoot $PlayDhRoot -AllowEnv
+        Write-Output ("resource_root=" + $resolvedOnly.Path)
+        exit 0
+    } catch {
+        Write-Output $_.Exception.Message
+        exit 1
+    }
 }
 
 $script:RogGateSawError = $false

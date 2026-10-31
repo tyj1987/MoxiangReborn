@@ -237,8 +237,8 @@ function Test-GuiSmokePathUnderOriginalRoot {
 }
 
 function Resolve-GuiSmokeResourceRoot {
-    # -ResourceRoot on gui-client-smoke.ps1. Empty keeps the repo PlayDH
-    # (<RepoRoot>\modern\data\PlayDH), exactly as before. A value must be an
+    # -ResourceRoot on gui-client-smoke.ps1, or MXH_PLAYDH_ROOT. Neither a
+    # repo-tree default nor a directory walk is accepted. A value must be an
     # absolute path to an existing directory outside D:\MX; it is returned unchanged so the
     # client's --resource-root, the map server's --resource-root and the
     # optional audits all read the same tree (sprite atlas and pak mounts in
@@ -247,9 +247,15 @@ function Resolve-GuiSmokeResourceRoot {
         [Parameter(Mandatory)][string]$RepoRoot,
         [AllowEmptyString()][AllowNull()][string]$ResourceRoot
     )
-    if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
-        return (Join-Path $RepoRoot 'modern\data\PlayDH')
+    $null = $RepoRoot
+    $chosen = $ResourceRoot
+    if ([string]::IsNullOrWhiteSpace($chosen)) {
+        $chosen = [Environment]::GetEnvironmentVariable('MXH_PLAYDH_ROOT', 'Process')
     }
+    if ([string]::IsNullOrWhiteSpace($chosen)) {
+        throw 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+    }
+    $ResourceRoot = $chosen
     # D:\MX is the read-only original install. The check runs on a collapsed
     # copy of the text (as clean-deploy -PlayDhRoot does): '/' becomes '\',
     # a \\?\ or \\.\ prefix is dropped, '.' and empty segments are removed,
@@ -298,7 +304,11 @@ function Get-EphemeralResourceLayout {
     $profile = $manifest.profiles.'playdh-current'
     if ($null -eq $profile) { throw 'playdh-current resource profile is missing' }
     if ([string]::IsNullOrWhiteSpace($ResourceRoot)) {
-        $resourceRoot = Join-Path $RepoRoot ([string]$profile.source)
+        $fromEnv = [Environment]::GetEnvironmentVariable('MXH_PLAYDH_ROOT', 'Process')
+        if ([string]::IsNullOrWhiteSpace($fromEnv)) {
+            throw 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+        }
+        $resourceRoot = $fromEnv
     } else {
         $resourceRoot = $ResourceRoot
     }

@@ -41,3 +41,10 @@ when `MXH_PLAYDH_ROOT` is unset or is not a directory. A skip is not a pass.
 5. `scripts/clean-deploy.ps1` already requires `-PlayDhRoot` and does not
    fall back to the repo tree. Its mount-order self-test uses synthetic
    archive names. It does not read the external-only blobs.
+6. `scripts/rog-gate-build.ps1` on a real gate run requires `-PlayDhRoot`.
+   Pass the gate worktree's own exported PlayDH directory
+   (`<SourceDir>\modern\data\PlayDH`). The main run does not fall back to
+   `MXH_PLAYDH_ROOT`. Child processes get that variable set to the explicit
+   `-PlayDhRoot` value, so a stale value from another worktree or from
+   `D:\MX` is not inherited. `-ResolvePlayDhOnly` may still read the
+   variable. The log line includes `source=explicit` or `source=env`.

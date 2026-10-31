@@ -30,6 +30,18 @@ target_compile_features(mxh_playdh_env_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_playdh_env_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# CLI PlayDH root shared by MoxianSideBySide and dialog_children_type_scan.
+# Header-only. No game bytes and no Win32.
+add_executable(mxh_cli_playdh_root_tests
+    cli_playdh_root_test.cpp
+)
+target_include_directories(mxh_cli_playdh_root_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_cli_playdh_root_tests PRIVATE gtest_main)
+target_compile_features(mxh_cli_playdh_root_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_cli_playdh_root_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/..)
+
 # CInGameState PlayDH resolution. Header-only; the walk under test is the
 # same function CInGameState::Init calls. No game bytes and no Win32.
 add_executable(mxh_ingame_playdh_root_tests

@@ -15,15 +15,19 @@ Output is written to stdout as a markdown report -- safe to redirect
 to ``playdh_minimap_audit.md`` for archive.
 
 Usage:
-  python audit_minimap.py --playdh modern/data/PlayDH
-  python audit_minimap.py --playdh modern/data/PlayDH --check-fold
-  python audit_minimap.py --playdh modern/data/PlayDH --json    # machine-readable
+  python audit_minimap.py --playdh DIR
+  python audit_minimap.py --resource-root DIR --check-fold
+  python audit_minimap.py --json
+
+The root is --playdh, --resource-root, or MXH_PLAYDH_ROOT. There is no
+default directory.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -182,15 +186,32 @@ def build_json(playdh: Path, known_map_ids: list[int], check_fold: bool) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--playdh", default="modern/data/PlayDH",
-                    help="Path to the PlayDH/ root (default: modern/data/PlayDH)")
+    ap.add_argument("--playdh", default=None,
+                    help="Path to the PlayDH root")
+    ap.add_argument("--resource-root", default=None,
+                    help="Same as --playdh")
+    ap.add_argument("--resolve-only", action="store_true",
+                    help="Print resource_root= and exit without scanning")
     ap.add_argument("--check-fold", action="store_true",
                     help="Also report what `polish_assets --generate-minimap` would do")
     ap.add_argument("--json", action="store_true",
                     help="Emit machine-readable JSON instead of markdown")
     args = ap.parse_args()
 
-    playdh = Path(args.playdh)
+    chosen = args.playdh or args.resource_root or os.environ.get("MXH_PLAYDH_ROOT") or ""
+    if not chosen.strip():
+        print(
+            "MXH_PLAYDH_ROOT is not set and no --playdh/--resource-root was given",
+            file=sys.stderr,
+        )
+        return 1
+    playdh = Path(chosen)
+    if args.resolve_only:
+        if not playdh.is_dir():
+            print(f"[audit] not a directory: {playdh}", file=sys.stderr)
+            return 1
+        print(f"resource_root={playdh}")
+        return 0
     if not playdh.is_dir():
         print(f"[audit] not a directory: {playdh}", file=sys.stderr)
         return 2

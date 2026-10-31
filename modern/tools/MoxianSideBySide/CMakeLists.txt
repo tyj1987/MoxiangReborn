@@ -9,6 +9,7 @@ add_executable(mxh_side_by_side
 )
 target_include_directories(mxh_side_by_side PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/include
 )
 if(MSVC)
     target_compile_definitions(mxh_side_by_side PRIVATE _CRT_SECURE_NO_WARNINGS)

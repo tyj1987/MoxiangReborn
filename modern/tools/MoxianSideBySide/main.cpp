@@ -20,6 +20,9 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include "mxh/tools/cli_playdh_root.hpp"
+
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -55,6 +58,7 @@ struct Args {
     bool allow_empty = false;
     bool ignore_trace_length = false;
     bool modern_only = false;
+    bool resolve_only = false;
     std::string golden_path;
 };
 
@@ -88,8 +92,11 @@ bool parse_args(int argc, char** argv, Args& a) {
         else if (s == "--ignore-trace-length") a.ignore_trace_length = true;
         else if (s == "--modern-only") a.modern_only = true;
         else if (s == "--golden") a.golden_path = next("--golden");
+        else if (s == "--resolve-only") a.resolve_only = true;
         else if (s == "--help" || s == "-h") {
-            std::cout << "mxh_side_by_side [--scenario NAME] [--legacy-exe PATH] ...\n  [--modern-only] [--golden PATH]\n";
+            std::cout << "mxh_side_by_side [--scenario NAME] [--legacy-exe PATH] ...\n"
+                         "  [--resource-root DIR] [--resolve-only] [--modern-only] [--golden PATH]\n"
+                         "  MXH_PLAYDH_ROOT is used when --resource-root is omitted.\n";
             return false;
         } else {
             std::cerr << "unknown arg: " << s << "\n";
@@ -97,17 +104,6 @@ bool parse_args(int argc, char** argv, Args& a) {
         }
     }
     return true;
-}
-
-std::string discover_playdh_root() {
-    for (auto root = std::filesystem::current_path(); !root.empty();
-         root = root.parent_path()) {
-        const auto candidate = root / "modern" / "data" / "PlayDH";
-        std::error_code ec;
-        if (std::filesystem::is_directory(candidate, ec)) return candidate.string();
-        if (root == root.root_path()) break;
-    }
-    return {};
 }
 
 int endpoint_port(mxh::tools::sidebyside::ReplayEndpoint endpoint,
@@ -294,6 +290,21 @@ int main(int argc, char** argv) {
         ::WSACleanup();
         return 1;
     }
+    if (a.resolve_only || a.start_processes) {
+        const auto resolved = mxh::tools::resolve_cli_playdh_root(
+            a.resource_root, std::getenv("MXH_PLAYDH_ROOT"));
+        if (!resolved.error.empty()) {
+            std::cerr << resolved.error << "\n";
+            ::WSACleanup();
+            return 1;
+        }
+        a.resource_root = resolved.path.string();
+        if (a.resolve_only) {
+            std::cout << "resource_root=" << a.resource_root << "\n";
+            ::WSACleanup();
+            return 0;
+        }
+    }
     std::filesystem::create_directories(a.capture_dir);
     ChildProcess legacy_login;
     ChildProcess modern_login;
@@ -301,7 +312,6 @@ int main(int argc, char** argv) {
     ChildProcess modern_map;
     ChildProcess modern_map17;
     if (a.start_processes) {
-        if (a.resource_root.empty()) a.resource_root = discover_playdh_root();
         if (!a.legacy_exe.empty()) {
             legacy_login = start_process({a.legacy_exe, {}});
         }
