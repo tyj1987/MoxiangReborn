@@ -6263,7 +6263,18 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     game_in.payload.assign(16, 0);
     std::memcpy(game_in.payload.data(), &account, 4);
     const auto configure = [&](MapHandler& handler) {
-        handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+        // Hand-written weapon. ItemKind 2048 is ordinary equipment and
+        // EquipKind 1 is the weapon slot (position 81). Melee 13-17 with
+        // GenGol 12 is attack 29-35 while worn and 16 while unarmed.
+        mxh::game::ItemInfo weapon{};
+        weapon.ItemIdx = 11000;
+        std::memcpy(weapon.ItemName, "TestBlade", 9);
+        weapon.ItemKind = 2048;
+        weapon.EquipKind = mxh::game::WEARED_WEAPON;
+        weapon.WeaponType = 1;
+        weapon.MeleeAttackMin = 13;
+        weapon.MeleeAttackMax = 17;
+        handler.add_item_info_for_test(weapon);
     };
     std::uint32_t database_id = 0;
     const auto move = [&](MapHandler& handler, std::uint16_t destination) {

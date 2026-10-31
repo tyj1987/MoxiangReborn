@@ -141,7 +141,6 @@ jobs:
             modern/tools/MoxianPortal
             modern/tools/MxDumpInspect
             modern/data/PlayDH/Resource/CharacterExpPoint.bin
-            modern/data/PlayDH/Resource/ItemList.bin
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
