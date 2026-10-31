@@ -49,10 +49,12 @@
 #     pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
 #     pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
 #     pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+#     pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 #   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
 #   第三条是 commercial-smoke 的 LocalDB 可用性脚本测试，加在这个已有的 pwsh job 上。
 #   第四条是 gui-client-smoke 的 ephemeral 安全检查，加在同一个 pwsh job 上。
 #   第五条核对 start_modern.ps1 的 --default-map 与 map 进程的 --map 都是 $MapNumber，加在同一个 pwsh job 上。
+#   第六条是 24h soak harness 的 Linux stub 测试，加在同一个 pwsh job 上。
 # - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
 # - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
 #   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
@@ -89,6 +91,9 @@ on:
       - scripts/gui-client-smoke-ephemeral.ps1
       - scripts/tests/test-gui-client-smoke-ephemeral.ps1
       - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      - scripts/soak-24h.ps1
+      - scripts/soak-24h.cmd
+      - scripts/tests/test-soak-24h.ps1
       - scripts/tests/test-deploy-default-map.ps1
       - deploy/scripts/start_modern.ps1
       - .gitignore
@@ -252,6 +257,7 @@ jobs:
           pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
           pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
           pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
+          pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 
   cxx_resource_reference_linux:
     runs-on: ubuntu-latest

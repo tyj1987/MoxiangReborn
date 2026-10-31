@@ -1,5 +1,25 @@
 # M6-B Canary: 24h full
 
+Current harness (TYJ-162): launch with `scripts\soak-24h.cmd` (pwsh 7).
+Pass `-ServerBinDir`, `-ClientExe`, `-PlayDhRoot`, `-BuildRoot` or `-RunDir`,
+`-WatchRoot`, and `-GuardPaths` or `-GuardDrive`. Defaults are 24h, 1h warmup,
+60s samples, 2 clients, ports 26001/27001/28001/28002, map 10. SQLite is the
+default database. `-MssqlDb` must use `host=.\SQLEXPRESS` and `database=MxE2E_<id>`.
+The run creates that database with SIMPLE recovery and drops it only when this
+run created it. A pass requires the full duration, no owned-server exit, client
+failure rate at or below 0.1%, post-warmup least-squares slopes under 1 MB/h
+private bytes and 10 handles/h, finals within max(1.10x, +20 MB) and
+max(1.10x, +50 handles), an unchanged WatchRoot, guard free space at or above
+`-MinFreeGB` (default 10), and sample gaps at or below `-MaxSampleGapSeconds`
+(default 120). A skipped check is a failure. Exit 0 only for `SOAK PASS`.
+`--hold-seconds`, `--expect-peer`, `--drop-socket-after`, and `--state-dump`
+are the existing `mxh_client_e2e` flags and stay off unless set.
+`--state-dump` writes the entry and exit JSON. `Compare-SoakStateDump`
+compares the drop-time exit snapshot with the post-reconnect entry snapshot.
+
+The commands below this section describe the previous harness and are not the
+current parameter set.
+
 > Status: 1h SQLite canary PASSED (11,586 cycles). 4h mssql_odbc pending.
 > 24h full canary is the final stability gate before 1.0 RC.
 
