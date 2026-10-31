@@ -867,7 +867,8 @@ protected:
             /*use_legacy_framing=*/true, /*use_hsel=*/true,
             [this](mxh::net::ConnectionId id, const mxh::net::Message& m) {
                 if (server_) server_->send(id, m);
-            });
+            },
+            /*default_map_num=*/12);
 
         server_ = std::make_unique<mxh::net::TcpServer>(*handler_);
         mxh::net::ServerConfig scfg;
