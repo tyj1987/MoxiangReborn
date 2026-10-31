@@ -18,12 +18,15 @@ enum class MapLeaveForward : std::uint8_t {
     RetainedConnection = 2,
 };
 
-// Mirrors AgentHandler::clear_session_routes before the retained-connection
-// fallback: a missing or disconnected route slot skips the leave.
+// Original agent logout does not look the map up again. It sends
+// MP_USERCONN_DISCONNECTED on USERINFO::dwMapServerConnectionIndex
+// (墨香【源码】/[Server]Map/UserTable.cpp:390-397, _AGENTSERVER
+// CUserTable::OnDisconnectUser). A cleared route slot must still use
+// that retained connection when it is up.
 inline MapLeaveForward select_map_leave_forward(MapLeaveEndpoint route,
                                                 MapLeaveEndpoint retained) noexcept {
-    (void)retained;
     if (route.present && route.connected) return MapLeaveForward::Route;
+    if (retained.present && retained.connected) return MapLeaveForward::RetainedConnection;
     return MapLeaveForward::None;
 }
 

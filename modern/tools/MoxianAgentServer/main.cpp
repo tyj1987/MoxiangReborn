@@ -415,9 +415,11 @@ int main(int argc, char** argv) {
     // connection. A failed endpoint stays unregistered until its own retry
     // succeeds. It is never replaced by another map's connection.
     const auto connect_extra_map = [&](MapRouteConnection& route) -> bool {
+        auto* previous_client = route.client.get();
         handler.set_map_server_for_map(route.spec.map_num, nullptr,
                                        mxh::net::ConnectionId{});
         if (route.client) route.client->disconnect();
+        handler.release_map_sender(previous_client);
         route.client.reset();
         route.handler.reset();
         route.handler = std::make_unique<MapClientHandler>(handler, route.spec.map_num);
@@ -462,8 +464,10 @@ int main(int argc, char** argv) {
         const bool map_disconnected = !map_client || !map_client->is_connected();
         if (!args.map_server_addr.empty() && map_disconnected &&
             now >= next_map_reconnect) {
+            auto* previous_client = map_client.get();
             handler.set_map_server(nullptr, mxh::net::ConnectionId{});
             if (map_client) map_client->disconnect();
+            handler.release_map_sender(previous_client);
             map_client.reset();
             map_handler.reset();
 
@@ -485,15 +489,19 @@ int main(int argc, char** argv) {
     std::cout << "[main] shutting down...\n";
     // Phase 9: disconnect MapServer before stopping the server.
     if (map_client) {
+        auto* previous_client = map_client.get();
         handler.set_map_server(nullptr, mxh::net::ConnectionId{});
         map_client->disconnect();
+        handler.release_map_sender(previous_client);
         map_client.reset();
         map_handler.reset();
     }
     for (auto& route : map_route_connections) {
+        auto* previous_client = route->client.get();
         handler.set_map_server_for_map(route->spec.map_num, nullptr,
                                        mxh::net::ConnectionId{});
         if (route->client) route->client->disconnect();
+        handler.release_map_sender(previous_client);
         route->client.reset();
         route->handler.reset();
     }

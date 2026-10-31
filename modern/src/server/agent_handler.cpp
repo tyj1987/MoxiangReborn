@@ -24,6 +24,7 @@
 //   - CharacterAdd/ObjectRemove forwarded to other players
 
 #include "mxh/server/server.hpp"
+#include "mxh/server/map_leave_sender.hpp"
 #include "mxh/server/start_area_route.hpp"
 #include "mxh/log/mlog.hpp"
 #include "mxh/server/original_vitals_store.hpp"
@@ -270,28 +271,33 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
         conn_map_nums_.erase(id.value);
     }
 
-    // Phase 12.1: forward GameOutSyn to MapServer so the Map side
-    // can erase the player from connected_players_ and stop
-    // broadcasting to a disconnected char_id. Without this, MapServer
-    // would keep the entry around until the next GameInSyn overwrites
-    // it, and any broadcasts targeted at this char_id would route to
-    // a stale connection (or silently no-op if the routing entry was
-    // already cleared).
-    //
-    // Trigger conditions (all must hold):
-    //   1) removed_char_id > 0  -- character was selected
-    //   2) had_map_num          -- CharacterSelectAck landed (so the
-    //                             client at least reached the map-load
-    //                             step; a GameOutSyn before that
-    //                             would be a no-op on the Map side)
-    //   3) map_client_ is connected -- there's somewhere to send to
-    //
-    // We snapshot the TcpClient* under map_route_mu_ so a concurrent
-    // set_map_server() doesn't race the send.
+    // Original CUserTable::OnDisconnectUser (_AGENTSERVER),
+    // 墨香【源码】/[Server]Map/UserTable.cpp:370-436:
+    //   372 FindUser; null user returns
+    //   381 LoginCheckDelete(dwUserID) — logout timestamp. Not issued
+    //       here; this handler does not own that DB procedure.
+    //   383-388 drop the object-id index, then the user-id index
+    //   390-397 if dwCharacterID != 0, Send2Server(
+    //       dwMapServerConnectionIndex, MP_USERCONN_DISCONNECTED)
+    //       (Protocol.h:568). The connection index is the one stored
+    //       on the user, not a fresh map-number route lookup.
+    //   400 SaveMapChangePointUpdate(dwCharacterID, 0)
+    //   404 RemoveUser(dwKey) after the map has been told
+    // Map side: MapNetworkMsgParser.cpp:782-858 finds the player and
+    // RemovePlayer at 841 and 855. ServerSystem.cpp:1954-1991 OnDisconnectServer only
+    // removes players whose GetAgentNum equals the agent socket that
+    // closed, and OnDisconnectUser (1999) is empty. A client RST closes
+    // the client-agent socket; the multiplexed agent-map socket stays
+    // open, so the map entry lives until this leave is delivered.
+    // Modern MapHandler removes the player on GameOutSyn (hard exit,
+    // bIsExiting=1), which is the leave this agent already forwards.
+    // MP_USERCONN_DISCONNECTED is not handled there, so the notice
+    // stays GameOutSyn and still follows the original send step:
+    // use the retained map-server connection when the route slot is gone.
     if (removed_char_id != 0 && had_map_num) {
-        const auto route = route_for_map(removed_map_num);
-        mxh::net::ITcpSender* mc = route.client;
-        if (mc && mc->is_connected()) {
+        const auto leave = claim_map_leave_sender(removed_map_num);
+        mxh::net::ITcpSender* mc = leave.route.client;
+        if (mc != nullptr) {
             mxh::net::Message fwd;
             fwd.header.category = static_cast<std::uint8_t>(
                 mxh::proto::Category::UserConn);
@@ -299,10 +305,7 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
                 mxh::proto::UserConnProtocol::GameOutSyn);
             fwd.header.object_id = removed_char_id;
             // Payload: wMapNum(2B) + bIsExiting(1B) + padding(5B).
-            // Original AgentNetworkMsgParser.cpp sends dwMapNum so
-            // MapServer can route the response back to the right map
-            // channel. bIsExiting=1 marks a hard exit (vs a
-            // channel-change exit which uses bIsExiting=0).
+            // bIsExiting=1 marks a hard exit (a channel change uses 0).
             fwd.payload.resize(8, 0);
             std::memcpy(fwd.payload.data() + 0,
                         &removed_map_num, 2);
@@ -863,6 +866,11 @@ void AgentHandler::set_map_server(mxh::net::ITcpSender* client,
     map_client_ = client;
     map_conn_id_ = map_conn_id;
     map_routes_[default_map_num_] = MapRoute{client, map_conn_id};
+    // dwMapServerConnectionIndex stays on the user after the route slot
+    // is cleared (UserTable.cpp:396). Remember the last live sender.
+    if (client != nullptr) {
+        retained_map_senders_[default_map_num_] = MapRoute{client, map_conn_id};
+    }
 }
 
 void AgentHandler::set_map_server_for_map(
@@ -871,6 +879,75 @@ void AgentHandler::set_map_server_for_map(
     if (map_num == 0u) return;
     std::lock_guard<std::mutex> lk(map_route_mu_);
     map_routes_[map_num] = MapRoute{client, map_conn_id};
+    if (client != nullptr) {
+        retained_map_senders_[map_num] = MapRoute{client, map_conn_id};
+    }
+}
+
+void AgentHandler::release_map_sender(mxh::net::ITcpSender* client) {
+    if (client == nullptr) return;
+    std::unique_lock<std::mutex> lk(map_route_mu_);
+    if (map_client_ == client) {
+        map_client_ = nullptr;
+        map_conn_id_ = {};
+    }
+    for (auto& entry : map_routes_) {
+        if (entry.second.client == client) {
+            entry.second.client = nullptr;
+            entry.second.connection = {};
+        }
+    }
+    for (auto it = retained_map_senders_.begin(); it != retained_map_senders_.end();) {
+        if (it->second.client == client) it = retained_map_senders_.erase(it);
+        else ++it;
+    }
+    map_sender_cv_.wait(lk, [this] { return map_sender_claims_ == 0; });
+}
+
+AgentHandler::MapLeaveClaim AgentHandler::claim_map_leave_sender(
+    std::uint16_t map_num) {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    MapRoute route{};
+    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
+        route = it->second;
+    } else {
+        route = MapRoute{map_client_, map_conn_id_};
+    }
+    MapRoute retained{};
+    if (const auto it = retained_map_senders_.find(map_num);
+        it != retained_map_senders_.end()) {
+        retained = it->second;
+    }
+    const MapLeaveEndpoint route_ep{
+        route.client != nullptr,
+        route.client != nullptr && route.client->is_connected()};
+    const MapLeaveEndpoint retained_ep{
+        retained.client != nullptr,
+        retained.client != nullptr && retained.client->is_connected()};
+    MapRoute selected{};
+    switch (select_map_leave_forward(route_ep, retained_ep)) {
+        case MapLeaveForward::Route:
+            selected = route;
+            break;
+        case MapLeaveForward::RetainedConnection:
+            selected = retained;
+            break;
+        case MapLeaveForward::None:
+            break;
+    }
+    MapLeaveClaim claim;
+    if (selected.client != nullptr) {
+        ++map_sender_claims_;
+        claim.self = this;
+        claim.route = selected;
+    }
+    return claim;
+}
+
+void AgentHandler::end_map_sender_claim() noexcept {
+    std::lock_guard<std::mutex> lk(map_route_mu_);
+    if (map_sender_claims_ > 0) --map_sender_claims_;
+    map_sender_cv_.notify_all();
 }
 
 AgentHandler::MapRoute AgentHandler::route_for_connection(
