@@ -1,12 +1,20 @@
 # Windows LocalDB check for the owned-process job object.
 # GitLab has no windows-latest SqlLocalDB runner, so this job is GitHub-only.
-# It runs only on workflow_dispatch, never on push or pull_request.
-# A SKIPPED or E2E_UNAVAILABLE result is not a pass.
+# pull_request (not pull_request_target) runs it when the smoke script, its
+# test, or this workflow changes. workflow_dispatch remains. It is not a
+# required check. The job reads contents only and references no secrets, so
+# a public fork pull request can run it. A SKIPPED or E2E_UNAVAILABLE
+# result is not a pass.
 
 name: commercial-smoke-localdb-windows
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/commercial-smoke.ps1
+      - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+      - .github/workflows/commercial-smoke-localdb-windows.yml
 
 permissions:
   contents: read

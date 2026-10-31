@@ -177,6 +177,40 @@ function Stop-TestProcess {
     } catch { }
 }
 
+function Get-TestProcessStartTicks {
+    param([int]$ProcessId)
+    # UTC StartTime ticks. A reused PID does not keep the same value.
+    if ($ProcessId -le 0) { return [int64]0 }
+    try {
+        $live = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+        if ($null -eq $live) { return [int64]0 }
+        try { $live.Refresh() } catch { }
+        try { if ([bool]$live.HasExited) { return [int64]0 } } catch { return [int64]0 }
+        $started = $live.StartTime
+        if ($null -eq $started) { return [int64]0 }
+        $ticks = [int64]$started.ToUniversalTime().Ticks
+        if ($ticks -le 0) { return [int64]0 }
+        return $ticks
+    } catch {
+        return [int64]0
+    }
+}
+
+function Stop-TestPidIfSameStart {
+    param(
+        [int]$ProcessId,
+        [int64]$StartTicks
+    )
+    # Stop only when the live process is still the one recorded earlier.
+    # A missing or different start time means the PID is already gone.
+    if ($ProcessId -le 0) { return }
+    if ($StartTicks -le 0) { return }
+    $liveTicks = Get-TestProcessStartTicks -ProcessId $ProcessId
+    if ($liveTicks -le 0) { return }
+    if ($liveTicks -ne $StartTicks) { return }
+    try { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+}
+
 function Invoke-OwnedCapture {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
@@ -1583,10 +1617,43 @@ try {
     }
     }
 
+    Invoke-Case 'stop pid checks start time' {
+        $target = $null
+        $targetPid = 0
+        $targetStart = [int64]0
+        try {
+            $exe = New-MxhServerNamedExe -ProcessName 'mxh_agent_server'
+            $target = Start-Process -FilePath $exe -ArgumentList '30' -PassThru -NoNewWindow
+            try { $null = $target.Handle } catch { }
+            $targetPid = [int]$target.Id
+            $deadline = [Diagnostics.Stopwatch]::StartNew()
+            while ($deadline.ElapsedMilliseconds -lt 5000 -and $targetStart -le 0) {
+                $targetStart = Get-TestProcessStartTicks -ProcessId $targetPid
+                if ($targetStart -le 0) { Start-Sleep -Milliseconds 50 }
+            }
+            Assert-True ($targetStart -gt 0) 'start time was not recorded for the sleeper'
+            Assert-True (Test-PidStillRunning -ProcessId $targetPid) 'sleeper exited before the identity check'
+            Stop-TestPidIfSameStart -ProcessId $targetPid -StartTicks ([int64]0)
+            Assert-True (Test-PidStillRunning -ProcessId $targetPid) 'a missing start time must not stop the PID'
+            Stop-TestPidIfSameStart -ProcessId $targetPid -StartTicks ([int64]1)
+            Assert-True (Test-PidStillRunning -ProcessId $targetPid) 'a mismatched start time must not stop the PID'
+            Stop-TestPidIfSameStart -ProcessId $targetPid -StartTicks $targetStart
+            $gone = [Diagnostics.Stopwatch]::StartNew()
+            while ($gone.ElapsedMilliseconds -lt 5000 -and (Test-PidStillRunning -ProcessId $targetPid)) {
+                Start-Sleep -Milliseconds 50
+            }
+            Assert-True (-not (Test-PidStillRunning -ProcessId $targetPid)) 'the recorded start time must stop that PID'
+        } finally {
+            Stop-TestPidIfSameStart -ProcessId $targetPid -StartTicks $targetStart
+        }
+    }
+
     if ($IsWindows) {
         Invoke-Case 'owned executable timeout' {
             $outside = $null
+            $outsideStart = [int64]0
             $ownedPid = 0
+            $ownedStart = [int64]0
             try {
                 $sleeper = New-MxhServerNamedExe -ProcessName 'mxh_map_server_CHINA'
                 $warm = Invoke-OwnedCapture -FilePath $sleeper -ArgumentList @('0') -TimeoutSeconds 30
@@ -1603,6 +1670,8 @@ try {
                 }
                 Assert-True ($outsideName -eq 'mxh_map_server_CHINA') "outside process name was [$outsideName]"
                 Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'outside process exited before the timeout run'
+                $outsideStart = Get-TestProcessStartTicks -ProcessId ([int]$outside.Id)
+                Assert-True ($outsideStart -gt 0) 'outside start time was not recorded'
                 $sw = [Diagnostics.Stopwatch]::StartNew()
                 $cap = Invoke-OwnedCapture -FilePath $sleeper -ArgumentList @('60') -TimeoutSeconds 3
                 $sw.Stop()
@@ -1614,7 +1683,11 @@ try {
                 foreach ($entry in @($cap.Result.Owned)) {
                     if ($null -eq $entry) { continue }
                     $ownedPid = [int]$entry.Id
+                    try { $ownedStart = [int64]$entry.StartTicks } catch { $ownedStart = [int64]0 }
                     break
+                }
+                if ($ownedPid -gt 0 -and $ownedStart -le 0) {
+                    $ownedStart = Get-TestProcessStartTicks -ProcessId $ownedPid
                 }
                 Assert-True ($ownedPid -gt 0 -and $ownedPid -ne [int]$outside.Id) "owned pid was $ownedPid outside $($outside.Id)"
                 $gone = [Diagnostics.Stopwatch]::StartNew()
@@ -1625,14 +1698,12 @@ try {
                 Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'timeout cleanup stopped a same-named process outside the job'
                 $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's'
             } finally {
-                Stop-TestProcess -Process $outside
-                if ($ownedPid -gt 0) {
-                    try {
-                        if (Test-PidStillRunning -ProcessId $ownedPid) {
-                            Stop-Process -Id $ownedPid -Force -ErrorAction SilentlyContinue
-                        }
-                    } catch { }
+                $outsideId = 0
+                if ($null -ne $outside) {
+                    try { $outsideId = [int]$outside.Id } catch { $outsideId = 0 }
                 }
+                Stop-TestPidIfSameStart -ProcessId $outsideId -StartTicks $outsideStart
+                Stop-TestPidIfSameStart -ProcessId $ownedPid -StartTicks $ownedStart
             }
         }
 
@@ -1641,7 +1712,9 @@ try {
             # inherits stdout. A same-named process started outside the job
             # must survive. No original game bytes.
             $outside = $null
+            $outsideStart = [int64]0
             $orphanPid = 0
+            $orphanStart = [int64]0
             try {
                 $dir = Join-Path $script:Root ('orphan-' + [guid]::NewGuid().ToString('n'))
                 New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -1752,6 +1825,8 @@ class OrphanParent {
                 }
                 Assert-True ($outsideName -eq 'mxh_login_server') "outside process name was [$outsideName]"
                 Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'outside process exited before the orphan run'
+                $outsideStart = Get-TestProcessStartTicks -ProcessId ([int]$outside.Id)
+                Assert-True ($outsideStart -gt 0) 'outside start time was not recorded'
                 $sw = [Diagnostics.Stopwatch]::StartNew()
                 $cap = Invoke-OwnedCapture -FilePath $parentExe -ArgumentList @('orphan-parent') -TimeoutSeconds 90
                 $sw.Stop()
@@ -1767,6 +1842,7 @@ class OrphanParent {
                 Assert-True ($parentArgs -contains 'orphan-parent') "parent args were [$($parentArgs -join '|')]"
                 $orphanRaw = [IO.File]::ReadAllText($parentExe + '.orphanpid').Trim()
                 Assert-True ([int]::TryParse($orphanRaw, [ref]$orphanPid) -and $orphanPid -gt 0) "orphan pid text [$orphanRaw]"
+                $orphanStart = Get-TestProcessStartTicks -ProcessId $orphanPid
                 Assert-True ($orphanPid -ne [int]$outside.Id) 'orphan pid collided with the outside process'
                 $gone = [Diagnostics.Stopwatch]::StartNew()
                 while ($gone.ElapsedMilliseconds -lt 5000 -and (Test-PidStillRunning -ProcessId $orphanPid)) {
@@ -1781,14 +1857,12 @@ class OrphanParent {
                 }
                 $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's inOwned=' + [int]$inOwned
             } finally {
-                Stop-TestProcess -Process $outside
-                if ($orphanPid -gt 0) {
-                    try {
-                        if (Test-PidStillRunning -ProcessId $orphanPid) {
-                            Stop-Process -Id $orphanPid -Force -ErrorAction SilentlyContinue
-                        }
-                    } catch { }
+                $outsideId = 0
+                if ($null -ne $outside) {
+                    try { $outsideId = [int]$outside.Id } catch { $outsideId = 0 }
                 }
+                Stop-TestPidIfSameStart -ProcessId $outsideId -StartTicks $outsideStart
+                Stop-TestPidIfSameStart -ProcessId $orphanPid -StartTicks $orphanStart
             }
         }
     }
