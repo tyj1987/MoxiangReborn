@@ -175,7 +175,31 @@ if ($SyntheticPackage) {
         Write-Host 'SYNTHETIC_PACKAGE refuses the repo PlayDH tree'
         exit 1
     }
-    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    $mxhTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\', '/')
+    $mxhTempPrefix = $mxhTempRoot + [System.IO.Path]::DirectorySeparatorChar
+    foreach ($mxhPair in @(
+        @{ Name = '-ResourceDir'; Value = $ResourceDir },
+        @{ Name = '-DeployDir'; Value = $DeployDir }
+    )) {
+        if (-not (Test-Path -LiteralPath $mxhPair.Value -PathType Container)) {
+            Write-Host ("SYNTHETIC_PACKAGE " + $mxhPair.Name + " must resolve under the system temp dir: " + $mxhPair.Value)
+            exit 1
+        }
+        $mxhFull = [System.IO.Path]::GetFullPath((Resolve-Path -LiteralPath $mxhPair.Value).Path).TrimEnd('\', '/')
+        $mxhUnder = ($mxhFull -eq $mxhTempRoot) -or $mxhFull.StartsWith($mxhTempPrefix, [System.StringComparison]::OrdinalIgnoreCase)
+        if (-not $mxhUnder) {
+            Write-Host ("SYNTHETIC_PACKAGE " + $mxhPair.Name + " must resolve under the system temp dir: " + $mxhFull)
+            exit 1
+        }
+        if ($mxhPair.Name -eq '-ResourceDir') { $ResourceDir = $mxhFull } else { $DeployDir = $mxhFull }
+    }
+    $mxhPak = @(Get-ChildItem -LiteralPath $ResourceDir -Recurse -File -Force | Where-Object {
+        $_.Extension.Equals('.pak', [System.StringComparison]::OrdinalIgnoreCase)
+    })
+    if ($mxhPak.Count -gt 0) {
+        Write-Host ("SYNTHETIC_PACKAGE -ResourceDir must not contain a .pak file: " + $mxhPak[0].Name)
+        exit 1
+    }
     Write-Host 'SYNTHETIC_PACKAGE skip profile hash verification'
 } else {
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
