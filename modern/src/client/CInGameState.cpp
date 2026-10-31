@@ -31,6 +31,8 @@
 #include "mxh/log/mlog.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/game/npc_role.hpp"
+#include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/original_item_obtain_codec.hpp"
 #include "mxh/proto/protocol.hpp"
 #include "mxh/ui/bigmapdlg.hpp"
 #include "mxh/ui/guagedialog.hpp"
@@ -367,15 +369,15 @@ mxh::net::Message make_pickup_message(std::uint32_t player_id,
 
 std::optional<GroundDropInfo>
 parse_legacy_ground_drop(std::span<const std::uint8_t> payload) {
-    if (payload.size() < 20) return std::nullopt;
+    const auto body = mxh::proto::decode_ground_item_add(payload);
+    if (!body) return std::nullopt;
     GroundDropInfo drop;
-    drop.object_id = get_u32(payload.data());
-    drop.source_monster_id = get_u32(payload.data() + 4);
-    drop.item_id = get_u16(payload.data() + 8);
-    drop.count = get_u16(payload.data() + 10);
-    std::memcpy(&drop.position_x, payload.data() + 12, sizeof(float));
-    std::memcpy(&drop.position_z, payload.data() + 16, sizeof(float));
-    if (drop.object_id == 0 || drop.item_id == 0) return std::nullopt;
+    drop.object_id = body->object_id;
+    drop.source_monster_id = body->source_monster_id;
+    drop.item_id = body->item_id;
+    drop.count = body->count;
+    drop.position_x = body->pos_x;
+    drop.position_z = body->pos_z;
     return drop;
 }
 
@@ -2498,10 +2500,10 @@ std::uint32_t CInGameState::pick_drop_at_screen(float sx, float sy) const {
 void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
     const auto proto = msg.header.protocol;
     if (proto == static_cast<std::uint8_t>(
-            mxh::proto::ItemProtocol::MonsterObtainNotify)) {
+            mxh::proto::ItemProtocol::GroundItemAdd)) {
         auto drop = parse_legacy_ground_drop(msg.payload);
         if (!drop) {
-            MLOG_WARN("CInGameState: MonsterObtainNotify payload too short (%zu)",
+            MLOG_WARN("CInGameState: GroundItemAdd payload rejected (%zu)",
                       msg.payload.size());
             return;
         }
@@ -2515,6 +2517,24 @@ void CInGameState::handle_item_broadcast(const mxh::net::Message& msg) {
         MLOG_INFO("CInGameState: ground drop id=%u item=%u pos=(%.0f,%.0f)",
                   drop->object_id, drop->item_id,
                   drop->position_x, drop->position_z);
+        return;
+    }
+    if (proto == static_cast<std::uint8_t>(
+            mxh::proto::ItemProtocol::MonsterObtainNotify)) {
+        const auto obtained =
+            mxh::proto::original_item::decode_item_obtain_payload(msg.payload);
+        if (!obtained) {
+            MLOG_WARN("CInGameState: direct obtain payload rejected (%zu)",
+                      msg.payload.size());
+            return;
+        }
+        for (const auto& item : obtained->items) {
+            if (item.Position >= mxh::game::SLOT_INVENTORY_NUM) continue;
+            m_info.items.Inventory[item.Position] = item;
+        }
+        if (m_inventoryOpen) set_inventory_open(true);
+        MLOG_INFO("CInGameState: direct obtain records=%zu count=%u",
+                  obtained->items.size(), obtained->obtain_count);
         return;
     }
     if (proto == static_cast<std::uint8_t>(

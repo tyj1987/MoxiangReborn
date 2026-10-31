@@ -2,6 +2,8 @@
 #include "GameWorldInputBinding.hpp"
 #include "mxh/game/hero_total_layout.hpp"
 #include "mxh/net/net.hpp"
+#include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/original_item_obtain_codec.hpp"
 
 #include <gtest/gtest.h>
 
@@ -1300,7 +1302,7 @@ TEST(InGamePlayable, RightDragStartsFromPressCoordinate) {
     state.OnMouseButton(false, false, 410, 300);
 }
 
-TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
+TEST(InGamePlayable, GroundItemAddBecomesGroundDropAndPickupAckClearsIt) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
     state.on_message(mxh::net::make_connection_id(1),
@@ -1310,7 +1312,7 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     notify.header.category = static_cast<std::uint8_t>(
         mxh::proto::Category::Item);
     notify.header.protocol = static_cast<std::uint8_t>(
-        mxh::proto::ItemProtocol::MonsterObtainNotify);
+        mxh::proto::ItemProtocol::GroundItemAdd);
     notify.payload.resize(20, 0);
     const std::uint32_t drop_id = 9001u;
     const std::uint32_t source = 50001u;
@@ -1367,6 +1369,42 @@ TEST(InGamePlayable, MonsterObtainNotifyBecomesGroundDropAndPickupAckClearsIt) {
     EXPECT_EQ(state.game_info().items.Inventory[5].dwDBIdx, persistent_id);
 }
 
+TEST(InGamePlayable, DirectObtainUpdatesInventoryAndRejectsGroundBody) {
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+
+    mxh::net::Message ground;
+    ground.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    ground.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::MonsterObtainNotify);
+    mxh::proto::GroundItemAddBody body;
+    body.object_id = 9100u;
+    body.item_id = 501u;
+    body.count = 1u;
+    const auto ground_payload = mxh::proto::encode_ground_item_add(body);
+    ASSERT_TRUE(ground_payload);
+    ground.payload = *ground_payload;
+    state.on_message(mxh::net::make_connection_id(1), ground);
+    EXPECT_TRUE(state.ground_drops().empty());
+    EXPECT_TRUE(mxh::game::is_empty_slot(state.game_info().items.Inventory[4]));
+
+    mxh::proto::original_item::ItemObtainArray obtained;
+    obtained.obtain_count = 1u;
+    obtained.items.push_back(mxh::game::make_item(7001u, 501u, 4u, 100u, 1u));
+    const auto obtain_payload =
+        mxh::proto::original_item::encode_item_obtain_payload(obtained);
+    ASSERT_TRUE(obtain_payload);
+    mxh::net::Message direct;
+    direct.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    direct.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::ItemProtocol::MonsterObtainNotify);
+    direct.payload = *obtain_payload;
+    state.on_message(mxh::net::make_connection_id(1), direct);
+    EXPECT_TRUE(state.ground_drops().empty());
+    EXPECT_EQ(state.game_info().items.Inventory[4].dwDBIdx, 7001u);
+    EXPECT_EQ(state.game_info().items.Inventory[4].wIconIdx, 501u);
+}
+
 TEST(InGamePlayable, ItemNacksBecomeVisiblePlayerFeedback) {
     mxh::client::CInGameState state;
     state.Init(nullptr);
@@ -1395,7 +1433,7 @@ TEST(InGamePlayable, InvalidPickupAckDoesNotConsumeGroundDrop) {
                      make_gamein_ack_at(25000, 25000));
     mxh::net::Message notify;
     notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     notify.payload.resize(20, 0);
     const std::uint32_t drop_id = 9020u;
     const std::uint16_t item_id = 502u;
@@ -1423,7 +1461,7 @@ TEST(InGamePlayable, ScreenPickupRejectsDropOutsideWorldRange) {
 
     mxh::net::Message notify;
     notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     notify.payload.resize(20, 0);
     const std::uint32_t drop_id = 9021u;
     const std::uint16_t item_id = 503u;

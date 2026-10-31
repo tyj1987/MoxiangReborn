@@ -529,6 +529,7 @@ enum class GuildProtocol : std::uint8_t {
     X(PickupSyn, 251) \
     X(PickupAck, 252) \
     X(PickupNack, 253) \
+    X(GroundItemAdd, 254) \
     X(ShopItemChaseSyn, 154) \
     X(ShopItemChaseAck, 155) \
     X(ShopItemChaseNack, 156) \
@@ -559,7 +560,7 @@ inline constexpr std::size_t kItemProtocolCount =
 
 static_assert(kItemProtocolCount == kItemProtocolEnumeratorCount,
               "ItemProtocol value list must name every enumerator");
-static_assert(kItemProtocolCount == 59,
+static_assert(kItemProtocolCount == 60,
               "update the ItemProtocol list and this count together");
 
 // ============================================================================

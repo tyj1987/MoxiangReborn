@@ -3049,7 +3049,7 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     ASSERT_TRUE(drop.has_value());
     const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.protocol ==
-            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     });
     ASSERT_NE(notify, replies.end());
 
@@ -3515,7 +3515,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
 
     const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
-            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     });
     ASSERT_NE(notify, replies.end());
     EXPECT_EQ(notify->header.object_id, 123u);
@@ -3569,7 +3569,7 @@ TEST(MapHandlerTest, RevisionedKillPublishesGroundObtainAndPersistsPickup) {
     EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(
-                mxh::proto::ItemProtocol::MonsterObtainNotify);
+                mxh::proto::ItemProtocol::GroundItemAdd);
     }));
     ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
