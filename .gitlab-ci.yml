@@ -234,6 +234,7 @@ cxx_resource_reference_linux:
       require_passed ItemProtocol.PickupDoesNotOccupyOriginalBuy || status=1
       require_passed ItemProtocol.DisplacedNumbersMatchOriginal || status=1
       require_passed ItemProtocol.AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax || status=1
+      require_passed ItemProtocol.GroundAddIsNotDirectObtain || status=1
       if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
         echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
         status=1

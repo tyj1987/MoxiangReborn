@@ -3,6 +3,7 @@
 // has an original counterpart must use that counterpart's number.
 // Ground-drop versus direct-to-inventory payload paths are a separate change.
 
+#include "mxh/proto/original_item_obtain_codec.hpp"
 #include "mxh/proto/original_item_profile.hpp"
 #include "mxh/proto/protocol.hpp"
 
@@ -11,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+#include <vector>
 
 namespace {
 
@@ -421,4 +423,29 @@ TEST(ItemProtocol, AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax) {
             EXPECT_NE(value, original_number(assigned));
         }
     }
+}
+
+TEST(ItemProtocol, GroundAddIsNotDirectObtain) {
+    unsigned ground_add = 0;
+    unsigned extension_count = 0;
+    for (std::size_t i = 0; i < mxh::proto::kItemProtocolCount; ++i) {
+        const unsigned value = modern_number(mxh::proto::kItemProtocolValues[i]);
+        const bool pickup =
+            value == modern_number(Modern::PickupSyn) ||
+            value == modern_number(Modern::PickupAck) ||
+            value == modern_number(Modern::PickupNack);
+        if (value > 250u && value < 256u && !pickup) {
+            ++extension_count;
+            ground_add = value;
+        }
+    }
+    EXPECT_EQ(extension_count, 1u);
+    EXPECT_EQ(ground_add, 254u);
+    EXPECT_NE(ground_add, modern_number(Modern::MonsterObtainNotify));
+    EXPECT_EQ(modern_number(Modern::MonsterObtainNotify), 32u);
+
+    std::vector<std::uint8_t> ground_body(20u, 0u);
+    ground_body[0] = 1u;
+    ground_body[8] = 1u;
+    EXPECT_FALSE(mxh::proto::original_item::decode_item_obtain_payload(ground_body));
 }
