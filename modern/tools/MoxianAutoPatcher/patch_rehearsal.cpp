@@ -165,6 +165,9 @@ bool payload_was_applied(const fs::path& manifest_path, const TreeManifest& befo
         if (line.empty() || line[0] == '#') continue;
         if (line.rfind("VERSION=", 0) == 0) continue;
         const auto fields = split_tabs(line);
+        // A FILE record with any other shape is a malformed manifest.
+        // Skipping it would let the remaining rows look fully applied.
+        if (!fields.empty() && fields[0] == "FILE" && fields.size() != 5) return false;
         if (fields.size() != 5 || fields[0] != "FILE") continue;
         ++files;
         const std::string expected = lower_hex(fields[3]);
@@ -454,7 +457,8 @@ RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout, bool cli_own
         // own rollback(). A failed update() has already rolled itself back,
         // so this snapshot is the restored tree and the payload check fails.
         const TreeManifest applied = capture_tree_manifest(layout.game);
-        applied_ok = update_ok && payload_was_applied(layout.manifest, before, applied);
+        const bool payloads_ok = payload_was_applied(layout.manifest, before, applied);
+        applied_ok = update_ok && payloads_ok;
         try {
             rollback_exit = transaction.rollback();
         } catch (const std::exception&) {

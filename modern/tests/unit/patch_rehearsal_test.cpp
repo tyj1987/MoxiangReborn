@@ -281,6 +281,35 @@ TEST_F(PatchRehearsal, NoOpUpdateDoesNotPass) {
     EXPECT_FALSE(fs::exists(game / ".update-journal"));
 }
 
+TEST_F(PatchRehearsal, MalformedManifestFileLineFails) {
+    const fs::path root = make_temp();
+    const fs::path game = root / "game";
+    write_bytes(game / "bin" / "client.dat", "installed-bytes");
+    write_bytes(game / "MHVerInfo.ver", "VERSION=1.0.0.0\nCHANNEL=rehearsal\n");
+    const auto before = mxh::patch::capture_tree_manifest(game);
+    const fs::path manifest = root / "manifest.txt";
+    write_bytes(manifest,
+                "VERSION=3.0.0.0\n"
+                "FILE\tbin/client.dat\tfile:///tmp/rehearsal-payload\tabc\n");
+
+    mxh::patch::RehearsalLayout layout;
+    layout.root = root;
+    layout.game = game;
+    layout.payload = root / "payload";
+    layout.manifest = manifest;
+    layout.manifest_sha256 = mxh::patch::sha256_file(manifest);
+    layout.update_files = 1;
+    const auto result = mxh::patch::execute_rehearsal(layout);
+
+    EXPECT_FALSE(result.applied_ok);
+    EXPECT_FALSE(result.pass) << result.text;
+    EXPECT_NE(result.text.find("PATCH_REHEARSAL APPLIED MISMATCH"), std::string::npos) << result.text;
+    EXPECT_EQ(result.text.find("PATCH_REHEARSAL PASS"), std::string::npos) << result.text;
+    EXPECT_EQ(result.text.find("PATCH_REHEARSAL APPLIED OK"), std::string::npos) << result.text;
+    EXPECT_EQ(mxh::patch::capture_tree_manifest(game), before);
+    EXPECT_EQ(read_bytes(game / "bin" / "client.dat"), "installed-bytes");
+}
+
 TEST_F(PatchRehearsal, AllowsOwnedTempWithoutRepository) {
     const fs::path owned = make_temp() / "mxh-patch-rehearsal-player";
     const fs::path empty_repository;
