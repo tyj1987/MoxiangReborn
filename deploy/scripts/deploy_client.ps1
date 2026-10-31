@@ -112,7 +112,7 @@ if ($SelfTest) {
         $mxhInjected = Join-Path $mxhPlayDh 'MHClientInjected.exe'
         New-Item -ItemType Directory -Path (Split-Path -Parent $mxhInjected) -Force | Out-Null
         [System.IO.File]::WriteAllBytes($mxhInjected, [Text.Encoding]::ASCII.GetBytes('synthetic-injected'))
-        Invoke-MxhPackageGateCase -Name 'scan-injected' -Root $mxhPackage -ExpectZero $true -ExpectText 'PLAYDH_PACKAGE_FORBIDDEN data/PlayDH/MHClientInjected.exe'
+        Invoke-MxhPackageGateCase -Name 'scan-injected' -Root $mxhPackage -ExpectZero $false -ExpectText 'PLAYDH_PACKAGE_FORBIDDEN data/PlayDH/MHClientInjected.exe'
     } finally {
         if (Test-Path -LiteralPath $mxhTemp) {
             Remove-Item -LiteralPath $mxhTemp -Recurse -Force
