@@ -47,6 +47,7 @@ workflow:
         - .gitleaks.toml
         - scripts/gitleaks-selftest.py
         - scripts/tests/test_check_client_warnings.py
+        - scripts/check-client-warnings.py
         - reference/manifests/**/*
     # Separate from python_tooling_changes so a C++-only diff does not schedule
     # original_governance_and_python_tests or rog_gate_self_test. The workflow

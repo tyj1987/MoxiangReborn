@@ -93,6 +93,16 @@
 #   NON_LFS_PAK <path> bytes=<n>，不打印文件内容，并且失败。
 #   报告只打印 rule id 和 path:line，并带 --redact=100。
 # - rules 与 original_governance_and_python_tests 相同。
+#
+# gitleaks_history
+# - Report-only full-history scan. Not a GitLab job and not a required check.
+#   continue-on-error: true. Becomes required after history cleanup (owner-only).
+# - actions/checkout fetch-depth: 0 so `gitleaks git` sees full history. The
+#   Alpine jobs stay depth 1 and still scan the working tree only.
+# - Same pinned gitleaks 8.30.1 linux_x64 tarball and sha256 as gitleaks_tree_scan.
+#   `gitleaks git` with --redact=100. The log prints
+#   GITLEAKS_HISTORY REPORT_ONLY findings=N and per-rule counts only.
+#   Secret values, match text, and excerpts are not printed. GIT_LFS_SKIP_SMUDGE=1.
 
 name: original_governance_and_python_tests
 
@@ -131,6 +141,7 @@ on:
       - .gitleaks.toml
       - scripts/gitleaks-selftest.py
       - scripts/tests/test_check_client_warnings.py
+      - scripts/check-client-warnings.py
       - reference/manifests/**
       - modern/CMakeLists.txt
       - modern/tests/**
@@ -490,6 +501,93 @@ jobs:
           python3 scripts/gitleaks-selftest.py --check-paks . || status=1
           python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan . || status=1
           exit "$status"
+
+  # Report-only. Not a required check. continue-on-error keeps findings from
+  # failing the workflow. Becomes required after history cleanup (owner-only).
+  gitleaks_history:
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: false
+
+      - name: gitleaks_history
+        run: |
+          set -eu
+          gitleaks_dir="$(mktemp -d)"
+          tarball="${gitleaks_dir}/gitleaks_8.30.1_linux_x64.tar.gz"
+          python3 - "$tarball" <<'PY'
+          import hashlib, pathlib, sys, urllib.request
+          dest = pathlib.Path(sys.argv[1])
+          url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          expected = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          urllib.request.urlretrieve(url, dest)
+          digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+          if digest != expected:
+              raise SystemExit("gitleaks sha256 mismatch")
+          PY
+          tar -xzf "${tarball}" -C "${gitleaks_dir}"
+          chmod +x "${gitleaks_dir}/gitleaks"
+          report="$(mktemp)"
+          stdout="$(mktemp)"
+          stderr="$(mktemp)"
+          cleanup() { rm -f "$report" "$stdout" "$stderr"; }
+          trap cleanup EXIT
+          set +e
+          "${gitleaks_dir}/gitleaks" git . \
+            --config .gitleaks.toml \
+            --redact=100 \
+            --no-banner \
+            --log-level error \
+            --report-format json \
+            --report-path "$report" \
+            --exit-code 2 \
+            >"$stdout" 2>"$stderr"
+          rc=$?
+          set -e
+          python3 - "$report" "$rc" <<'PY'
+          import json, re, sys
+          from collections import Counter
+          from pathlib import Path
+
+          report = Path(sys.argv[1])
+          rc = int(sys.argv[2])
+          rule_id = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}")
+          data = None
+          if report.is_file() and report.stat().st_size:
+              try:
+                  data = json.loads(report.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  data = None
+          if data is None and rc == 0:
+              data = []
+          if not isinstance(data, list):
+              print(f"GITLEAKS_HISTORY SCAN_ERROR exit={rc}", file=sys.stderr)
+              raise SystemExit(1)
+          counts = Counter()
+          for item in data:
+              if not isinstance(item, dict):
+                  rule = "unknown"
+              else:
+                  rule = item.get("RuleID")
+                  if not isinstance(rule, str) or rule_id.fullmatch(rule) is None:
+                      rule = "unknown"
+              counts[rule] += 1
+          total = sum(counts.values())
+          print(f"GITLEAKS_HISTORY REPORT_ONLY findings={total}")
+          for rule in sorted(counts):
+              print(f"GITLEAKS_HISTORY RULE {rule} count={counts[rule]}")
+          if rc not in (0, 2):
+              print(f"GITLEAKS_HISTORY SCAN_ERROR exit={rc}", file=sys.stderr)
+              raise SystemExit(1)
+          PY
 
   # playdh_baseline_check
   # Compares modern/data/PlayDH to playdh-current.sha256.json. LFS files stay
