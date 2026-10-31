@@ -22,6 +22,7 @@ workflow:
         - scripts/check-project-governance.py
         - scripts/check-no-pak-changes.py
         - scripts/check-ps1-encoding.py
+        - scripts/playdh_baseline_check.py
         - scripts/rog-gate-build.ps1
         - scripts/clean-deploy.ps1
         - scripts/commercial-smoke.ps1
@@ -268,6 +269,29 @@ original_lfs_integrity:
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
   script:
     - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+
+# Same checks as the GitHub job playdh_baseline_check. The runner smudges LFS
+# when GIT_LFS_SKIP_SMUDGE=0. Any PR that changes playdh-current.sha256.json
+# must state that it was approved by 战略专家.
+playdh_baseline_check:
+  extends: .linux_trusted
+  stage: resources
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes:
+        - scripts/playdh_baseline_check.py
+        - .gitlab-ci.yml
+        - .github/workflows/python-tools.yml
+        - reference/manifests/**/*
+  script:
+    - apk add --no-cache git
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - python3 scripts/playdh_baseline_check.py --self-test
+    - python3 scripts/playdh_baseline_check.py --check
 
 # Warn-only extension of the MxhResourceReference gate. Exit 0 until
 # MXH_RESOURCE_REF_STRICT=1. Does not fetch LFS and does not read original

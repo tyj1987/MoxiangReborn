@@ -92,6 +92,7 @@ on:
       - scripts/check-project-governance.py
       - scripts/check-no-pak-changes.py
       - scripts/check-ps1-encoding.py
+      - scripts/playdh_baseline_check.py
       - scripts/rog-gate-build.ps1
       - scripts/clean-deploy.ps1
       - scripts/commercial-smoke.ps1
@@ -405,3 +406,58 @@ jobs:
             status=1
           fi
           exit "$status"
+
+  # playdh_baseline_check
+  # Hashes modern/data/PlayDH against reference/manifests/playdh-current.sha256.json
+  # and rejects any tracked file whose sha256 is a decodedMaps entry.
+  # Checkout skips LFS smudge so the self-test can fail before the LFS download.
+  # The fetch step then pulls real LFS bytes. The check fails if a file is still
+  # an LFS pointer. Any PR that changes playdh-current.sha256.json must state
+  # that it was approved by 战略专家.
+  playdh_baseline_check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GIT_LFS_SKIP_SMUDGE: "1"
+        run: |
+          set -euo pipefail
+          command -v git
+          command -v git-lfs
+          git lfs version
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git lfs install --local
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            git checkout --detach FETCH_HEAD
+          fi
+          rm -f "$askpass"
+
+      - name: playdh_baseline_self_test
+        run: python3 scripts/playdh_baseline_check.py --self-test
+
+      - name: Fetch PlayDH LFS objects
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=0 git lfs pull
+          GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=0 git lfs checkout
+          rm -f "$askpass"
+
+      - name: playdh_baseline_check
+        run: python3 scripts/playdh_baseline_check.py --check
