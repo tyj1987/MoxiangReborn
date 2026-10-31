@@ -35,6 +35,7 @@ workflow:
         - scripts/soak-24h.ps1
         - scripts/soak-24h.cmd
         - scripts/tests/test-soak-24h.ps1
+        - scripts/tests/test-forbidden-rog-ports.ps1
         - scripts/tests/test-deploy-default-map.ps1
         - scripts/tests/test-playdh-root-remaining.ps1
         - scripts/capture-state-frames.ps1
@@ -144,6 +145,7 @@ rog_gate_self_test:
       run_cmd pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
       run_cmd pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
       run_cmd pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
+      run_cmd pwsh -NoProfile -File scripts/tests/test-forbidden-rog-ports.ps1
       run_cmd pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
       run_cmd pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
       run_cmd pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
