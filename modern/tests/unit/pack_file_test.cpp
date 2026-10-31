@@ -5,6 +5,10 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <windows.h>  // for GetModuleFileNameW to find resources relative to exe
@@ -39,6 +43,17 @@ const std::filesystem::path& playdh_root() {
     return r;
 }
 
+bool is_lfs_pointer_file(const std::filesystem::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+    char buf[64] = {};
+    in.read(buf, 63);
+    const auto n = static_cast<std::size_t>(in.gcount());
+    constexpr std::string_view kPrefix = "version https://git-lfs.github.com/spec/v1";
+    return n >= kPrefix.size() &&
+           std::string_view(buf, kPrefix.size()) == kPrefix;
+}
+
 }  // namespace
 
 TEST(PackFile, FindCaseInsensitive) {
@@ -69,20 +84,36 @@ TEST(PackFile, ParsesRealEffectPak) {
     EXPECT_GT(pack->parsed_count(), 1000u);
 }
 
+// Real archives are read only on ROG from D:\MX. This case is not a
+// required pass: a skip is not a pass. Synthetic coverage is
+// PackFileHeader.SyntheticNpcPetTitanArchivesRoundTrip.
 TEST(PackFile, ParsesAllRealPakFiles) {
-    if (playdh_root().empty()) {
-        GTEST_SKIP() << "PlayDH root not found";
-    }
     const char* files[] = {
         "Effect.pak", "Character.pak", "Map.pak", "monster.pak",
         "npc.pak", "Pet.pak", "Titan.pak"
     };
+    const auto root = playdh_root();
+    bool real_ready = !root.empty();
+    if (real_ready) {
+        for (auto f : files) {
+            const auto path = root / f;
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(path, ec) || is_lfs_pointer_file(path)) {
+                real_ready = false;
+                break;
+            }
+        }
+    }
+    if (!real_ready) {
+        for (auto f : files) {
+            std::cout << "SKIP real " << f << " absent: ROG-only\n";
+        }
+        GTEST_SKIP() << "SKIP real pak archives absent: ROG-only";
+    }
     int parsed_ok = 0;
     int total_entries = 0;
     for (auto f : files) {
-        auto p = playdh_root() / f;
-        if (!std::filesystem::exists(p)) continue;
-        auto pack = PackFile::open(p);
+        auto pack = PackFile::open(root / f);
         ASSERT_NE(pack, nullptr) << "Failed to open " << f;
         EXPECT_GT(pack->parsed_count(), 0u) << f << " had 0 entries parsed";
         parsed_ok++;

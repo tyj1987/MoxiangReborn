@@ -4,8 +4,8 @@
   "source": "canonical PlayDH current resource tree (derived runtime files excluded)",
   "root": "C:\\moxiang\\modern\\data\\PlayDH",
   "generatedAtUtc": "2026-08-25T00:49:35.7063415Z",
-  "fileCount": 5280,
-  "byteCount": 1672294142,
+  "fileCount": 5277,
+  "byteCount": 1571644134,
   "files": [
     {
       "path": "ANRaster.tga",
@@ -5516,16 +5516,6 @@
       "path": "NDSC08070301.mhd",
       "bytes": 61441,
       "sha256": "375d5dcb0cf9b91d09968539c26db3af73a87119b44b99174291d1435ed71c1d"
-    },
-    {
-      "path": "npc.pak",
-      "bytes": 37346588,
-      "sha256": "84a67e7fa4c9ded2e71b2390c5318cc7c9229d0eb4ec7bcbebab00c68d6b6218"
-    },
-    {
-      "path": "Pet.pak",
-      "bytes": 35193532,
-      "sha256": "fe08e7059c8ff025afd85b915c949e52c86d5296433d5c5612e7cb518d6d9b31"
     },
     {
       "path": "RainFTP.dll",
@@ -25571,11 +25561,6 @@
       "path": "SS3DRendererForMuk.rar",
       "bytes": 245066,
       "sha256": "39bd3b28239dfa01bbe4186289da3356081763eaed4d8d05dc21eb0393cf8490"
-    },
-    {
-      "path": "Titan.pak",
-      "bytes": 28109888,
-      "sha256": "271bdcdf17da86dcb6a20c1910d2ece74172935aa510c3ae8c1781858a60386e"
     },
     {
       "path": "uninst.exe",

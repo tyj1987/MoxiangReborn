@@ -471,3 +471,35 @@ TEST(PackFileHeader, RejectsNonPakBlob) {
     EXPECT_EQ(PackFile::open_buffer(garbage, &error), nullptr);
     EXPECT_EQ(error, "not a pak");
 }
+
+// Required stand-in for the deleted npc.pak, Pet.pak, and Titan.pak blobs.
+// Payloads are generated here. This does not open a PlayDH archive.
+TEST(PackFileHeader, SyntheticNpcPetTitanArchivesRoundTrip) {
+    struct Spec {
+        const char* archive;
+        const char* entry;
+        std::vector<std::uint8_t> payload;
+    };
+    const Spec specs[] = {
+        {"npc.pak", "npc\\synth.bin", {'n', 'p', 'c', '-', '1'}},
+        {"Pet.pak", "pet\\synth.bin", {'p', 'e', 't', '-', '2'}},
+        {"Titan.pak", "titan\\synth.bin", {'t', 'i', 'n', '-', '3'}},
+    };
+    for (const auto& spec : specs) {
+        const auto bytes = make_worktree_pak({{spec.entry, spec.payload}}, 1);
+        EXPECT_TRUE(PackFile::is_pak(bytes)) << spec.archive;
+        std::string error = "stale";
+        const auto pack = PackFile::open_buffer(bytes, &error);
+        ASSERT_NE(pack, nullptr) << spec.archive << " " << error;
+        EXPECT_TRUE(error.empty()) << spec.archive;
+        EXPECT_EQ(pack->file_count(), 1u) << spec.archive;
+        EXPECT_EQ(pack->parsed_count(), 1u) << spec.archive;
+        EXPECT_EQ(pack->read(spec.entry), spec.payload) << spec.archive;
+
+        TempPak file(bytes, spec.archive);
+        const auto from_disk = PackFile::open(file.path());
+        ASSERT_NE(from_disk, nullptr) << spec.archive;
+        EXPECT_EQ(from_disk->parsed_count(), 1u) << spec.archive;
+        EXPECT_EQ(from_disk->read(spec.entry), spec.payload) << spec.archive;
+    }
+}

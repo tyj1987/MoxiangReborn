@@ -13,9 +13,9 @@ resolves and has a merge-base with HEAD, every added, copied, modified,
 renamed or type-changed path in merge-base...HEAD is checked.
 
 Tree mode: CI checks out one shallow commit, so the base ref is absent.
-Then every *.pak in the HEAD tree must be one of the pinned PlayDH paths
-with its pinned blob id (the LFS pointer blobs at 48bfab4).  Anything
-new or different fails.
+Then every *.pak in the HEAD tree must be one of the four pinned LFS
+pointer paths with its pinned blob id.  npc.pak, Pet.pak, and Titan.pak
+are not pinned: they are not in the tree.  Anything new or different fails.
 """
 
 from __future__ import annotations
@@ -29,10 +29,7 @@ PINNED_PAKS = {
     "modern/data/PlayDH/Character.pak": "432deff19e096f68a789469c3a6ceba0fe346b2f",
     "modern/data/PlayDH/Effect.pak": "c39ef71d6a7723e957b0c333d29b182dff0e310e",
     "modern/data/PlayDH/Map.pak": "37eda4894017faca9c4d306a5f54b6b7e24b2ee2",
-    "modern/data/PlayDH/Pet.pak": "2c251db5cb7179c33ef02b6e0d29e42cdb2a4f0c",
-    "modern/data/PlayDH/Titan.pak": "82c3dd6dd0f8deef65144b396c4ac63ae5609c73",
     "modern/data/PlayDH/monster.pak": "8d6f8f1cfe344f495c11617d0994e5aa813fe49b",
-    "modern/data/PlayDH/npc.pak": "207e048176b3934c2d36eaa98f44178c4f884e7c",
 }
 
 

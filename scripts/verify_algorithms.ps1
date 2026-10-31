@@ -127,7 +127,15 @@ if (-not (Test-Path $binPath)) {
 Write-Host ''
 Write-Host '[3/4] Inspecting .pak file structure...' -ForegroundColor Cyan
 
-$pakFiles = @('Effect.pak', 'Character.pak', 'Map.pak', 'monster.pak', 'npc.pak', 'Pet.pak', 'Titan.pak', 'npc.pak', 'Pet.pak', 'Titan.pak')
+$pakFiles = @('Effect.pak', 'Character.pak', 'Map.pak', 'monster.pak')
+foreach ($name in @('npc.pak', 'Pet.pak', 'Titan.pak')) {
+    $pakPath = Join-Path (Split-Path $Res -Parent) $name
+    if (-not (Test-Path -LiteralPath $pakPath)) {
+        Write-Host "  SKIP real $name absent: ROG-only"
+        continue
+    }
+    $pakFiles += $name
+}
 $foundAny = $false
 foreach ($name in $pakFiles) {
     # .pak files live in PlayDH/ root, not in Resource/
