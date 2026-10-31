@@ -1,4 +1,5 @@
 #include "mxh/audio/bgm_player.hpp"
+#include "mxh/audio/audio_contract.hpp"
 
 #include "mxh/log/mlog.hpp"
 
@@ -37,9 +38,15 @@ std::filesystem::path resolveWithinRoot(const std::filesystem::path& root,
     const auto candidate = std::filesystem::weakly_canonical(root / file_name, ec);
     if (ec || candidate.empty()) return {};
     const auto relative = candidate.lexically_relative(canonical_root);
-    if (relative.empty() || relative.is_absolute()) return {};
+    bool first_is_dotdot = false;
     const auto first = relative.begin();
-    if (first == relative.end() || *first == std::filesystem::path("..")) return {};
+    if (first != relative.end() && *first == std::filesystem::path("..")) {
+        first_is_dotdot = true;
+    }
+    if (!contract::relative_stays_in_root(relative.empty(), relative.is_absolute(),
+                                          first_is_dotdot)) {
+        return {};
+    }
     return candidate;
 }
 
@@ -146,9 +153,16 @@ bool BgmPlayer::initialize(const std::filesystem::path& sound_root, std::string*
 std::filesystem::path BgmPlayer::resolve(std::uint16_t sound_id) const {
     if (!ready_ || sound_id >= manifest_.entries.size()) return {};
     const auto& entry = manifest_.entries[sound_id];
-    if (!entry.available || !entry.streaming) return {};
+    if (!contract::channel_accepts_entry(contract::Channel::Bgm, entry.available,
+                                         entry.streaming)) {
+        return {};
+    }
     const auto candidate = resolveWithinRoot(sound_root_, entry.file_name);
-    return std::filesystem::is_regular_file(candidate) ? candidate : std::filesystem::path{};
+    if (!contract::cue_file_present(!candidate.empty(),
+                                    std::filesystem::is_regular_file(candidate))) {
+        return {};
+    }
+    return candidate;
 }
 
 bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
@@ -158,12 +172,10 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
         return false;
     }
     const auto& entry = manifest_.entries[sound_id];
-    const bool loop = entry.loop;
     // Stop the previous track before recording metadata for the new one;
     // stop() resets current_entry_volume_ as part of its cleanup contract.
     stop();
-    current_entry_volume_ = std::isfinite(entry.volume) && entry.volume > 0.0f
-        ? entry.volume : 1.0f;
+    current_entry_volume_ = contract::bgm_entry_volume(entry.volume);
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, error)) return false;
@@ -242,14 +254,14 @@ bool BgmPlayer::play(std::uint16_t sound_id, std::string* error) {
     XAUDIO2_BUFFER buffer{};
     buffer.AudioBytes = static_cast<UINT32>(media_->pcm.size());
     buffer.pAudioData = media_->pcm.data();
-    if (loop) {
+    if (contract::entry_loops(entry.loop)) {
         buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
     } else {
         buffer.Flags = XAUDIO2_END_OF_STREAM;
     }
     hr = media_->source->SubmitSourceBuffer(&buffer);
     if (SUCCEEDED(hr)) hr = media_->source->SetVolume(
-        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
+        contract::bgm_output_gain(volume_, current_entry_volume_));
     if (SUCCEEDED(hr)) hr = media_->source->Start(0);
     if (FAILED(hr)) {
         stop_media(*media_);
@@ -274,11 +286,10 @@ void BgmPlayer::stop() noexcept {
 }
 
 void BgmPlayer::setVolume(float normalized) noexcept {
-    if (!std::isfinite(normalized)) normalized = 0.0f;
-    volume_ = std::clamp(normalized, 0.0f, 1.0f);
+    volume_ = contract::bgm_bus_volume(normalized);
 #ifdef _WIN32
     if (media_ && media_->source) media_->source->SetVolume(
-        std::clamp(volume_ * current_entry_volume_, 0.0f, 1.0f));
+        contract::bgm_output_gain(volume_, current_entry_volume_));
 #endif
 }
 

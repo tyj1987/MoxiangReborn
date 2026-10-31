@@ -28,9 +28,15 @@ static std::filesystem::path resolveWithinRoot(const std::filesystem::path& root
     const auto candidate = std::filesystem::weakly_canonical(root / file_name, ec);
     if (ec || candidate.empty()) return {};
     const auto relative = candidate.lexically_relative(canonical_root);
-    if (relative.empty() || relative.is_absolute()) return {};
+    bool first_is_dotdot = false;
     const auto first = relative.begin();
-    if (first == relative.end() || *first == std::filesystem::path("..")) return {};
+    if (first != relative.end() && *first == std::filesystem::path("..")) {
+        first_is_dotdot = true;
+    }
+    if (!contract::relative_stays_in_root(relative.empty(), relative.is_absolute(),
+                                          first_is_dotdot)) {
+        return {};
+    }
     return candidate;
 }
 
@@ -47,7 +53,7 @@ struct SfxPlayer::MediaState {
     // Effects must overlap: a sword hit cannot cut off the footstep or the
     // previous skill cue.  A bounded round-robin pool keeps this deterministic
     // under a burst of BEFF/SFX events while avoiding unbounded voice growth.
-    static constexpr std::size_t kVoiceCount = 16;
+    static constexpr std::size_t kVoiceCount = contract::kSfxVoiceCount;
     std::array<Voice, kVoiceCount> voices{};
     std::size_t next_voice = 0;
     bool mf_started = false;
@@ -129,20 +135,21 @@ bool SfxPlayer::initialize(const std::filesystem::path& root, std::string* out) 
 std::filesystem::path SfxPlayer::resolve(std::uint16_t id) const {
     if (!ready_ || id >= manifest_.entries.size()) return {};
     const auto& entry = manifest_.entries[id];
-    if (!entry.available || entry.streaming) return {};
+    if (!contract::channel_accepts_entry(contract::Channel::Sfx, entry.available,
+                                         entry.streaming)) {
+        return {};
+    }
     const auto path = resolveWithinRoot(sound_root_, entry.file_name);
-    return !path.empty() && std::filesystem::is_regular_file(path)
-        ? path : std::filesystem::path{};
+    if (!contract::cue_file_present(!path.empty(),
+                                    std::filesystem::is_regular_file(path))) {
+        return {};
+    }
+    return path;
 }
 
 float SfxPlayer::distanceGain(float distance, float min_distance,
                               float max_distance) noexcept {
-    if (!std::isfinite(distance) || !std::isfinite(min_distance) ||
-        !std::isfinite(max_distance)) return 0.0f;
-    if (distance <= min_distance || max_distance <= min_distance) return 1.0f;
-    if (distance >= max_distance) return 0.0f;
-    return std::clamp(1.0f - (distance - min_distance) /
-        (max_distance - min_distance), 0.0f, 1.0f);
+    return contract::distance_gain(distance, min_distance, max_distance);
 }
 
 bool SfxPlayer::play(std::uint16_t id, std::string* out) {
@@ -161,20 +168,19 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
                             std::string* out) {
     const auto path = resolve(id);
     if (path.empty()) { error(out, "SFX sound ID is missing or not a WAV entry"); return false; }
-    if (!std::isfinite(bus_gain)) {
+    if (!contract::sfx_bus_gain_finite(bus_gain)) {
         error(out, "SFX bus gain is not finite");
         return false;
     }
     const auto& entry = manifest_.entries[id];
-    current_entry_volume_ = entry.volume > 0.0f ? entry.volume : 1.0f;
-    current_bus_gain_ = std::clamp(bus_gain, 0.0f, 1.0f);
+    current_entry_volume_ = contract::sfx_entry_volume(entry.volume);
+    current_bus_gain_ = contract::sfx_clamped_bus_gain(bus_gain);
     current_distance_gain_ = distanceGain(
         distance, entry.min_distance, entry.max_distance);
 #ifdef _WIN32
     if (!media_) media_ = std::make_unique<MediaState>();
     if (!ensure_media(*media_, out)) return false;
-    auto& voice = media_->voices[media_->next_voice++ %
-                                 SfxPlayer::MediaState::kVoiceCount];
+    auto& voice = media_->voices[contract::sfx_voice_slot(media_->next_voice++)];
     if (voice.source) {
         voice.source->Stop(0);
         voice.source->FlushSourceBuffers();
@@ -213,12 +219,12 @@ bool SfxPlayer::playAtOnBus(std::uint16_t id, float distance, float bus_gain,
     voice.format.nBlockAlign = static_cast<WORD>(channels * bits / 8); voice.format.nAvgBytesPerSec = rate * voice.format.nBlockAlign;
     if (voice.pcm.empty() || FAILED(media_->engine->CreateSourceVoice(&voice.source, &voice.format))) { error(out, "SFX source voice creation failed"); return false; }
     XAUDIO2_BUFFER buffer{}; buffer.AudioBytes = static_cast<UINT32>(voice.pcm.size()); buffer.pAudioData = voice.pcm.data();
-    if (entry.loop) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
+    if (contract::entry_loops(entry.loop)) buffer.LoopCount = XAUDIO2_LOOP_INFINITE;
     else buffer.Flags = XAUDIO2_END_OF_STREAM;
-    const float gain = std::clamp(volume_ * current_bus_gain_ *
-        current_entry_volume_ * current_distance_gain_, 0.0f, 1.0f);
-    voice.mix_gain = std::clamp(current_bus_gain_ * current_entry_volume_ *
-                                current_distance_gain_, 0.0f, 1.0f);
+    const float gain = contract::sfx_output_gain(
+        volume_, current_bus_gain_, current_entry_volume_, current_distance_gain_);
+    voice.mix_gain = contract::sfx_voice_mix(
+        current_bus_gain_, current_entry_volume_, current_distance_gain_);
     hr = voice.source->SubmitSourceBuffer(&buffer); if (SUCCEEDED(hr)) hr = voice.source->SetVolume(gain); if (SUCCEEDED(hr)) hr = voice.source->Start(0);
     if (FAILED(hr)) {
         voice.source->Stop(0); voice.source->FlushSourceBuffers();
@@ -245,12 +251,12 @@ void SfxPlayer::setVolume(float value) noexcept {
     // Runtime callers (including focus/device-recovery paths) can bypass the
     // JSON settings validator.  Never propagate a non-finite gain into
     // XAudio2 or retain it for the next sound.
-    volume_ = std::isfinite(value) ? std::clamp(value, 0.0f, 1.0f) : 1.0f;
+    volume_ = contract::sfx_bus_volume(value);
 #ifdef _WIN32
     if (media_) {
         for (auto& voice : media_->voices) {
             if (voice.source) {
-                const auto gain = std::clamp(volume_ * voice.mix_gain, 0.0f, 1.0f);
+                const auto gain = contract::scale_stored_mix(volume_, voice.mix_gain);
                 voice.source->SetVolume(gain);
             }
         }
