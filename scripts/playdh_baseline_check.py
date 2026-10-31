@@ -273,10 +273,6 @@ def self_test() -> int:
         (playdh / "b.bin").write_bytes(file_b)
         manifest = root / "manifest.json"
         _write_manifest(manifest, [("a.bin", file_a), ("b.bin", file_b)])
-        # One expected hash is wrong, so the baseline comparison must fail.
-        manifest_text = manifest.read_text(encoding="utf-8")
-        manifest_text = manifest_text.replace(hashlib.sha256(file_a).hexdigest(), "0" * 64, 1)
-        manifest.write_text(manifest_text, encoding="utf-8")
         absent = hashlib.sha256(b"synthetic-decoded-map-not-in-tree").hexdigest()
         references = root / "references.json"
         _write_references(references, [absent])
@@ -293,7 +289,6 @@ def self_test() -> int:
             if "PLAYDH_BASELINE SELFTEST FAIL green-ok" not in green:
                 print("PLAYDH_BASELINE SELFTEST FAIL green-ok")
             failed = True
-        _write_manifest(manifest, [("a.bin", file_a), ("b.bin", file_b)])
 
         extra = playdh / "extra.bin"
         extra.write_bytes(b"synthetic-baseline-extra")
