@@ -22,6 +22,7 @@ workflow:
         - scripts/check-project-governance.py
         - scripts/check-no-pak-changes.py
         - scripts/check-ps1-encoding.py
+        - scripts/playdh_baseline_check.py
         - scripts/rog-gate-build.ps1
         - scripts/clean-deploy.ps1
         - scripts/commercial-smoke.ps1
@@ -268,11 +269,57 @@ original_lfs_integrity:
   variables:
     # Runner helper fetches LFS using its job credentials and trusted CA.
     GIT_LFS_SKIP_SMUDGE: "0"
+  # >1.2 GB LFS checkout. Auto-run only for schedules and real path diffs
+  # so other pipelines do not spend the LFS bandwidth quota.
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
+    # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'
+      changes:
+        paths: &original_lfs_change_paths
+          - modern/data/PlayDH/**/*
+          - .gitattributes
+          - reference/manifests/**/*
+          - scripts/verify-resource-profile.py
+          - .gitlab-ci.yml
+    # MR diff against the target ref, not against this branch.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+      changes:
+        paths: *original_lfs_change_paths
+        compare_to: 'refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME'
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+      when: manual
+      allow_failure: true
+  script:
+    - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+
+# Same checks as the GitHub job playdh_baseline_check. LFS stays smudged off.
+# Pointer oid and size are compared. Any PR that changes
+# playdh-current.sha256.json must state that it was approved by 战略专家.
+playdh_baseline_check:
+  extends: .linux_trusted
+  stage: resources
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "1"
   rules:
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes:
+        - scripts/playdh_baseline_check.py
+        - .gitlab-ci.yml
+        - .github/workflows/python-tools.yml
+        - reference/manifests/**/*
   script:
-    - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
+    - apk add --no-cache git
+    - git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - python3 scripts/playdh_baseline_check.py --self-test
+    - python3 scripts/playdh_baseline_check.py --check
 
 # Warn-only extension of the MxhResourceReference gate. Exit 0 until
 # MXH_RESOURCE_REF_STRICT=1. Does not fetch LFS and does not read original
@@ -312,9 +359,39 @@ unity_lfs_and_source_integrity:
   variables:
     # Runner helper fetches LFS using its job credentials and trusted CA.
     GIT_LFS_SKIP_SMUDGE: "0"
+  # >1.2 GB LFS checkout. Auto-run only for schedules and real path diffs
+  # so other pipelines do not spend the LFS bandwidth quota.
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+    # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
+    # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'
+      changes:
+        paths: &unity_lfs_change_paths
+          - modern/data/PlayDH/**/*
+          - .gitattributes
+          - reference/manifests/**/*
+          - scripts/verify-resource-profile.py
+          - modern/tools/unity_resource_audit.py
+          - modern/tools/gen_hfl_placeholders.py
+          - modern/tools/unpack_pak.py
+          - unity/dependencies/**/*
+          - unity/baselines/**/*
+          - unity/source-overlays/**/*
+          - unity/MoxiangClient/Assets/Effekseer/**/*
+          - .gitlab-ci.yml
+    # MR diff against the target ref, not against this branch.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+      changes:
+        paths: *unity_lfs_change_paths
+        compare_to: 'refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME'
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
+      when: manual
+      allow_failure: true
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
+      when: manual
+      allow_failure: true
   script:
     - python3 scripts/verify-resource-profile.py unity/dependencies/effekseer-1.80.7.files.json --root unity/MoxiangClient/Assets/Effekseer --profile-id effekseer-1.80.7 --full --exact
     - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
