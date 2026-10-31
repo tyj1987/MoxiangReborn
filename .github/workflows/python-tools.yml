@@ -82,6 +82,17 @@
 #   The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 # - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
 #   其他 job 在这些路径上一起触发。GitLab 不把这些路径并进 python_tooling_changes。
+#
+# gitleaks_tree_scan
+# - 与 GitLab job gitleaks_tree_scan 同步。镜像是 .linux_trusted 的 digest。
+#   不拉 gitleaks 的 :latest，也不需要密钥。
+# - GIT_LFS_SKIP_SMUDGE=1。扫的是本次检出的工作树（gitleaks dir），不扫 git 历史。
+# - 下载 gitleaks 8.30.1 linux_x64 发行包，用 sha256 校验后再解压。
+# - 先跑 scripts/gitleaks-selftest.py（样本写在仓库外的临时目录）。
+#   然后检查每个已跟踪的 *.pak。不是 Git LFS pointer 的打印
+#   NON_LFS_PAK <path> bytes=<n>，不打印文件内容，并且失败。
+#   报告只打印 rule id 和 path:line，并带 --redact=100。
+# - rules 与 original_governance_and_python_tests 相同。
 
 name: original_governance_and_python_tests
 
@@ -117,6 +128,8 @@ on:
       - "**.[Pp][Aa][Kk]"
       - .gitlab-ci.yml
       - .github/workflows/python-tools.yml
+      - .gitleaks.toml
+      - scripts/gitleaks-selftest.py
       - reference/manifests/**
       - modern/CMakeLists.txt
       - modern/tests/**
@@ -412,6 +425,65 @@ jobs:
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1
           fi
+          exit "$status"
+
+  gitleaks_tree_scan:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.12-alpine3.22@sha256:a190708a2dec1bd18b1decb539f8e8f5407abaa9bf39cacda583f7f8c11db322
+    defaults:
+      run:
+        shell: sh
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      GIT_LFS_SKIP_SMUDGE: "1"
+    steps:
+      - name: Checkout pull request merge ref
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # 容器里没有默认的 GITHUB_TOKEN。只注入到本步环境，askpass 按变量名读取。
+          # 脚本用单引号写入 "$GITHUB_TOKEN"，不展开、不 echo，日志里不会出现令牌值。
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          apk add --no-cache git ca-certificates
+          git init
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          askpass=$(mktemp)
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '*Username*) printf "%s\n" x-access-token ;;' '*) printf "%s\n" "$GITHUB_TOKEN" ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          if [ -n "$PR_NUMBER" ]; then
+            refspec="+refs/pull/${PR_NUMBER}/merge:refs/remotes/origin/pr"
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$refspec"
+            rm -f "$askpass"
+            git checkout --detach refs/remotes/origin/pr
+          else
+            GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git fetch --depth 1 origin "$GITHUB_SHA"
+            rm -f "$askpass"
+            git checkout --detach FETCH_HEAD
+          fi
+
+      - name: gitleaks_tree_scan
+        run: |
+          set -eu
+          gitleaks_dir="$(mktemp -d)"
+          tarball="${gitleaks_dir}/gitleaks_8.30.1_linux_x64.tar.gz"
+          python3 - "$tarball" <<'PY'
+          import hashlib, pathlib, sys, urllib.request
+          dest = pathlib.Path(sys.argv[1])
+          url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          expected = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+          urllib.request.urlretrieve(url, dest)
+          digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+          if digest != expected:
+              raise SystemExit("gitleaks sha256 mismatch")
+          PY
+          tar -xzf "${tarball}" -C "${gitleaks_dir}"
+          chmod +x "${gitleaks_dir}/gitleaks"
+          status=0
+          python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml || status=1
+          python3 scripts/gitleaks-selftest.py --check-paks . || status=1
+          python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan . || status=1
           exit "$status"
 
   # playdh_baseline_check
