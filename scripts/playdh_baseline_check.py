@@ -141,9 +141,6 @@ def check_playdh(
         except (OSError, ValueError) as exc:
             lines.append("PLAYDH_BASELINE EXTERNAL_LIST %s" % exc)
             return 1, lines
-    # Red commit: the list is loaded and then ignored so the external-only
-    # self-test fails. The next commit applies the list.
-    listed = []
     listed_set = set(listed)
     for rel in listed:
         if rel not in expected:
