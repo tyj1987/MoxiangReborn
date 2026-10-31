@@ -10,6 +10,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+import playdh_external_only
+
+_EXTERNAL_NAMES = set(playdh_external_only.playdh_names())
+
 WORKSPACE = Path(__file__).resolve().parents[1]
 RES = WORKSPACE / "modern" / "data" / "PlayDH"
 
@@ -73,11 +80,10 @@ if rc == 0:
     print(out[:500])
     check("file_size:" in out, "1.5MB file read correctly")
 
-# --- Test 3: repo LFS archives, plus ROG-only plain archives ---
-section("Test 3: .pak files")
-pak_files = ["Effect.pak", "Character.pak", "Map.pak", "monster.pak"]
-# These three are not in the git tree. A missing file is a skip, not a pass.
-rog_only_paks = ["npc.pak", "Pet.pak", "Titan.pak"]
+# --- Test 3: All 7 .pak files ---
+section("Test 3: All 7 real .pak files")
+pak_files = ["Effect.pak", "Character.pak", "Map.pak", "monster.pak",
+             "npc.pak", "Pet.pak", "Titan.pak"]
 expected_counts = {
     "Effect.pak": 1671,
     "Character.pak": 4468,
@@ -88,38 +94,31 @@ expected_counts = {
     "Titan.pak": 294,
 }
 all_ok = True
-rog_skips = []
-
-
-def check_pak_list(name: str) -> None:
-    global all_ok
-    path = RES / name
-    rc, out, err = run(["list", str(path)])
-    if rc != 0:
-        check(False, f"{name}: list command failed")
+for p in pak_files:
+    if p in _EXTERNAL_NAMES and not (RES / p).is_file():
+        print(f"  SKIP real {p} absent: external-only")
+        continue
+    if p in _EXTERNAL_NAMES and (RES / p).is_file():
+        check(False, f"external-only archive is present: {p}")
         all_ok = False
-        return
-    expected = expected_counts.get(name, "?")
+        continue
+    f = RES / p
+    rc, out, err = run(["list", str(f)])
+    if rc != 0:
+        check(False, f"{p}: list command failed")
+        all_ok = False
+        continue
+    expected = expected_counts.get(p, "?")
     # Older explorers print count=N; current explorers print file_item_num=N.
     for line in out.splitlines():
         match = re.search(r"(?:count|file_item_num)=(\d+)", line)
         if match:
             count = int(match.group(1))
-            if not check(count == expected, f"{name}: count={count} (expected {expected})"):
-                all_ok = False
-            return
-    check(False, f"{name}: archive count missing")
-    all_ok = False
-
-
-for p in pak_files:
-    check_pak_list(p)
-for p in rog_only_paks:
-    if not (RES / p).is_file():
-        print(f"  SKIP real {p} absent: ROG-only")
-        rog_skips.append(p)
-        continue
-    check_pak_list(p)
+            check(count == expected, f"{p}: count={count} (expected {expected})")
+            break
+    else:
+        check(False, f"{p}: archive count missing")
+        all_ok = False
 
 # --- Test 4: extract-pak to get a real file ---
 section("Test 4: Extract tile_201_wall04.dds from Map.pak")
@@ -156,8 +155,6 @@ else:
 # --- Summary ---
 print()
 print("=" * 60)
-if rog_skips:
-    print(" SKIP is not a pass: " + ", ".join(rog_skips))
-print(f" RESULT: {'CHECKS PASSED' if all_ok else 'FAIL'}")
+print(f" RESULT: {'ALL PASS' if all_ok else 'FAIL'}")
 print("=" * 60)
 sys.exit(0 if all_ok else 1)

@@ -472,8 +472,7 @@ TEST(PackFileHeader, RejectsNonPakBlob) {
     EXPECT_EQ(error, "not a pak");
 }
 
-// Required stand-in for the deleted npc.pak, Pet.pak, and Titan.pak blobs.
-// Payloads are generated here. This does not open a PlayDH archive.
+// Synthetic archives generated in this test. Payloads are not from the repo tree.
 TEST(PackFileHeader, SyntheticNpcPetTitanArchivesRoundTrip) {
     struct Spec {
         const char* archive;

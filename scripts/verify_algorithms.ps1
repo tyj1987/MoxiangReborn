@@ -127,20 +127,27 @@ if (-not (Test-Path $binPath)) {
 Write-Host ''
 Write-Host '[3/4] Inspecting .pak file structure...' -ForegroundColor Cyan
 
-$pakFiles = @('Effect.pak', 'Character.pak', 'Map.pak', 'monster.pak')
-foreach ($name in @('npc.pak', 'Pet.pak', 'Titan.pak')) {
-    $pakPath = Join-Path (Split-Path $Res -Parent) $name
-    if (-not (Test-Path -LiteralPath $pakPath)) {
-        Write-Host "  SKIP real $name absent: ROG-only"
-        continue
-    }
-    $pakFiles += $name
-}
+$pakFiles = @('Effect.pak', 'Character.pak', 'Map.pak', 'monster.pak', 'npc.pak', 'Pet.pak', 'Titan.pak', 'npc.pak', 'Pet.pak', 'Titan.pak')
 $foundAny = $false
 foreach ($name in $pakFiles) {
     # .pak files live in PlayDH/ root, not in Resource/
 $pakPath = Join-Path (Split-Path $Res -Parent) $name
-    if (-not (Test-Path $pakPath)) { continue }
+    if (-not (Test-Path $pakPath)) {
+        $externalList = Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'reference') 'manifests\playdh-external-only.txt'
+        $listed = $false
+        if (Test-Path -LiteralPath $externalList) {
+            foreach ($row in [System.IO.File]::ReadAllLines($externalList)) {
+                $trimmed = $row.Trim()
+                if ($trimmed.Length -eq 0 -or $trimmed.StartsWith('#')) { continue }
+                $leaf = $trimmed.Replace('\', '/')
+                $slash = $leaf.LastIndexOf('/')
+                if ($slash -ge 0) { $leaf = $leaf.Substring($slash + 1) }
+                if ($leaf -eq $name) { $listed = $true }
+            }
+        }
+        if ($listed) { Write-Host "  SKIP real $name absent: external-only" }
+        continue
+    }
     $foundAny = $true
     $raw = [System.IO.File]::ReadAllBytes($pakPath)
     if ($raw.Length -lt 92) {

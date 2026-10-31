@@ -6,9 +6,10 @@
 # override ref. lfs is false, and GIT_LFS_SKIP_SMUDGE stays set, so the
 # four LFS .pak archives stay pointer files.
 #
-# npc.pak, Pet.pak, and Titan.pak are not in git. Sparse checkout still
-# materializes only the four LFS archives, as pointer files. The pak gate
-# fails if any workspace .pak is a binary.
+# Sparse checkout omits the three PlayDH archives that are already real
+# binaries in git (Pet.pak, npc.pak, Titan.pak). A full checkout would
+# fail the pak gate on those blobs. The four LFS archives are checked
+# out as pointers and the gate fails if any workspace .pak is a binary.
 #
 # The mxh_client build stays compile-only: -DMXH_CLIENT_COMPILE_ONLY=ON,
 # Debug / Win32 / MSVC, stop at mxh_client. That log is the only input to
@@ -91,6 +92,10 @@ on:
       - modern/src/server/**
       - modern/tests/unit/client/**
       - modern/tests/unit/server/**
+      - modern/tests/unit/pack_file_header_test.cpp
+      - scripts/playdh_baseline_check.py
+      - scripts/playdh_external_only.py
+      - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:

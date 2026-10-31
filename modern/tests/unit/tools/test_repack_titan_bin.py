@@ -1,8 +1,7 @@
 """Synthetic round-trip for modern/tools/repack_titan_bin.py.
 
 The encoder is exercised on bytes built in this file. It does not open
-PlayDH, Titan.pak, or any other original archive. A real Titan.pak read
-is ROG-only; see docs/ROG_QUEUE.md.
+the PlayDH tree. A real-archive read is ROG-only; see docs/ROG_QUEUE.md.
 """
 
 from __future__ import annotations
