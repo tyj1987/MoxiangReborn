@@ -36,6 +36,7 @@
 #include "WorldScreenProjection.hpp"
 
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <future>
 #include <array>
@@ -528,6 +529,10 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     std::uint32_t pending_friend_invite_id() const noexcept { return m_pendingFriendInviteId; }
     ClientUiRuntime& ui_runtime() noexcept { return m_uiRuntime; }
     const ClientUiRuntime& ui_runtime() const noexcept { return m_uiRuntime; }
+    const std::filesystem::path& resolved_playdh_root() const noexcept {
+        return m_resolvedPlaydhRoot;
+    }
+    const std::string& playdh_root_error() const noexcept { return m_playdhRootError; }
     const std::string& last_item_error() const noexcept { return m_lastItemError; }
     const std::string& last_npc_error() const noexcept { return m_lastNpcError; }
     const std::string& last_skill_error() const noexcept { return m_lastSkillError; }
@@ -715,6 +720,8 @@ public:
     bool                 m_inventoryOpen = false;
     std::size_t          m_inventoryTab = 0;
     ClientUiRuntime      m_uiRuntime;
+    std::filesystem::path m_resolvedPlaydhRoot;
+    std::string          m_playdhRootError;
 
     // NPC shop state.
     bool                 m_shopOpen  = false;

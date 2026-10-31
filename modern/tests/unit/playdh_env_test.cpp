@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -293,4 +294,106 @@ TEST(PlayDhEnv, E2EUnsetValueWalksUpFromMapExecutable) {
         EXPECT_EQ(std::filesystem::weakly_canonical(via_wrapper),
                   std::filesystem::weakly_canonical(root));
     }
+}
+
+class EnvVarGuard {
+public:
+    explicit EnvVarGuard(const char* name) : name_(name) {
+        const char* current = std::getenv(name_);
+        if (current != nullptr) {
+            had_ = true;
+            previous_ = current;
+        }
+    }
+    void unset() { unsetenv(name_); }
+    void set(const std::string& value) { setenv(name_, value.c_str(), 1); }
+    ~EnvVarGuard() {
+        if (had_) setenv(name_, previous_.c_str(), 1);
+        else unsetenv(name_);
+    }
+
+    EnvVarGuard(const EnvVarGuard&) = delete;
+    EnvVarGuard& operator=(const EnvVarGuard&) = delete;
+
+private:
+    const char* name_;
+    bool had_ = false;
+    std::string previous_;
+};
+
+std::filesystem::path find_full_checkout_root() {
+    std::error_code ec;
+    auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
+    if (ec) return {};
+    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
+        const auto playdh = cursor / "modern" / "data" / "PlayDH";
+        const auto marker = playdh / "Image" / "InterfaceScript" / "15.bin";
+        const auto server = playdh / "Resource" / "Server";
+        if (std::filesystem::is_regular_file(marker, ec) &&
+            std::filesystem::is_directory(server, ec)) {
+            return cursor;
+        }
+        const auto parent = cursor.parent_path();
+        if (parent == cursor) break;
+        cursor = parent;
+    }
+    return {};
+}
+
+constexpr const char* kPlayDhRootMissing =
+    "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+
+TEST(PlayDhRootRequired, UnsetDoesNotReadRepoTree) {
+    const auto checkout = find_full_checkout_root();
+    ASSERT_FALSE(checkout.empty())
+        << "full checkout must contain modern/data/PlayDH "
+           "(Image/InterfaceScript/15.bin and Resource/Server)";
+    const auto repo_playdh = checkout / "modern" / "data" / "PlayDH";
+    EnvVarGuard env(mxh::test::kPlayDhRootEnv);
+    env.unset();
+    ASSERT_EQ(std::getenv(mxh::test::kPlayDhRootEnv), nullptr);
+    const WorkingDirectoryGuard cwd(checkout);
+    const auto map_exe = checkout / "modern" / "build" / "tools" /
+                         "MoxianMapServer" / "mxh_map_server_CHINA.exe";
+    try {
+        const auto resolved = mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
+        ADD_FAILURE() << "resolved " << resolved.string()
+                      << " repo " << repo_playdh.string();
+    } catch (const std::runtime_error& error) {
+        const std::string message = error.what();
+        EXPECT_NE(message.find(kPlayDhRootMissing), std::string::npos) << message;
+        EXPECT_EQ(message.find(repo_playdh.string()), std::string::npos) << message;
+    }
+    try {
+        const auto resolved = mxh::test::resolve_e2e_playdh_root(nullptr, {checkout});
+        ADD_FAILURE() << "resolve_e2e walked to " << resolved.string();
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find(kPlayDhRootMissing),
+                  std::string::npos)
+            << error.what();
+    }
+}
+
+TEST(PlayDhRootRequired, SyntheticEnvSucceeds) {
+    const auto checkout = find_full_checkout_root();
+    ASSERT_FALSE(checkout.empty())
+        << "full checkout must contain modern/data/PlayDH "
+           "(Image/InterfaceScript/15.bin and Resource/Server)";
+    const auto repo_playdh = checkout / "modern" / "data" / "PlayDH";
+    ScratchDir scratch("mxh-playdh-root-required-synthetic");
+    const auto synthetic = make_marked_playdh(scratch.path() / "playdh");
+    {
+        std::ofstream out(synthetic / "synthetic.txt", std::ios::binary);
+        ASSERT_TRUE(out);
+        out << "synthetic\n";
+    }
+    EnvVarGuard env(mxh::test::kPlayDhRootEnv);
+    env.set(synthetic.string());
+    const WorkingDirectoryGuard cwd(checkout);
+    const auto map_exe = checkout / "modern" / "build" / "missing-map.exe";
+    const auto resolved = mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
+    EXPECT_EQ(std::filesystem::weakly_canonical(resolved),
+              std::filesystem::weakly_canonical(synthetic));
+    EXPECT_NE(std::filesystem::weakly_canonical(resolved),
+              std::filesystem::weakly_canonical(repo_playdh));
 }

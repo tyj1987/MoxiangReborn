@@ -13,6 +13,7 @@ param(
     [string]$ResourceProfileId = 'playdh-current',
     [switch]$Help,
     [switch]$DryRun,
+    [switch]$ResolveOnly,
     [switch]$SelfTest,
     [string]$PackageScanRoot = ""
 )
@@ -153,6 +154,10 @@ if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
     $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
 }
 $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+if ($ResolveOnly) {
+    Write-Output "RESOURCE_DIR=$ResourceDir"
+    exit 0
+}
 $hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
 if (-not (Test-Path -LiteralPath $hashManifestPath -PathType Leaf)) {
     throw "Profile hash manifest missing: $hashManifestPath"
