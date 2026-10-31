@@ -21,13 +21,16 @@
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/protocol.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 
 #include <gtest/gtest.h>
 
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -112,6 +115,34 @@ std::vector<std::uint8_t> recv_n(SOCKET sock, std::size_t n,
         out.insert(out.end(), buf, buf + got);
     }
     return out;
+}
+
+void send_all(SOCKET sock, const std::uint8_t* data, std::size_t n) {
+    std::size_t sent = 0;
+    while (sent < n) {
+        const int wrote = ::send(sock, reinterpret_cast<const char*>(data + sent),
+                                 static_cast<int>(n - sent), 0);
+        ASSERT_GT(wrote, 0);
+        sent += static_cast<std::size_t>(wrote);
+    }
+}
+
+void send_matching_check_version(SOCKET sock) {
+    mxh::net::Message cv;
+    cv.header.category = static_cast<std::uint8_t>(Category::UserConn);
+    cv.header.protocol = mxh::proto::kModernCheckVersion;
+    cv.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "MoxianClient",
+        mxh::proto::kItemProtocolSha256);
+    std::vector<std::uint8_t> body(sizeof(mxh::net::MsgHeader) + cv.payload.size());
+    std::memcpy(body.data(), &cv.header, sizeof(cv.header));
+    std::memcpy(body.data() + sizeof(cv.header), cv.payload.data(), cv.payload.size());
+    const std::uint16_t length = static_cast<std::uint16_t>(body.size());
+    const std::uint8_t prefix[2] = {
+        static_cast<std::uint8_t>(length & 0xFF),
+        static_cast<std::uint8_t>((length >> 8) & 0xFF)};
+    send_all(sock, prefix, 2);
+    send_all(sock, body.data(), body.size());
 }
 
 class AgentWireFixture : public ::testing::Test {
@@ -219,7 +250,6 @@ TEST_F(AgentWireFixture, FirstPacketHeaderIsAgentConnectSuccess) {
     // Legacy framing adds a 2-byte length prefix before the MsgHeader,
     // so the full first wire frame is 2 + 8 = 10 bytes.
     auto bytes = recv_n(s, /*n=*/10, std::chrono::milliseconds{2000});
-    ::closesocket(s);
 
     ASSERT_EQ(bytes.size(), 10u);
     // bytes[0..1]: 2-byte length prefix (little-endian, == 8)
@@ -239,6 +269,20 @@ TEST_F(AgentWireFixture, FirstPacketHeaderIsAgentConnectSuccess) {
         (static_cast<std::uint32_t>(bytes[9]) << 24);
     EXPECT_GE(auth_key, 50000u);
     EXPECT_LE(auth_key, 99999u);
+
+    // The first frame above is the server push. CheckVersion follows it and
+    // does not rewrite those 10 bytes.
+    send_matching_check_version(s);
+    const auto ack_len = recv_n(s, 2, std::chrono::milliseconds{2000});
+    ASSERT_EQ(ack_len.size(), 2u);
+    const std::size_t body_len = static_cast<std::size_t>(ack_len[0]) |
+                                 (static_cast<std::size_t>(ack_len[1]) << 8);
+    const auto ack_body = recv_n(s, body_len, std::chrono::milliseconds{2000});
+    ASSERT_EQ(ack_body.size(), body_len);
+    ASSERT_GE(ack_body.size(), 4u);
+    EXPECT_EQ(ack_body[2], static_cast<std::uint8_t>(Category::UserConn));
+    EXPECT_EQ(ack_body[3], mxh::proto::kModernNotifyVersionAck);
+    ::closesocket(s);
 }
 
 TEST_F(AgentWireFixture, DeterministicHeaderPrefixIsStableAcrossConnections) {

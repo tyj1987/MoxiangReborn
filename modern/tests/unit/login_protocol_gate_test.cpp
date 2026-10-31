@@ -6,11 +6,8 @@
 //
 // Hashes in this file are synthetic. The real value stays in the
 // CMake-generated protocol_hash.hpp and is not committed here.
-//
-// Until login_protocol_gate.hpp exists, the stand-in below copies today's
-// login path: a version in range is enough, RequestLogin proceeds, and
-// there is no ProtocolMismatch reason or PROTOCOL_MISMATCH log.
 
+#include "mxh/proto/login_protocol_gate.hpp"
 #include "mxh/proto/protocol.hpp"
 
 #include <gtest/gtest.h>
@@ -18,63 +15,6 @@
 #include <cstdint>
 #include <string>
 #include <vector>
-
-#if defined(__has_include)
-#  if __has_include("mxh/proto/login_protocol_gate.hpp")
-#    include "mxh/proto/login_protocol_gate.hpp"
-#    define MXH_LOGIN_PROTOCOL_GATE_HEADER 1
-#  endif
-#endif
-
-#ifndef MXH_LOGIN_PROTOCOL_GATE_HEADER
-namespace mxh::proto {
-
-struct LoginItemProtocolDecision {
-    bool accepted = false;
-    std::uint8_t reason = 0;
-    std::string log_line;
-    std::string user_message;
-};
-
-inline const char* login_protocol_user_message(std::uint8_t reason) {
-    switch (reason) {
-    case 1: return "Client version is too new.";
-    case 2: return "Server is full.";
-    default: return "Client version is too old.";
-    }
-}
-
-inline LoginItemProtocolDecision evaluate_login_item_protocol(
-    std::string_view, std::string_view) {
-    LoginItemProtocolDecision decision;
-    decision.accepted = true;
-    decision.reason = 0;
-    decision.user_message = login_protocol_user_message(0);
-    return decision;
-}
-
-inline std::string item_hash_from_check_version(const std::uint8_t*, std::size_t) {
-    return {};
-}
-
-inline void append_item_hash_to_check_version(std::vector<std::uint8_t>&,
-                                              std::string_view) {}
-
-inline void write_version_nack_payload(std::uint8_t* out,
-                                       std::uint16_t server_version,
-                                       std::uint8_t reason) {
-    out[0] = static_cast<std::uint8_t>(server_version & 0xFF);
-    out[1] = static_cast<std::uint8_t>((server_version >> 8) & 0xFF);
-    out[2] = reason;
-}
-
-inline std::uint8_t version_nack_reason(const std::uint8_t* payload, std::size_t size) {
-    if (payload == nullptr || size < 3) return 0;
-    return payload[2];
-}
-
-}  // namespace mxh::proto
-#endif
 
 namespace {
 

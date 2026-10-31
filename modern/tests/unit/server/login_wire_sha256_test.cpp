@@ -15,6 +15,8 @@
 #include "mxh/server/server.hpp"
 #include "mxh/db/db_adapter.hpp"
 #include "mxh/db/sqlite_adapter.hpp"
+#include "mxh/proto/login_protocol_gate.hpp"
+#include "mxh/proto/protocol_hash.hpp"
 
 #ifdef _WIN32
     #include <winsock2.h>
@@ -136,6 +138,30 @@ std::vector<std::uint8_t> make_legacy_login_payload(
     out.insert(out.end(), pw17.begin(), pw17.end());
     return out;
 }
+
+template <typename Client>
+void send_matching_check_version(TcpClient& tcp, Client& client) {
+    const auto before = client.snapshot().size();
+    Message cv;
+    cv.header.category = 7;
+    cv.header.protocol = mxh::proto::kModernCheckVersion;
+    cv.payload = mxh::proto::make_check_version_payload(
+        mxh::proto::kProtocolVersion, "MoxianClient",
+        mxh::proto::kItemProtocolSha256);
+    EXPECT_EQ(tcp.send(cv), NetError::Ok);
+    EXPECT_TRUE(client.wait_for(before + 1, std::chrono::seconds(2)));
+}
+
+// DistConnectSuccess (protocol 0) and LoginAck (protocol 2) only.
+// The inserted CheckVersion ack is not part of the locked fingerprint.
+Sha256Digest fingerprint_original_login_frames(const CaptureHandler& capture) {
+    std::vector<std::vector<std::uint8_t>> chunks;
+    for (const auto& packet : capture.snapshot()) {
+        const auto proto = packet.message.header.protocol;
+        if (proto == 0u || proto == 2u) chunks.push_back(packet.wire_bytes);
+    }
+    return mxh::net::sha256_concat(chunks);
+}
 class LoginServerWireSha256Fixture : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -225,15 +251,16 @@ protected:
         std::uint32_t auth_key = dcs.message.header.object_id;
         EXPECT_GT(auth_key, 0u);
 
+        send_matching_check_version(tcp, inner);
         Message login;
         login.header.category = 7;
         login.header.protocol = 1;
         login.header.object_id = 0;
         login.payload = make_legacy_login_payload(auth_key, "test", "test");
         EXPECT_EQ(tcp.send(login), NetError::Ok);
-        EXPECT_TRUE(inner.wait_for(2, std::chrono::seconds(2)));
+        EXPECT_TRUE(inner.wait_for(3, std::chrono::seconds(2)));
         tcp.disconnect();
-        return capture.fingerprint();
+        return fingerprint_original_login_frames(capture);
     }
 
     std::string db_path_;
@@ -293,20 +320,23 @@ TEST_F(LoginServerWireSha256Fixture, CapturedWireBytesContainBothAckAndSuccess) 
     ASSERT_EQ(dcs.message.header.protocol, 0u);
     std::uint32_t auth_key = dcs.message.header.object_id;
 
+    send_matching_check_version(tcp, inner);
     Message login;
     login.header.category = 7;
     login.header.protocol = 1;
     login.header.object_id = 0;
     login.payload = make_legacy_login_payload(auth_key, "test", "test");
     ASSERT_EQ(tcp.send(login), NetError::Ok);
-    ASSERT_TRUE(inner.wait_for(2, std::chrono::seconds(2)));
+    ASSERT_TRUE(inner.wait_for(3, std::chrono::seconds(2)));
     tcp.disconnect();
 
     auto snap = capture.snapshot();
-    ASSERT_EQ(snap.size(), 2u);
+    ASSERT_EQ(snap.size(), 3u);
+    EXPECT_EQ(snap[0].message.header.protocol, 0u);
     EXPECT_EQ(snap[0].wire_bytes.size(), 10u);
-    EXPECT_EQ(snap[1].wire_bytes.size(), 33u);
-    EXPECT_EQ(snap[1].message.header.protocol, 2u);
+    EXPECT_EQ(snap[1].message.header.protocol, mxh::proto::kModernNotifyVersionAck);
+    EXPECT_EQ(snap[2].message.header.protocol, 2u);
+    EXPECT_EQ(snap[2].wire_bytes.size(), 33u);
 }
 
 }  // namespace
