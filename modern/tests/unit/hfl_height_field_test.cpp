@@ -1,36 +1,71 @@
 #include "mxh/compat/hfl_height_field.hpp"
 #include "mxh/compat/pack_file.hpp"
 
+#include "../support/handwritten_fixture.hpp"
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
+#include <iterator>
 #include <string>
-#include "../support/playdh_env.hpp"
+#include <vector>
 
 namespace {
-std::filesystem::path findMapPack() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override())
-        return *playdh_override / "Map.pak";
-    auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8; ++level) {
-        for (const auto& first : std::filesystem::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto candidate = first.path() / "PlayDH" / "Map.pak";
-            if (std::filesystem::exists(candidate)) return candidate;
-        }
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
-    }
-    return {};
-}
+
+std::vector<std::uint8_t> read_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input) return {};
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
+mxh::test::HandwrittenHfl hfl_spec(std::uint32_t height_x, std::uint32_t height_z,
+                                  std::uint32_t tile_x, std::uint32_t tile_z,
+                                  float width, float tile_size,
+                                  std::uint16_t texture_index, std::string texture_name,
+                                  std::vector<float> heights,
+                                  std::vector<std::uint16_t> tiles) {
+    mxh::test::HandwrittenHfl spec;
+    spec.height_x = height_x;
+    spec.height_z = height_z;
+    spec.tile_x = tile_x;
+    spec.tile_z = tile_z;
+    spec.width = width;
+    spec.tile_size = tile_size;
+    spec.texture_index = texture_index;
+    spec.texture_name = std::move(texture_name);
+    spec.heights = std::move(heights);
+    spec.tiles = std::move(tiles);
+    return spec;
+}
+
+void expect_hfl(const mxh::compat::HflHeightField& terrain,
+                const mxh::test::HandwrittenHfl& spec) {
+    EXPECT_EQ(terrain.version, 1u);
+    EXPECT_EQ(terrain.desc.height_count_x, spec.height_x);
+    EXPECT_EQ(terrain.desc.height_count_z, spec.height_z);
+    EXPECT_EQ(terrain.heights, spec.heights);
+    EXPECT_EQ(terrain.desc.tile_count_x, spec.tile_x);
+    EXPECT_EQ(terrain.desc.tile_count_z, spec.tile_z);
+    EXPECT_EQ(terrain.tiles, spec.tiles);
+    ASSERT_EQ(terrain.textures.size(), 1u);
+    EXPECT_EQ(terrain.textures[0].index, spec.texture_index);
+    EXPECT_EQ(terrain.textures[0].name, spec.texture_name);
+    EXPECT_FLOAT_EQ(terrain.desc.width, spec.width);
+    EXPECT_FLOAT_EQ(terrain.desc.tile_size, spec.tile_size);
+}
+
+}  // namespace
+
+// Real map 12 terrain. Counts and the height span are properties of that
+// file. MXH_PLAYDH_ROOT is the only location.
 TEST(HflHeightField, ParsesRealMap12Terrain) {
-    const auto path = findMapPack();
-    if (path.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto root = mxh::test::require_playdh_root();
+    const auto path = root / "Map.pak";
+    ASSERT_TRUE(std::filesystem::is_regular_file(path))
+        << mxh::test::kPlayDhRootEnv << " is set but Map.pak is missing";
     const auto pack = mxh::compat::PackFile::open(path);
     ASSERT_NE(pack, nullptr);
     const auto bytes = pack->read("12.hfl");
@@ -53,12 +88,12 @@ TEST(HflHeightField, ParsesRealMap12Terrain) {
     EXPECT_GT(*high, 500.0f);
 }
 
+// Recovered loose map 17 terrain. Same rule: the env root or a failure.
 TEST(HflHeightField, ParsesRecoveredMap17LooseTerrain) {
-    const auto packPath = findMapPack();
-    if (packPath.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
-    const auto path = packPath.parent_path() / "Resource" / "Map" / "17.hfl";
-    if (!std::filesystem::exists(path))
-        GTEST_SKIP() << "recovered Map17 HFL is not installed: " << path.string();
+    const auto root = mxh::test::require_playdh_root();
+    const auto path = root / "Resource" / "Map" / "17.hfl";
+    ASSERT_TRUE(std::filesystem::is_regular_file(path))
+        << mxh::test::kPlayDhRootEnv << " is set but Resource/Map/17.hfl is missing";
     std::ifstream input(path, std::ios::binary);
     ASSERT_TRUE(input);
     std::vector<std::uint8_t> bytes;
@@ -84,63 +119,56 @@ TEST(HflHeightField, RejectsTruncatedData) {
     EXPECT_FALSE(mxh::compat::parse_hfl(data, terrain));
 }
 
-// 2026-09-07 visual-polish: validate that the procedurally synthesized
-// placeholder HFL files emitted by modern/tools/gen_hfl_placeholders.py
-// round-trip through the real C++ parser.  Skipped if the PlayDH
-// fixture is not present (mirrors the convention of ParsesRealMap12Terrain).
+// Three hand-written .hfl files in a temp directory. The parser must accept
+// each header, height grid, texture name, and tile table.
 TEST(HflHeightField, PlaceholderFilesParse) {
-    namespace fs = std::filesystem;
-    fs::path mapDir;
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) {
-        mapDir = *playdh_override / "Resource" / "Map";
-    }
-    auto root = fs::current_path();
-    for (int level = 0; mapDir.empty() && level < 8; ++level) {
-        for (const auto& first : fs::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto candidate = first.path() / "PlayDH" / "Resource" / "Map";
-            if (fs::exists(candidate) && fs::is_directory(candidate)) {
-                mapDir = candidate;
-                break;
-            }
-        }
-        if (!mapDir.empty()) break;
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
-    }
-    if (mapDir.empty()) GTEST_SKIP() << "PlayDH/Resource/Map fixture not installed";
-
-    // Scan a handful of placeholder HFL files (any non-template map id).
-    // The first map id we find that is NOT 10, 21, or 101 is by
-    // definition a placeholder; we parse it and verify the parser
-    // accepts the procedurally-synthesized header and height grid.
-    int placeholders = 0;
-    for (const auto& entry : fs::directory_iterator(mapDir)) {
-        if (!entry.is_regular_file()) continue;
-        const auto& name = entry.path().filename().string();
-        if (name == "10.hfl" || name == "21.hfl" || name == "101.hfl") continue;
-        if (name.find(".hfl") == std::string::npos) continue;
-        const auto bytes = [&] {
-            std::ifstream f(entry.path(), std::ios::binary);
-            std::ostringstream ss;
-            ss << f.rdbuf();
-            const std::string& s = ss.str();
-            return std::vector<std::uint8_t>(reinterpret_cast<const std::uint8_t*>(s.data()),
-                                             reinterpret_cast<const std::uint8_t*>(s.data() + s.size()));
-        }();
+    const mxh::test::HandwrittenHfl specs[] = {
+        hfl_spec(2, 2, 1, 1, 400.0f, 50.0f, 7, "syn_a",
+                 {-3.5f, 0.0f, 12.0f, 640.0f}, {4}),
+        hfl_spec(3, 1, 1, 2, 90.0f, 30.0f, 2, "syn_b",
+                 {1.0f, 2.0f, 3.0f}, {8, 9}),
+        hfl_spec(1, 4, 2, 2, 16.0f, 4.0f, 11, "syn_c",
+                 {5.0f, 6.0f, 7.0f, 8.0f}, {1, 2, 3, 4}),
+    };
+    const char* names[] = {"syn_a.hfl", "syn_b.hfl", "syn_c.hfl"};
+    mxh::test::HandwrittenFixtureDir dir;
+    ASSERT_TRUE(dir.created());
+    for (std::size_t i = 0; i < 3; ++i) {
+        const auto bytes = mxh::test::build_hfl(specs[i]);
+        ASSERT_FALSE(bytes.empty()) << names[i];
+        const auto path = dir.write_bytes(names[i], bytes);
+        ASSERT_FALSE(path.empty()) << names[i];
+        const auto read = read_file(path);
+        ASSERT_EQ(read, bytes) << names[i];
         mxh::compat::HflHeightField terrain;
         std::string error;
-        ASSERT_TRUE(mxh::compat::parse_hfl(bytes, terrain, &error))
-            << "placeholder " << name << " failed: " << error;
-        EXPECT_EQ(terrain.version, 1u);
-        EXPECT_GT(terrain.desc.height_count_x, 0u);
-        EXPECT_GT(terrain.desc.height_count_z, 0u);
-        EXPECT_EQ(terrain.heights.size(),
-                  terrain.desc.height_count_x * terrain.desc.height_count_z);
-        ++placeholders;
-        if (placeholders >= 3) break;
+        ASSERT_TRUE(mxh::compat::parse_hfl(read, terrain, &error)) << names[i] << ": " << error;
+        expect_hfl(terrain, specs[i]);
     }
-    if (placeholders == 0) {
-        GTEST_SKIP() << "no placeholder HFL files were found under " << mapDir;
-    }
+}
+
+// Pak plus .hfl. The archive is built in the temp directory at test time.
+TEST(HflHeightField, ParsesSyntheticPackedTerrain) {
+    const auto spec = hfl_spec(2, 3, 2, 2, 120.0f, 10.0f, 3, "syn_pack",
+                               {-8.0f, 1.0f, 2.0f, 3.0f, 4.0f, 700.0f},
+                               {11, 12, 13, 14});
+    const auto hfl = mxh::test::build_hfl(spec);
+    ASSERT_FALSE(hfl.empty());
+    const auto pak = mxh::test::build_original96_pak({{"grid.hfl", hfl}});
+    ASSERT_FALSE(pak.empty());
+    mxh::test::HandwrittenFixtureDir dir;
+    ASSERT_TRUE(dir.created());
+    const auto path = dir.write_bytes("syn.pak", pak);
+    ASSERT_FALSE(path.empty());
+    std::string error;
+    const auto pack = mxh::compat::PackFile::open(path, &error);
+    ASSERT_NE(pack, nullptr) << error;
+    const auto bytes = pack->read("grid.hfl");
+    ASSERT_EQ(bytes, hfl);
+    mxh::compat::HflHeightField terrain;
+    ASSERT_TRUE(mxh::compat::parse_hfl(bytes, terrain, &error)) << error;
+    expect_hfl(terrain, spec);
+    const auto [low, high] = std::minmax_element(terrain.heights.begin(), terrain.heights.end());
+    EXPECT_FLOAT_EQ(*low, -8.0f);
+    EXPECT_FLOAT_EQ(*high, 700.0f);
 }
