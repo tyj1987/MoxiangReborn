@@ -1,0 +1,238 @@
+# Compile-check the Windows game client (mxh_client / MoxianClient).
+# pull_request (not pull_request_target) plus workflow_dispatch.
+# This is not a required check. contents: read only. No secrets.
+#
+# actions/checkout for pull_request checks out the PR merge ref. Do not
+# override ref. lfs is false, and GIT_LFS_SKIP_SMUDGE stays set, so the
+# four LFS .pak archives stay pointer files.
+#
+# Sparse checkout omits the three PlayDH archives that are already real
+# binaries in git (Pet.pak, npc.pak, Titan.pak). A full checkout would
+# fail the pak gate on those blobs. The four LFS archives are checked
+# out as pointers and the gate fails if any workspace .pak is a binary.
+#
+# Configure uses -DMXH_CLIENT_COMPILE_ONLY=ON and never sets
+# MXH_PLAYDH_ROOT. The build is Debug / Win32 / MSVC and stops at
+# mxh_client. Nothing is executed.
+
+name: windows-client-compile
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/windows-client-compile.yml
+      - modern/CMakeLists.txt
+      - modern/src/CMakeLists.txt
+      - modern/tools/MoxianClient/**
+      - modern/src/client/**
+      - modern/src/ui/**
+      - modern/src/render/**
+      - modern/src/audio/**
+      - modern/src/log/**
+      - modern/src/net/**
+      - modern/src/crypto/**
+      - modern/src/game/**
+      - modern/src/monitor/**
+      - modern/src/services/**
+      - modern/src/anm_motion.cpp
+      - modern/src/bmhm_map.cpp
+      - modern/src/bsad_area.cpp
+      - modern/src/character_appearance_catalog.cpp
+      - modern/src/chr_motion.cpp
+      - modern/src/chx_model.cpp
+      - modern/src/gx_map_script.cpp
+      - modern/src/hfl_height_field.cpp
+      - modern/src/image_path_table.cpp
+      - modern/src/item_effects.cpp
+      - modern/src/map_change_catalog.cpp
+      - modern/src/mh_file_ex.cpp
+      - modern/src/monster_catalog.cpp
+      - modern/src/npc_chx_catalog.cpp
+      - modern/src/pack_file.cpp
+      - modern/src/quest_npc_catalog.cpp
+      - modern/src/quest_string_catalog.cpp
+      - modern/src/sound_list.cpp
+      - modern/src/stm_static_model.cpp
+      - modern/src/ttb_tile_table.cpp
+      - modern/include/mxh/audio/**
+      - modern/include/mxh/client/**
+      - modern/include/mxh/compat/**
+      - modern/include/mxh/crypto/**
+      - modern/include/mxh/game/**
+      - modern/include/mxh/log/**
+      - modern/include/mxh/monitor/**
+      - modern/include/mxh/net/**
+      - modern/include/mxh/proto/**
+      - modern/include/mxh/render/**
+      - modern/include/mxh/services/**
+      - modern/include/mxh/ui/**
+
+permissions:
+  contents: read
+
+jobs:
+  mxh_client:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      GIT_LFS_SKIP_SMUDGE: "1"
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout pull request merge ref
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            modern/CMakeLists.txt
+            modern/src
+            modern/include
+            modern/tools/MoxianClient
+            modern/third_party/sqlite
+            modern/data/PlayDH/Map.pak
+            modern/data/PlayDH/Character.pak
+            modern/data/PlayDH/Effect.pak
+            modern/data/PlayDH/monster.pak
+
+      - name: Prove no pak binary was checked out
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $root = (Get-Location).Path
+          $paks = @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter *.pak -Force -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch '[\\/]\.git([\\/]|$)' })
+          $pointerCount = 0
+          $binaries = New-Object System.Collections.Generic.List[string]
+          foreach ($pak in $paks) {
+            $fs = [System.IO.File]::Open($pak.FullName, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+            try {
+              $buf = New-Object byte[] 64
+              $n = $fs.Read($buf, 0, $buf.Length)
+            } finally {
+              $fs.Dispose()
+            }
+            $text = [System.Text.Encoding]::ASCII.GetString($buf, 0, [Math]::Max($n, 0))
+            $rel = $pak.FullName.Substring($root.Length).TrimStart('\')
+            Write-Host ("PAK {0} bytes={1}" -f $rel, $pak.Length)
+            if ($text.StartsWith('version https://git-lfs.github.com/spec/v1')) {
+              $pointerCount++
+            } else {
+              $binaries.Add($rel) | Out-Null
+            }
+          }
+          if ($binaries.Count -gt 0) {
+            foreach ($rel in $binaries) { Write-Host "PAK_BINARY $rel" }
+            throw 'pak binary content is present'
+          }
+          Write-Host "NO_PAK_CONTENT OK count=$pointerCount pointer files"
+
+      - name: Configure mxh_client without PlayDH
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path Env:MXH_PLAYDH_ROOT) { Remove-Item Env:MXH_PLAYDH_ROOT }
+          if (-not [string]::IsNullOrEmpty($env:MXH_PLAYDH_ROOT)) {
+            throw 'MXH_PLAYDH_ROOT is set'
+          }
+          cmake --version
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found at $vswhere" }
+          $installVersion = @( & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion )
+          if ($installVersion.Count -lt 1 -or [string]::IsNullOrWhiteSpace($installVersion[0])) {
+            throw 'windows-latest has no VC Tools instance'
+          }
+          $major = [int](($installVersion[0] -split '\.')[0])
+          $generator = switch ($major) {
+            17 { 'Visual Studio 17 2022' }
+            18 { 'Visual Studio 18 2026' }
+            default { throw "unsupported Visual Studio $major ($($installVersion[0]))" }
+          }
+          Write-Host "VS $($installVersion[0]) generator=$generator arch=Win32"
+          cmake -S modern -B build -G $generator -A Win32 -DMXH_CLIENT_COMPILE_ONLY=ON
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $cache = Join-Path (Get-Location) 'build\CMakeCache.txt'
+          $playdh = Select-String -LiteralPath $cache -Pattern 'MXH_PLAYDH' -SimpleMatch
+          if ($playdh) {
+            $playdh | ForEach-Object { Write-Host $_.Line }
+            throw 'CMake cache contains MXH_PLAYDH'
+          }
+          Select-String -LiteralPath $cache -Pattern 'CMAKE_GENERATOR:|CMAKE_GENERATOR_PLATFORM:|MXH_CLIENT_COMPILE_ONLY:' |
+            ForEach-Object { Write-Host $_.Line }
+
+      - name: Build mxh_client Debug
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path $env:RUNNER_TEMP 'mxh_client-build.log'
+          cmd /c "cmake --build build --config Debug --target mxh_client --clean-first -- /m /nologo /v:normal > `"$log`" 2>&1"
+          $buildExit = $LASTEXITCODE
+          Get-Content -LiteralPath $log
+          $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+          $warningCount = 0
+          foreach ($line in [System.IO.File]::ReadLines($log)) {
+            if ($line -match 'warning (C\d+|LNK\d+)') {
+              if ($seen.Add($line)) { $warningCount++ }
+            }
+          }
+          Write-Host "MXH_CLIENT_WARNINGS=$warningCount"
+          if ($buildExit -ne 0) {
+            Write-Host '----- compiler errors -----'
+            foreach ($line in [System.IO.File]::ReadLines($log)) {
+              if ($line -match 'error (C\d+|LNK\d+)') { Write-Host $line }
+            }
+            exit $buildExit
+          }
+
+      - name: Check embedded manifest
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $roots = @(
+            (Join-Path (Get-Location) 'modern\tools\MoxianClient'),
+            (Join-Path (Get-Location) 'modern\src\client')
+          )
+          $files = @()
+          foreach ($root in $roots) {
+            if (-not (Test-Path -LiteralPath $root)) { continue }
+            $files += @(Get-ChildItem -LiteralPath $root -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Extension -eq '.manifest' -or $_.Name -eq 'mxh_client.manifest' })
+          }
+          $declares = $false
+          foreach ($file in $files) {
+            $text = [System.IO.File]::ReadAllText($file.FullName)
+            Write-Host "MANIFEST_SOURCE $($file.FullName)"
+            if ($text.Contains('PerMonitorV2')) { $declares = $true }
+          }
+          if (-not $declares) {
+            Write-Host 'MANIFEST_CHECK SKIPPED (no mxh_client.manifest)'
+            exit 0
+          }
+          $exe = Get-ChildItem -LiteralPath (Join-Path (Get-Location) 'build') -Recurse -File -Filter mxh_client.exe |
+            Where-Object { $_.Directory.Name -eq 'Debug' } |
+            Select-Object -First 1
+          if ($null -eq $exe) { throw 'mxh_client.exe was not produced' }
+          $kitRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+          $mt = @(Get-ChildItem -LiteralPath $kitRoot -Recurse -File -Filter mt.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.Directory.Name -eq 'x64' } |
+            Sort-Object {
+              $versionText = '0.0.0.0'
+              if ($_.FullName -match '\\([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)\\x64\\mt\.exe$') {
+                $versionText = $Matches[1]
+              }
+              [version]$versionText
+            } -Descending)
+          if ($mt.Count -lt 1) { throw 'mt.exe was not found under Windows Kits\10\bin\*\x64' }
+          Write-Host "MT $($mt[0].FullName)"
+          Write-Host "EXE $($exe.FullName)"
+          $out = Join-Path $env:RUNNER_TEMP 'mxh_client-manifest.xml'
+          & $mt[0].FullName -nologo "-inputresource:$($exe.FullName);#1" "-out:$out"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $out)) {
+            throw "mt.exe failed to export the embedded manifest (exit $LASTEXITCODE)"
+          }
+          Write-Host '----- embedded manifest -----'
+          Get-Content -LiteralPath $out
+          Write-Host '----- end manifest -----'
+          $exported = [System.IO.File]::ReadAllText($out)
+          if (-not $exported.Contains('PerMonitorV2')) {
+            throw 'embedded manifest does not contain PerMonitorV2'
+          }
+          Write-Host 'MANIFEST_CHECK PerMonitorV2 OK'
