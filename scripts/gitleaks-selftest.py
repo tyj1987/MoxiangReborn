@@ -19,8 +19,9 @@ from pathlib import Path
 # --exit-code is only the status for a completed scan that found leaks.
 LEAK_EXIT = 2
 LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
-# Detection stays off in this revision so the pak self-test fails closed.
-PAK_POINTER_CHECK = False
+# A tracked *.pak passes only when .gitattributes sets filter=lfs and the
+# file is pointer text. Otherwise the CI guard prints NON_LFS_PAK and fails.
+PAK_POINTER_CHECK = True
 
 
 def _repo_rel(path: Path, root: Path) -> str:
