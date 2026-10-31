@@ -11,9 +11,19 @@
 # fail the pak gate on those blobs. The four LFS archives are checked
 # out as pointers and the gate fails if any workspace .pak is a binary.
 #
-# Configure uses -DMXH_CLIENT_COMPILE_ONLY=ON and never sets
-# MXH_PLAYDH_ROOT. The build is Debug / Win32 / MSVC and stops at
-# mxh_client. Nothing is executed.
+# The mxh_client build stays compile-only: -DMXH_CLIENT_COMPILE_ONLY=ON,
+# Debug / Win32 / MSVC, stop at mxh_client. That log is the only input to
+# MXH_CLIENT_WARNINGS. MXH_PLAYDH_ROOT is never set.
+#
+# MapHandlerTest and InGamePlayable behavior tests link mxh_server and
+# mxh_client_lib, so they are not in the compile-only closure. A second
+# directory, build-behavior, is configured with MXH_CLIENT_COMPILE_ONLY=OFF
+# and builds only mxh_server_handler_tests and mxh_client_tests. ctest runs
+# the seven named cases. require_passed fails the job when any of them is
+# missing, not run, skipped, or failed. Those cases call MapHandler and
+# CInGameState::Init(nullptr) / on_message. They do not call
+# Device::createSwapChain, which is the only D3D11CreateDeviceAndSwapChain
+# site. A device-creation failure is a job failure, not a skip.
 
 name: windows-client-compile
 
@@ -67,6 +77,11 @@ on:
       - modern/include/mxh/render/**
       - modern/include/mxh/services/**
       - modern/include/mxh/ui/**
+      - modern/include/mxh/server/**
+      - modern/src/server/**
+      - modern/tests/unit/client/**
+      - modern/tests/unit/server/**
+      - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:
   contents: read
@@ -92,6 +107,26 @@ jobs:
             modern/include
             modern/tools/MoxianClient
             modern/third_party/sqlite
+            modern/third_party/googletest-src
+            modern/tests
+            modern/tools/MoxianResourceExplorer
+            modern/tools/MoxianDbTool
+            modern/tools/MoxianLoginServer
+            modern/tools/MoxianAgentServer
+            modern/tools/MoxianMapServer
+            modern/tools/MoxianClientE2E
+            modern/tools/MoxianRenderDemo
+            modern/tools/MoxianPacker
+            modern/tools/MoxianGMTool
+            modern/tools/MoxianMapEditor
+            modern/tools/MoxianAutoPatcher
+            modern/tools/MoxianLauncher
+            modern/tools/MoxianProtocolDoc
+            modern/tools/MoxianSideBySide
+            modern/tools/dialog_children_type_scan
+            modern/tools/MoxianPortal
+            modern/tools/MxDumpInspect
+            modern/data/PlayDH/Resource/CharacterExpPoint.bin
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
@@ -236,3 +271,102 @@ jobs:
             throw 'embedded manifest does not contain PerMonitorV2'
           }
           Write-Host 'MANIFEST_CHECK PerMonitorV2 OK'
+
+      - name: Configure behavior tests without PlayDH
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path Env:MXH_PLAYDH_ROOT) { Remove-Item Env:MXH_PLAYDH_ROOT }
+          if (-not [string]::IsNullOrEmpty($env:MXH_PLAYDH_ROOT)) {
+            throw 'MXH_PLAYDH_ROOT is set'
+          }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found at $vswhere" }
+          $installVersion = @( & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion )
+          if ($installVersion.Count -lt 1 -or [string]::IsNullOrWhiteSpace($installVersion[0])) {
+            throw 'windows-latest has no VC Tools instance'
+          }
+          $major = [int](($installVersion[0] -split '\.')[0])
+          $generator = switch ($major) {
+            17 { 'Visual Studio 17 2022' }
+            18 { 'Visual Studio 18 2026' }
+            default { throw "unsupported Visual Studio $major ($($installVersion[0]))" }
+          }
+          Write-Host "VS $($installVersion[0]) generator=$generator arch=Win32 behavior=OFF"
+          cmake -S modern -B build-behavior -G $generator -A Win32 -DMXH_CLIENT_COMPILE_ONLY=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $cache = Join-Path (Get-Location) 'build-behavior\CMakeCache.txt'
+          $playdh = Select-String -LiteralPath $cache -Pattern 'MXH_PLAYDH' -SimpleMatch
+          if ($playdh) {
+            $playdh | ForEach-Object { Write-Host $_.Line }
+            throw 'behavior CMake cache contains MXH_PLAYDH'
+          }
+          $compileOnly = Select-String -LiteralPath $cache -Pattern '^MXH_CLIENT_COMPILE_ONLY:BOOL=ON$'
+          if ($compileOnly) { throw 'behavior configure left MXH_CLIENT_COMPILE_ONLY ON' }
+          Select-String -LiteralPath $cache -Pattern 'CMAKE_GENERATOR:|CMAKE_GENERATOR_PLATFORM:|MXH_CLIENT_COMPILE_ONLY:' |
+            ForEach-Object { Write-Host $_.Line }
+
+      - name: Build behavior test targets
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --build build-behavior --config Debug --target mxh_server_handler_tests --target mxh_client_tests -- /m /nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run the seven behavior tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path (Get-Location) 'behavior-ctest.log'
+          $err = Join-Path (Get-Location) 'behavior-ctest.err'
+          $regex = '^(MapHandlerTest\.(MonsterDeathNotifyReachesClientThenPickupSynClaims|MonsterDeathCreatesNotifiesAndClaimsGroundDrop|RevisionedKillPublishesGroundObtainAndPersistsPickup|DirectObtainEmitsProtocol32AndRejectsGroundDecode)|InGamePlayable\.(GroundItemAddBecomesGroundDropAndPickupAckClearsIt|InvalidPickupAckDoesNotConsumeGroundDrop|DirectObtainUpdatesInventoryAndRejectsGroundBody))$'
+          Write-Host "CTEST_REGEX $regex"
+          $ctestArgs = @(
+            '--test-dir', 'build-behavior',
+            '-C', 'Debug',
+            '--output-on-failure',
+            '--no-tests=error',
+            '--timeout', '180',
+            '-R', $regex
+          )
+          $proc = Start-Process -FilePath 'ctest' -ArgumentList $ctestArgs -Wait -PassThru `
+            -RedirectStandardOutput $log -RedirectStandardError $err
+          if (Test-Path -LiteralPath $err) {
+            Get-Content -LiteralPath $err | Add-Content -LiteralPath $log
+          }
+          Get-Content -LiteralPath $log
+          exit $proc.ExitCode
+
+      - name: Require the seven behavior tests passed
+        if: always()
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path (Get-Location) 'behavior-ctest.log'
+          if (-not (Test-Path -LiteralPath $log) -or (Get-Item -LiteralPath $log).Length -eq 0) {
+            Write-Host 'BEHAVIOR_REQUIRED NOT PASSED (behavior-ctest.log missing)'
+            exit 1
+          }
+          $names = @(
+            'MapHandlerTest.MonsterDeathNotifyReachesClientThenPickupSynClaims',
+            'MapHandlerTest.MonsterDeathCreatesNotifiesAndClaimsGroundDrop',
+            'MapHandlerTest.RevisionedKillPublishesGroundObtainAndPersistsPickup',
+            'MapHandlerTest.DirectObtainEmitsProtocol32AndRejectsGroundDecode',
+            'InGamePlayable.GroundItemAddBecomesGroundDropAndPickupAckClearsIt',
+            'InGamePlayable.InvalidPickupAckDoesNotConsumeGroundDrop',
+            'InGamePlayable.DirectObtainUpdatesInventoryAndRejectsGroundBody'
+          )
+          $status = 0
+          foreach ($name in $names) {
+            $hits = @(Select-String -LiteralPath $log -SimpleMatch -Pattern $name)
+            $skipped = $false
+            $passed = $false
+            foreach ($hit in $hits) {
+              Write-Host "CTEST_LINE $($hit.Line)"
+              if ($hit.Line -match 'Skipped|Not Run') { $skipped = $true }
+              if ($hit.Line -match '(^|\s)Passed(\s|$)') { $passed = $true }
+            }
+            if ($hits.Count -eq 0 -or $skipped -or -not $passed) {
+              Write-Host "BEHAVIOR_REQUIRED NOT PASSED $name"
+              $status = 1
+            } else {
+              Write-Host "BEHAVIOR_REQUIRED PASSED $name"
+            }
+          }
+          exit $status

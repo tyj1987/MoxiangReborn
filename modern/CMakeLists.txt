@@ -63,6 +63,9 @@ endif()
 # not search for PlayDH or other original game resources and it does not
 # read MXH_PLAYDH_ROOT. There is no separate resource-lookup switch: the
 # client target does not probe those files at configure time.
+# Behavior tests stay out of that closure. The same workflow configures
+# build-behavior with this option OFF and builds mxh_server_handler_tests
+# and mxh_client_tests there, so the warning build is unchanged.
 include(src/proto/ItemProtocolHash.cmake)
 
 option(MXH_CLIENT_COMPILE_ONLY "Configure only the mxh_client link closure" OFF)
