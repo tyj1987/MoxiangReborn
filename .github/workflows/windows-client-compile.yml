@@ -11,9 +11,27 @@
 # fail the pak gate on those blobs. The four LFS archives are checked
 # out as pointers and the gate fails if any workspace .pak is a binary.
 #
-# Configure uses -DMXH_CLIENT_COMPILE_ONLY=ON and never sets
-# MXH_PLAYDH_ROOT. The build is Debug / Win32 / MSVC and stops at
-# mxh_client. Nothing is executed.
+# The mxh_client build stays compile-only: -DMXH_CLIENT_COMPILE_ONLY=ON,
+# Debug / Win32 / MSVC, stop at mxh_client. That log is the only input to
+# MXH_CLIENT_WARNINGS. MXH_PLAYDH_ROOT is never set.
+#
+# MapHandlerTest and InGamePlayable behavior tests link mxh_server and
+# mxh_client_lib, so they are not in the compile-only closure. A second
+# directory, build-behavior, is configured with MXH_CLIENT_COMPILE_ONLY=OFF.
+# Extension point: append one line to ci/windows_behavior_tests.txt
+# (`Name` or `Name ok=<N>`, default N=1). That file is the only test list.
+# ctest -R and require_passed both read it via ci/windows_behavior_require.ps1.
+# Passed is not enough: the checker also requires N `[       OK ]` lines and
+# rejects `[  PASSED  ] 0 tests`, `0 tests from`, `[  SKIPPED ]`, and DISABLED_.
+# Append a CMake target inside $behaviorTargets. One cmake --build --target
+# invocation builds every name; a missing or failed target fails the step.
+# Behavior tests must not use ROG ports 26001/27001/28001 and must stay on
+# this runner's workspace and RUNNER_TEMP.
+# The raw ctest -V log is uploaded as windows-behavior-ctest-log.
+# Those cases call MapHandler and
+# CInGameState::Init(nullptr) / on_message. They do not call
+# Device::createSwapChain, which is the only D3D11CreateDeviceAndSwapChain
+# site. A device-creation failure is a job failure, not a skip.
 
 name: windows-client-compile
 
@@ -22,6 +40,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/windows-client-compile.yml
+      - ci/windows_behavior_tests.txt
+      - ci/windows_behavior_require.ps1
       - scripts/protocol_manifest_gate.ps1
       - modern/CMakeLists.txt
       - modern/src/CMakeLists.txt
@@ -68,9 +88,15 @@ on:
       - modern/include/mxh/render/**
       - modern/include/mxh/services/**
       - modern/include/mxh/ui/**
+      - modern/include/mxh/server/**
+      - modern/src/server/**
+      - modern/tests/unit/client/**
+      - modern/tests/unit/server/**
+      - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   mxh_client:
@@ -92,8 +118,30 @@ jobs:
             modern/src
             modern/include
             modern/tools/MoxianClient
+            ci/windows_behavior_tests.txt
+            ci/windows_behavior_require.ps1
             scripts/protocol_manifest_gate.ps1
             modern/third_party/sqlite
+            modern/third_party/googletest-src
+            modern/tests
+            modern/tools/MoxianResourceExplorer
+            modern/tools/MoxianDbTool
+            modern/tools/MoxianLoginServer
+            modern/tools/MoxianAgentServer
+            modern/tools/MoxianMapServer
+            modern/tools/MoxianClientE2E
+            modern/tools/MoxianRenderDemo
+            modern/tools/MoxianPacker
+            modern/tools/MoxianGMTool
+            modern/tools/MoxianMapEditor
+            modern/tools/MoxianAutoPatcher
+            modern/tools/MoxianLauncher
+            modern/tools/MoxianProtocolDoc
+            modern/tools/MoxianSideBySide
+            modern/tools/dialog_children_type_scan
+            modern/tools/MoxianPortal
+            modern/tools/MxDumpInspect
+            modern/data/PlayDH/Resource/CharacterExpPoint.bin
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
@@ -183,6 +231,17 @@ jobs:
           # The last child pwsh exits 1. pwsh -Command keeps that code unless cleared.
           $global:LASTEXITCODE = 0
           exit 0
+
+      # Canned ctest logs. Same checker as the real require_passed step.
+      - name: Self-test behavior require_passed
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
+          if (-not (Test-Path -LiteralPath $checker -PathType Leaf)) {
+            throw "behavior require checker is missing: $checker"
+          }
+          . $checker
+          Invoke-MxhBehaviorRequireSelfTest
 
       - name: Prove no pak binary was checked out
         run: |
@@ -323,3 +382,147 @@ jobs:
             throw 'embedded manifest does not contain PerMonitorV2'
           }
           Write-Host 'MANIFEST_CHECK PerMonitorV2 OK'
+
+      - name: Configure behavior tests without PlayDH
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path Env:MXH_PLAYDH_ROOT) { Remove-Item Env:MXH_PLAYDH_ROOT }
+          if (-not [string]::IsNullOrEmpty($env:MXH_PLAYDH_ROOT)) {
+            throw 'MXH_PLAYDH_ROOT is set'
+          }
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found at $vswhere" }
+          $installVersion = @( & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion )
+          if ($installVersion.Count -lt 1 -or [string]::IsNullOrWhiteSpace($installVersion[0])) {
+            throw 'windows-latest has no VC Tools instance'
+          }
+          $major = [int](($installVersion[0] -split '\.')[0])
+          $generator = switch ($major) {
+            17 { 'Visual Studio 17 2022' }
+            18 { 'Visual Studio 18 2026' }
+            default { throw "unsupported Visual Studio $major ($($installVersion[0]))" }
+          }
+          Write-Host "VS $($installVersion[0]) generator=$generator arch=Win32 behavior=OFF"
+          cmake -S modern -B build-behavior -G $generator -A Win32 -DMXH_CLIENT_COMPILE_ONLY=OFF
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $cache = Join-Path (Get-Location) 'build-behavior\CMakeCache.txt'
+          $playdh = Select-String -LiteralPath $cache -Pattern 'MXH_PLAYDH' -SimpleMatch
+          if ($playdh) {
+            $playdh | ForEach-Object { Write-Host $_.Line }
+            throw 'behavior CMake cache contains MXH_PLAYDH'
+          }
+          $compileOnly = Select-String -LiteralPath $cache -Pattern '^MXH_CLIENT_COMPILE_ONLY:BOOL=ON$'
+          if ($compileOnly) { throw 'behavior configure left MXH_CLIENT_COMPILE_ONLY ON' }
+          Select-String -LiteralPath $cache -Pattern 'CMAKE_GENERATOR:|CMAKE_GENERATOR_PLATFORM:|MXH_CLIENT_COMPILE_ONLY:' |
+            ForEach-Object { Write-Host $_.Line }
+
+      # Extension point: $behaviorTargets is the only target list. Test names
+      # live only in ci/windows_behavior_tests.txt (optional ok=<N>, default 1).
+      - name: Build behavior test targets
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Append follow-up CMake targets here, one quoted name per line.
+          # The single cmake --build --target invocation below builds every
+          # name, and the same ctest -R runs the names from the list file.
+          # A target that is not in this build, or that fails to compile,
+          # fails this step. Do not use ROG ports 26001, 27001, or 28001.
+          # Tests may use only this runner's workspace checkout and RUNNER_TEMP.
+          $behaviorTargets = @(
+            'mxh_server_handler_tests',
+            'mxh_client_tests'
+            # append targets here
+          )
+          if ($behaviorTargets.Count -lt 1) { throw 'behavior target list is empty' }
+          $buildRoot = Join-Path (Get-Location) 'build-behavior'
+          $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+          foreach ($target in $behaviorTargets) {
+            if ([string]::IsNullOrWhiteSpace($target)) { throw 'behavior target name is empty' }
+            if (-not $seen.Add($target)) { throw "behavior target is listed twice: $target" }
+            $proj = @(Get-ChildItem -LiteralPath $buildRoot -Recurse -File -Filter ($target + '.vcxproj') -ErrorAction SilentlyContinue)
+            if ($proj.Count -lt 1) { throw "behavior target is not in the build: $target" }
+            Write-Host "BEHAVIOR_TARGET $target"
+          }
+          & cmake --build build-behavior --config Debug --target @behaviorTargets -- /m /nologo
+          if ($LASTEXITCODE -ne 0) {
+            throw "behavior target build failed ($LASTEXITCODE): $($behaviorTargets -join ' ')"
+          }
+          foreach ($target in $behaviorTargets) {
+            $exe = @(Get-ChildItem -LiteralPath $buildRoot -Recurse -File -Filter ($target + '.exe') -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\Debug\\' })
+            if ($exe.Count -lt 1) { throw "behavior target produced no Debug executable: $target" }
+            Write-Host "BEHAVIOR_EXE $($exe[0].FullName)"
+          }
+
+      - name: Run listed behavior tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path (Get-Location) 'behavior-ctest.log'
+          $stdout = Join-Path (Get-Location) 'behavior-ctest.stdout'
+          $stderr = Join-Path (Get-Location) 'behavior-ctest.err'
+          $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
+          if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
+            throw "behavior test list is missing: $list"
+          }
+          . $checker
+          $entries = @(Get-MxhBehaviorEntries -ListPath $list)
+          if ($entries.Count -lt 1) { throw 'behavior test list has no test names' }
+          $escaped = foreach ($entry in $entries) { [regex]::Escape($entry.Name) }
+          $regex = '^(' + ($escaped -join '|') + ')$'
+          Write-Host "CTEST_REGEX $regex"
+          foreach ($entry in $entries) { Write-Host "CTEST_LIST $($entry.Name) ok=$($entry.ExpectedOk)" }
+          $ctestArgs = @(
+            '--test-dir', 'build-behavior',
+            '-C', 'Debug',
+            '--output-on-failure',
+            '-V',
+            '--output-log', $log,
+            '--no-tests=error',
+            '--timeout', '180',
+            '-R', $regex
+          )
+          $proc = Start-Process -FilePath 'ctest' -ArgumentList $ctestArgs -Wait -PassThru `
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not (Test-Path -LiteralPath $log) -or (Get-Item -LiteralPath $log).Length -eq 0) {
+            if (Test-Path -LiteralPath $stdout) {
+              Copy-Item -LiteralPath $stdout -Destination $log -Force
+            }
+          }
+          if (Test-Path -LiteralPath $log) {
+            Get-Content -LiteralPath $log
+            foreach ($port in 26001, 27001, 28001) {
+              $hit = Select-String -LiteralPath $log -Pattern ('\b' + $port + '\b') -Quiet
+              if ($hit) { throw "behavior test used ROG port $port" }
+            }
+          }
+          exit $proc.ExitCode
+
+      - name: Require listed behavior tests passed
+        if: always()
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $log = Join-Path (Get-Location) 'behavior-ctest.log'
+          $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
+          . $checker
+          if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
+            Write-Host 'REQUIRED NOT PASSED ci/windows_behavior_tests.txt ok=0/1 reason=missing'
+            Write-Host 'REQUIRED SUMMARY passed=0 not_passed=1'
+            exit 1
+          }
+          $entries = @(Get-MxhBehaviorEntries -ListPath $list)
+          $logText = ''
+          if (Test-Path -LiteralPath $log) {
+            $logText = [System.IO.File]::ReadAllText($log)
+          }
+          $result = Invoke-MxhBehaviorRequire -LogText $logText -Entries $entries
+          foreach ($line in $result.Lines) { Write-Host $line }
+          exit $result.ExitCode
+
+      - name: Upload behavior ctest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-behavior-ctest-log
+          path: behavior-ctest.log
+          if-no-files-found: warn
