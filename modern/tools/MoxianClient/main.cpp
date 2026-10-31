@@ -2768,7 +2768,6 @@ void captureHumanEvidenceFrame() {
 // this with IME, mouse, keyboard, and the game-state dispatch.
 // ---------------------------------------------------------------------------
 LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
-    tyj161_intentional_undeclared_identifier;
     switch (m) {
     case WM_CLOSE:
     case WM_DESTROY:
