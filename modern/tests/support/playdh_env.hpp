@@ -3,18 +3,17 @@
 // Test-only PlayDH location. Production code must not include this header.
 // MoxianClientE2E is a test harness and may include it.
 //
-// MXH_PLAYDH_ROOT, when set, is the PlayDH root and replaces every upward
-// search. Unset leaves the caller's existing walk unchanged.
-// Set but empty, missing, or not a directory fails with a message that names
-// MXH_PLAYDH_ROOT and the path (callers are test helpers; the exception
-// fails the test). The value is never treated as optional: a bad setting
-// does not fall through to the upward search.
+// MXH_PLAYDH_ROOT, when set, is the only PlayDH root. There is no parent
+// walk and no read of modern/data/PlayDH. Unset throws
+// kPlayDhRootMissing. Set but empty, missing, or not a directory fails
+// with a message that names MXH_PLAYDH_ROOT and the path. A bad setting
+// does not search anywhere else.
 //
-// The E2E resolver also requires the upward-search markers under that
-// directory: Resource/Server and Image/InterfaceScript. A missing marker
-// throws, names MXH_PLAYDH_ROOT, the path, and each missing marker, and
-// does not fall back. Other callers of playdh_dir_override() stay on the
-// directory check only.
+// The E2E resolver also requires Resource/Server and Image/InterfaceScript
+// under that directory. A missing marker throws, names MXH_PLAYDH_ROOT,
+// the path, and each missing marker. Other callers of
+// playdh_dir_override() stay on the directory check only and still receive
+// nullopt when the variable is unset.
 
 #include <cstdlib>
 #include <filesystem>
@@ -26,6 +25,8 @@
 namespace mxh::test {
 
 inline constexpr const char* kPlayDhRootEnv = "MXH_PLAYDH_ROOT";
+inline constexpr const char* kPlayDhRootMissing =
+    "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given";
 
 // `value` is the raw environment value. nullptr means the variable is unset.
 // One read of MXH_PLAYDH_ROOT lives here; helpers must not call getenv for it.
@@ -87,21 +88,13 @@ inline void require_e2e_playdh_markers(const std::filesystem::path& root) {
         "\" but required marker(s) are missing: " + missing);
 }
 
-// MoxianClientE2E marker search. `ec` is the same error_code the historical
-// walk passed to weakly_canonical after current_path/absolute.
+// Historical marker walk. It no longer searches. `bases` is ignored.
 inline std::filesystem::path find_marked_e2e_playdh_root(
     const std::vector<std::filesystem::path>& bases,
     std::error_code& ec) {
-    for (const auto& candidate_base : bases) {
-        for (const auto& root : {
-                 candidate_base / "modern" / "data" / "PlayDH",
-                 candidate_base / "data" / "PlayDH"}) {
-            if (e2e_playdh_has_markers(root)) {
-                return std::filesystem::weakly_canonical(root, ec);
-            }
-        }
-    }
-    return {};
+    (void)bases;
+    (void)ec;
+    throw std::runtime_error(kPlayDhRootMissing);
 }
 
 inline std::filesystem::path canonical_playdh_override(const std::filesystem::path& path) {
@@ -111,48 +104,38 @@ inline std::filesystem::path canonical_playdh_override(const std::filesystem::pa
     return path;
 }
 
-// `env_value` nullptr keeps the marker search over `bases`. Any other value
-// is the only candidate. Empty, missing, not a directory, or missing
-// Resource/Server or Image/InterfaceScript throws and does not consult `bases`.
+// `env_value` nullptr throws kPlayDhRootMissing. `bases` is not searched.
+// Empty, missing, not a directory, or missing Resource/Server or
+// Image/InterfaceScript throws and does not consult `bases`.
 inline std::filesystem::path resolve_e2e_playdh_root(
     const char* env_value,
     const std::vector<std::filesystem::path>& bases) {
-    if (const auto override_dir = playdh_dir_from_env_value(env_value)) {
-        require_e2e_playdh_markers(*override_dir);
-        return canonical_playdh_override(*override_dir);
-    }
-    std::error_code ec;
-    return find_marked_e2e_playdh_root(bases, ec);
+    (void)bases;
+    if (env_value == nullptr) throw std::runtime_error(kPlayDhRootMissing);
+    const auto override_dir = playdh_dir_from_env_value(env_value);
+    if (!override_dir) throw std::runtime_error(kPlayDhRootMissing);
+    require_e2e_playdh_markers(*override_dir);
+    return canonical_playdh_override(*override_dir);
 }
 
-// Upward search used when MXH_PLAYDH_ROOT is unset. cwd first, then eight
-// parents of the map executable. Either base may hold modern/data/PlayDH
-// or data/PlayDH, and both marker directories must exist.
+// Does not walk from `map_exe` or the working directory.
 inline std::filesystem::path search_e2e_playdh_from_map_exe(
     const std::filesystem::path& map_exe) {
-    std::error_code ec;
-    std::vector<std::filesystem::path> bases;
-    bases.push_back(std::filesystem::current_path(ec));
-    auto base = std::filesystem::absolute(map_exe, ec).parent_path();
-    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        bases.push_back(base);
-        const auto parent = base.parent_path();
-        if (parent == base) break;
-        base = parent;
-    }
-    return find_marked_e2e_playdh_root(bases, ec);
+    (void)map_exe;
+    throw std::runtime_error(kPlayDhRootMissing);
 }
 
-// Live MXH_PLAYDH_ROOT, read only through playdh_dir_override(). A set value
-// that is not an existing directory, or that lacks Resource/Server or
-// Image/InterfaceScript, throws before the upward search.
+// Live MXH_PLAYDH_ROOT, read only through playdh_dir_override(). Unset
+// throws kPlayDhRootMissing. A set value that is not an existing directory,
+// or that lacks Resource/Server or Image/InterfaceScript, throws.
 inline std::filesystem::path find_e2e_playdh_root_from_map_exe(
     const std::filesystem::path& map_exe) {
+    (void)map_exe;
     if (const auto override_dir = playdh_dir_override()) {
         require_e2e_playdh_markers(*override_dir);
         return canonical_playdh_override(*override_dir);
     }
-    return search_e2e_playdh_from_map_exe(map_exe);
+    throw std::runtime_error(kPlayDhRootMissing);
 }
 
 }  // namespace mxh::test
