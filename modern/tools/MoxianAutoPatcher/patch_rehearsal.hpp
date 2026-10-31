@@ -8,9 +8,16 @@
 //
 // PASS is not the rollback() exit code. Before update, every regular file
 // in the synthetic tree is recorded as `relative-path<TAB>sha256`. After
-// rollback the file set and each hash must match that manifest, and no
+// update and before rollback, every manifest FILE row must match its
+// payload digest and differ from that pre-update manifest. After rollback
+// the file set and each hash must match the pre-update manifest, and no
 // updater scratch may remain. `sha256` on the UPDATE OK line is the
 // SHA-256 of that canonical pre-update manifest.
+//
+// The player binary discovers a repository only by walking up from the
+// current directory for `.git`. It does not embed a build-machine path.
+// When that walk finds nothing, the temp directory this CLI just created
+// is still allowed.
 //
 // TODO(TYJ-160): MoxianLauncher must not call this. The launcher is a
 // Win32 GUI process; invoking update or rollback from it would target a
@@ -71,7 +78,13 @@ struct RehearsalRejection {
 // Reject an empty path, a relative path, any path component named PlayDH
 // (case-insensitive, including after symlink resolution), and any path
 // inside the repository working tree. Does not create or delete anything.
+// An empty `repository` means the walk found no checkout. `cli_owned_temp`
+// is set only for the directory the rehearsal CLI just created; that case
+// is allowed on a player machine that has no repository.
 std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target);
+std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target,
+                                                         const fs::path& repository,
+                                                         bool cli_owned_temp);
 
 struct RehearsalLayout {
     fs::path root;
@@ -84,12 +97,17 @@ struct RehearsalLayout {
 
 // Writes the fixed synthetic tree under an existing absolute directory.
 // Returns false before any write when the target is rejected.
-bool prepare_standard_rehearsal(const fs::path& target, RehearsalLayout& layout, std::string& error);
+// `cli_owned_temp` is true only for the directory the CLI created.
+bool prepare_standard_rehearsal(const fs::path& target, RehearsalLayout& layout, std::string& error,
+                                bool cli_owned_temp = false);
 
 struct RehearsalLogInput {
     bool update_ok = false;
     // Recorded for tests. rehearsal_should_pass does not read it.
     bool rollback_exit_code = false;
+    // True only when every updated file matched its payload digest and
+    // differed from the pre-update manifest. A no-op update stays false.
+    bool applied_ok = false;
     bool manifest_exact = false;
     int files = 0;
     int restored = 0;
@@ -97,9 +115,10 @@ struct RehearsalLogInput {
     std::string sha256;
 };
 
-// True only when the update reported success, the pre-update manifest
-// matches exactly, and no updater scratch remains. rollback_exit_code
-// is ignored on purpose.
+// True only when the update reported success, the post-update bytes
+// matched the payload and differed from the pre-update manifest, the
+// pre-update manifest matches after rollback, and no updater scratch
+// remains. rollback_exit_code is ignored on purpose.
 bool rehearsal_should_pass(const RehearsalLogInput& input) noexcept;
 std::string format_rehearsal_log(const RehearsalLogInput& input);
 
@@ -107,6 +126,7 @@ struct RehearsalRunResult {
     bool pass = false;
     bool update_ok = false;
     bool rollback_exit_code = false;
+    bool applied_ok = false;
     bool manifest_exact = false;
     int files = 0;
     int restored = 0;
@@ -115,7 +135,7 @@ struct RehearsalRunResult {
     std::string text;
 };
 
-RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout);
+RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout, bool cli_owned_temp = false);
 
 struct RehearsalCliArgs {
     bool rehearsal = false;

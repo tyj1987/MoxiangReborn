@@ -355,6 +355,8 @@ jobs:
           require_passed PatchRehearsal.RejectsImplicitTarget || status=1
           require_passed PatchRehearsal.PassIgnoresRollbackExitCode || status=1
           require_passed PatchRehearsal.CliCleansOwnTempDir || status=1
+          require_passed PatchRehearsal.NoOpUpdateDoesNotPass || status=1
+          require_passed PatchRehearsal.AllowsOwnedTempWithoutRepository || status=1
           if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1

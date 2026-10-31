@@ -52,6 +52,7 @@ std::string expected_pass_log() {
     return "PATCH_REHEARSAL UPDATE OK files=" +
            std::to_string(mxh::patch::standard_update_files().size()) +
            " sha256=" + manifest.digest() + "\n"
+           "PATCH_REHEARSAL APPLIED OK\n"
            "PATCH_REHEARSAL ROLLBACK OK restored=" + std::to_string(manifest.files.size()) + "\n"
            "PATCH_REHEARSAL LEFTOVERS 0\n"
            "PATCH_REHEARSAL PASS\n";
@@ -210,18 +211,25 @@ TEST_F(PatchRehearsal, InterruptedUpdateRestoresManifest) {
     const fs::path manifest = root / "manifest.txt";
     write_bytes(manifest, manifest_text);
 
-    MidUpdate observed;
-    observed.game = game;
-    mxh::patch::PatchTransaction transaction;
-    transaction.setGameDir(game.string());
-    transaction.setManifest(mxh::patch::rehearsal_file_url(manifest));
-    transaction.setManifestSha256(mxh::patch::sha256_file(manifest));
-    transaction.setApplyObserver(&on_apply, &observed);
-    EXPECT_FALSE(transaction.update());
+    // update() rolls back when the second file is missing, then
+    // execute_rehearsal calls rollback() again. The second call must
+    // leave the restored bytes in place and must not recreate scratch.
+    mxh::patch::RehearsalLayout layout;
+    layout.root = root;
+    layout.game = game;
+    layout.payload = payload;
+    layout.manifest = manifest;
+    layout.manifest_sha256 = mxh::patch::sha256_file(manifest);
+    layout.update_files = 2;
+    const auto result = mxh::patch::execute_rehearsal(layout);
 
-    EXPECT_EQ(observed.calls, 1);
-    EXPECT_EQ(observed.relative, "bin/a.dat");
-    EXPECT_EQ(observed.bytes, new_a);
+    EXPECT_FALSE(result.update_ok);
+    EXPECT_FALSE(result.rollback_exit_code);
+    EXPECT_FALSE(result.applied_ok);
+    EXPECT_TRUE(result.manifest_exact);
+    EXPECT_FALSE(result.pass) << result.text;
+    EXPECT_NE(result.text.find("PATCH_REHEARSAL APPLIED MISMATCH"), std::string::npos) << result.text;
+    EXPECT_EQ(result.text.find("PATCH_REHEARSAL PASS"), std::string::npos) << result.text;
     const auto after = mxh::patch::capture_tree_manifest(game);
     EXPECT_EQ(after, before);
     EXPECT_EQ(read_bytes(game / "bin" / "a.dat"), old_a);
@@ -229,10 +237,67 @@ TEST_F(PatchRehearsal, InterruptedUpdateRestoresManifest) {
     EXPECT_EQ(read_bytes(game / "logs" / "client.log"), kept);
     EXPECT_EQ(mxh::patch::sha256_file(game / "bin" / "a.dat"), before.files.at("bin/a.dat"));
     EXPECT_EQ(mxh::patch::sha256_file(game / "bin" / "b.dat"), before.files.at("bin/b.dat"));
+    EXPECT_EQ(result.leftovers, 0);
     EXPECT_EQ(mxh::patch::count_updater_leftovers(root), 0);
     EXPECT_FALSE(fs::exists(game / "_backup"));
     EXPECT_FALSE(fs::exists(game / ".update-journal"));
     EXPECT_FALSE(fs::exists(game / "bin" / "a.dat.mxh-new"));
+}
+
+TEST_F(PatchRehearsal, NoOpUpdateDoesNotPass) {
+    const fs::path root = make_temp();
+    const fs::path game = root / "game";
+    const fs::path payload = root / "payload";
+    write_bytes(game / "bin" / "client.dat", "already-installed");
+    write_bytes(game / "MHVerInfo.ver", "VERSION=2.0.0.0\nCHANNEL=rehearsal\n");
+    write_bytes(payload / "client.dat", "should-not-land");
+    const auto before = mxh::patch::capture_tree_manifest(game);
+    const fs::path manifest = root / "manifest.txt";
+    const std::string payload_hash = mxh::patch::sha256_file(payload / "client.dat");
+    write_bytes(manifest,
+                "VERSION=2.0.0.0\nFILE\tbin/client.dat\t" +
+                    mxh::patch::rehearsal_file_url(payload / "client.dat") + "\t" + payload_hash + "\t" +
+                    std::to_string(std::string("should-not-land").size()) + "\n");
+
+    mxh::patch::RehearsalLayout layout;
+    layout.root = root;
+    layout.game = game;
+    layout.payload = payload;
+    layout.manifest = manifest;
+    layout.manifest_sha256 = mxh::patch::sha256_file(manifest);
+    layout.update_files = 1;
+    const auto result = mxh::patch::execute_rehearsal(layout);
+
+    EXPECT_TRUE(result.update_ok);
+    EXPECT_FALSE(result.applied_ok);
+    EXPECT_FALSE(result.pass) << result.text;
+    EXPECT_NE(result.text.find("PATCH_REHEARSAL UPDATE OK"), std::string::npos) << result.text;
+    EXPECT_NE(result.text.find("PATCH_REHEARSAL APPLIED MISMATCH"), std::string::npos) << result.text;
+    EXPECT_EQ(result.text.find("PATCH_REHEARSAL PASS"), std::string::npos) << result.text;
+    EXPECT_EQ(result.text.find("PATCH_REHEARSAL APPLIED OK"), std::string::npos) << result.text;
+    EXPECT_EQ(mxh::patch::capture_tree_manifest(game), before);
+    EXPECT_EQ(read_bytes(game / "bin" / "client.dat"), "already-installed");
+    EXPECT_FALSE(fs::exists(game / "_backup"));
+    EXPECT_FALSE(fs::exists(game / ".update-journal"));
+}
+
+TEST_F(PatchRehearsal, AllowsOwnedTempWithoutRepository) {
+    const fs::path owned = make_temp() / "mxh-patch-rehearsal-player";
+    const fs::path empty_repository;
+    const auto allowed = mxh::patch::reject_rehearsal_target(owned, empty_repository, true);
+    EXPECT_FALSE(allowed.has_value());
+    const auto child = mxh::patch::reject_rehearsal_target(owned / "game" / "bin" / "client.dat",
+                                                           empty_repository, true);
+    EXPECT_FALSE(child.has_value());
+
+    const auto blocked = mxh::patch::reject_rehearsal_target(owned, empty_repository, false);
+    ASSERT_TRUE(blocked.has_value());
+    EXPECT_EQ(blocked->reason, mxh::patch::RehearsalRejectReason::UnknownRepository) << blocked->message;
+
+    const auto playdh = mxh::patch::reject_rehearsal_target(owned / "PlayDH" / "client", empty_repository, true);
+    ASSERT_TRUE(playdh.has_value());
+    EXPECT_EQ(playdh->reason, mxh::patch::RehearsalRejectReason::PlayDh) << playdh->message;
+    EXPECT_FALSE(fs::exists(owned));
 }
 
 TEST_F(PatchRehearsal, NoLeftoverTmpFiles) {
@@ -439,6 +504,7 @@ TEST_F(PatchRehearsal, PassIgnoresRollbackExitCode) {
     matched.files = 3;
     matched.restored = 4;
     matched.leftovers = 0;
+    matched.applied_ok = true;
     matched.sha256 = std::string(64, 'a');
     EXPECT_TRUE(mxh::patch::rehearsal_should_pass(matched));
     const std::string pass_text = mxh::patch::format_rehearsal_log(matched);
@@ -448,6 +514,7 @@ TEST_F(PatchRehearsal, PassIgnoresRollbackExitCode) {
 
     mxh::patch::RehearsalLogInput mismatched = matched;
     mismatched.rollback_exit_code = true;
+    mismatched.applied_ok = true;
     mismatched.manifest_exact = false;
     mismatched.restored = 3;
     EXPECT_FALSE(mxh::patch::rehearsal_should_pass(mismatched));
@@ -475,6 +542,7 @@ TEST_F(PatchRehearsal, PassIgnoresRollbackExitCode) {
     mxh::patch::RehearsalLogInput after_false_exit;
     after_false_exit.update_ok = true;
     after_false_exit.rollback_exit_code = false;
+    after_false_exit.applied_ok = true;
     after_false_exit.manifest_exact = true;
     after_false_exit.files = result.files;
     after_false_exit.restored = mxh::patch::restored_file_count(

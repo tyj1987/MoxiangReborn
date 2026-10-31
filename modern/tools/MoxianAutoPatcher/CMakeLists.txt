@@ -14,8 +14,8 @@ if(MSVC)
     target_compile_options(MoxianAutoPatcher PRIVATE /W3 /utf-8)
 endif()
 
-get_filename_component(MXH_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
-file(TO_CMAKE_PATH "${MXH_REPO_ROOT}" MXH_REPO_ROOT_POSIX)
-target_compile_definitions(MoxianAutoPatcher PRIVATE "MXH_REPO_ROOT=\"${MXH_REPO_ROOT_POSIX}\"")
+# Do not pass MXH_REPO_ROOT or any absolute source path into this target.
+# The installed player binary discovers a checkout only by walking from
+# the current directory. The unit-test target keeps MXH_REPO_ROOT.
 
 install(TARGETS MoxianAutoPatcher RUNTIME DESTINATION bin)

@@ -44,25 +44,30 @@ bool path_contains_playdh(const fs::path& path) {
     return false;
 }
 
-fs::path repository_root() {
-    std::vector<fs::path> seeds;
-#ifdef MXH_REPO_ROOT
-    seeds.emplace_back(MXH_REPO_ROOT);
-#endif
+fs::path repository_from(const fs::path& start) {
     std::error_code ec;
-    seeds.push_back(fs::current_path(ec));
-    for (fs::path seed : seeds) {
-        if (seed.empty()) continue;
-        seed = fs::absolute(seed, ec);
-        if (ec) continue;
-        for (int i = 0; i < 8 && !seed.empty(); ++i) {
-            if (fs::exists(seed / ".git", ec)) return fs::weakly_canonical(seed, ec);
-            const fs::path parent = seed.parent_path();
-            if (parent == seed) break;
-            seed = parent;
-        }
+    fs::path seed = fs::absolute(start, ec);
+    if (ec || seed.empty()) return {};
+    for (int i = 0; i < 8 && !seed.empty(); ++i) {
+        if (fs::exists(seed / ".git", ec)) return fs::weakly_canonical(seed, ec);
+        const fs::path parent = seed.parent_path();
+        if (parent == seed) break;
+        seed = parent;
     }
     return {};
+}
+
+// The player executable walks only from the current directory. The test
+// binary may also search MXH_REPO_ROOT, which is not compiled into
+// MoxianAutoPatcher.
+fs::path repository_root() {
+#ifdef MXH_REPO_ROOT
+    if (const fs::path from_tests = repository_from(MXH_REPO_ROOT); !from_tests.empty()) return from_tests;
+#endif
+    std::error_code ec;
+    const fs::path cwd = fs::current_path(ec);
+    if (ec || cwd.empty()) return {};
+    return repository_from(cwd);
 }
 
 fs::path resolve_existing_prefix(const fs::path& absolute_normal) {
@@ -137,6 +142,39 @@ bool write_inside(const fs::path& root, const fs::path& path, std::string_view b
         return false;
     }
     return true;
+}
+
+std::vector<std::string> split_tabs(const std::string& line) {
+    std::vector<std::string> fields;
+    std::string field;
+    std::istringstream row(line);
+    while (std::getline(row, field, '\t')) fields.push_back(field);
+    return fields;
+}
+
+// Every FILE row must be present with the manifest digest, and that digest
+// must differ from the pre-update manifest (a missing path counts as different).
+bool payload_was_applied(const fs::path& manifest_path, const TreeManifest& before,
+                         const TreeManifest& applied) {
+    std::ifstream input(manifest_path);
+    if (!input) return false;
+    int files = 0;
+    std::string line;
+    while (std::getline(input, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty() || line[0] == '#') continue;
+        if (line.rfind("VERSION=", 0) == 0) continue;
+        const auto fields = split_tabs(line);
+        if (fields.size() != 5 || fields[0] != "FILE") continue;
+        ++files;
+        const std::string expected = lower_hex(fields[3]);
+        const auto found = applied.files.find(fields[1]);
+        if (found == applied.files.end() || lower_hex(found->second) != expected) return false;
+        const auto prior = before.files.find(fields[1]);
+        if (prior != before.files.end() && lower_hex(prior->second) == lower_hex(found->second)) return false;
+    }
+    if (!input.eof()) return false;
+    return files > 0;
 }
 
 bool manifest_hashes_complete(const TreeManifest& manifest) {
@@ -248,7 +286,9 @@ int count_updater_leftovers(const fs::path& root) {
     return count;
 }
 
-std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target) {
+std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target,
+                                                         const fs::path& repository,
+                                                         bool cli_owned_temp) {
     auto reject = [](RehearsalRejectReason reason, const char* message) {
         return std::optional<RehearsalRejection>(RehearsalRejection{reason, message});
     };
@@ -274,12 +314,12 @@ std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target
         return reject(RehearsalRejectReason::PlayDh,
                       "rehearsal target contains a PlayDH path component");
     }
-    const fs::path repo = repository_root();
-    if (repo.empty()) {
+    if (repository.empty()) {
+        if (cli_owned_temp) return std::nullopt;
         return reject(RehearsalRejectReason::UnknownRepository,
                       "rehearsal repository root is unknown");
     }
-    const fs::path repo_normal = repo.lexically_normal();
+    const fs::path repo_normal = repository.lexically_normal();
     if (is_inside_directory(normal, repo_normal) || is_inside_directory(resolved, repo_normal)) {
         return reject(RehearsalRejectReason::InsideRepository,
                       "rehearsal target is inside the repository working tree");
@@ -287,8 +327,13 @@ std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target
     return std::nullopt;
 }
 
-bool prepare_standard_rehearsal(const fs::path& target, RehearsalLayout& layout, std::string& error) {
-    if (const auto rejected = reject_rehearsal_target(target)) {
+std::optional<RehearsalRejection> reject_rehearsal_target(const fs::path& target) {
+    return reject_rehearsal_target(target, repository_root(), false);
+}
+
+bool prepare_standard_rehearsal(const fs::path& target, RehearsalLayout& layout, std::string& error,
+                                bool cli_owned_temp) {
+    if (const auto rejected = reject_rehearsal_target(target, repository_root(), cli_owned_temp)) {
         error = rejected->message;
         return false;
     }
@@ -340,7 +385,8 @@ bool prepare_standard_rehearsal(const fs::path& target, RehearsalLayout& layout,
 
 bool rehearsal_should_pass(const RehearsalLogInput& input) noexcept {
     (void)input.rollback_exit_code;
-    return input.update_ok && input.manifest_exact && input.leftovers == 0 && input.sha256.size() == 64;
+    return input.update_ok && input.applied_ok && input.manifest_exact && input.leftovers == 0 &&
+           input.sha256.size() == 64;
 }
 
 std::string format_rehearsal_log(const RehearsalLogInput& input) {
@@ -349,6 +395,11 @@ std::string format_rehearsal_log(const RehearsalLogInput& input) {
         out << "PATCH_REHEARSAL UPDATE OK files=" << input.files << " sha256=" << input.sha256 << "\n";
     } else {
         out << "PATCH_REHEARSAL UPDATE FAIL files=" << input.files << "\n";
+    }
+    if (input.applied_ok) {
+        out << "PATCH_REHEARSAL APPLIED OK\n";
+    } else {
+        out << "PATCH_REHEARSAL APPLIED MISMATCH\n";
     }
     if (input.manifest_exact) {
         out << "PATCH_REHEARSAL ROLLBACK OK restored=" << input.restored << "\n";
@@ -364,14 +415,19 @@ std::string format_rehearsal_log(const RehearsalLogInput& input) {
     return out.str();
 }
 
-RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout) {
+RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout, bool cli_owned_temp) {
     RehearsalRunResult result;
     auto fail = [&](const std::string& message) {
         result.text = "PATCH_REHEARSAL REJECT " + message + "\nPATCH_REHEARSAL FAIL\n";
         return result;
     };
-    if (const auto rejected = reject_rehearsal_target(layout.root)) return fail(rejected->message);
-    if (const auto rejected = reject_rehearsal_target(layout.game)) return fail(rejected->message);
+    const fs::path repo = repository_root();
+    if (const auto rejected = reject_rehearsal_target(layout.root, repo, cli_owned_temp)) {
+        return fail(rejected->message);
+    }
+    if (const auto rejected = reject_rehearsal_target(layout.game, repo, cli_owned_temp)) {
+        return fail(rejected->message);
+    }
     if (!path_is_inside(layout.root, layout.game) ||
         !path_is_inside(layout.root, layout.payload) ||
         !path_is_inside(layout.root, layout.manifest)) {
@@ -382,6 +438,7 @@ RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout) {
     const std::string digest = before.digest();
     bool update_ok = false;
     bool rollback_exit = false;
+    bool applied_ok = false;
     {
         CoutSilencer silence;
         PatchTransaction transaction;
@@ -393,6 +450,11 @@ RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout) {
         } catch (const std::exception&) {
             update_ok = false;
         }
+        // Snapshot the tree after update() returns and before the rehearsal's
+        // own rollback(). A failed update() has already rolled itself back,
+        // so this snapshot is the restored tree and the payload check fails.
+        const TreeManifest applied = capture_tree_manifest(layout.game);
+        applied_ok = update_ok && payload_was_applied(layout.manifest, before, applied);
         try {
             rollback_exit = transaction.rollback();
         } catch (const std::exception&) {
@@ -407,6 +469,7 @@ RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout) {
     RehearsalLogInput input;
     input.update_ok = update_ok;
     input.rollback_exit_code = rollback_exit;
+    input.applied_ok = applied_ok;
     input.manifest_exact = exact;
     input.files = layout.update_files;
     input.restored = restored;
@@ -415,6 +478,7 @@ RehearsalRunResult execute_rehearsal(const RehearsalLayout& layout) {
     result.pass = rehearsal_should_pass(input);
     result.update_ok = update_ok;
     result.rollback_exit_code = rollback_exit;
+    result.applied_ok = applied_ok;
     result.manifest_exact = exact;
     result.files = layout.update_files;
     result.restored = restored;
@@ -445,7 +509,8 @@ int run_patch_rehearsal_cli(std::ostream& out, std::ostream& err, const fs::path
         err << "PATCH_REHEARSAL REJECT rehearsal temp path escapes its parent\n";
         return 2;
     }
-    if (const auto rejected = reject_rehearsal_target(target)) {
+    const fs::path repo = repository_root();
+    if (const auto rejected = reject_rehearsal_target(target, repo, true)) {
         err << "PATCH_REHEARSAL REJECT " << rejected->message << "\n";
         err << "PATCH_REHEARSAL FAIL\n";
         return 2;
@@ -467,19 +532,19 @@ int run_patch_rehearsal_cli(std::ostream& out, std::ostream& err, const fs::path
         }
     } cleanup{parent, target};
 
-    if (const auto rejected = reject_rehearsal_target(target)) {
+    if (const auto rejected = reject_rehearsal_target(target, repo, true)) {
         err << "PATCH_REHEARSAL REJECT " << rejected->message << "\n";
         err << "PATCH_REHEARSAL FAIL\n";
         return 2;
     }
     RehearsalLayout layout;
     std::string error;
-    if (!prepare_standard_rehearsal(target, layout, error)) {
+    if (!prepare_standard_rehearsal(target, layout, error, true)) {
         err << "PATCH_REHEARSAL REJECT " << error << "\n";
         err << "PATCH_REHEARSAL FAIL\n";
         return 2;
     }
-    const RehearsalRunResult result = execute_rehearsal(layout);
+    const RehearsalRunResult result = execute_rehearsal(layout, true);
     out << result.text;
     return result.pass ? 0 : 1;
 }
