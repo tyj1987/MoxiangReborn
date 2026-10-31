@@ -106,6 +106,7 @@ on:
       - scripts/tests/test-soak-24h.ps1
       - scripts/tests/test-deploy-default-map.ps1
       - deploy/scripts/start_modern.ps1
+      - scripts/protocol_manifest_gate.ps1
       - .gitignore
       - "**.[Pp][Aa][Kk]"
       - .gitlab-ci.yml
