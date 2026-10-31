@@ -47,7 +47,8 @@ param(
     [int]$LoginPort = 26001,
     [int]$AgentPort = 27001,
     [int]$MapPort = 28001,
-    [int]$Map12Port = 28002,
+    # Map12Port has no default. The map12 step refuses to run until it is passed.
+    [int]$Map12Port,
     [int]$MapNumber = 10,
     [int]$MaxSampleGapSeconds = 120,
     [int]$CycleTimeoutSeconds = 180,
@@ -155,7 +156,12 @@ function Test-SoakWindows {
 }
 
 function Get-SoakForbiddenPorts {
-    return @(16001, 17001, 18001, 36001, 37001, 38001, 26011, 27011, 28011)
+    # Already enforced. Modern stack, then the isolated r18 stage.
+    $modern = @(16001, 17001, 18001)
+    $isolated = @(36001, 37001, 38001)
+    # 26011/27011/28011 are CI-only. They are not script defaults.
+    $ciOnly = @(26011, 27011, 28011)
+    return @($modern + $isolated + $ciOnly)
 }
 
 function Get-SoakPortViolation {
@@ -163,9 +169,15 @@ function Get-SoakPortViolation {
         [int]$LoginPort,
         [int]$AgentPort,
         [int]$MapPort,
-        [int]$Map12Port
+        [Nullable[int]]$Map12Port
     )
-    $ports = @($LoginPort, $AgentPort, $MapPort, $Map12Port)
+    $ports = New-Object System.Collections.Generic.List[int]
+    $ports.Add($LoginPort)
+    $ports.Add($AgentPort)
+    $ports.Add($MapPort)
+    if ($PSBoundParameters.ContainsKey('Map12Port') -and $null -ne $Map12Port) {
+        $ports.Add([int]$Map12Port)
+    }
     $seen = @{}
     foreach ($port in $ports) {
         if ($port -lt 1 -or $port -gt 65535) { return ('port ' + $port + ' is outside 1-65535') }
@@ -177,6 +189,17 @@ function Get-SoakPortViolation {
         $seen[$key] = $true
     }
     return ''
+}
+
+function Get-SoakMap12StepRefusal {
+    param(
+        [switch]$Bound,
+        [int]$Map12Port = 0
+    )
+    if (-not $Bound) {
+        return 'Map12Port must be passed explicitly; 28002 is not a default'
+    }
+    return (Get-SoakPortViolation -LoginPort 26001 -AgentPort 27001 -MapPort 28001 -Map12Port $Map12Port)
 }
 
 function Test-SoakRunDirPolicy {
@@ -1011,6 +1034,7 @@ function Get-SoakLaunchRefusal {
         [int]$AgentPort,
         [int]$MapPort,
         [int]$Map12Port,
+        [bool]$Map12PortBound = $false,
         [double]$DurationHours,
         [double]$WarmupHours,
         [int]$SampleSeconds,
@@ -1050,12 +1074,19 @@ function Get-SoakLaunchRefusal {
     if (-not [string]::IsNullOrWhiteSpace($ExpectPeer) -and -not (Test-SoakNameToken $ExpectPeer)) {
         return 'ExpectPeer must match ^[A-Za-z0-9_]{1,16}$'
     }
-    $portViolation = Get-SoakPortViolation -LoginPort $LoginPort -AgentPort $AgentPort -MapPort $MapPort -Map12Port $Map12Port
+    if ($Map12PortBound) {
+        $portViolation = Get-SoakPortViolation -LoginPort $LoginPort -AgentPort $AgentPort -MapPort $MapPort -Map12Port $Map12Port
+    } else {
+        $portViolation = Get-SoakPortViolation -LoginPort $LoginPort -AgentPort $AgentPort -MapPort $MapPort
+    }
     if (-not [string]::IsNullOrEmpty($portViolation)) { return $portViolation }
     if (-not [string]::IsNullOrEmpty($RunDirRefusal)) { return $RunDirRefusal }
     if ($RunDir.Contains(';')) { return 'RunDir must not contain a semicolon' }
     if (-not [string]::IsNullOrWhiteSpace($WatchRoot) -and (Test-SoakPathNested -Child $RunDir -Parent $WatchRoot)) {
         return 'RunDir must not be inside WatchRoot'
+    }
+    if (-not $Map12PortBound) {
+        return (Get-SoakMap12StepRefusal -Bound:$false)
     }
     if ($IncludeSqlDataGuard -and [string]::IsNullOrWhiteSpace($MssqlDb)) {
         return 'IncludeSqlDataGuard requires -MssqlDb'
@@ -1411,7 +1442,7 @@ function Invoke-SoakRun {
         [int]$LoginPort = 26001,
         [int]$AgentPort = 27001,
         [int]$MapPort = 28001,
-        [int]$Map12Port = 28002,
+        [int]$Map12Port,
         [int]$MapNumber = 10,
         [int]$MaxSampleGapSeconds = 120,
         [int]$CycleTimeoutSeconds = 180,
@@ -1437,7 +1468,8 @@ function Invoke-SoakRun {
     $agentExe = Resolve-SoakExecutable -ServerBinDir $ServerBinDir -BuildRoot $BuildRoot -FileName 'mxh_agent_server_CHINA.exe' -ToolDirs @('MoxianAgentServer')
     $mapExe = Resolve-SoakExecutable -ServerBinDir $ServerBinDir -BuildRoot $BuildRoot -FileName 'mxh_map_server_CHINA.exe' -ToolDirs @('MoxianMapServer')
     $dbTool = Resolve-SoakExecutable -ServerBinDir $ServerBinDir -BuildRoot $BuildRoot -FileName 'mxh_db_tool.exe' -ToolDirs @('MoxianDbTool')
-    $refusal = Get-SoakLaunchRefusal -HostOk (Test-SoakHostAtLeast74) -RunDirRefusal $directory.Refusal -RunDir $directory.Path -WatchRoot $WatchRoot -LoginPort $LoginPort -AgentPort $AgentPort -MapPort $MapPort -Map12Port $Map12Port -DurationHours $DurationHours -WarmupHours $WarmupHours -SampleSeconds $SampleSeconds -Clients $Clients -MaxSampleGapSeconds $MaxSampleGapSeconds -CycleTimeoutSeconds $CycleTimeoutSeconds -StartupTimeoutSeconds $StartupTimeoutSeconds -MinFreeGB $MinFreeGB -MapNumber $MapNumber -MssqlDb $MssqlDb -IncludeSqlDataGuard ([bool]$IncludeSqlDataGuard) -CharacterSlots $slots -ClientExe $ClientExe -PlayDhRoot $PlayDhRoot -DbTool $dbTool -LoginExe $loginExe -AgentExe $agentExe -MapExe $mapExe -HoldSeconds $HoldSeconds -ExpectPeer $ExpectPeer -DropSocketAfterSeconds $DropSocketAfterSeconds -RunId $RunId
+    $map12Bound = $PSBoundParameters.ContainsKey('Map12Port')
+    $refusal = Get-SoakLaunchRefusal -HostOk (Test-SoakHostAtLeast74) -RunDirRefusal $directory.Refusal -RunDir $directory.Path -WatchRoot $WatchRoot -LoginPort $LoginPort -AgentPort $AgentPort -MapPort $MapPort -Map12Port $Map12Port -Map12PortBound $map12Bound -DurationHours $DurationHours -WarmupHours $WarmupHours -SampleSeconds $SampleSeconds -Clients $Clients -MaxSampleGapSeconds $MaxSampleGapSeconds -CycleTimeoutSeconds $CycleTimeoutSeconds -StartupTimeoutSeconds $StartupTimeoutSeconds -MinFreeGB $MinFreeGB -MapNumber $MapNumber -MssqlDb $MssqlDb -IncludeSqlDataGuard ([bool]$IncludeSqlDataGuard) -CharacterSlots $slots -ClientExe $ClientExe -PlayDhRoot $PlayDhRoot -DbTool $dbTool -LoginExe $loginExe -AgentExe $agentExe -MapExe $mapExe -HoldSeconds $HoldSeconds -ExpectPeer $ExpectPeer -DropSocketAfterSeconds $DropSocketAfterSeconds -RunId $RunId
     if (-not [string]::IsNullOrEmpty($refusal)) {
         Write-SoakLine ('SOAK FAIL ' + $refusal)
         return 1
