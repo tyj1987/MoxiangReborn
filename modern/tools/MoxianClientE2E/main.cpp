@@ -42,6 +42,28 @@
 //                  [--exercise-quest]   # Live QuestScript accept/claim gate
 //                  [--exercise-mapchange] # start the map 12 server
 //                  [--exercise-position] # movement/GameOut/relog position gate
+//                  [--reuse-character NAME]
+//                      # log in an existing character; never create one.
+//                      # missing name exits 2: CLIENT_E2E CHARACTER_MISSING <name>
+//                      # a later run is a full fresh login, not session resume
+//                  [--hold-seconds N]
+//                      # after map entry, stay connected N seconds, then logout
+//                      # ConnectionCheck (proto 63) every 10s; reply to
+//                      # ConnectionCheck with ConnectionCheckOk (proto 64)
+//                  [--expect-peer NAME] [--expect-peer-timeout N]
+//                      # require CharacterAdd for NAME (default timeout 30s)
+//                      # seen: CLIENT_E2E PEER_SEEN <name>
+//                      # missed: CLIENT_E2E PEER_TIMEOUT <name> and exit 2
+//                  [--state-dump PATH]
+//                      # JSON at map entry and at exit: position (x, y, map),
+//                      # hp, mp, shield, money, inventory sorted by slot
+//                      # (slot, item_index, count). y is the ground axis
+//                      # (protocol position_z). Keys are in a fixed order.
+//                  [--drop-socket-after N]
+//                      # after N seconds in the map, SO_LINGER {1,0} then
+//                      # closesocket. No shutdown(), no GameOut/logout.
+//                      # prints CLIENT_E2E DROPPED rst and exits 4.
+//                      # next run: --reuse-character (fresh login)
 //                  [--no-spawn]  # assume servers are already running (remote-safe)
 //                  [--account NAME] [--password-env ENV_NAME]
 //                  [--timeout N] # per-step timeout in seconds (default 10)
@@ -67,8 +89,37 @@
 // Exit codes:
 //   0  - all 5 protocol steps passed
 //   1  - server failed to spawn
-//   2  - protocol step failed
+//   2  - protocol step failed (includes missing --reuse-character
+//        and --expect-peer timeout)
 //   3  - usage error / server exe not found
+//   4  - simulated disconnect (--drop-socket-after). RST, no logout.
+//
+// Ports stay the existing --login-port / --agent-port / --map-port flags
+// (or MXH_E2E_PORT_BASE). Nothing in this tool hardcodes a listener.
+// The ROG set is login 26001, agent 27001, map 28001. Pass them explicitly.
+//
+// Linux CI runs mxh_e2e_soak_tests (argument parsing, the JSON writer, and
+// the SO_LINGER {1,0}-before-close seam) with synthetic data only. Those
+// tests do not open a socket and do not read original game files. A live
+// login, peer, hold, or RST check needs Windows: Login/Agent/Map are
+// Winsock processes (TcpServer). The IOCP server is Windows-only and is
+// not what Linux CI starts.
+//
+// Machine-readable events, one line on stdout:
+//   CLIENT_E2E REUSE <name>
+//   CLIENT_E2E CHARACTER_MISSING <name>
+//   CLIENT_E2E MAP_ENTER
+//   CLIENT_E2E KEEPALIVE
+//   CLIENT_E2E PEER_SEEN <name>
+//   CLIENT_E2E PEER_TIMEOUT <name>
+//   CLIENT_E2E HOLD_DONE
+//   CLIENT_E2E STATE_DUMP <path>
+//   CLIENT_E2E DROPPED rst
+//
+// Soak observation runs after GameInAck (and the existing map-entry drain)
+// and before optional --exercise-* gates. Leave those gates off for a soak.
+// Reconnect is a new process with --reuse-character. This client does not
+// resume a dropped session and this tool does not add auto-reconnect.
 //
 // Phase B.2.5 design:
 //   * Headless — no HWND, no DX11, no message pump.  We drive
@@ -101,6 +152,7 @@
 
 #include "../../tests/support/e2e_ports.hpp"
 #include "../../tests/support/playdh_env.hpp"
+#include "e2e_soak.hpp"
 
 #include <algorithm>
 #include <array>
@@ -114,6 +166,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -182,6 +235,7 @@ struct CliArgs {
     int start_area = 0;
     int configured_start_area = 0;
     bool exercise_position = false; // opt-in movement/GameOut/relog position gate
+    mxh::e2e::SoakOptions soak;
     bool init_schema = true;   // Phase P0: apply the modern schema before
                                // spawning.  SQLite: always safe (idempotent
                                // CREATE TABLE IF NOT EXISTS).  MSSQL: keeps
@@ -282,6 +336,13 @@ CliArgs parse_cli(int argc, char** argv) {
         }
         else if (s == "--exercise-position") a.exercise_position = true;
         else if (s == "--init-schema") a.init_schema = true;
+        else if (mxh::e2e::is_soak_flag(s)) {
+            std::string error;
+            if (!mxh::e2e::consume_soak_flag(a.soak, argc, argv, i, error)) {
+                std::fprintf(stderr, "%s\n", error.c_str());
+                std::exit(3);
+            }
+        }
         else {
             std::fprintf(stderr, "unknown arg: %s\n", std::string(s).c_str());
             std::exit(3);
@@ -610,6 +671,161 @@ bool persisted_equipment_matches(const mxh::client::CInGameState& game,
     return weapon.dwDBIdx == expected.db_idx &&
            weapon.wIconIdx == expected.icon_idx &&
            game.game_info().weared_item_idx[kWeaponSlot] == expected.icon_idx;
+}
+
+// ---------------------------------------------------------------------------
+// Soak observation (after map entry, before optional exercise gates)
+// ---------------------------------------------------------------------------
+void write_client_e2e_event(std::string_view body) {
+    std::fputs("CLIENT_E2E ", stdout);
+    std::fwrite(body.data(), 1, body.size(), stdout);
+    std::fputc('\n', stdout);
+    std::fflush(stdout);
+}
+
+mxh::e2e::CharacterSnapshot capture_character_snapshot(
+    const mxh::client::CInGameState& game) {
+    mxh::e2e::CharacterSnapshot snap;
+    const auto& info = game.game_info();
+    snap.x = static_cast<int>(game.local_x());
+    snap.y = static_cast<int>(game.local_z());
+    snap.map = info.map_num != 0 ? static_cast<int>(info.map_num)
+                                 : static_cast<int>(game.map_num());
+    snap.hp = info.life;
+    snap.mp = info.mp;
+    snap.shield = info.shield;
+    snap.money = info.money;
+    const auto& inventory = info.items.Inventory;
+    for (int slot = 0; slot < mxh::game::SLOT_INVENTORY_NUM; ++slot) {
+        const auto& item = inventory[static_cast<std::size_t>(slot)];
+        if (mxh::game::is_empty_slot(item)) continue;
+        mxh::e2e::InventorySlot line;
+        line.slot = static_cast<int>(item.Position);
+        line.item_index = static_cast<int>(item.wIconIdx);
+        line.count = item.ItemParam;
+        snap.inventory.push_back(line);
+    }
+    return snap;
+}
+
+bool peer_is_visible(const mxh::client::CInGameState& game, std::string_view name) {
+    for (const auto& entry : game.remote_players()) {
+        if (entry.second.name == name) return true;
+    }
+    return false;
+}
+
+void send_connection_check(mxh::client::CEngine& engine, std::uint32_t player_id) {
+    mxh::net::Message message;
+    message.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    message.header.protocol = static_cast<std::uint8_t>(
+        mxh::proto::UserConnProtocol::ConnectionCheck);
+    message.header.object_id = player_id;
+    (void)engine.agent_session().send(message);
+    write_client_e2e_event("KEEPALIVE");
+}
+
+bool publish_state_dump(const mxh::e2e::SoakOptions& soak,
+                        const mxh::e2e::SessionDump& dump) {
+    if (!soak.state_dump) return true;
+    std::string error;
+    if (!mxh::e2e::write_session_dump_file(soak.state_dump_path, dump, error)) {
+        write_client_e2e_event("STATE_DUMP_FAIL");
+        LOG("[5/5] FAIL: state dump: %s", error.c_str());
+        return false;
+    }
+    write_client_e2e_event(std::string("STATE_DUMP ") + soak.state_dump_path);
+    return true;
+}
+
+// 0 = continue the normal logout path. 2 = protocol failure. 4 = RST drop.
+int run_in_map_soak(mxh::client::CEngine& engine,
+                    mxh::client::CInGameState& game,
+                    const mxh::e2e::SoakOptions& soak) {
+    write_client_e2e_event("MAP_ENTER");
+    mxh::e2e::SessionDump dump;
+    dump.entry = capture_character_snapshot(game);
+    dump.exit = dump.entry;
+
+    const bool wait = soak.hold || soak.expect_peer || soak.drop;
+    if (wait) {
+        using clock = std::chrono::steady_clock;
+        const auto start = clock::now();
+        auto next_keepalive = start;
+        bool peer_seen = false;
+        const auto peer_deadline = start + std::chrono::seconds(
+            soak.expect_peer ? soak.expect_peer_timeout_s : 0);
+        const auto hold_deadline = start + std::chrono::seconds(
+            soak.hold ? soak.hold_seconds : 0);
+        const auto drop_deadline = start + std::chrono::seconds(
+            soak.drop ? soak.drop_socket_after_s : 0);
+        for (;;) {
+            const auto now = clock::now();
+            game.Process();
+            if (soak.expect_peer && !peer_seen &&
+                peer_is_visible(game, soak.expect_peer_name)) {
+                peer_seen = true;
+                write_client_e2e_event("PEER_SEEN " + soak.expect_peer_name);
+            }
+            // Drop wins when it is the earlier end (ties included). A later
+            // --hold-seconds still logs out normally and does not wait.
+            const bool drop_is_end =
+                soak.drop && (!soak.hold || drop_deadline <= hold_deadline);
+            if (drop_is_end && now >= drop_deadline) {
+                dump.exit = capture_character_snapshot(game);
+                if (!publish_state_dump(soak, dump)) return 2;
+                // Abortive close: linger {1,0} then closesocket. Release()
+                // would send GameOutSyn; the caller returns before that.
+                engine.agent_session().abort();
+                write_client_e2e_event("DROPPED rst");
+                if (soak.expect_peer && !peer_seen) {
+                    write_client_e2e_event("PEER_TIMEOUT " + soak.expect_peer_name);
+                    LOG("[5/5] FAIL: peer '%s' not visible before simulated disconnect",
+                        soak.expect_peer_name.c_str());
+                    return 2;
+                }
+                LOG("[5/5] simulated disconnect after %d s (RST, no logout)",
+                    soak.drop_socket_after_s);
+                return mxh::e2e::kSimulatedDisconnectExitCode;
+            }
+            if (soak.expect_peer && !peer_seen && now >= peer_deadline) {
+                dump.exit = capture_character_snapshot(game);
+                if (!publish_state_dump(soak, dump)) return 2;
+                write_client_e2e_event("PEER_TIMEOUT " + soak.expect_peer_name);
+                LOG("[5/5] FAIL: peer '%s' not visible within %d s",
+                    soak.expect_peer_name.c_str(), soak.expect_peer_timeout_s);
+                return 2;
+            }
+            if (!engine.agent_session().is_connected()) {
+                dump.exit = capture_character_snapshot(game);
+                (void)publish_state_dump(soak, dump);
+                LOG("[5/5] FAIL: connection lost during in-map soak");
+                return 2;
+            }
+            if (now >= next_keepalive) {
+                send_connection_check(engine, game.player_id());
+                next_keepalive = now + std::chrono::seconds(
+                    mxh::e2e::kKeepAliveIntervalSeconds);
+            }
+            if (soak.expect_peer && !peer_seen) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                continue;
+            }
+            if (drop_is_end) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                continue;
+            }
+            if (soak.hold && now < hold_deadline) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(25));
+                continue;
+            }
+            break;
+        }
+        dump.exit = capture_character_snapshot(game);
+        if (soak.hold) write_client_e2e_event("HOLD_DONE");
+    }
+    if (!publish_state_dump(soak, dump)) return 2;
+    return 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -964,7 +1180,12 @@ int run_e2e(const CliArgs& cli) {
                       [](const auto& s) { return s.valid; });
     if (valid_count_existing > 0) char_select_done = true;
     chsel.Release();
-    if (valid_count_existing == 0) {
+    // --reuse-character never creates. An empty list fails after the
+    // refreshed CharacterListAck below, with the same "does not exist" line.
+    if (cli.soak.reuse) {
+        LOG("[3/5] reuse requested for '%s'; character creation skipped",
+            cli.soak.reuse_character.c_str());
+    } else if (valid_count_existing == 0) {
         LOG("[3/5] CharMake: creating character via CCharMake ...");
         mxh::client::CCharMake charmake;
         charmake.SetLoginResult(login_result);
@@ -1083,26 +1304,60 @@ int run_e2e(const CliArgs& cli) {
             return 2;
         }
         std::uint32_t valid_count = 0;
+        bool found_named = false;
         for (std::size_t slot = 0; slot < chsel2.character_list().size(); ++slot) {
             const auto& s = chsel2.character_list()[slot];
             if (s.valid) {
                 ++valid_count;
-                if (created_chrid == 0) {
+                if (cli.soak.reuse) {
+                    if (!found_named && s.name == cli.soak.reuse_character) {
+                        created_chrid = s.chrid;
+                        created_slot = slot;
+                        found_named = true;
+                    }
+                } else if (created_chrid == 0) {
                     created_chrid = s.chrid;
                     created_slot = slot;
                 }
             }
         }
-        if (valid_count == 0) {
-            LOG("[4/5] FAIL: list after create has no valid slot");
-            return 2;
+        if (cli.soak.reuse) {
+            if (!found_named) {
+                std::fputs("CLIENT_E2E CHARACTER_MISSING ", stdout);
+                std::fwrite(cli.soak.reuse_character.data(), 1,
+                            cli.soak.reuse_character.size(), stdout);
+                std::fputc('\n', stdout);
+                std::fflush(stdout);
+                LOG("[4/5] FAIL: character '%s' does not exist; not creating",
+                    cli.soak.reuse_character.c_str());
+                return 2;
+            }
+            std::fputs("CLIENT_E2E REUSE ", stdout);
+            std::fwrite(cli.soak.reuse_character.data(), 1,
+                        cli.soak.reuse_character.size(), stdout);
+            std::fputc('\n', stdout);
+            std::fflush(stdout);
+            LOG("[4/5] OK: reusing existing character '%s' (chrid=%u, %u valid slot(s))",
+                cli.soak.reuse_character.c_str(),
+                static_cast<unsigned>(created_chrid),
+                static_cast<unsigned>(valid_count));
+        } else {
+            if (valid_count == 0) {
+                LOG("[4/5] FAIL: list after create has no valid slot");
+                return 2;
+            }
+            LOG("[4/5] OK: created character present (chrid=%u, %u valid slot(s))",
+                static_cast<unsigned>(created_chrid),
+                static_cast<unsigned>(valid_count));
         }
-        LOG("[4/5] OK: created character present (chrid=%u, %u valid slot(s))",
-            static_cast<unsigned>(created_chrid),
-            static_cast<unsigned>(valid_count));
     }
     if (!chsel2.SelectSlot(created_slot) || !chsel2.ConfirmSelection()) {
-        LOG("[4/5] FAIL: cannot confirm the first character slot");
+        if (cli.soak.reuse) {
+            LOG("[4/5] FAIL: cannot confirm character '%s'",
+                cli.soak.reuse_character.c_str());
+        } else {
+            LOG("[4/5] FAIL: cannot confirm the first character slot");
+        }
         return 2;
     }
     {
@@ -1195,6 +1450,11 @@ int run_e2e(const CliArgs& cli) {
             "level=%u map=%u life=%u/%u",
             info.player_id, info.name.c_str(), info.level, info.map_num,
             info.life, info.max_life);
+
+        if (mxh::e2e::in_map_soak_requested(cli.soak)) {
+            const int soak_rc = run_in_map_soak(engine, game, cli.soak);
+            if (soak_rc != 0) return soak_rc;
+        }
 
         if (cli.exercise_quest) {
             const auto quest_path = e2e_playdh_root / "Resource" / "QuestScript" / "QuestString.bin";

@@ -58,6 +58,50 @@ The runner opens the real launcher and leaves login credentials and all
 mouse/keyboard actions to the operator. It neither starts local services nor
 reads a local database connection string.
 
+## Soak flags (24h ops client)
+
+`mxh_client_e2e` can stay in a map, watch for another character, dump
+state, and abort the socket. Reconnect is a new process with
+`--reuse-character` (a full login). The tool does not resume a session.
+
+`--reuse-character NAME` selects that character and never creates one.
+A missing name prints `CLIENT_E2E CHARACTER_MISSING <name>` and exits 2.
+`--hold-seconds N` stays connected N seconds after map entry, sends
+UserConn ConnectionCheck every 10 seconds, and answers ConnectionCheck
+with ConnectionCheckOk, then logs out (exit 0). `--expect-peer NAME`
+requires a CharacterAdd for that name (`CLIENT_E2E PEER_SEEN`) within
+`--expect-peer-timeout` seconds (default 30) or exits 2.
+`--state-dump PATH` writes JSON of the entry and exit snapshots:
+position (`x`, `y`, `map`; `y` is the ground axis), `hp`, `mp`,
+`shield`, `money`, and inventory sorted by slot (`slot`, `item_index`,
+`count`). Object keys are in a fixed order. `--drop-socket-after N`
+sets SO_LINGER `{l_onoff=1, l_linger=0}` and closes the socket. It does
+not call shutdown and does not send logout. Stdout contains
+`CLIENT_E2E DROPPED rst` and the process exits 4.
+
+Ports are `--login-port`, `--agent-port`, and `--map-port` (or
+`MXH_E2E_PORT_BASE`). The ROG set is 26001 / 27001 / 28001. Pass them
+on the command line. Linux CI runs `mxh_e2e_soak_tests` (parsing, JSON,
+linger seam) with synthetic data only. A live server check is a Windows
+run; the three servers are Winsock processes and Linux CI does not
+start them.
+
+```powershell
+$e2e = Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe'
+$common = @(
+  '--no-spawn','--login-host','127.0.0.1',
+  '--login-port','26001','--agent-port','27001','--map-port','28001',
+  '--account','mxh_e2e','--password-env','MXH_E2E_PASSWORD','--timeout','30')
+& $e2e @common --character-name soakA --hold-seconds 20 --state-dump .\soakA.json
+& $e2e @common --character-name soakB --expect-peer soakA --hold-seconds 20
+& $e2e @common --reuse-character soakA --drop-socket-after 5
+if ($LASTEXITCODE -ne 4) { throw "drop path exit $LASTEXITCODE" }
+& $e2e @common --reuse-character soakA --hold-seconds 10 --state-dump .\soakA-relog.json
+```
+
+The chain must already be listening on those ports. `--password-env`
+reads the account password from the environment and does not print it.
+
 ## Expected result
 
 The run reports LoginAck, CharacterListAck, character creation/re-list, and a

@@ -220,6 +220,10 @@ public:
 
     [[nodiscard]] NetError connect(const ClientConfig& cfg);
     void disconnect();
+    // SO_LINGER {1,0} then closesocket. Does not call shutdown() and does
+    // not send a protocol message. --drop-socket-after uses this so the
+    // peer observes TCP RST instead of FIN.
+    void abort();
     [[nodiscard]] bool is_connected() const noexcept override;
 
     [[nodiscard]] NetError send(const Message& msg) override;

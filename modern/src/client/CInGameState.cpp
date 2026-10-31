@@ -1949,6 +1949,22 @@ void CInGameState::handle_userconn_message(const mxh::net::Message& msg) {
             }
             break;
         }
+        case UserConnProtocol::ConnectionCheck: {
+            // Agent -> client keep-alive (UserConn 63). The protocol answer
+            // is ConnectionCheckOk (64). A missing pong is what the server
+            // treats as a dead session.
+            if (m_pEngine && m_playerId != 0) {
+                mxh::net::Message out;
+                out.header.category = static_cast<std::uint8_t>(
+                    mxh::proto::Category::UserConn);
+                out.header.protocol = static_cast<std::uint8_t>(
+                    UserConnProtocol::ConnectionCheckOk);
+                out.header.object_id = m_playerId;
+                (void)m_pEngine->agent_session().send(out);
+                MLOG_DEBUG("CInGameState: ConnectionCheck -> ConnectionCheckOk");
+            }
+            break;
+        }
         case UserConnProtocol::ConnectionCheckOk: {
             // Phase 10d keep-alive.  Server pushes this every ~10s
             // once you're in game; we just log.
