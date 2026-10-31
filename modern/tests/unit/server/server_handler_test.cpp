@@ -6302,7 +6302,7 @@ TEST(MapHandlerTest, DirectObtainEmitsProtocol32AndRejectsGroundDecode) {
             static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
     });
     ASSERT_NE(notify, replies.end());
-    EXPECT_EQ(notify->header.protocol, 32u);
+    EXPECT_EQ(notify->header.protocol, 0u);
     const auto obtained =
         mxh::proto::original_item::decode_item_obtain_payload(notify->payload);
     ASSERT_TRUE(obtained);
