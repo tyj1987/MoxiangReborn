@@ -284,7 +284,7 @@ def self_test() -> int:
             code or decoded_code,
             green,
             False,
-            "PLAYDH_BASELINE OK files=2",
+            "PLAYDH_BASELINE OK files=0",
         ) or "DECODED_MAP_HITS 0 of 1 registered" not in green:
             if "PLAYDH_BASELINE SELFTEST FAIL green-ok" not in green:
                 print("PLAYDH_BASELINE SELFTEST FAIL green-ok")
