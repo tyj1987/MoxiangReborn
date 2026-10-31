@@ -58,6 +58,7 @@
 #include <iostream>
 #include <iterator>
 #include <optional>
+#include <span>
 #include <limits>
 #include <random>
 #include <vector>
@@ -5063,6 +5064,16 @@ void MapHandler::load_map_kind_info(const std::string& path) {
     const auto decoded = mxh::compat::read_mh_bin(path);
     if (!decoded.ok()) return;
     ordinary_map_verified_ = verified_ordinary_map_kind(decoded.value.data, map_num_);
+}
+
+void MapHandler::install_map_kind_text_for_test(std::string_view text) {
+    ordinary_map_verified_ = false;
+    installed_map_kind_text_for_test_.assign(text.data(), text.size());
+    const auto* bytes = reinterpret_cast<const std::uint8_t*>(
+        installed_map_kind_text_for_test_.data());
+    ordinary_map_verified_ = verified_ordinary_map_kind(
+        std::span<const std::uint8_t>(bytes, installed_map_kind_text_for_test_.size()),
+        map_num_);
 }
 
 void MapHandler::load_monster_list(const std::string& path) {

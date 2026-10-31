@@ -33,7 +33,9 @@
 #include "mxh/compat/mh_file_ex.hpp"
 #include "mxh/server/dealitem_parser.hpp"
 #include "mxh/server/quest_script_loader.hpp"
+#include "../../support/rog_playdh.hpp"
 #include "cstdint"
+#include "cstring"
 #include "filesystem"
 #include "fstream"
 #include "sstream"
@@ -4041,9 +4043,10 @@ TEST(MapHandlerTest, InstalledAiGroupsDriveMonsterSpawns) {
 }
 
 TEST(MapHandlerTest, CanonicalMonster10BinSpawnsAllGroups) {
-    const auto path = std::filesystem::path(MXH_SOURCE_DIR) /
-        "data" / "PlayDH" / "Resource" / "Server" / "Monster_10.bin";
-    ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
+    const auto root = mxh::test::require_rog_playdh_root();
+    const auto path = root / "Resource" / "Server" / "Monster_10.bin";
+    ASSERT_TRUE(std::filesystem::is_regular_file(path))
+        << "MXH_PLAYDH_ROOT is missing Resource/Server/Monster_10.bin";
     auto& ai = mxh::server::AISystem::instance();
     struct RestoreEmptyAi {
         mxh::server::AISystem& ai;
@@ -5778,25 +5781,97 @@ TEST(MapHandlerTest, RevisionedVitalsRejectsUncoupledItemAndQuestWritesBeforeMut
 TEST(MapHandlerTest, Map10AiKindsRequireCanonicalMonsterList) {
     MockDbAdapter db;
     MapHandler handler(db, 10, [](mxh::net::ConnectionId, const mxh::net::Message&) {});
-    const auto ai_path = std::filesystem::path(MXH_SOURCE_DIR) /
-        "data/PlayDH/Resource/Server/Monster_10.bin";
-    const auto groups = load_ai_group_list_bin(ai_path, "playdh-current");
-    ASSERT_TRUE(groups.has_value());
-    EXPECT_FALSE(handler.has_ai_group_monster_templates(*groups));
-    handler.load_monster_list((std::filesystem::path(MXH_SOURCE_DIR) /
-        "data/PlayDH/Resource/MonsterList.bin").string());
+
+    mxh::server::AiGroupList groups;
+    mxh::server::AiGroupDefinition pack;
+    pack.group_id = 9101u;
+    pack.group_name = "synth-pack";
+    mxh::server::AiSpawnDefinition stalker_spawn;
+    stalker_spawn.object_kind = 7u;
+    stalker_spawn.monster_kind = 48101u;
+    stalker_spawn.pos_x = 1110.0f;
+    stalker_spawn.pos_z = 2220.0f;
+    mxh::server::AiSpawnDefinition warden_spawn = stalker_spawn;
+    warden_spawn.monster_kind = 48102u;
+    warden_spawn.pos_x = 3330.0f;
+    warden_spawn.pos_z = 4440.0f;
+    pack.spawns = {stalker_spawn, warden_spawn};
+    mxh::server::AiGroupDefinition lone;
+    lone.group_id = 9102u;
+    lone.group_name = "synth-lone";
+    mxh::server::AiSpawnDefinition second_stalker = stalker_spawn;
+    second_stalker.pos_x = 5550.0f;
+    second_stalker.pos_z = 6660.0f;
+    lone.spawns = {second_stalker};
+    groups.groups = {pack, lone};
+    EXPECT_EQ(groups.spawn_count(), 3u);
+    EXPECT_FALSE(handler.has_ai_group_monster_templates(groups));
+
+    mxh::compat::MonsterVisual stalker;
+    stalker.kind = 48101u;
+    stalker.name = "SYNTH-STALKER";
+    stalker.chx_name = "synth_stalker.chx";
+    stalker.level = 9u;
+    stalker.life = 640u;
+    stalker.shield = 80u;
+    stalker.exp = 15u;
+    stalker.attack_min = 12u;
+    stalker.attack_max = 18u;
+    stalker.defense = 3u;
+    stalker.attack_count = 1u;
+    stalker.attack_skills[0] = 77021u;
+    stalker.attack_rates[0] = 70u;
+    handler.add_monster_visual_for_test(stalker);
+    mxh::compat::MonsterVisual warden;
+    warden.kind = 48102u;
+    warden.name = "SYNTH-WARDEN";
+    warden.chx_name = "synth_warden.chx";
+    warden.level = 11u;
+    warden.life = 880u;
+    warden.shield = 40u;
+    warden.exp = 21u;
+    warden.attack_min = 9u;
+    warden.attack_max = 14u;
+    warden.defense = 6u;
+    warden.attack_count = 1u;
+    warden.attack_skills[0] = 77022u;
+    warden.attack_rates[0] = 55u;
+    handler.add_monster_visual_for_test(warden);
     ASSERT_TRUE(handler.has_loaded_monster_list());
-    handler.load_skill_list((std::filesystem::path(MXH_SOURCE_DIR) /
-        "data/PlayDH/Resource/SkillList.bin").string());
+    const auto* installed_stalker = handler.monster_visual_for_test(48101u);
+    ASSERT_NE(installed_stalker, nullptr) << "synthetic data installed";
+    EXPECT_EQ(installed_stalker->name, "SYNTH-STALKER");
+    EXPECT_EQ(installed_stalker->attack_skills[0], 77021u);
+    const auto* installed_warden = handler.monster_visual_for_test(48102u);
+    ASSERT_NE(installed_warden, nullptr) << "synthetic data installed";
+    EXPECT_EQ(installed_warden->name, "SYNTH-WARDEN");
+    EXPECT_EQ(installed_warden->attack_skills[0], 77022u);
+    EXPECT_FALSE(handler.has_ai_group_monster_templates(groups));
+
+    mxh::game::SkillInfo strike{};
+    strike.SkillIdx = 77021u;
+    std::memcpy(strike.SkillName, "SYNTHSTRIKE", sizeof("SYNTHSTRIKE"));
+    strike.ComboNum = 4u;
+    strike.FirstPhyAttack[0] = 8.75f;
+    handler.add_skill_info_for_test(strike);
+    mxh::game::SkillInfo guard{};
+    guard.SkillIdx = 77022u;
+    std::memcpy(guard.SkillName, "SYNTHGUARD", sizeof("SYNTHGUARD"));
+    guard.ComboNum = 6u;
+    guard.FirstPhyAttack[0] = 1.25f;
+    handler.add_skill_info_for_test(guard);
     ASSERT_TRUE(handler.has_loaded_skill_list());
-    for (const auto id : {1444u, 1508u}) {
-        const auto* skill = handler.find_skill(id);
-        ASSERT_NE(skill, nullptr);
-        EXPECT_EQ(skill->ComboNum, 10u);
-        EXPECT_FLOAT_EQ(skill->FirstPhyAttack[0], 2.04f);
-    }
-    EXPECT_TRUE(handler.has_ai_group_monster_templates(*groups));
-    EXPECT_EQ(groups->spawn_count(), 228u);
+    mxh::game::SkillInfo loaded_strike;
+    ASSERT_TRUE(handler.skill_manager_for_test().try_get(77021u, loaded_strike))
+        << "synthetic data installed";
+    EXPECT_EQ(loaded_strike.ComboNum, 4u);
+    EXPECT_FLOAT_EQ(loaded_strike.FirstPhyAttack[0], 8.75f);
+    mxh::game::SkillInfo loaded_guard;
+    ASSERT_TRUE(handler.skill_manager_for_test().try_get(77022u, loaded_guard))
+        << "synthetic data installed";
+    EXPECT_EQ(loaded_guard.ComboNum, 6u);
+    EXPECT_FLOAT_EQ(loaded_guard.FirstPhyAttack[0], 1.25f);
+    EXPECT_TRUE(handler.has_ai_group_monster_templates(groups));
 }
 
 TEST(MapHandlerTest, MissingVitalsRowRejectsGameInBeforeRuntimeRegistration) {
@@ -5881,8 +5956,10 @@ TEST(MapHandlerTest, MonsterAiAttackUsesSkillDelayAndPublishesAuthoritativeDeath
         routed.emplace_back(id.value, msg);
         spy(id, msg);
     });
-    handler.load_map_kind_info((std::filesystem::path(MXH_SOURCE_DIR) /
-        "data/PlayDH/Resource/MapKindInfo.bin").string());
+    static constexpr char kSyntheticMapKind[] = "10\tFixtureHollow\tMAPVIEW\t#\n";
+    handler.install_map_kind_text_for_test(kSyntheticMapKind);
+    ASSERT_EQ(handler.installed_map_kind_text_for_test(), std::string(kSyntheticMapKind))
+        << "synthetic data installed";
     ASSERT_TRUE(handler.ordinary_map_verified());
     const auto skill_path = write_temp_bin(synthesize_item_list_bin(
         build_monster_attack_skill_row(42u)));

@@ -139,4 +139,15 @@ const MonsterVisual* MonsterCatalog::find(std::uint16_t kind) const noexcept {
         [](const MonsterVisual& item, std::uint16_t value) { return item.kind < value; });
     return it != entries_.end() && it->kind == kind ? &*it : nullptr;
 }
+
+void MonsterCatalog::add_for_test(MonsterVisual visual) {
+    const auto kind = visual.kind;
+    const auto it = std::lower_bound(entries_.begin(), entries_.end(), kind,
+        [](const MonsterVisual& item, std::uint16_t value) { return item.kind < value; });
+    if (it != entries_.end() && it->kind == kind) {
+        *it = std::move(visual);
+        return;
+    }
+    entries_.insert(it, std::move(visual));
+}
 } // namespace mxh::compat

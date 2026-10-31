@@ -66,6 +66,11 @@ gtest_add_tests(TARGET mxh_server_handler_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+# Real Monster_10.bin. MXH_PLAYDH_ROOT only. `ctest -LE rog` skips this case.
+# There is no aggregate that launches the whole binary; each TEST() is its own
+# ctest entry, and this one carries the rog label.
+set_tests_properties(MapHandlerTest.CanonicalMonster10BinSpawnsAllGroups
+    PROPERTIES LABELS "rog")
 
 add_executable(mxh_character_calc_manager_tests
     character_calc_manager_test.cpp
