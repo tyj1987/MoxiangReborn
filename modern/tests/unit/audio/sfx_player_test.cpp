@@ -1,40 +1,52 @@
 #include "mxh/audio/sfx_player.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
+
 #include <gtest/gtest.h>
-#include <filesystem>
+
 #include <limits>
-#include "../../support/playdh_env.hpp"
+#include <string>
+#include "../../support/synthetic_fixture.hpp"
 
 namespace {
-std::filesystem::path findSoundRoot() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override())
-        return *playdh_override / "Sound";
-    auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8; ++level) {
-        for (const auto& first : std::filesystem::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto direct = first.path() / "PlayDH" / "Sound";
-            if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
-        }
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
+
+const std::string kHandWrittenSoundList =
+    "3\r\n"
+    "0 fx/tap.wav 0 0 2 90 1\r\n"
+    "1 NULL.WAV 0 0 0 0 0\r\n"
+    "2 bgm/theme.mp3 1 1 12 600 0.5\r\n";
+
+class HandWrittenSoundRoot {
+public:
+    HandWrittenSoundRoot() {
+        const auto list = dir_.write_bytes("SoundList.bin", "x");
+        const auto encoded = mxh::compat::write_mh_bin(
+            list, {reinterpret_cast<const std::uint8_t*>(kHandWrittenSoundList.data()),
+                   kHandWrittenSoundList.size()});
+        ok_ = dir_.created() && !list.empty() && encoded == mxh::compat::MhError::Ok &&
+              !dir_.write_bytes("fx/tap.wav", "RIFF").empty() &&
+              !dir_.write_bytes("bgm/theme.mp3", "ID3").empty();
     }
-    return {};
-}
-}
+
+    bool ok() const { return ok_; }
+    const std::filesystem::path& path() const { return dir_.path(); }
+
+private:
+    mxh::test::SyntheticFixtureDir dir_;
+    bool ok_ = false;
+};
+
+}  // namespace
 
 TEST(SfxPlayer, ResolvesNonStreamingWavAndRejectsBgm) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    HandWrittenSoundRoot sound;
+    ASSERT_TRUE(sound.ok());
     mxh::audio::SfxPlayer player;
     std::string error;
-    ASSERT_TRUE(player.initialize(root, &error)) << error;
-    std::uint16_t wav = 0xffffu;
-    for (const auto& entry : player.manifest().entries) {
-        if (entry.available && !entry.streaming) { wav = entry.index; break; }
-    }
-    ASSERT_NE(wav, 0xffffu);
-    EXPECT_TRUE(player.resolve(1667).empty()); // streaming BGM is not an SFX entry
-    EXPECT_FALSE(player.resolve(wav).empty());
+    ASSERT_TRUE(player.initialize(sound.path(), &error)) << error;
+    EXPECT_TRUE(player.resolve(2).empty());
+    const auto wav = player.resolve(0);
+    ASSERT_FALSE(wav.empty());
+    EXPECT_EQ(wav.filename(), "tap.wav");
 }
 
 TEST(SfxPlayer, MissingSoundFailsClosed) {

@@ -65,12 +65,70 @@ gtest_add_tests(TARGET mxh_session_retry_contract_tests)
 # CInGameState::Init is deterministic when CTest runs from an out-of-tree
 # build directory.
 gtest_add_tests(TARGET mxh_client_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+set_tests_properties(
+    ClientUiRuntime.DispatchesRealLegacyFunctionButton
+    ClientUiRuntime.DispatchesRealPushupCharacterSlot
+    ClientUiRuntime.TabAndShiftTabCycleRealLoginControls
+    ClientUiRuntime.KeyboardConfirmProducesButtonActivation
+    ClientUiRuntime.HidingActiveSetClearsStaleKeyboardFocus
+    ClientUiRuntime.RoutesCharactersOnlyToFocusedEditBox
+    ClientUiRuntime.ClearReleasesStateOwnedDialogTree
+    ClientUiRuntime.LoadsGameDialogsWithoutOverwritingLegacyActiveFlags
+    ClientUiRuntime.FailedMultiLoadKeepsPreviousTreeIntact
+    ClientUiRuntime.ActiveChildAlsoActivatesOwningDialog
+    ClientUiRuntime.HidingActiveChildClearsKeyboardFocus
+    ClientUiRuntime.LoadsLegacyChinaGameInCoreDialogSet
+    ClientUiRuntime.LoadsGuildBinAsConcreteGuildDialog
+    ClientUiRuntime.LoadsFriendBinAsConcreteFriendDialog
+    ClientUiRuntime.LoadsMiniFriendBinAsConcreteDialog
+    ClientUiRuntime.LoadsOptionBinAsConcreteOptionDialog
+    ClientUiRuntime.ResolutionChangeUpdatesWindowManagerMode
+    InGameUiRuntime.OptionOkActivationDispatchesConcreteDialogAction
+    InGameUiRuntime.PartyInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.GuildInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.FriendInviteCreatesInteractiveConfirmationModal
+    InGameUiRuntime.InventoryTabButtonsSwitchRealGridDialog
+    InGameUiRuntime.CharacterInfoHudButtonTogglesLiveDialog
+    InGameUiRuntime.ChatOptionButtonOpensAndClosesRealOptionDialog
+    InGameUiRuntime.EnterAndEscapeOwnRealChatDialog
+    InGameUiRuntime.FocusedChatEditboxSynchronizesAndEnterSubmits
+    InGameUiRuntime.ChatEditingUsesUtf8CodepointBoundaries
+    InGameUiRuntime.InventoryCloseActivatesHandleUiActivation
+    InGameUiRuntime.MainBarButtonConsumesClickInActiveDialog
+    ClientUiRuntime.ConfirmationOwnsModalInputAndCleansUpAfterEnter
+    ClientUiRuntime.MessageBoxClosesOnEscapeAndRunsCallbackOnce
+    ClientUiRuntime.MessageBoxCentersInCommittedResolutionMode
+    ClientUiRuntime.CharSelectActivateAllMakesRootActiveAndCreateClickable
+    ClientUiRuntime.CharMakeActivateAllMakesEveryRootActive
+    ClientUiRuntime.CharSelectRootBasicImageBoundWhenSpriteHookRegistered
+    ClientUiRuntime.CharSelectSlotThenEnterHitboxesDispatchShippedCommands
+    ClientUiRuntime.CharSelectCreateAndEnterHitboxesDispatchShippedCommands
+    ClientUiRuntime.CharMakeSubmitCancelAndNameHitboxesDispatchShippedCommands
+    InGameUiRuntime.DefaultHudActiveAndMissClickIsNotConsumed
+    InGameUiRuntime.IKeyTogglesInventoryOnShippedGameInTree
+    InGameUiRuntime.DefaultHudRootsBindNonNullSprites
+    ClientUiRuntime.LoginDlgOkAndExitHitboxesDispatchShippedCommands
+    ClientUiRuntime.LoginDlgBindsShippedChatMessageText
+    ClientUiRuntime.LoginIdAndPasswordHitboxesAcceptTypedText
+    CMainTitle.StartLoadsIdDlgAndOkSubmitsCredentials
+    CMainTitle.ClearPasswordPreservesAccountAndEditState
+    CMainTitle.LoginErrorOpensVisibleRetryMessage
+    InGameDisplay.UsesEngineResolutionDuringInitialUiLoad
+    CharacterMakeFormModel.UsesResourceDefaultsAndWrapsSelections
+    CharMakeOptions.LoadsExactChinaResourceValues
+    EffectRuntime.RunsDecodedRealEffectWithObjectContext
+    EffectRuntime.RunsAuthoritativeCombatEffectFromSkillList
+    EffectRuntime.OverlappingInstancesReceiveDistinctIds
+    EffectRuntime.StopObjectRemovesMatchingSourceAndTargetInstances
+    EffectRuntime.CapsBurstInstancesWithoutDroppingExistingTimelines
+    PROPERTIES LABELS "rog")
 
-# Keep one aggregate entry in addition to the per-case entries above.  The
-# aggregate is the stable client regression gate: it executes the complete
-# binary (including any parameterized tests that gtest_add_tests cannot
-# enumerate) and lets CI invoke the client suite by one predictable name.
+# The aggregate runs every case in the binary, including the PlayDH-backed
+# ones labeled rog. Label the aggregate rog so `ctest -LE rog` does not
+# execute those cases. Each non-PlayDH case stays registered on its own
+# and still runs outside rog.
 add_test(NAME mxh_client_all_tests
     COMMAND mxh_client_tests --gtest_brief=1)
 set_tests_properties(mxh_client_all_tests PROPERTIES
+    LABELS "rog"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})

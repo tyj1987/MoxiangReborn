@@ -17,7 +17,7 @@
 #include "mxh/compat/mh_file_ex.hpp"
 
 #include <filesystem>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 using mxh::ui::cDialog;
 using mxh::ui::InterfaceScript;
@@ -28,20 +28,7 @@ using mxh::ui::parse_interface_script;
 namespace {
 
 std::filesystem::path find_playdh_root() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    std::error_code ec;
-    auto cursor = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
-    if (ec) return {};
-    for (int depth = 0; depth < 8 && !cursor.empty(); ++depth) {
-        const auto candidate = cursor / "modern" / "data" / "PlayDH";
-        if (std::filesystem::is_directory(candidate, ec)) return candidate;
-        const auto local = cursor / "data" / "PlayDH";
-        if (std::filesystem::is_directory(local, ec)) return local;
-        const auto parent = cursor.parent_path();
-        if (parent == cursor) break;
-        cursor = parent;
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 
 // A trimmed reproduction of the MAINDLG from PlayDH/Image/InterfaceScript/
@@ -433,9 +420,6 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
     // 602, 42 — same as our kMainDlgSnippet golden).
     namespace fs = std::filesystem;
     const fs::path playdh = find_playdh_root();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping real-bin wiring test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "15.bin");
     ASSERT_TRUE(read.ok());
@@ -461,9 +445,6 @@ TEST(InterfaceScriptParser, ApplyLegacyLayoutOnRealMainDlgBinFile) {
 TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
     namespace fs = std::filesystem;
     const fs::path playdh = find_playdh_root();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping real MPGuage.bin test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "MPGuage.bin");
     ASSERT_TRUE(read.ok());
@@ -503,9 +484,6 @@ TEST(InterfaceScript, LoadsPlayDhMPGuageBinAndFindsExpGuageChild) {
 TEST(InterfaceScript, LoadsPlayDhTitanInventoryBinAndHasInventoryCells) {
     namespace fs = std::filesystem;
     const fs::path playdh = find_playdh_root();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping Titan_inventory.bin test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "Titan_inventory.bin");
     ASSERT_TRUE(read.ok());

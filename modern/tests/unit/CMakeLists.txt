@@ -139,6 +139,13 @@ set_tests_properties(
     StmStaticModel.ParsesRealMap12SkyModel
     StmStaticModel.RealL001BonesAndPhysique
     StmStaticModel.ParsesEveryDefaultMaleCharacterPart
+    SoundList.LoadsRealPlayDhSoundListWhenAvailable
+    BgmPlayer.ResolvesOriginalLoginMusic
+    BgmPlayer.PlaybackLoopReportsCurrentId
+    BgmPlayer.PlaybackReplacesCurrentBgm
+    BmhmMap.RealMap0
+    BmhmMap.RealMap17
+    BmhmMap.RealMap101
     PROPERTIES LABELS "rog")
 
 # STM .vcl vertex-color contract (DX-free). RealMap10VclMatchesStm reads
@@ -441,7 +448,8 @@ endif()
 add_test(NAME mxh_dialog_loader_tests
     COMMAND $<TARGET_FILE:mxh_dialog_loader_tests>)
 set_tests_properties(mxh_dialog_loader_tests PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    LABELS "rog")
 
 # -----------------------------------------------------------------------------
 # M-R7 (G3): resolution_mode 头less 单测 — 独立 target, 跟 cDialogLoader
@@ -460,6 +468,7 @@ endif()
 add_test(NAME mxh_resolution_mode_tests
     COMMAND $<TARGET_FILE:mxh_resolution_mode_tests>)
 set_tests_properties(mxh_resolution_mode_tests PROPERTIES
+    LABELS "rog"
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
 # -----------------------------------------------------------------------------

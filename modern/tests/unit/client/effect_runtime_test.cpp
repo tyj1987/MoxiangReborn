@@ -5,21 +5,11 @@
 #include <windows.h>
 
 #include <algorithm>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace {
 std::filesystem::path find_playdh_root() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    wchar_t buf[MAX_PATH]{};
-    const auto n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
-    if (n == 0) return {};
-    auto p = std::filesystem::path(buf);
-    for (int i = 0; i < 7; ++i) {
-        p = p.parent_path();
-        const auto candidate = p / L"modern" / L"data" / L"PlayDH";
-        if (std::filesystem::exists(candidate)) return candidate;
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 }
 
@@ -39,7 +29,6 @@ TEST(EffectRuntime, EmptyRuntimeDoesNotEmitEvents) {
 
 TEST(EffectRuntime, RunsDecodedRealEffectWithObjectContext) {
     const auto root = find_playdh_root();
-    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
     mxh::client::EffectRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.load(root, &error)) << error;
@@ -59,7 +48,6 @@ TEST(EffectRuntime, RunsDecodedRealEffectWithObjectContext) {
 
 TEST(EffectRuntime, RunsAuthoritativeCombatEffectFromSkillList) {
     const auto root = find_playdh_root();
-    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
     mxh::client::EffectRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.load(root, &error)) << error;
@@ -69,7 +57,6 @@ TEST(EffectRuntime, RunsAuthoritativeCombatEffectFromSkillList) {
 
 TEST(EffectRuntime, OverlappingInstancesReceiveDistinctIds) {
     const auto root = find_playdh_root();
-    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
     mxh::client::EffectRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.load(root, &error)) << error;
@@ -87,7 +74,6 @@ TEST(EffectRuntime, OverlappingInstancesReceiveDistinctIds) {
 
 TEST(EffectRuntime, StopObjectRemovesMatchingSourceAndTargetInstances) {
     const auto root = find_playdh_root();
-    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
     mxh::client::EffectRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.load(root, &error)) << error;
@@ -108,7 +94,6 @@ TEST(EffectRuntime, MissingIdFailsWithoutGuessingAnotherEffect) {
 
 TEST(EffectRuntime, CapsBurstInstancesWithoutDroppingExistingTimelines) {
     const auto root = find_playdh_root();
-    if (root.empty()) GTEST_SKIP() << "PlayDH root not found";
     mxh::client::EffectRuntime runtime;
     std::string error;
     ASSERT_TRUE(runtime.load(root, &error)) << error;

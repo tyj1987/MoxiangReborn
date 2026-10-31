@@ -13,23 +13,12 @@
 #include <filesystem>
 #include <fstream>
 #include <vector>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace {
 
 std::filesystem::path playdh_root() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    std::error_code ec;
-    auto current = std::filesystem::absolute(std::filesystem::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "data" / "PlayDH";
-        std::error_code candidate_ec;
-        if (std::filesystem::is_directory(candidate, candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 
 constexpr std::uint32_t kTestWidth  = 8;
@@ -240,19 +229,29 @@ TEST(TextureLoader, FlipVerticalSwapsFirstAndLastRow) {
 }
 
 TEST(TextureLoader, LoginDdsSkyBandIsOnTopAfterTitleFlip) {
-    const auto path = playdh_root() / "Image" / "2D" / "login.dds";
-    ASSERT_TRUE(std::filesystem::exists(path)) << path.string();
-    const auto size = static_cast<std::uintmax_t>(std::filesystem::file_size(path));
-    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
-    std::ifstream in(path, std::ios::binary);
-    ASSERT_TRUE(in.read(reinterpret_cast<char*>(bytes.data()),
-                        static_cast<std::streamsize>(bytes.size())));
+    // Hand-written image: dark rows first, bright rows last. flipVertical
+    // moves the bright band to the top. These pixels are not from a profile.
+    mxh::gx::dx11::LoadedTexture authored;
+    authored.width = 8;
+    authored.height = 16;
+    authored.bps = 32;
+    authored.pixels.assign(8u * 16u * 4u, 0);
+    for (std::uint32_t y = 0; y < 16u; ++y) {
+        const std::uint8_t luma = y < 8u ? 8u : 240u;
+        for (std::uint32_t x = 0; x < 8u; ++x) {
+            auto* p = &authored.pixels[(y * 8u + x) * 4u];
+            p[0] = luma;
+            p[1] = luma;
+            p[2] = luma;
+            p[3] = 255u;
+        }
+    }
+    const auto bytes = mxh::gx::dx11::saveDDS(authored);
+    ASSERT_FALSE(bytes.empty());
     auto tex = mxh::gx::dx11::loadDDS(bytes.data(),
                                       static_cast<std::uint32_t>(bytes.size()));
-    ASSERT_GE(tex.width, 64u);
-    ASSERT_GE(tex.height, 64u);
-    ASSERT_EQ(tex.pixels.size(),
-              static_cast<std::size_t>(tex.width) * tex.height * 4u);
+    ASSERT_EQ(tex.width, 8u);
+    ASSERT_EQ(tex.height, 16u);
     mxh::gx::dx11::flipVertical(tex);
 
     auto band_luma = [&](std::uint32_t y0, std::uint32_t y1) {
@@ -267,10 +266,38 @@ TEST(TextureLoader, LoginDdsSkyBandIsOnTopAfterTitleFlip) {
         }
         return count == 0 ? 0.0 : static_cast<double>(sum) / static_cast<double>(count);
     };
+    const auto top = band_luma(0, 8);
+    const auto bottom = band_luma(8, 16);
+    EXPECT_GT(top, bottom);
+}
+
+TEST(TextureLoader, RogLoginDdsSkyBandFromPlayDhRoot) {
+    const auto path = playdh_root() / "Image" / "2D" / "login.dds";
+    ASSERT_TRUE(std::filesystem::is_regular_file(path)) << path.string();
+    const auto size = static_cast<std::uintmax_t>(std::filesystem::file_size(path));
+    std::vector<std::uint8_t> bytes(static_cast<std::size_t>(size));
+    std::ifstream in(path, std::ios::binary);
+    ASSERT_TRUE(in.read(reinterpret_cast<char*>(bytes.data()),
+                        static_cast<std::streamsize>(bytes.size())));
+    auto tex = mxh::gx::dx11::loadDDS(bytes.data(),
+                                      static_cast<std::uint32_t>(bytes.size()));
+    ASSERT_GE(tex.width, 64u);
+    ASSERT_GE(tex.height, 64u);
+    mxh::gx::dx11::flipVertical(tex);
+    auto band_luma = [&](std::uint32_t y0, std::uint32_t y1) {
+        std::uint64_t sum = 0;
+        std::uint64_t count = 0;
+        for (std::uint32_t y = y0; y < y1; ++y) {
+            for (std::uint32_t x = 0; x < tex.width; ++x) {
+                const auto* p = &tex.pixels[(y * tex.width + x) * 4u];
+                sum += 299u * p[0] + 587u * p[1] + 114u * p[2];
+                ++count;
+            }
+        }
+        return count == 0 ? 0.0 : static_cast<double>(sum) / static_cast<double>(count);
+    };
     const auto band = std::max(8u, tex.height / 16u);
-    const auto top = band_luma(0, band);
-    const auto bottom = band_luma(tex.height - band, tex.height);
-    EXPECT_GT(top, bottom) << "login.dds sky should sit on the top band after flip";
+    EXPECT_GT(band_luma(0, band), band_luma(tex.height - band, tex.height));
 }
 
 TEST(TextureLoaderDDS, SaveDDSRejectsEmptyTexture) {
