@@ -5819,7 +5819,7 @@ TEST(MapHandlerTest, Map10AiKindsRequireCanonicalMonsterList) {
     stalker.attack_max = 18u;
     stalker.defense = 3u;
     stalker.attack_count = 1u;
-    stalker.attack_skills[0] = 77021u;
+    stalker.attack_skills[0] = 48121u;
     stalker.attack_rates[0] = 70u;
     handler.add_monster_visual_for_test(stalker);
     mxh::compat::MonsterVisual warden;
@@ -5834,40 +5834,40 @@ TEST(MapHandlerTest, Map10AiKindsRequireCanonicalMonsterList) {
     warden.attack_max = 14u;
     warden.defense = 6u;
     warden.attack_count = 1u;
-    warden.attack_skills[0] = 77022u;
+    warden.attack_skills[0] = 48122u;
     warden.attack_rates[0] = 55u;
     handler.add_monster_visual_for_test(warden);
     ASSERT_TRUE(handler.has_loaded_monster_list());
     const auto* installed_stalker = handler.monster_visual_for_test(48101u);
     ASSERT_NE(installed_stalker, nullptr) << "synthetic data installed";
     EXPECT_EQ(installed_stalker->name, "SYNTH-STALKER");
-    EXPECT_EQ(installed_stalker->attack_skills[0], 77021u);
+    EXPECT_EQ(installed_stalker->attack_skills[0], 48121u);
     const auto* installed_warden = handler.monster_visual_for_test(48102u);
     ASSERT_NE(installed_warden, nullptr) << "synthetic data installed";
     EXPECT_EQ(installed_warden->name, "SYNTH-WARDEN");
-    EXPECT_EQ(installed_warden->attack_skills[0], 77022u);
+    EXPECT_EQ(installed_warden->attack_skills[0], 48122u);
     EXPECT_FALSE(handler.has_ai_group_monster_templates(groups));
 
     mxh::game::SkillInfo strike{};
-    strike.SkillIdx = 77021u;
+    strike.SkillIdx = 48121u;
     std::memcpy(strike.SkillName, "SYNTHSTRIKE", sizeof("SYNTHSTRIKE"));
     strike.ComboNum = 4u;
     strike.FirstPhyAttack[0] = 8.75f;
     handler.add_skill_info_for_test(strike);
     mxh::game::SkillInfo guard{};
-    guard.SkillIdx = 77022u;
+    guard.SkillIdx = 48122u;
     std::memcpy(guard.SkillName, "SYNTHGUARD", sizeof("SYNTHGUARD"));
     guard.ComboNum = 6u;
     guard.FirstPhyAttack[0] = 1.25f;
     handler.add_skill_info_for_test(guard);
     ASSERT_TRUE(handler.has_loaded_skill_list());
     mxh::game::SkillInfo loaded_strike;
-    ASSERT_TRUE(handler.skill_manager_for_test().try_get(77021u, loaded_strike))
+    ASSERT_TRUE(handler.skill_manager_for_test().try_get(48121u, loaded_strike))
         << "synthetic data installed";
     EXPECT_EQ(loaded_strike.ComboNum, 4u);
     EXPECT_FLOAT_EQ(loaded_strike.FirstPhyAttack[0], 8.75f);
     mxh::game::SkillInfo loaded_guard;
-    ASSERT_TRUE(handler.skill_manager_for_test().try_get(77022u, loaded_guard))
+    ASSERT_TRUE(handler.skill_manager_for_test().try_get(48122u, loaded_guard))
         << "synthetic data installed";
     EXPECT_EQ(loaded_guard.ComboNum, 6u);
     EXPECT_FLOAT_EQ(loaded_guard.FirstPhyAttack[0], 1.25f);
