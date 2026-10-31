@@ -135,11 +135,12 @@ rog_gate_self_test:
 # MXH_PLAYDH_ROOT is not set.
 # Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
 # The same build runs mxh_agent_cli_tests, mxh_e2e_soak_tests, and
-# mxh_dpi_scale_tests and mxh_session_retry_contract_tests. Required-Passed
+# mxh_dpi_scale_tests, mxh_session_retry_contract_tests, and
+# mxh_item_protocol_tests. Required-Passed
 # includes AgentCli.OmittedDefaultMapIs17, the extra-map AgentCli cases, the
-# E2eSoak report-peer-gone cases, the DpiScale cases, and the
-# SessionRetryContract login/session cases. The ctest regex matches the
-# GitHub job.
+# E2eSoak report-peer-gone cases, the DpiScale cases, the
+# SessionRetryContract login/session cases, and the ItemProtocol cases.
+# The ctest regex matches the GitHub job.
 # The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 cxx_resource_reference_linux:
   extends: .linux_trusted
@@ -170,10 +171,10 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests
+      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_item_protocol_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|E2eSoak|ItemProtocol\.)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -220,6 +221,9 @@ cxx_resource_reference_linux:
       require_passed SessionRetryContract.InGameDisconnectRequestsTitleWithMessage9106 || status=1
       require_passed SessionRetryContract.ReleaseAllowsSecondStartAndStartedGuardBlocksDoubleStart || status=1
       require_passed SessionRetryContract.LoginFailureWipesPassword || status=1
+      require_passed ItemProtocol.BuyMatchesOriginalNumbers || status=1
+      require_passed ItemProtocol.PickupDoesNotOccupyOriginalBuy || status=1
+      require_passed ItemProtocol.DisplacedNumbersMatchOriginal || status=1
       if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
         echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
         status=1
