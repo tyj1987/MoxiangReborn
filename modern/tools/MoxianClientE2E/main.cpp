@@ -65,7 +65,9 @@
 //                      # prints CLIENT_E2E DROPPED rst and exits 4.
 //                      # next run: --reuse-character (fresh login)
 //                  [--no-spawn]  # assume servers are already running (remote-safe)
-//                  [--account NAME] [--password-env ENV_NAME]
+//                  [--account NAME] [--password-env MXH_SMOKE_PASSWORD]
+//                      # password lives only in MXH_SMOKE_PASSWORD; the
+//                      # flag names that variable and the value is not logged
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
 //                  [--db DB]          SQLite file or MSSQL kv string

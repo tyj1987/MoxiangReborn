@@ -91,7 +91,7 @@ $e2e = Join-Path $build 'MoxianClientE2E/mxh_client_e2e.exe'
 $common = @(
   '--no-spawn','--login-host','127.0.0.1',
   '--login-port','26001','--agent-port','27001','--map-port','28001',
-  '--account','mxh_e2e','--password-env','MXH_E2E_PASSWORD','--timeout','30')
+  '--account','mxh_e2e','--password-env','MXH_SMOKE_PASSWORD','--timeout','30')
 & $e2e @common --character-name soakA --hold-seconds 20 --state-dump .\soakA.json
 & $e2e @common --character-name soakB --expect-peer soakA --hold-seconds 20
 & $e2e @common --reuse-character soakA --drop-socket-after 5
@@ -99,8 +99,9 @@ if ($LASTEXITCODE -ne 4) { throw "drop path exit $LASTEXITCODE" }
 & $e2e @common --reuse-character soakA --hold-seconds 10 --state-dump .\soakA-relog.json
 ```
 
-The chain must already be listening on those ports. `--password-env`
-reads the account password from the environment and does not print it.
+The chain must already be listening on those ports. The password lives
+only in `MXH_SMOKE_PASSWORD`. `--password-env MXH_SMOKE_PASSWORD` reads
+that variable and does not print it.
 
 ## Expected result
 
