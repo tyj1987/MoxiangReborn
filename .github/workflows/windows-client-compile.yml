@@ -429,7 +429,10 @@ jobs:
           # Tests may use only this runner's workspace checkout and RUNNER_TEMP.
           $behaviorTargets = @(
             'mxh_server_handler_tests',
-            'mxh_client_tests'
+            'mxh_client_tests',
+            'mxh_login_e2e_tests',
+            'mxh_login_wire_sha256_tests',
+            'mxh_agent_wire_first_packet_tests'
             # append targets here
           )
           if ($behaviorTargets.Count -lt 1) { throw 'behavior target list is empty' }
