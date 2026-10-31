@@ -27,9 +27,6 @@ skip as a pass.
    under `D:\MX`. The unittest
    `modern/tests/unit/tools/test_compat_round_trip.py` is synthetic and
    stays required. It does not open the external-only archives.
-5. `scripts/clean-deploy.ps1` reads the external PlayDH directory only from
-   `MXH_PLAYDH_ROOT` and exits 1 when that variable is unset. It does not
-   fall back to `modern/data/PlayDH`. The self-test covers the unset, the
-   outside-repo, and the inside-repo cases:
-
-   `pwsh -NoProfile -File scripts/clean-deploy.ps1 -SelfTest`
+5. `scripts/clean-deploy.ps1` already requires `-PlayDhRoot` and does not
+   fall back to the repo tree. Its mount-order self-test uses synthetic
+   archive names. It does not read the external-only blobs.

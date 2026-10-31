@@ -135,8 +135,7 @@ param(
     [string]$Config = "Debug",
     [string]$RepoRoot = "",
     [string]$PlayDhRoot = "",
-    [switch]$SelfTest,
-    [switch]$CheckNonLfsPakRoot
+    [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
@@ -505,37 +504,6 @@ function Resolve-CleanDeployPlayDhRoot {
     if (Test-CleanDeployLinkInsideRoot -LiteralPath $norm -Root $RepoRoot) {
         Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] -PlayDhRoot resolves inside the repo: " + $norm)
         return (New-CleanDeployPlayDhDecision -Ok $false -Path $norm -Lines $lines)
-    }
-    return (New-CleanDeployPlayDhDecision -Ok $true -Path $norm -Lines $lines)
-}
-
-function Resolve-CleanDeployNonLfsPakRoot {
-    param(
-        [AllowEmptyString()][string]$RepoRoot
-    )
-    # External archives are not in git. The only directory is MXH_PLAYDH_ROOT.
-    # This function never joins the repo PlayDH tree.
-    $lines = New-Object System.Collections.Generic.List[string]
-    $unset = "[ERROR] MXH_PLAYDH_ROOT is unset; refusing to read external PlayDH archives from the repo tree"
-    $insideMsg = "[ERROR] MXH_PLAYDH_ROOT resolves inside the repo; refusing to read external PlayDH archives from the repo tree"
-    $raw = ""
-    if ($null -ne $env:MXH_PLAYDH_ROOT) { $raw = [string]$env:MXH_PLAYDH_ROOT }
-    if ([string]::IsNullOrWhiteSpace($raw)) {
-        Write-CleanDeploySupplementLine -Lines $lines -Line $unset
-        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
-    }
-    if (-not (Test-CleanDeployPathIsAbsolute -Path $raw)) {
-        Write-CleanDeploySupplementLine -Lines $lines -Line ("[ERROR] MXH_PLAYDH_ROOT must be an absolute path: " + $raw)
-        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
-    }
-    $norm = Get-CleanDeployCollapsedPath -Path $raw
-    if ([string]::IsNullOrWhiteSpace($norm)) {
-        Write-CleanDeploySupplementLine -Lines $lines -Line $unset
-        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
-    }
-    if (Test-CleanDeployPathInsideRoot -Path $norm -Root $RepoRoot) {
-        Write-CleanDeploySupplementLine -Lines $lines -Line $insideMsg
-        return (New-CleanDeployPlayDhDecision -Ok $false -Path "" -Lines $lines)
     }
     return (New-CleanDeployPlayDhDecision -Ok $true -Path $norm -Lines $lines)
 }
@@ -1282,25 +1250,25 @@ function Invoke-CleanDeploySelfTestCases {
     Assert-CleanDeploySelfTest -Name "refusing to write the supplemental pak under D:\MX" -Condition ((-not $forbidden.Result.Ok) -and ($forbiddenText.Contains("[ERROR] refusing to write supplemental pak under D:\MX")))
     Assert-CleanDeploySelfTest -Name "D:\MX refusal does not create the pak" -Condition (-not (Test-Path -LiteralPath "D:\MX\PlayDH\zz_supplement.pak"))
 
-    $validNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "zz_supplement.pak")
+    $validNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "synth-c.pak", "zz_supplement.pak")
     $validLine = Format-CleanDeploySelfTestMountLine -Names $validNames
     $validResult = Test-CleanDeploySupplementMountOrder -LogText $validLine
     Assert-CleanDeploySelfTest -Name "valid 8-pak mount order passes" -Condition $validResult.Ok
     Assert-CleanDeploySelfTest -Name "valid 8-pak mount order prints the 8-pak info line" -Condition ($validResult.Lines -contains "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak")
 
-    $sevenNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak")
+    $sevenNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak")
     $sevenResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $sevenNames)
     Assert-CleanDeploySelfTest -Name "7-pak mount order is an error" -Condition ((-not $sevenResult.Ok) -and ($sevenResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
 
-    $nineNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "Titan.pak", "extra.pak", "zz_supplement.pak")
+    $nineNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "synth-c.pak", "extra.pak", "zz_supplement.pak")
     $nineResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $nineNames)
     Assert-CleanDeploySelfTest -Name "9-pak mount order is an error" -Condition ((-not $nineResult.Ok) -and ($nineResult.Lines -contains "[ERROR] [pak] mount order must list exactly 8 paks"))
 
-    $dupNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "zz_supplement.pak")
+    $dupNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak", "zz_supplement.pak")
     $dupResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $dupNames)
     Assert-CleanDeploySelfTest -Name "duplicated zz_supplement.pak is an error" -Condition ((-not $dupResult.Ok) -and ($dupResult.Lines -contains "[ERROR] [pak] mount order must include zz_supplement.pak exactly once"))
 
-    $notLastNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "npc.pak", "Pet.pak", "zz_supplement.pak", "Titan.pak")
+    $notLastNames = @("Character.pak", "Effect.pak", "Map.pak", "monster.pak", "synth-a.pak", "synth-b.pak", "zz_supplement.pak", "synth-c.pak")
     $notLastResult = Test-CleanDeploySupplementMountOrder -LogText (Format-CleanDeploySelfTestMountLine -Names $notLastNames)
     Assert-CleanDeploySelfTest -Name "zz_supplement.pak not last is an error" -Condition ((-not $notLastResult.Ok) -and ($notLastResult.Lines -contains "[ERROR] [pak] mount order must end with zz_supplement.pak"))
 
@@ -1310,42 +1278,6 @@ function Invoke-CleanDeploySelfTestCases {
 
     $none = Test-CleanDeploySupplementMountOrder -LogText "client started"
     Assert-CleanDeploySelfTest -Name "missing mount order line is an error" -Condition ((-not $none.Ok) -and ($none.Lines -contains "[ERROR] [pak] mount order line is missing"))
-
-    $nonLfsRepo = Split-Path -Parent $script:CleanDeployScriptRoot
-    $savedNonLfs = $env:MXH_PLAYDH_ROOT
-    try {
-        Remove-Item Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
-        $unset = Resolve-CleanDeployNonLfsPakRoot -RepoRoot $nonLfsRepo
-        $unsetText = @($unset.Lines) -join "`n"
-        $unsetMsg = "[ERROR] MXH_PLAYDH_ROOT is unset; refusing to read external PlayDH archives from the repo tree"
-        $unsetChild = Invoke-CleanDeploySelfTestChild -WorkRoot $Root -ArgumentList @("-CheckNonLfsPakRoot", "-RepoRoot", $nonLfsRepo) -Environment @{ MXH_PLAYDH_ROOT = "" }
-        $unsetOk = (-not $unset.Ok) -and ($unset.Path -eq "") -and $unsetText.Contains($unsetMsg) -and ($unsetChild.ExitCode -eq 1) -and ([string]$unsetChild.Text).Contains($unsetMsg)
-        Assert-CleanDeploySelfTest -Name "unset MXH_PLAYDH_ROOT exits 1 and does not use the repo PlayDH" -Condition $unsetOk
-
-        $outside = Join-Path $Root "nonlfs-playdh"
-        New-Item -ItemType Directory -Path $outside -Force | Out-Null
-        $outsideFull = [System.IO.Path]::GetFullPath($outside)
-        $env:MXH_PLAYDH_ROOT = $outsideFull
-        $set = Resolve-CleanDeployNonLfsPakRoot -RepoRoot $nonLfsRepo
-        $setChild = Invoke-CleanDeploySelfTestChild -WorkRoot $Root -ArgumentList @("-CheckNonLfsPakRoot", "-RepoRoot", $nonLfsRepo) -Environment @{ MXH_PLAYDH_ROOT = $outsideFull }
-        $setOk = $set.Ok -and ($set.Path -eq $outsideFull) -and ($setChild.ExitCode -eq 0) -and ([string]$setChild.Text).Contains("[INFO] non-lfs pak root: " + $outsideFull)
-        Assert-CleanDeploySelfTest -Name "MXH_PLAYDH_ROOT outside the repo is the only external archive root" -Condition $setOk
-
-        $repoPlayDh = Join-Path (Join-Path (Join-Path $nonLfsRepo "modern") "data") "PlayDH"
-        $env:MXH_PLAYDH_ROOT = $repoPlayDh
-        $inside = Resolve-CleanDeployNonLfsPakRoot -RepoRoot $nonLfsRepo
-        $insideText = @($inside.Lines) -join "`n"
-        $insideMsg = "[ERROR] MXH_PLAYDH_ROOT resolves inside the repo; refusing to read external PlayDH archives from the repo tree"
-        $insideChild = Invoke-CleanDeploySelfTestChild -WorkRoot $Root -ArgumentList @("-CheckNonLfsPakRoot", "-RepoRoot", $nonLfsRepo) -Environment @{ MXH_PLAYDH_ROOT = $repoPlayDh }
-        $insideOk = (-not $inside.Ok) -and ($inside.Path -eq "") -and $insideText.Contains($insideMsg) -and ($insideChild.ExitCode -eq 1) -and ([string]$insideChild.Text).Contains($insideMsg)
-        Assert-CleanDeploySelfTest -Name "MXH_PLAYDH_ROOT inside the repo is refused" -Condition $insideOk
-    } finally {
-        if ([string]::IsNullOrWhiteSpace([string]$savedNonLfs)) {
-            Remove-Item Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
-        } else {
-            $env:MXH_PLAYDH_ROOT = [string]$savedNonLfs
-        }
-    }
 
     $mountInfo = "[INFO] [pak] mount order lists 8 paks ending with zz_supplement.pak"
     $missingLogError = "[ERROR] current smoke run log is missing"
@@ -2194,17 +2126,6 @@ function Invoke-CleanDeploySelfTest {
 
 
 
-if ($CheckNonLfsPakRoot) {
-    if ([string]::IsNullOrWhiteSpace($RepoRoot)) {
-        $RepoRoot = Split-Path -Parent $PSScriptRoot
-    }
-    $nonLfsDecision = Resolve-CleanDeployNonLfsPakRoot -RepoRoot $RepoRoot
-    foreach ($nonLfsLine in @($nonLfsDecision.Lines)) { Write-Host $nonLfsLine }
-    if (-not $nonLfsDecision.Ok) { exit 1 }
-    Write-Host ("[INFO] non-lfs pak root: " + $nonLfsDecision.Path)
-    exit 0
-}
-
 if ($SelfTest) {
     $selfCode = Invoke-CleanDeploySelfTest
     if ($selfCode -ne 0) { exit 1 }
@@ -2242,11 +2163,6 @@ $resolvedPlayDh = Resolve-CleanDeployPlayDhRoot -PlayDhRoot $PlayDhRoot -RepoRoo
 if (-not $resolvedPlayDh.Ok) { exit 1 }
 $script:CleanDeployChosenPlayDhRoot = $resolvedPlayDh.Path
 [void](Publish-CleanDeployPlayDhRoot -Path $script:CleanDeployChosenPlayDhRoot -DryRun:$DryRun)
-if (-not $DryRun) {
-    $nonLfsPakRoot = Resolve-CleanDeployNonLfsPakRoot -RepoRoot $RepoRoot
-    foreach ($nonLfsLine in @($nonLfsPakRoot.Lines)) { Write-Host $nonLfsLine }
-    if (-not $nonLfsPakRoot.Ok) { exit 1 }
-}
 
 # ----------------------------------------------------------------------------
 # Step 1: preflight
