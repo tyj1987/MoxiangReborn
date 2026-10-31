@@ -207,8 +207,9 @@ struct EffectEvent {
     std::uint32_t skill_id = 0;
     std::uint32_t effect_id = 0;
     std::uint32_t sound_id = 0;
-    std::int32_t damage = 0;
+    std::int32_t damage = 0;          // RESULTINFO::RealDamage
     std::uint8_t hit_result = 0;
+    std::uint32_t shield_damage = 0;  // RESULTINFO::ShieldDamage
 };
 
 std::optional<NpcInfo> parse_legacy_npc_add(std::span<const std::uint8_t> payload);
@@ -535,6 +536,7 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     const std::string& last_skill_error() const noexcept { return m_lastSkillError; }
     const std::string& last_friend_error() const noexcept { return m_lastFriendError; }
     std::int32_t last_damage() const noexcept { return m_lastDamage; }
+    std::uint32_t last_shield_damage() const noexcept { return m_lastShieldDamage; }
     std::uint32_t last_hit_target() const noexcept { return m_lastHitTarget; }
     std::uint8_t last_hit_result() const noexcept { return m_lastHitResult; }
     std::uint64_t last_damage_timestamp_ms() const noexcept {
@@ -676,6 +678,7 @@ public:
     std::string              m_lastSkillError;
     std::string              m_lastFriendError;
     std::int32_t             m_lastDamage = 0;
+    std::uint32_t            m_lastShieldDamage = 0;
     std::uint32_t            m_lastHitTarget = 0;
     std::uint8_t              m_lastHitResult = 0;
     std::uint64_t             m_lastDamageTimestampMs = 0;

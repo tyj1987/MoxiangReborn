@@ -621,7 +621,13 @@ enum class SkillProtocol : std::uint8_t {
     RemoveFromAreaSyn     = 8,   // C->S: target left skill area
     RemoveFromAreaAck     = 9,
     RemoveFromAreaNack    = 10,
-    SingleResult          = 11,  // S->C: single-target skill result (damage)
+    // S->C: RESULTINFO life + shield. Payload is
+    // [target_id:u32][RealDamage:i32][ShieldDamage:u32][hit_result:u8].
+    // Original packs both fields via AddTargetWithResultInfo
+    // (SkillObjectFirstUnit_Attack.cpp:192, SkillObjectSingleUnit_Attack.cpp:99)
+    // and the client reads them with GetTargetData into RESULTINFO
+    // (SkillObjectSingleUnit_Attack.cpp:125-138).
+    SingleResult          = 11,
     StartEffect           = 12,  // C->S: skill effect VFX (client broadcast)
     OperateSyn            = 13,  // C->S: operate continuous skill
     OperateAck            = 14,

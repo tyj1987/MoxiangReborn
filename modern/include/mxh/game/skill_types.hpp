@@ -221,7 +221,14 @@ struct SkillInstance {
 // ============================================================================
 struct DamageResult {
     std::uint32_t target_id = 0;
+    // Life portion. Original RESULTINFO::RealDamage
+    // (Object.cpp CalcRealDamage: PhyDamage + AttrDamage).
     std::int32_t  damage = 0;           // negative = heal
+    // Original RESULTINFO::ShieldDamage (the CalcShieldDamage out-param).
+    std::uint32_t shield_damage = 0;
+    // Amount SetShield actually removes. On a shortfall this is the whole
+    // remaining shield, while shield_damage stays the requested amount.
+    std::uint32_t shield_absorbed = 0;
     bool is_critical = false;
     bool is_miss = false;
     std::uint8_t  hit_result = 0;       // 0=miss, 1=hit, 2=critical

@@ -33,10 +33,10 @@ mxh::net::Message damage(std::int32_t amount = 6) {
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Skill);
     msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::SkillProtocol::SingleResult);
     msg.header.object_id = 42;
-    msg.payload.assign(9, 0);
+    msg.payload.assign(13, 0);
     std::memcpy(msg.payload.data(), &target, 4);
     std::memcpy(msg.payload.data() + 4, &amount, 4);
-    msg.payload[8] = 1;
+    msg.payload[12] = 1;
     return msg;
 }
 

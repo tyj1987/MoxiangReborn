@@ -85,11 +85,48 @@ mxh::game::DamageResult skill_caster_calculate_damage(
     return result;
 }
 
+OriginalMonsterPhysicalHit original_monster_physical_split(
+    double pre_defence_attack,
+    float shield_ratio,
+    std::uint32_t current_shield,
+    double defence_level) noexcept {
+    // AttackManager.cpp:120 / 254: (DWORD)(attackPhyDamage * SHIELD_*_DAMAGE)
+    // is the request passed into CObject::CalcShieldDamage.
+    const auto requested = static_cast<std::uint32_t>(
+        pre_defence_attack * static_cast<double>(shield_ratio));
+    // Object.cpp:523 sets RealShieldDamage = requested and does not
+    // rewrite it when the shield is short. That out-param is what
+    // AttackManager.cpp:124 / 258 stores in RESULTINFO::ShieldDamage.
+    OriginalMonsterPhysicalHit hit;
+    hit.shield_damage = requested;
+    double attack = pre_defence_attack;
+    if (current_shield < requested) {
+        // Object.cpp:525-528: SetShield(0) and return (WORD)Shield.
+        // The attack is reduced only by that returned amount.
+        hit.shield_absorbed = current_shield;
+        attack -= static_cast<std::uint16_t>(current_shield);
+    } else {
+        // Object.cpp:531-533: shield loses the request, and the
+        // return value (ReduceDamage) is the same request.
+        hit.shield_absorbed = requested;
+        attack -= static_cast<double>(requested);
+    }
+    // AttackManager.cpp:126-127 / 260-261, then the < 1 floor at
+    // AttackManager.cpp:139-140 / 273-274. AttackCalc.cpp:543-552
+    // is the KR/CN defence level (ceiling 0.9).
+    if (defence_level < 0.0) defence_level = 0.0;
+    attack *= (1.0 - defence_level);
+    if (attack < 1.0) attack = 1.0;
+    hit.real_damage = static_cast<std::uint32_t>(attack);
+    return hit;
+}
+
 mxh::game::DamageResult skill_caster_calculate_monster_damage(
     const mxh::game::PlayerCombatStats& attacker,
     const mxh::game::PlayerCombatStats& defender,
     const mxh::game::SkillInfo& skill,
-    std::mt19937& rng) noexcept {
+    std::mt19937& rng,
+    std::uint32_t target_shield) noexcept {
     mxh::game::DamageResult result;
     const auto simple = mxh::game::to_simple(skill);
 
@@ -116,30 +153,40 @@ mxh::game::DamageResult skill_caster_calculate_monster_damage(
     auto physical = mxh::game::compute_player_physical_attack(
         min_attack, max_attack, 0.0, skill_rate, false, roll);
     // UpPhyAttack is a flat skill contribution in the modern combat view;
-    // retain it before applying the original defence curve.
+    // it is part of the pre-defence attack, before the shield split.
     physical = static_cast<std::uint32_t>(std::min<std::uint64_t>(
         static_cast<std::uint64_t>(physical) + simple.phy_attack,
         std::numeric_limits<std::uint32_t>::max()));
-    const auto defence_level = mxh::game::compute_phy_defence_level(
-        defender.phy_defence, std::max<std::uint16_t>(1u, attacker.level));
-    std::int64_t total_damage = mxh::game::compute_received_damage(
-        physical, defence_level);
-
-    std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
-                             + static_cast<std::int32_t>(attacker.att_attack)
-                             - static_cast<std::int32_t>(defender.att_defence);
-    if (attr_damage > 0) total_damage += attr_damage;
-
+    // AttackManager.cpp:70-72 / 204-206: critical scales the attack
+    // before SHIELD_COMBO_DAMAGE / SHIELD_OUT_MUGONG_DAMAGE.
     const auto crit_roll = static_cast<std::uint8_t>(rng() % 100);
+    double pre_defence = static_cast<double>(physical);
     if (crit_roll < (simple.critical_rate + attacker.critical_rate)) {
         result.is_critical = true;
-        total_damage = static_cast<std::int64_t>(total_damage * 1.5);
+        pre_defence *= 1.5;
         result.hit_result = 2;
     } else {
         result.hit_result = 1;
     }
-    result.damage = static_cast<std::int32_t>(std::min<std::int64_t>(
-        total_damage, std::numeric_limits<std::int32_t>::max()));
+    // AttackManager.cpp:30-32. Combo is GetComboPhyDamage (0.5).
+    // Outer and inner mugong are GetMugongPhyDamage (0.7). The player
+    // 无双 0.7 in CPlayer::CalcShieldDamage does not apply to monsters.
+    const float shield_ratio =
+        skill.SkillKind == static_cast<std::uint16_t>(mxh::game::SkillKind::Combo)
+            ? 0.5f : 0.7f;
+    const auto defence_level = mxh::game::compute_phy_defence_level(
+        defender.phy_defence, std::max<std::uint16_t>(1u, attacker.level));
+    const auto split = original_monster_physical_split(
+        pre_defence, shield_ratio, target_shield, defence_level);
+    std::uint64_t life = split.real_damage;
+    const std::int32_t attr_damage = static_cast<std::int32_t>(simple.att_attack)
+                                   + static_cast<std::int32_t>(attacker.att_attack)
+                                   - static_cast<std::int32_t>(defender.att_defence);
+    if (attr_damage > 0) life += static_cast<std::uint32_t>(attr_damage);
+    result.damage = static_cast<std::int32_t>(std::min<std::uint64_t>(
+        life, static_cast<std::uint64_t>(std::numeric_limits<std::int32_t>::max())));
+    result.shield_damage = split.shield_damage;
+    result.shield_absorbed = split.shield_absorbed;
     return result;
 }
 

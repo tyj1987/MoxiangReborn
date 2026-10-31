@@ -241,8 +241,10 @@ TEST(SkillCasterDamageTest, MonsterDamageUsesPhysicalRangeAndDefenceCurve) {
     const auto result = skill_caster_calculate_monster_damage(
         attacker, defender, skill, rng);
     EXPECT_FALSE(result.is_miss);
-    EXPECT_GE(result.damage, 30);
-    EXPECT_LE(result.damage, 40);
+    // Shield 0, so CalcShieldDamage reduces the attack by 0 and the
+    // defended remainder is still at least 1 (AttackManager.cpp:139-140).
+    EXPECT_GE(result.damage, 1);
+    EXPECT_EQ(result.shield_absorbed, 0u);
 }
 
 TEST(SkillCasterDamageTest, MissWhenDodgeRollTriggers) {

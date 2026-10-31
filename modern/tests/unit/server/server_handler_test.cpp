@@ -3045,7 +3045,7 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     monster.pos_x = 25000.0f;
     monster.pos_z = 25000.0f;
     ASSERT_TRUE(handler.add_monster_instance(monster));
-    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u, 0u);
     ASSERT_TRUE(drop.has_value());
     const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.protocol ==
@@ -3504,8 +3504,8 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     monster.pos_z = 20.0f;
     ASSERT_TRUE(handler.add_monster_instance(monster));
 
-    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 19u, 0u).has_value());
-    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 19u, 0u, 0u).has_value());
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u, 0u);
     ASSERT_TRUE(drop.has_value());
     EXPECT_EQ(drop->source_monster_id, monster.object_id);
     EXPECT_EQ(drop->item_id, 501u);
@@ -3521,7 +3521,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
     EXPECT_EQ(notify->header.object_id, 123u);
     ASSERT_EQ(notify->payload.size(), 20u);
 
-    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 1u, 0u).has_value());
+    EXPECT_FALSE(handler.apply_monster_damage(123u, monster.object_id, 1u, 0u, 0u).has_value());
     ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     ASSERT_TRUE(handler.player_runtime_snapshot(123u).has_value());
@@ -3560,7 +3560,7 @@ TEST(MapHandlerTest, RevisionedKillPublishesGroundObtainAndPersistsPickup) {
     ASSERT_TRUE(handler.add_monster_instance(monster));
     reply.messages.clear();
     const auto writes_before = db.commit_count;
-    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u);
+    const auto drop = handler.apply_monster_damage(123u, monster.object_id, 1u, 0u, 0u);
     ASSERT_TRUE(drop.has_value());
     EXPECT_EQ(drop->item_id, 501u);
     EXPECT_EQ(db.commit_count, writes_before + 1);
@@ -3586,7 +3586,7 @@ TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     handler.on_message(mxh::net::make_connection_id(55), game_in);
     mxh::game::MonsterInstance monster; monster.object_id=88001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1; monster.exp_reward=123;
     ASSERT_TRUE(handler.add_monster_instance(monster));
-    (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+    (void)handler.apply_monster_damage(123, monster.object_id, 1, 0, 99);
     const auto level = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Character) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LevelNotify);
@@ -3676,7 +3676,7 @@ TEST(MapHandlerTest, NormalExperienceSegmentRefillsAndPersistsOnce) {
     monster.max_life = monster.current_life = 1u;
     monster.exp_reward = 4u;  // canonical Lv1 threshold 20: first 20% interval
     ASSERT_TRUE(handler.add_monster_instance(monster));
-    (void)handler.apply_monster_damage(123u, monster.object_id, 1u, 99u);
+    (void)handler.apply_monster_damage(123u, monster.object_id, 1u, 0u, 99u);
     ASSERT_EQ(db.progress_rows.at(123u)[0], 1);
     EXPECT_EQ(db.progress_rows.at(123u)[1], 4);
     EXPECT_EQ(db.progress_rows.at(123u)[4], 0x11);
@@ -3721,7 +3721,7 @@ TEST(MapHandlerTest, FailedMonsterExperienceTransactionKeepsMonsterAliveAndNoRew
     const auto live_before = handler.live_monster_count_for_test();
     replies.clear();
     db.fail_progress_update = true;
-    EXPECT_FALSE(handler.apply_monster_damage(123, monster.object_id, 1, 99).has_value());
+    EXPECT_FALSE(handler.apply_monster_damage(123, monster.object_id, 1, 0, 99).has_value());
     EXPECT_EQ(handler.live_monster_count_for_test(), live_before);
     EXPECT_EQ(db.progress_rows.at(123)[1], 0);
     EXPECT_TRUE(std::none_of(replies.begin(), replies.end(), [](const auto& message) {
@@ -3729,7 +3729,7 @@ TEST(MapHandlerTest, FailedMonsterExperienceTransactionKeepsMonsterAliveAndNoRew
     }));
     EXPECT_EQ(db.rollbacks, 1);
     db.fail_progress_update = false;
-    EXPECT_FALSE(handler.apply_monster_damage(123, monster.object_id, 1, 99).has_value());
+    EXPECT_FALSE(handler.apply_monster_damage(123, monster.object_id, 1, 0, 99).has_value());
     EXPECT_EQ(handler.live_monster_count_for_test(), live_before - 1u);
     EXPECT_EQ(db.progress_rows.at(123)[0], 2);
     EXPECT_EQ(db.progress_rows.at(123)[1], 103);
@@ -3748,7 +3748,7 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
         handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
         mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(mxh::net::make_connection_id(55), in);
         mxh::game::MonsterInstance monster; monster.object_id=99001; monster.max_life=1; monster.current_life=1; monster.exp_reward=1000000; ASSERT_TRUE(handler.add_monster_instance(monster));
-        (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
+        (void)handler.apply_monster_damage(123, monster.object_id, 1, 0, 99);
     }
     mxh::db::ResultSet saved; ASSERT_TRUE(db->query("SELECT level,exp FROM modern_player_state WHERE player_id=123", saved).ok()); ASSERT_EQ(saved.rows.size(),1u);
     const auto saved_level=std::get<std::int64_t>(saved.rows[0][0]); EXPECT_GT(saved_level,1);
@@ -4123,7 +4123,7 @@ TEST(MonsterMapRoute, SharedAgentGetsOneMovePerCharacterAndNoOtherMapLeak) {
 
     map_messages.clear();
     delivered.clear();
-    (void)map.apply_monster_damage(101u, 50143u, 1u, 0u);
+    (void)map.apply_monster_damage(101u, 50143u, 1u, 0u, 0u);
     const auto is_life = [](const auto& msg) {
         return msg.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Monster) &&
             msg.header.protocol == static_cast<std::uint8_t>(mxh::proto::MonsterProtocol::LifeNotify) &&
@@ -5101,7 +5101,7 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     start.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn); start.payload.resize(2);
     const std::uint16_t qid=99; std::memcpy(start.payload.data(),&qid,sizeof(qid)); handler.on_message(connection,start);
     mxh::game::MonsterInstance monster; monster.object_id=99001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1;
-    ASSERT_TRUE(handler.add_monster_instance(monster)); (void)handler.apply_monster_damage(123,monster.object_id,1,99);
+    ASSERT_TRUE(handler.add_monster_instance(monster)); (void)handler.apply_monster_damage(123,monster.object_id,1,0,99);
     mxh::net::Message end=start; end.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndSyn);
     reply.messages.clear(); handler.on_message(connection,end);
     ASSERT_FALSE(reply.messages.empty());

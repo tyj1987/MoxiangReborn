@@ -492,8 +492,13 @@ public:
     std::size_t install_ai_groups(const AiGroupList& groups);
     std::size_t monster_count_for_test();
     std::size_t live_monster_count_for_test();
+    // life_damage is RESULTINFO::RealDamage. shield_damage is the amount
+    // removed from the monster shield (CObject::CalcShieldDamage SetShield),
+    // capped again at current_shield. It is not the reported out-param when
+    // a shortfall's (WORD) return differs from the shield that was zeroed.
     std::optional<GroundDrop> apply_monster_damage(std::uint32_t attacker_player_id,
-        std::uint32_t monster_object_id, std::uint32_t damage, std::uint32_t rng_value,
+        std::uint32_t monster_object_id, std::uint32_t life_damage,
+        std::uint32_t shield_damage, std::uint32_t rng_value,
         OriginalVitalsCommitState* award_state = nullptr);
 
 
@@ -644,10 +649,12 @@ private:
     void load_membership_state(std::uint32_t player_id,
                                std::string_view player_name,
                                std::uint16_t player_level);
+    // Payload: [target:u32][RealDamage:i32][ShieldDamage:u32][hit:u8].
     void send_skill_single_result(
         std::uint32_t target_player_id,
         std::uint32_t target_id,
-        std::int32_t damage,
+        std::int32_t real_damage,
+        std::uint32_t shield_damage,
         std::uint8_t hit_result);
 
     // Broadcast Helpers

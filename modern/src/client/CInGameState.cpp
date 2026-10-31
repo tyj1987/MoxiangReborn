@@ -2120,13 +2120,19 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
             break;
         }
         case SkillProtocol::SingleResult: {
-            // Payload: [target_id:u32][damage:i32][hit_result:u8].
-            if (msg.payload.size() >= 9) {
+            // [target_id:u32][RealDamage:i32][ShieldDamage:u32][hit_result:u8]
+            // Same two RESULTINFO fields the original client reads in
+            // CSkillObjectSingleUnit_Attack::StartSingleUnitEffect
+            // (SkillObjectSingleUnit_Attack.cpp:125-138).
+            if (msg.payload.size() >= 13) {
                 const auto target = get_u32(msg.payload.data());
-                std::int32_t damage = 0;
-                std::memcpy(&damage, msg.payload.data() + 4, sizeof(damage));
-                const auto hit = msg.payload[8];
-                m_lastDamage = damage;
+                std::int32_t real_damage = 0;
+                std::uint32_t shield_damage = 0;
+                std::memcpy(&real_damage, msg.payload.data() + 4, sizeof(real_damage));
+                std::memcpy(&shield_damage, msg.payload.data() + 8, sizeof(shield_damage));
+                const auto hit = msg.payload[12];
+                m_lastDamage = real_damage;
+                m_lastShieldDamage = shield_damage;
                 m_lastHitTarget = target;
                 m_lastHitResult = hit;
                 m_lastDamageTimestampMs = m_lastTickMs != 0
@@ -2145,12 +2151,12 @@ void CInGameState::handle_skill_broadcast(const mxh::net::Message& msg) {
                 }
                 push_effect_event(EffectEvent{
                     EffectEventKind::Hit, m_lastTickMs, source_object, target,
-                    0, 0, 0, damage, hit});
+                    0, 0, 0, real_damage, hit, shield_damage});
                 push_effect_event(EffectEvent{
                     EffectEventKind::End, m_lastTickMs, source_object, target,
-                    0, 0, 0, damage, hit});
-                MLOG_INFO("CInGameState: SkillSingleResult target=%u damage=%d hit=%u",
-                          target, damage, static_cast<unsigned>(hit));
+                    0, 0, 0, real_damage, hit, shield_damage});
+                MLOG_INFO("CInGameState: SkillSingleResult target=%u life=%d shield=%u hit=%u",
+                          target, real_damage, shield_damage, static_cast<unsigned>(hit));
             }
             break;
         }
