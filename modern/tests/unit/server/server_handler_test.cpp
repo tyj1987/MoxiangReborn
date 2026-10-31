@@ -3140,6 +3140,25 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
 }
 
 namespace {
+// Hand-written curve: level N requires N * 100000. Level 1 is 100000, so a
+// reward of 1 or 4 stays inside level 1. Not a shipped table.
+std::string synthetic_experience_curve_text() {
+    std::string text;
+    text.reserve(static_cast<std::size_t>(mxh::game::MAX_CHARACTER_LEVEL_NUM) * 24u);
+    for (unsigned level = 1; level <= mxh::game::MAX_CHARACTER_LEVEL_NUM; ++level) {
+        text += std::to_string(level);
+        text.push_back(' ');
+        text += std::to_string(static_cast<unsigned long long>(level) * 100000ull);
+        text.push_back('\n');
+    }
+    return text;
+}
+
+void install_synthetic_experience_curve(mxh::server::MapHandler& handler) {
+    handler.set_experience_curve_for_test(
+        mxh::game::ExperienceCurve::load_from_text(synthetic_experience_curve_text()));
+}
+
 // Hoisted bin-file helpers used by SpeechSynShopListFeedsClientThenBuySynDebitsMoney
 // (and the late R-8 / dealitem / quest tests further below). Kept here so the
 // SpeechSynShopList test can resolve them in source order. The original
@@ -3543,8 +3562,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
         [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
             replies.push_back(message);
         });
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    install_synthetic_experience_curve(handler);
     const auto connection = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
@@ -3603,8 +3621,8 @@ TEST(MapHandlerTest, RevisionedKillPublishesGroundObtainAndPersistsPickup) {
     ReplySpy reply;
     mxh::server::MapHandler handler(db, 7u, make_reply_spy(reply));
     handler.set_allow_dev_monster_fallback(false);
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    // Synthetic level-1 threshold is 100000, so exp_reward 4 stays at level 1.
+    install_synthetic_experience_curve(handler);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -6255,7 +6273,7 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     const auto character = static_cast<std::uint32_t>(std::get<std::int64_t>(rows.rows[0][0]));
     const std::vector<mxh::db::Bind> grant_args{mxh::db::bind(static_cast<std::int64_t>(character))};
     ASSERT_TRUE(db.execute("INSERT INTO modern_item_grant(idempotency_key,character_id,item_id,item_count,status,created_by,reason) "
-                           "VALUES('equipment-test',?,11000,1,'pending','unit-test','ordinary starter')", grant_args).ok());
+                           "VALUES('equipment-test',?,900001,1,'pending','unit-test','ordinary starter')", grant_args).ok());
     mxh::net::Message game_in;
     game_in.header = create.header;
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -6264,16 +6282,16 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
     std::memcpy(game_in.payload.data(), &account, 4);
     const auto configure = [&](MapHandler& handler) {
         // Hand-written weapon. ItemKind 2048 is ordinary equipment and
-        // EquipKind 1 is the weapon slot (position 81). Melee 13-17 with
-        // GenGol 12 is attack 29-35 while worn and 16 while unarmed.
+        // EquipKind 1 is the weapon slot (position 81). Melee 40-50 with
+        // GenGol 12 is attack 72-88 while worn and 16 while unarmed.
         mxh::game::ItemInfo weapon{};
-        weapon.ItemIdx = 11000;
+        weapon.ItemIdx = 900001;
         std::memcpy(weapon.ItemName, "TestBlade", 9);
         weapon.ItemKind = 2048;
         weapon.EquipKind = mxh::game::WEARED_WEAPON;
         weapon.WeaponType = 1;
-        weapon.MeleeAttackMin = 13;
-        weapon.MeleeAttackMax = 17;
+        weapon.MeleeAttackMin = 40;
+        weapon.MeleeAttackMax = 50;
         handler.add_item_info_for_test(weapon);
     };
     std::uint32_t database_id = 0;
@@ -6299,23 +6317,23 @@ TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
         database_id = static_cast<std::uint32_t>(std::get<std::int64_t>(rows.rows[0][0]));
         move(handler, 81);
         snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
-        EXPECT_EQ(snapshot->physical_attack_min, 29u);
-        EXPECT_EQ(snapshot->physical_attack_max, 35u);
+        EXPECT_EQ(snapshot->physical_attack_min, 72u);
+        EXPECT_EQ(snapshot->physical_attack_max, 88u);
         move(handler, 81);
         EXPECT_EQ(reply.last_message.header.protocol, static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MoveNack));
-        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 29u);
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 72u);
         move(handler, 0);
         EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 16u);
         move(handler, 81);
-        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 29u);
+        EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 72u);
         handler.on_disconnect({91}, mxh::net::NetError::Disconnected);
     }
     {
         MapHandler handler(db, 10, make_reply_spy(reply)); configure(handler);
         handler.on_message({91}, game_in);
         auto snapshot = handler.player_runtime_snapshot(character); ASSERT_TRUE(snapshot);
-        EXPECT_EQ(snapshot->physical_attack_min, 29u);
-        EXPECT_EQ(snapshot->physical_attack_max, 35u);
+        EXPECT_EQ(snapshot->physical_attack_min, 72u);
+        EXPECT_EQ(snapshot->physical_attack_max, 88u);
         move(handler, 0);
         EXPECT_EQ(handler.player_runtime_snapshot(character)->physical_attack_min, 16u);
         handler.on_disconnect({91}, mxh::net::NetError::Disconnected);

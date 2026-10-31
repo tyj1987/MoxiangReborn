@@ -140,7 +140,6 @@ jobs:
             modern/tools/dialog_children_type_scan
             modern/tools/MoxianPortal
             modern/tools/MxDumpInspect
-            modern/data/PlayDH/Resource/CharacterExpPoint.bin
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
