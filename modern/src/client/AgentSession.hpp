@@ -27,6 +27,8 @@ public:
     [[nodiscard]] mxh::net::NetError connect(
         const std::string& host, std::uint16_t port, bool use_hsel = false);
     void disconnect();
+    // Abortive RST of the agent socket. No shutdown and no logout packet.
+    void abort();
     [[nodiscard]] mxh::net::NetError send(const mxh::net::Message& message);
 
     // Login and agent handshakes share one connect budget. A refusal inside

@@ -5,6 +5,7 @@
 // Moxian server demo; production should switch to IOCP/io_uring.
 
 #include "mxh/net/net.hpp"
+#include "mxh/net/abortive_close.hpp"
 #include "mxh/net/connect_retry.hpp"
 #include "mxh/net/packet_trace.hpp"
 
@@ -994,6 +995,38 @@ void TcpClient::disconnect() {
         }
     }
     // Join after releasing lock to avoid deadlock with send().
+    if (impl_->recv_thread.joinable()) impl_->recv_thread.join();
+}
+
+void TcpClient::abort() {
+    // RST path. disconnect() sends FIN via shutdown(); this must not.
+    impl_->connected.store(false);
+    {
+        std::lock_guard<std::mutex> lk(impl_->send_mu);
+        if (impl_->sock != INVALID_SOCKET) {
+            const SOCKET sock = impl_->sock;
+            impl_->sock = INVALID_SOCKET;
+            const bool linger_set = abortive_rst_close(
+                [sock](LingerOption opt) {
+                    struct linger linger_opt;
+                    linger_opt.l_onoff = static_cast<decltype(linger_opt.l_onoff)>(opt.l_onoff);
+                    linger_opt.l_linger = static_cast<decltype(linger_opt.l_linger)>(opt.l_linger);
+                    return ::setsockopt(sock, SOL_SOCKET, SO_LINGER,
+                                        reinterpret_cast<const char*>(&linger_opt),
+                                        sizeof(linger_opt)) == 0;
+                },
+                [sock]() { closesocket(sock); });
+            if (!linger_set) {
+                // Linger was not applied. Still close, still no shutdown(),
+                // so a failed setsockopt cannot turn the abort into a FIN.
+                // closesocket is the Winsock call; on POSIX the net.cpp
+                // macro maps it to close. Do not write ::closesocket — the
+                // macro would expand into an invalid ::::close.
+                closesocket(sock);
+                std::cerr << "[net] SO_LINGER {1,0} failed; closed without shutdown\n";
+            }
+        }
+    }
     if (impl_->recv_thread.joinable()) impl_->recv_thread.join();
 }
 
