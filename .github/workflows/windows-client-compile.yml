@@ -106,6 +106,10 @@ on:
       - scripts/human-acceptance-process.ps1
       - scripts/test-gpu-smoke.ps1
       - scripts/rog-gate-build.ps1
+      - modern/tests/unit/pack_file_header_test.cpp
+      - scripts/playdh_baseline_check.py
+      - scripts/playdh_external_only.py
+      - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:

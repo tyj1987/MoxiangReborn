@@ -105,6 +105,8 @@ original_governance_and_python_tests:
     - python3 -B -m unittest modern/tests/unit/tools/test_resource_reference_gate.py
     - python3 -B -m unittest modern/tests/unit/tools/test_mh_bin.py
     - python3 -B -m unittest modern/tests/unit/tools/test_audit_minimap_root.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_compat_round_trip.py
+    - python3 -B -m unittest modern/tests/unit/tools/test_repack_titan_bin.py
 
 rog_gate_self_test:
   extends: .linux_trusted
@@ -192,10 +194,10 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests mxh_cli_playdh_root_tests
+      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests mxh_cli_playdh_root_tests mxh_pack_file_header_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.|CliPlayDhRoot\.)' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.|CliPlayDhRoot\.|PackFileHeader\.SyntheticNpcPetTitanArchivesRoundTrip)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -217,6 +219,7 @@ cxx_resource_reference_linux:
       require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
       require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
       require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+      require_passed PackFileHeader.SyntheticNpcPetTitanArchivesRoundTrip || status=1
       require_passed AgentCli.OmittedDefaultMapIs17 || status=1
       require_passed AgentCli.ExtraMapEqualsExplicitDefaultRejected || status=1
       require_passed AgentCli.ExtraMapEqualsOmittedDefaultRejected || status=1
