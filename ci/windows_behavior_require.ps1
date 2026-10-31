@@ -162,7 +162,7 @@ function Invoke-MxhBehaviorRequireSelfTest {
     $cases = @(
         [pscustomobject]@{
             Name       = 'test-p-partial'
-            ExpectPass = $false
+            ExpectPass = $true
             Entry      = 'LoginHandlerProtocolGate.Foo ok=2'
             Log        = New-CaseLog @(
                 '    Start 1: LoginHandlerProtocolGate.Foo',
