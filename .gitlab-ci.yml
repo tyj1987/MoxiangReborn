@@ -31,6 +31,10 @@ workflow:
         - scripts/gui-client-smoke-ephemeral.ps1
         - scripts/tests/test-gui-client-smoke-ephemeral.ps1
         - scripts/tests/test-commercial-smoke-mssql-e2e.ps1
+        - scripts/tests/test-deploy-default-map.ps1
+        - deploy/scripts/start_modern.ps1
+        - deploy/scripts/start_original_vm112.ps1
+        - deploy/scripts/start_current_vm112.ps1
         - .gitignore
         - "**/*.[Pp][Aa][Kk]"
         - .gitlab-ci.yml
@@ -117,6 +121,7 @@ rog_gate_self_test:
       pwsh -NoProfile -File scripts/rog-gate-build.ps1 -SelfTest -SelfTestNoLinks
       pwsh -NoProfile -File scripts/tests/test-commercial-smoke-mssql-e2e.ps1
       pwsh -NoProfile -File scripts/tests/test-gui-client-smoke-ephemeral.ps1
+      pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
 
 # cxx_resource_reference_linux
 # Kept in sync with the GitHub job of the same name. Same image digest as

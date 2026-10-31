@@ -11,7 +11,7 @@ param(
     [ValidateRange(1, 65535)] [int]$Map2Port = 18003,
     [switch]$EnableMap17,
     [ValidateRange(1, 65535)] [int]$Map17Port = 18004,
-    [int]$MapNumber = 10,
+    [int]$MapNumber = 17,
     [string]$AdvertisedAgentAddress = '192.168.2.244'
 )
 $ErrorActionPreference = 'Stop'
