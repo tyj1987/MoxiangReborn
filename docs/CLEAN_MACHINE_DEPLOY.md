@@ -30,6 +30,8 @@ does not manufacture or imply those results.
 | 2 | prereq detect | VS2022, cmake, git, sqlcmd, SqlLocalDB, ODBC 18, VC++ Redist |
 | 3 | prereq install | (only with `-InstallPrereqs`) chocolatey + direct download for ODBC 18 + VS Build Tools 2022 |
 | 4 | PlayDH junction | `modern/data/PlayDH` -> `<RepoRoot>\墨香【源码配套资源】\PlayDH` |
+
+`deploy/scripts/deploy_client.ps1` and `deploy/scripts/deploy_server.ps1` do not read that junction or `modern/data/PlayDH` on their own. They take the PlayDH tree from `-ResourceDir` or the environment variable `MXH_PLAYDH_ROOT`. If neither is set, the script prints `MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given` and exits 1. The in-game client resolver uses the same rule: an explicit engine resource root, or `MXH_PLAYDH_ROOT`. `scripts/clean-deploy.ps1` still requires its own `-PlayDhRoot` and does not default to the repo tree.
 | 5 | build modern | invokes `cmake --build modern/build --config <Config>` |
 | 6 | run ctest | `ctest -C <Config> --test-dir modern/build --output-on-failure` |
 | 7 | commercial smoke | invokes `scripts/commercial-smoke.ps1` (includes portal HTTP smoke) |

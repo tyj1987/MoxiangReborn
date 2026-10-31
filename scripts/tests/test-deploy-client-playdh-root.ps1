@@ -9,6 +9,7 @@ $mxhMissing = 'MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $repoPlay = (Join-Path (Join-Path (Join-Path $repoRoot 'modern') 'data') 'PlayDH')
 $deploy = Join-Path (Join-Path $repoRoot 'deploy') (Join-Path 'scripts' 'deploy_client.ps1')
+$deployServer = Join-Path (Join-Path $repoRoot 'deploy') (Join-Path 'scripts' 'deploy_server.ps1')
 $pwsh = (Get-Process -Id $PID).Path
 $savedPlay = $env:MXH_PLAYDH_ROOT
 $passed = 0
@@ -82,6 +83,34 @@ try {
             Write-Host $synOut
         }
         Write-PlayDhRootCase -Name 'deploy-client-synthetic' -Ok $synOk
+
+        Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
+        $serverUnset = & $pwsh -NoProfile -File $deployServer -ResolveOnly 2>&1 | Out-String
+        $serverUnsetCode = $LASTEXITCODE
+        $serverUnsetOk = ($serverUnsetCode -eq 1) -and ($serverUnset.Contains($mxhMissing)) -and (-not $serverUnset.Contains($repoPlay))
+        if (-not $serverUnsetOk) {
+            Write-Host "server unset exit=$serverUnsetCode"
+            Write-Host $serverUnset
+        }
+        Write-PlayDhRootCase -Name 'deploy-server-unset' -Ok $serverUnsetOk
+
+        $env:MXH_PLAYDH_ROOT = $synthetic
+        $serverSyn = & $pwsh -NoProfile -File $deployServer -ResolveOnly 2>&1 | Out-String
+        $serverSynCode = $LASTEXITCODE
+        $serverPrinted = ''
+        foreach ($line in ($serverSyn -split "`r?`n")) {
+            if ($line.StartsWith('RESOURCE_DIR=')) { $serverPrinted = $line.Substring('RESOURCE_DIR='.Length).Trim() }
+        }
+        $serverPrintedFull = ''
+        if (-not [string]::IsNullOrWhiteSpace($serverPrinted)) {
+            $serverPrintedFull = [System.IO.Path]::GetFullPath($serverPrinted)
+        }
+        $serverSynOk = ($serverSynCode -eq 0) -and ($serverPrintedFull -eq $synFull) -and ($serverPrintedFull -ne $repoFull)
+        if (-not $serverSynOk) {
+            Write-Host "server synthetic exit=$serverSynCode printed=$serverPrinted"
+            Write-Host $serverSyn
+        }
+        Write-PlayDhRootCase -Name 'deploy-server-synthetic' -Ok $serverSynOk
     } finally {
         if (Test-Path -LiteralPath $synthetic) {
             Remove-Item -LiteralPath $synthetic -Recurse -Force

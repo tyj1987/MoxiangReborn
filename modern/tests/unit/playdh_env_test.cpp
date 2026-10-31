@@ -257,20 +257,29 @@ TEST(PlayDhEnv, E2EUnsetValueUsesFallbackSearch) {
     std::filesystem::create_directories(decoy);
 
     const auto modern_base = scratch.path() / "modern-base";
-    const auto modern_root = make_marked_playdh(
-        modern_base / "modern" / "data" / "PlayDH");
+    make_marked_playdh(modern_base / "modern" / "data" / "PlayDH");
     make_marked_playdh(modern_base / "data" / "PlayDH");
-    const auto modern_hit = mxh::test::resolve_e2e_playdh_root(
-        nullptr, {decoy, modern_base});
-    EXPECT_EQ(std::filesystem::weakly_canonical(modern_hit),
-              std::filesystem::weakly_canonical(modern_root));
+    try {
+        const auto modern_hit = mxh::test::resolve_e2e_playdh_root(
+            nullptr, {decoy, modern_base});
+        ADD_FAILURE() << "resolved " << modern_hit.string();
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find(mxh::test::kPlayDhRootMissing),
+                  std::string::npos)
+            << error.what();
+    }
 
     const auto data_only = scratch.path() / "data-only";
-    const auto data_root = make_marked_playdh(data_only / "data" / "PlayDH");
-    const auto data_hit = mxh::test::resolve_e2e_playdh_root(
-        nullptr, {decoy, data_only});
-    EXPECT_EQ(std::filesystem::weakly_canonical(data_hit),
-              std::filesystem::weakly_canonical(data_root));
+    make_marked_playdh(data_only / "data" / "PlayDH");
+    try {
+        const auto data_hit = mxh::test::resolve_e2e_playdh_root(
+            nullptr, {decoy, data_only});
+        ADD_FAILURE() << "resolved " << data_hit.string();
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find(mxh::test::kPlayDhRootMissing),
+                  std::string::npos)
+            << error.what();
+    }
 }
 
 TEST(PlayDhEnv, E2EUnsetValueWalksUpFromMapExecutable) {
@@ -284,16 +293,27 @@ TEST(PlayDhEnv, E2EUnsetValueWalksUpFromMapExecutable) {
         scratch.path() / "modern" / "data" / "PlayDH");
 
     const WorkingDirectoryGuard cwd(empty_cwd);
-    const auto resolved = mxh::test::search_e2e_playdh_from_map_exe(map_exe);
-    ASSERT_FALSE(resolved.empty());
-    EXPECT_EQ(std::filesystem::weakly_canonical(resolved),
-              std::filesystem::weakly_canonical(root));
+    try {
+        const auto resolved = mxh::test::search_e2e_playdh_from_map_exe(map_exe);
+        ADD_FAILURE() << "walked to " << resolved.string();
+    } catch (const std::runtime_error& error) {
+        EXPECT_NE(std::string(error.what()).find(mxh::test::kPlayDhRootMissing),
+                  std::string::npos)
+            << error.what();
+    }
 
     if (std::getenv(mxh::test::kPlayDhRootEnv) == nullptr) {
-        const auto via_wrapper = mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
-        EXPECT_EQ(std::filesystem::weakly_canonical(via_wrapper),
-                  std::filesystem::weakly_canonical(root));
+        try {
+            const auto via_wrapper =
+                mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
+            ADD_FAILURE() << "walked to " << via_wrapper.string();
+        } catch (const std::runtime_error& error) {
+            EXPECT_NE(std::string(error.what()).find(mxh::test::kPlayDhRootMissing),
+                      std::string::npos)
+                << error.what();
+        }
     }
+    EXPECT_TRUE(std::filesystem::is_directory(root / "Resource" / "Server"));
 }
 
 class EnvVarGuard {

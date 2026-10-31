@@ -145,6 +145,7 @@ jobs:
             modern/data/PlayDH/Effect.pak
             modern/data/PlayDH/monster.pak
             deploy/scripts/deploy_client.ps1
+            deploy/scripts/deploy_server.ps1
             deploy/scripts/playdh_package_guard.ps1
             scripts/tests/test-deploy-client-playdh-root.ps1
 

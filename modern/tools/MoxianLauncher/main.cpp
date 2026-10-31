@@ -482,35 +482,15 @@ static bool saveSettings(const LauncherSettings& s) {
     return true;
 }
 
-static fs::path locateResourceRoot(const fs::path& executable) {
-    const fs::path bin = executable.parent_path();
-    const fs::path roots[] = {
-        bin / L"data" / L"PlayDH",
-        bin.parent_path() / L"data" / L"PlayDH",
-        bin.parent_path() / L"modern" / L"data" / L"PlayDH",
-        // CMake developer layout:
-        // modern/build/tools/MoxianLauncher/MoxianLauncher.exe
-        // modern/data/PlayDH
-        bin.parent_path().parent_path().parent_path() /
-            L"data" / L"PlayDH"
-    };
-    for (const auto& root : roots) {
-        const fs::path required[] = {
-            root / L"Map.pak",
-            root / L"Resource" / L"Map" / L"Map10.bmhm",
-            root / L"Resource" / L"MonsterList.bin",
-            root / L"Resource" / L"Client" / L"NpcChxList.bin",
-            root / L"Image" / L"InterfaceScript" / L"IDDlg.bin",
-            root / L"Image" / L"InterfaceScript" / L"CharSelectDlg.bin",
-            root / L"Image" / L"InterfaceScript" / L"CharMakeNewDlg.bin",
-            root / L"Sound" / L"SoundList.bin"
-        };
-        if (std::all_of(std::begin(required), std::end(required),
-                        [](const auto& path) { return fs::is_regular_file(path); })) {
-            return root;
-        }
-    }
-    return {};
+static constexpr wchar_t kPlayDhRootMissing[] =
+    L"MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+
+static fs::path playdhRootFromEnv() {
+    wchar_t value[32768]{};
+    const auto length = GetEnvironmentVariableW(
+        L"MXH_PLAYDH_ROOT", value, static_cast<DWORD>(std::size(value)));
+    if (length == 0 || length >= std::size(value)) return {};
+    return fs::path(value);
 }
 
 static fs::path locateClientExecutable(const fs::path& launcherExecutable) {
@@ -603,9 +583,12 @@ private:
             wchar_t module[MAX_PATH]{};
             GetModuleFileNameW(nullptr, module, MAX_PATH);
             const auto root = resourceRoot_.empty()
-                ? locateResourceRoot(fs::path(module)) : resourceRoot_;
-            const auto validRoot = root.empty() ? fs::path{} :
-                (fs::is_directory(root) ? root : fs::path{});
+                ? playdhRootFromEnv() : resourceRoot_;
+            if (root.empty()) {
+                MessageBoxW(hwnd_, kPlayDhRootMissing, L"检查/修复", MB_ICONERROR);
+                return 0;
+            }
+            const auto validRoot = fs::is_directory(root) ? root : fs::path{};
             if (validRoot.empty()) {
                 MessageBoxW(hwnd_, L"资源检查失败：缺少运行所需的 Map10、怪物、NPC、登录、选角、建角或音频资源。未执行任何删除或下载。", L"检查/修复", MB_ICONERROR);
             } else {
@@ -675,9 +658,9 @@ private:
         // incomplete.  Starting with a missing IDDlg or Map.pak only
         // produces a misleading black/error screen in the client.
         const fs::path resourceRoot = resourceRoot_.empty()
-            ? locateResourceRoot(fs::path(module)) : resourceRoot_;
+            ? playdhRootFromEnv() : resourceRoot_;
         if (resourceRoot.empty()) {
-            MessageBoxW(hwnd_, L"playdh-current 资源不完整：缺少 Map10、怪物、NPC、登录、选角、建角或音频资源。请先检查/修复资源。", L"启动失败", MB_ICONERROR);
+            MessageBoxW(hwnd_, kPlayDhRootMissing, L"启动失败", MB_ICONERROR);
             return;
         }
         const auto canonicalRoot = fs::weakly_canonical(resourceRoot);
@@ -763,9 +746,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
     if (verifyOnly) {
         if (resourceRoot.empty()) {
-            wchar_t module[MAX_PATH]{};
-            GetModuleFileNameW(nullptr, module, MAX_PATH);
-            resourceRoot = locateResourceRoot(fs::path(module));
+            resourceRoot = playdhRootFromEnv();
+        }
+        if (resourceRoot.empty()) {
+            OutputDebugStringW((std::wstring(kPlayDhRootMissing) + L"\n").c_str());
+            return 1;
         }
         std::wstring error;
         const bool ok = !resourceRoot.empty() &&

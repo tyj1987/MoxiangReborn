@@ -139,6 +139,23 @@ if ($Help) {
     exit 0
 }
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
+        $ResourceDir = $env:MXH_PLAYDH_ROOT
+    } else {
+        Write-Host 'MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given'
+        exit 1
+    }
+}
+if ($ResolveOnly) {
+    if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+        Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+        exit 1
+    }
+    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    Write-Output "RESOURCE_DIR=$ResourceDir"
+    exit 0
+}
 $profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
 $profileProperty = $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]
@@ -150,14 +167,7 @@ if ([string]::IsNullOrWhiteSpace($SourceDir)) {
 if ([string]::IsNullOrWhiteSpace($DeployDir)) {
     $DeployDir = Join-Path $repoRoot 'deploy\client'
 }
-if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
-    $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
-}
 $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
-if ($ResolveOnly) {
-    Write-Output "RESOURCE_DIR=$ResourceDir"
-    exit 0
-}
 $hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
 if (-not (Test-Path -LiteralPath $hashManifestPath -PathType Leaf)) {
     throw "Profile hash manifest missing: $hashManifestPath"

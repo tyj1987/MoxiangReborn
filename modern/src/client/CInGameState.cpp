@@ -728,8 +728,8 @@ void CInGameState::Init(void* pInitParam) {
 #if defined(MXH_CLIENT_TEST_BUILD)
     } else if (!engine && m_uiRuntime.empty()) {
         // Unit tests exercise dialog behavior without constructing the full
-        // Win32 engine.  Keep this fixture-only path out of production code;
-        // shipped clients must always receive an explicit ResourceProfile.
+        // Win32 engine. MXH_PLAYDH_ROOT is the only root here. There is no
+        // walk to modern/data/PlayDH. Shipped clients pass CEngine.
         const auto resolved = resolve_ingame_playdh_root(
             std::nullopt, std::getenv("MXH_PLAYDH_ROOT"));
         m_resolvedPlaydhRoot = resolved.path;
