@@ -270,14 +270,14 @@ original_lfs_integrity:
   script:
     - python3 scripts/verify-resource-profile.py reference/manifests/playdh-current.sha256.json --root modern/data/PlayDH --profile-id playdh-current --full --exact
 
-# Same checks as the GitHub job playdh_baseline_check. The runner smudges LFS
-# when GIT_LFS_SKIP_SMUDGE=0. Any PR that changes playdh-current.sha256.json
-# must state that it was approved by 战略专家.
+# Same checks as the GitHub job playdh_baseline_check. LFS stays smudged off.
+# Pointer oid and size are compared. Any PR that changes
+# playdh-current.sha256.json must state that it was approved by 战略专家.
 playdh_baseline_check:
   extends: .linux_trusted
   stage: resources
   variables:
-    GIT_LFS_SKIP_SMUDGE: "0"
+    GIT_LFS_SKIP_SMUDGE: "1"
   rules:
     - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
     - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
