@@ -96,7 +96,6 @@ on:
 
 permissions:
   contents: read
-  actions: write
 
 jobs:
   mxh_client:
