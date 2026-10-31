@@ -1,3 +1,7 @@
+// TODO(TYJ-160): do not call the patch rehearsal from this process.
+// MoxianAutoPatcher --rehearsal creates a temp directory and never
+// receives a game path. Invoking update or rollback here would run
+// against a real client tree and is not behavior-safe.
 #include <windows.h>
 #include <bcrypt.h>
 #include <shellapi.h>

@@ -78,6 +78,10 @@ void PatchTransaction::setManifestSha256(const std::string& value) { manifestSha
 void PatchTransaction::setHttpsDownloader(HttpsDownloader downloader) noexcept {
     httpsDownloader_ = downloader;
 }
+void PatchTransaction::setApplyObserver(ApplyObserver observer, void* user) noexcept {
+    applyObserver_ = observer;
+    applyObserverUser_ = user;
+}
 
 bool PatchTransaction::checkForUpdates() {
     std::cout << "Checking for updates..." << std::endl;
@@ -167,6 +171,9 @@ bool PatchTransaction::update() {
             std::cerr << " - JOURNAL FAILED" << std::endl;
             rollback();
             return false;
+        }
+        if (applyObserver_ != nullptr) {
+            applyObserver_(file.path, applyObserverUser_);
         }
         std::cout << " - OK" << std::endl;
         ++completed_count;

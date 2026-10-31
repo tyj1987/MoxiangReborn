@@ -26,6 +26,12 @@ using HttpsDownloader = bool (*)(const std::string& url,
                                  const std::filesystem::path& destination,
                                  std::string& error);
 
+// Optional. Invoked after a file is applied and journaled. A null
+// observer leaves update() unchanged. The rehearsal test uses it to
+// show a later failure happens after an earlier file was written;
+// update() then rolls that write back itself.
+using ApplyObserver = void (*)(const std::string& relative_path, void* user);
+
 // Update transaction: manifest parse, backup, apply, journal resume,
 // post-apply re-verify, and rollback. file:// sources are local files.
 // https:// sources go through HttpsDownloader.
@@ -36,6 +42,7 @@ public:
     void setManifest(const std::string& path);
     void setManifestSha256(const std::string& value);
     void setHttpsDownloader(HttpsDownloader downloader) noexcept;
+    void setApplyObserver(ApplyObserver observer, void* user) noexcept;
 
     bool checkForUpdates();
     bool update();
@@ -61,6 +68,8 @@ private:
     std::string manifestPath_;
     std::string manifestSha256_;
     HttpsDownloader httpsDownloader_ = nullptr;
+    ApplyObserver applyObserver_ = nullptr;
+    void* applyObserverUser_ = nullptr;
 };
 
 }  // namespace mxh::patch
