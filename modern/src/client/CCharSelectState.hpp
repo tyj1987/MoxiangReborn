@@ -43,6 +43,7 @@
 #include <string>
 #include <vector>
 
+#include "mxh/client/session_retry.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -178,6 +179,8 @@ mxh::net::IEncryptor* encryptor_for(mxh::net::ConnectionId id) override;
     // CharacterSelectAck application-level timeouts.  Mirrors the
     // CLoginState login-timeout hook (commit fa74305e) — production code
     // never calls these.
+    static constexpr std::chrono::seconds kAckTimeout = kCharSelectAckTimeout;
+
     void SetAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
         m_ackTimeout = t;
     }
@@ -271,7 +274,7 @@ private:
     // (e.g. NTP) cannot false-fire.
     std::chrono::steady_clock::time_point m_listAckDeadline{};
     std::chrono::steady_clock::time_point m_selectAckDeadline{};
-    std::chrono::milliseconds             m_ackTimeout{std::chrono::seconds(10)};
+    std::chrono::milliseconds             m_ackTimeout{kAckTimeout};
 };
 
 } // namespace mxh::client

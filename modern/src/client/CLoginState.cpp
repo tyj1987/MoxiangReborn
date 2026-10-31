@@ -41,9 +41,7 @@ namespace mxh::client {
 
 namespace {
 void clear_secret(std::string& value) noexcept {
-    volatile char* bytes = value.empty() ? nullptr : value.data();
-    for (std::size_t i = 0; bytes && i < value.size(); ++i) bytes[i] = '\0';
-    value.clear();
+    wipe_secret(value);
 }
 }
 
@@ -159,11 +157,11 @@ void CLoginState::Process() {
     // we surface a fail_with so the user can retry (instead of hanging
     // silently).  Skipped when the deadline is unset (not yet started)
     // or when the state is already terminal.
-    if (!m_ackReceived.load(std::memory_order_acquire) &&
-        !m_failed.load(std::memory_order_acquire) &&
-        m_loginAckDeadline != std::chrono::steady_clock::time_point{} &&
-        std::chrono::steady_clock::now() >= m_loginAckDeadline) {
-        fail_with("LoginAck timeout (no response from LoginServer)");
+    if (ack_wait_expired(m_failed.load(std::memory_order_acquire),
+                         m_ackReceived.load(std::memory_order_acquire),
+                         m_loginAckDeadline,
+                         std::chrono::steady_clock::now())) {
+        fail_with(kLoginAckTimeoutReason);
     }
 }
 
@@ -171,7 +169,7 @@ void CLoginState::Start(CEngine* engine, std::string host,
                         std::uint16_t port,
                         std::string user_id, std::string password,
                         bool use_hsel) {
-    if (m_started.load(std::memory_order_acquire)) {
+    if (ignore_duplicate_login_start(m_started.load(std::memory_order_acquire))) {
         // Do not overwrite the in-flight credential buffer or endpoint when
         // a UI retry callback races with the original connect attempt.
         MLOG_DEBUG("CLoginState::Start called twice; ignoring second call");
@@ -199,7 +197,7 @@ void CLoginState::Start(CEngine* engine, std::string host,
     cfg.port                = m_port;
     cfg.use_legacy_framing  = true;  // 4DyuchiNET 2B length prefix
     cfg.use_encryption      = m_useHsel;  // Phase R-1: HSEL via HselStreamCipher
-    cfg.connect_timeout     = std::chrono::milliseconds(3000);
+    cfg.connect_timeout     = kConnectTimeout;
     auto e = m_client->connect(cfg);
     if (e != mxh::net::NetError::Ok) {
         fail_with(std::string("TcpClient::connect failed: ") +

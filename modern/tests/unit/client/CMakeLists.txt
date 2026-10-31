@@ -41,6 +41,24 @@ if(MSVC)
 endif()
 
 include(GoogleTest)
+
+# Login/session retry contract. Header-only policy plus the connect-retry
+# clock. The Win32 client (objbase.h / DX11) and MoxianClient/main.cpp host
+# loop are not linked, and no sockets are opened.
+add_executable(mxh_session_retry_contract_tests
+    session_retry_contract_test.cpp)
+target_include_directories(mxh_session_retry_contract_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/src/client
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src/ui
+    ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(mxh_session_retry_contract_tests PRIVATE gtest_main)
+target_compile_features(mxh_session_retry_contract_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(mxh_session_retry_contract_tests PRIVATE /W3 /utf-8)
+endif()
+gtest_add_tests(TARGET mxh_session_retry_contract_tests)
 # Client tests that exercise the shipped InterfaceScript and sprite atlas use
 # the source tree's `data/PlayDH` fixture.  Pin both enumerated and aggregate
 # invocations to the source root so the fixture-only resource fallback in

@@ -3,9 +3,11 @@
 #include "NetworkEventQueue.hpp"
 
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/client/session_retry.hpp"
 #include "mxh/net/net.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -26,6 +28,11 @@ public:
         const std::string& host, std::uint16_t port, bool use_hsel = false);
     void disconnect();
     [[nodiscard]] mxh::net::NetError send(const mxh::net::Message& message);
+
+    // Login and agent handshakes share one connect budget. A refusal inside
+    // this window is retried by TcpClient; after it, connect returns
+    // ConnectFailed and the player logs in again. There is no session resume.
+    static constexpr std::chrono::milliseconds kConnectTimeout = kAgentConnectTimeout;
 
     [[nodiscard]] bool is_connected() const noexcept;
     [[nodiscard]] bool is_ready() const noexcept { return m_ready.load(std::memory_order_acquire); }

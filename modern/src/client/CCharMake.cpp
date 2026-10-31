@@ -368,10 +368,9 @@ void CCharMake::Process() {
     // BEFORE the `if (!m_pEngine)` guard so a hung-state test (no
     // engine) can still drive the timeout path through
     // `ArmMakeAckDeadlineForTest`.
-    if (!m_failed &&
-        m_makeAckDeadline != std::chrono::steady_clock::time_point{} &&
-        std::chrono::steady_clock::now() >= m_makeAckDeadline) {
-        fail_with("CharacterMakeAck timeout (no response from AgentServer)");
+    if (ack_wait_expired(m_failed, false, m_makeAckDeadline,
+                         std::chrono::steady_clock::now())) {
+        fail_with(kCharacterMakeAckTimeoutReason);
     }
     if (!m_pEngine) return;
     for (auto& event : m_pEngine->agent_session().events().drain()) {

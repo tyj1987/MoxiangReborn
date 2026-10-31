@@ -63,6 +63,8 @@
 #   modern/data/PlayDH/Resource. They read no LFS .pak (only
 #   Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
 # - Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
+#   The same build runs mxh_session_retry_contract_tests. Required-Passed includes
+#   those login/session cases. The ctest regex matches the GitLab job.
 #   The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 # - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
 #   其他 job 在这些路径上一起触发。GitLab 不把这些路径并进 python_tooling_changes。
@@ -295,14 +297,14 @@ jobs:
           set -eu
           cmake --version
           cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target mxh_resource_reference_tests
+          cmake --build build --target mxh_resource_reference_tests mxh_session_retry_contract_tests
 
       - name: Run MxhResourceReference ctest
         run: |
           # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
           # so ctest runs under bash and a failing ctest still fails the step.
           bash -euo pipefail <<'EOF'
-          ctest --test-dir build -R '^MxhResourceReference\.' --output-on-failure 2>&1 | tee ctest.log
+          ctest --test-dir build -R '^(MxhResourceReference|SessionRetryContract)\.' --output-on-failure 2>&1 | tee ctest.log
           EOF
 
       - name: Require PlayDH reference tests passed
@@ -327,6 +329,17 @@ jobs:
           require_passed MxhResourceReference.PlayDhFilesMatchReferenceManifest || status=1
           require_passed MxhResourceReference.PlayDhServerArchiveFilesMatchReferenceManifest || status=1
           require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
+          require_passed SessionRetryContract.ConnectRetriesUntilDeadlineThenFails || status=1
+          require_passed SessionRetryContract.ConnectSucceedsBeforeDeadline || status=1
+          require_passed SessionRetryContract.LoginAndAgentUseThreeSecondConnectBudget || status=1
+          require_passed SessionRetryContract.LoginAckTimeoutIsTenSecondsAndFailsWithReason || status=1
+          require_passed SessionRetryContract.CharSelectTimeoutsAreTenSecondsAndFailWithReason || status=1
+          require_passed SessionRetryContract.CharMakeAckTimeoutIsTenSecondsAndFailsWithReason || status=1
+          require_passed SessionRetryContract.GameInAckTimeoutIsTenSecondsAndFailsWithReason || status=1
+          require_passed SessionRetryContract.GameInSynResendsWhileSendFails || status=1
+          require_passed SessionRetryContract.InGameDisconnectRequestsTitleWithMessage9106 || status=1
+          require_passed SessionRetryContract.ReleaseAllowsSecondStartAndStartedGuardBlocksDoubleStart || status=1
+          require_passed SessionRetryContract.LoginFailureWipesPassword || status=1
           if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1

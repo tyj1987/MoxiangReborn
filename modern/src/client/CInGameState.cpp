@@ -38,6 +38,9 @@
 
 namespace mxh::client {
 
+static_assert(static_cast<int>(GameStateId::Title) == kReloginStateId);
+static_assert(CInGameState::kGameInAckTimeoutMs == kGameInAckTimeoutMs);
+
 namespace {
 // Values are fixed by the protected legacy MP_FRIEND protocol header.
 constexpr std::uint8_t kFriendAddSyn = 0;
@@ -986,13 +989,13 @@ void CInGameState::Process() {
     // non-zero m_pendingGameInAckSinceMs so the test hook
     // ArmGameInAckDeadlineForTest can drive the path without a real
     // send.
-    if (m_sentGameInSyn && m_pendingGameInAckSinceMs != 0 &&
-        now_ms - m_pendingGameInAckSinceMs >= m_gameInAckTimeoutMs) {
+    if (game_in_ack_expired(m_sentGameInSyn, m_pendingGameInAckSinceMs,
+                            now_ms, m_gameInAckTimeoutMs)) {
         MLOG_WARN("CInGameState: GameInAck timed out player_id=%u",
                   static_cast<unsigned>(m_playerId));
         m_sentGameInSyn = false;
         m_pendingGameInAckSinceMs = 0;
-        fail_with("GameInAck timeout (no response from MapServer)");
+        fail_with(kGameInAckTimeoutReason);
     }
     m_effectRuntime.advance(now_ms, [this](const RuntimeEffectEvent& event) {
         constexpr std::size_t kMaxRuntimeEvents = 256;
@@ -1012,7 +1015,7 @@ void CInGameState::Process() {
             }
         }
     });
-    if (is_connected() && !m_sentGameInSyn) {
+    if (should_resend_game_in_syn(is_connected(), m_sentGameInSyn)) {
         send_gamein_syn();
     }
 }
@@ -1607,15 +1610,13 @@ void CInGameState::on_disconnect(mxh::net::ConnectionId id,
     set_guild_open(false);
     set_map_open(false);
     set_option_open(false);
-    if (!m_releasing && m_inGame && !m_failed) {
+    const auto notice = in_game_disconnect_notice(m_releasing, m_inGame, m_failed);
+    if (notice.notify) {
         const auto detail = std::string("游戏连接已断开：") +
                             mxh::net::to_string(reason);
         fail_with(detail);
-        (void)m_uiRuntime.showMessage(9106, detail);
-        if (m_pEngine) {
-            m_pEngine->RequestStateChange(
-                static_cast<int>(GameStateId::Title));
-        }
+        (void)m_uiRuntime.showMessage(notice.message_id, detail);
+        if (m_pEngine) m_pEngine->RequestStateChange(notice.next_state);
     }
 
     // Deactivate the world immediately after scheduling the title transition.
@@ -1637,7 +1638,7 @@ void CInGameState::send_gamein_syn() {
     out.header.object_id = m_playerId;   // chrid in MSGBASE
     out.payload          = {};           // empty payload
     const auto e = m_pEngine->agent_session().send(out);
-    if (e != mxh::net::NetError::Ok) {
+    if (!latch_game_in_syn(e == mxh::net::NetError::Ok)) {
         // Don't fail; Process() will retry on the next tick once the
         // connection is fully up.  TcpClient::send() can transiently
         // return Disconnected during the connect handshake.

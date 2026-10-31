@@ -54,6 +54,7 @@
 #include <string_view>
 #include <vector>
 
+#include "mxh/client/session_retry.hpp"
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
 #include "mxh/ui/cDialog.hpp"
@@ -188,6 +189,8 @@ public:
     // ---- Phase 1 §7.3 test hook: arm the CharacterMakeAck timeout ----
     // Mirrors CLoginState (commit fa74305e) and CCharSelectState
     // (commit 45009501).  Production code never calls these.
+    static constexpr std::chrono::seconds kAckTimeout = kCharMakeAckTimeout;
+
     void SetMakeAckTimeoutForTest(std::chrono::milliseconds t) noexcept {
         m_makeAckTimeout = t;
     }
@@ -267,7 +270,7 @@ private:
     // set by `send_make_syn` and disarmed by the dispatch path (Nack
     // or the post-create CharacterListAck) or by Release().
     std::chrono::steady_clock::time_point m_makeAckDeadline{};
-    std::chrono::milliseconds             m_makeAckTimeout{std::chrono::seconds(10)};
+    std::chrono::milliseconds             m_makeAckTimeout{kAckTimeout};
 };
 
 } // namespace mxh::client
