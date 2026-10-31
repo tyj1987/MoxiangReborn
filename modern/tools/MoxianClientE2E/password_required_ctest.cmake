@@ -12,11 +12,9 @@ execute_process(
     ERROR_VARIABLE err
 )
 set(text "${out}${err}")
-# Deliberate mismatch so Windows CI records this test as the failure.
-# The following commit restores 3.
 if(NOT text MATCHES "password required")
     message(FATAL_ERROR "password required phrase missing")
 endif()
-if(NOT rc EQUAL 4)
-    message(FATAL_ERROR "expected exit 4, got ${rc}")
+if(NOT rc EQUAL 3)
+    message(FATAL_ERROR "expected exit 3, got ${rc}")
 endif()

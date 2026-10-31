@@ -560,9 +560,10 @@ jobs:
 
       # Not part of the 84-name behavior list. MoxianClientE2E itself is
       # not selected here, so this job does not read MXH_SMOKE_PASSWORD.
-      # DumpCli is offline and has no password. PasswordRequired is
-      # judged only by the cmake script. This step is after the behavior
-      # gate so a failure here still leaves REQUIRED SUMMARY in the log.
+      # DumpCli is offline and has no password. PasswordRequired must
+      # exit 3; the cmake script is the only check. This step is after
+      # the behavior gate so a failure here still leaves REQUIRED SUMMARY
+      # in the log.
       - name: Build mxh_client_e2e and run password ctests
         run: |
           $ErrorActionPreference = 'Stop'

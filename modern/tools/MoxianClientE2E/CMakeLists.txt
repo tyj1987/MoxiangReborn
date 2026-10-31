@@ -76,9 +76,10 @@ set_tests_properties(MoxianClientE2EDumpCli PROPERTIES
     PASS_REGULAR_EXPRESSION "login_host=192.168.2.107"
 )
 
-# No password argument. The cmake script is the only check. It does not
-# print child output. PASS_REGULAR_EXPRESSION is omitted because CTest
-# ignores the process exit code when that property is set.
+# No password argument. The cmake script is the only check: the phrase
+# must be present and the child exit code must be 3. Child output is not
+# printed. PASS_REGULAR_EXPRESSION is omitted because CTest ignores the
+# process exit code when that property is set.
 add_test(NAME MoxianClientE2EPasswordRequired
     COMMAND ${CMAKE_COMMAND}
         -DEXE=$<TARGET_FILE:mxh_client_e2e>
