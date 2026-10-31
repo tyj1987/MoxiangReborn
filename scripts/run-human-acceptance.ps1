@@ -8,12 +8,24 @@ param(
     [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
     [ValidateRange(1, 65535)] [int]$MapPort = 18001,
     [ValidateRange(0, 64)] [int]$MinimumEvidenceFrames = 0,
-    [switch]$PlanOnly
+    [switch]$PlanOnly,
+    # PlayDH root passed as --resource-root. Empty reads MXH_PLAYDH_ROOT.
+    [string]$ResourceRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
-$resourceRoot = Join-Path $repoRoot 'modern\data\PlayDH'
+$humanChosen = $ResourceRoot
+if ([string]::IsNullOrWhiteSpace($humanChosen)) { $humanChosen = $env:MXH_PLAYDH_ROOT }
+if ([string]::IsNullOrWhiteSpace($humanChosen)) {
+    Write-Output 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $humanChosen -PathType Container)) {
+    Write-Output ('MXH_PLAYDH_ROOT is set to "' + $humanChosen + '" but that directory does not exist')
+    exit 1
+}
+$resourceRoot = [IO.Path]::GetFullPath($humanChosen)
 . (Join-Path $PSScriptRoot 'human-acceptance-process.ps1')
 
 function Resolve-RequiredFile {

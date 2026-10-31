@@ -61,10 +61,17 @@ function Invoke-PlayDhScript {
 }
 
 function Get-PythonCommand {
-    foreach ($name in @('python3', 'python')) {
-        $cmd = Get-Command -Name $name -ErrorAction SilentlyContinue
-        if ($null -ne $cmd -and -not [string]::IsNullOrWhiteSpace($cmd.Source)) {
-            return $cmd.Source
+    if (Test-Path -LiteralPath '/bin/sh' -PathType Leaf) {
+        $listed = & /bin/sh -c 'command -v python3 || command -v python' 2>$null
+        if (-not [string]::IsNullOrWhiteSpace([string]$listed)) {
+            return (([string]$listed) -split "`n" | Select-Object -First 1).Trim()
+        }
+    }
+    foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
+        if ([string]::IsNullOrWhiteSpace($dir)) { continue }
+        foreach ($name in @('python3', 'python')) {
+            $candidate = Join-Path $dir $name
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
         }
     }
     return $null

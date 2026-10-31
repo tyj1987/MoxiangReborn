@@ -25,13 +25,32 @@
 param(
     [int]$FrameCount = 3,
     [int]$TimeoutSeconds = 60,
-    [string]$ResourceRoot = (Join-Path $PSScriptRoot '..\modern\data\PlayDH'),
+    # PlayDH root passed as --resource-root. Empty reads MXH_PLAYDH_ROOT.
+    [string]$ResourceRoot = '',
+    # Print resource_root= and exit 0. Does not launch the client.
+    [switch]$ResolveOnly,
     [string]$OutDir = '',
     [int]$Width  = 800,
     [int]$Height = 600
 )
 
 $ErrorActionPreference = 'Stop'
+
+$gpuChosen = $ResourceRoot
+if ([string]::IsNullOrWhiteSpace($gpuChosen)) { $gpuChosen = $env:MXH_PLAYDH_ROOT }
+if ([string]::IsNullOrWhiteSpace($gpuChosen)) {
+    Write-Output 'MXH_PLAYDH_ROOT is not set and no --resource-root was given'
+    exit 1
+}
+if (-not (Test-Path -LiteralPath $gpuChosen -PathType Container)) {
+    Write-Output ('MXH_PLAYDH_ROOT is set to "' + $gpuChosen + '" but that directory does not exist')
+    exit 1
+}
+$ResourceRoot = [IO.Path]::GetFullPath($gpuChosen)
+if ($ResolveOnly) {
+    Write-Output "resource_root=$ResourceRoot"
+    exit 0
+}
 
 # Resolve paths. Use string concat to avoid PSPath CJK issues.
 $scriptFull = (Resolve-Path -LiteralPath $PSScriptRoot).Path

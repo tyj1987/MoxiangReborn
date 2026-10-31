@@ -52,7 +52,8 @@
   PlayDH root passed as the client --resource-root, as the ephemeral map
   server --resource-root (server root <ResourceRoot>\Resource\Server unless
   MXH_SERVER_RESOURCE_ROOT is set) and to -AuditMapDependencies /
-  -AuditNpcDependencies. Default empty keeps <repo>\modern\data\PlayDH.
+  -AuditNpcDependencies. Empty reads MXH_PLAYDH_ROOT. When neither
+  -ResourceRoot nor MXH_PLAYDH_ROOT is set, the script exits 1.
   A value must be an absolute path to an existing directory, for example
   the -PlayDhRoot given to clean-deploy. The script prints
   resource_root=<path> once.
@@ -91,9 +92,11 @@ param(
     [ValidateRange(1, 65533)]
     [int]$EphemeralPortBase = 26001,
     # PlayDH root for the client --resource-root, the ephemeral map server and
-    # the optional audits. Empty keeps <repo>\modern\data\PlayDH. Otherwise an
+    # the optional audits. Empty reads MXH_PLAYDH_ROOT. Otherwise an
     # absolute path to an existing directory, e.g. a clean-deploy -PlayDhRoot.
-    [string]$ResourceRoot = ''
+    [string]$ResourceRoot = '',
+    # Print resource_root= and exit 0 after the root is accepted.
+    [switch]$ResolveOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -124,6 +127,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 # the resolved value lives in $smokeResourceRoot.
 $smokeResourceRoot = Resolve-GuiSmokeResourceRoot -RepoRoot $repoRoot -ResourceRoot $ResourceRoot
 Write-Output "resource_root=$smokeResourceRoot"
+if ($ResolveOnly) { exit 0 }
 if ([string]::IsNullOrWhiteSpace($BuildDir)) { $BuildDir = Join-Path $repoRoot 'modern\build' }
 $buildRoot = (Resolve-Path $BuildDir).Path
 $clientExe = Join-Path $buildRoot 'tools\MoxianClient\mxh_client.exe'

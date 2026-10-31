@@ -1,10 +1,8 @@
 #pragma once
 
 // Shared PlayDH root resolution for command-line tools.
-// The walk below is the repo-tree fallback still used by MoxianSideBySide
-// and dialog_children_type_scan. Callers pass an explicit --resource-root
-// and getenv("MXH_PLAYDH_ROOT"); both are ignored until that fallback is
-// removed. No game bytes are read: only directory existence.
+// An explicit --resource-root wins. Otherwise MXH_PLAYDH_ROOT is the only
+// accepted input. There is no parent walk and no modern/data/PlayDH default.
 
 #include <filesystem>
 #include <string>
@@ -21,22 +19,14 @@ struct CliPlayDhRoot {
 
 inline CliPlayDhRoot resolve_cli_playdh_root(const std::string& explicit_root,
                                              const char* env_value) {
-    (void)explicit_root;
-    (void)env_value;
-    std::error_code ec;
-    for (auto root = std::filesystem::current_path(ec); !ec && !root.empty();
-         root = root.parent_path()) {
-        for (const auto& relative : {std::filesystem::path("modern") / "data" / "PlayDH",
-                                     std::filesystem::path("data") / "PlayDH",
-                                     std::filesystem::path("PlayDH")}) {
-            const auto candidate = root / relative;
-            if (std::filesystem::is_directory(candidate, ec)) {
-                return CliPlayDhRoot{candidate, {}};
-            }
-        }
-        if (root == root.root_path()) break;
+    std::string chosen = explicit_root;
+    if (chosen.empty() && env_value != nullptr && env_value[0] != '\0') {
+        chosen = env_value;
     }
-    return CliPlayDhRoot{};
+    if (chosen.empty()) {
+        return CliPlayDhRoot{{}, kCliPlayDhRootMissing};
+    }
+    return CliPlayDhRoot{std::filesystem::path(chosen), {}};
 }
 
 }  // namespace mxh::tools

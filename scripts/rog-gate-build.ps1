@@ -141,7 +141,12 @@ param(
     [switch]$SelfTestNoLinks,
     [string]$LastTestLog,
     [string]$CTestStdoutLog,
-    [switch]$AssumeNtfs
+    [switch]$AssumeNtfs,
+    # Explicit PlayDH root. Empty reads MXH_PLAYDH_ROOT. The worktree
+    # modern/data/PlayDH path is never assigned.
+    [string]$PlayDhRoot,
+    # Print resource_root= and exit. Does not create links or worktrees.
+    [switch]$ResolvePlayDhOnly
 )
 
 Set-StrictMode -Version 3.0
@@ -1577,14 +1582,34 @@ function Get-RogGatePlayDhAssignment {
 }
 
 function Set-RogGatePlayDhRootForChildren {
-    param([Parameter(Mandatory = $true)][string]$SourceDir)
+    param(
+        [string]$SourceDir,
+        [AllowEmptyString()][string]$ExplicitRoot
+    )
 
-    # Always the worktree copy. A value inherited from the parent is replaced
-    # so CTest children do not keep searching upward from the build directory.
-    $assignment = Get-RogGatePlayDhAssignment -SourceDir $SourceDir -PreviousValue $env:MXH_PLAYDH_ROOT
-    $env:MXH_PLAYDH_ROOT = $assignment.Path
-    Write-Host $assignment.Info
-    return $assignment
+    # SourceDir is not a resource root. Do not assign modern/data/PlayDH
+    # under the worktree, and do not replace a caller-supplied root.
+    $null = $SourceDir
+    $chosen = ''
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitRoot)) {
+        $chosen = $ExplicitRoot
+    } elseif (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
+        $chosen = [string]$env:MXH_PLAYDH_ROOT
+    } else {
+        throw 'MXH_PLAYDH_ROOT is not set and no -PlayDhRoot was given'
+    }
+    if (-not (Test-Path -LiteralPath $chosen -PathType Container)) {
+        throw ('MXH_PLAYDH_ROOT is set to "' + $chosen + '" but that directory does not exist')
+    }
+    $path = [System.IO.Path]::GetFullPath($chosen)
+    $env:MXH_PLAYDH_ROOT = $path
+    $info = "[INFO] MXH_PLAYDH_ROOT=$path"
+    Write-Host $info
+    return [pscustomobject]@{
+        Path     = $path
+        Previous = ''
+        Info     = $info
+    }
 }
 
 function Test-RogGateGitLfsPointer {
@@ -5114,7 +5139,7 @@ function Invoke-RogGateMain {
 
     $null = Write-RogGateStamp -BuildDirectory $normBuild -Sha $expected -GeneratorName $Generator -ConfigName $Config
     # Before CTest. The variable stays in this process for any later test child.
-    $playdh = Set-RogGatePlayDhRootForChildren -SourceDir $normSource
+    $playdh = Set-RogGatePlayDhRootForChildren -SourceDir $normSource -ExplicitRoot $PlayDhRoot
     $playdhCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $playdh.Path
     if (-not $playdhCheck.Ok) {
         return (Resolve-RogGateFailureExit -ExitCode 1 -Message $playdhCheck.Reason)
@@ -5211,6 +5236,17 @@ function Invoke-RogGateMain {
         return 1
     }
     return 0
+}
+
+if ($ResolvePlayDhOnly) {
+    try {
+        $resolvedOnly = Set-RogGatePlayDhRootForChildren -SourceDir $SourceDir -ExplicitRoot $PlayDhRoot
+        Write-Output ("resource_root=" + $resolvedOnly.Path)
+        exit 0
+    } catch {
+        Write-Output $_.Exception.Message
+        exit 1
+    }
 }
 
 $script:RogGateSawError = $false
