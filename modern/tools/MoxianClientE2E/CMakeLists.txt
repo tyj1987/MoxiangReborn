@@ -76,9 +76,9 @@ set_tests_properties(MoxianClientE2EDumpCli PROPERTIES
     PASS_REGULAR_EXPRESSION "login_host=192.168.2.107"
 )
 
-# No password argument. The script requires child exit code 3.
-# PASS_REGULAR_EXPRESSION checks the phrase. WILL_FAIL is not set:
-# with both properties, CTest treats a regex match as a failure.
+# No password argument. The cmake script is the only check. It does not
+# print child output. PASS_REGULAR_EXPRESSION is omitted because CTest
+# ignores the process exit code when that property is set.
 add_test(NAME MoxianClientE2EPasswordRequired
     COMMAND ${CMAKE_COMMAND}
         -DEXE=$<TARGET_FILE:mxh_client_e2e>
@@ -87,5 +87,4 @@ add_test(NAME MoxianClientE2EPasswordRequired
 set_tests_properties(MoxianClientE2EPasswordRequired PROPERTIES
     TIMEOUT 15
     LABELS "e2e;client"
-    PASS_REGULAR_EXPRESSION "password required"
 )
