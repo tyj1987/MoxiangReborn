@@ -307,8 +307,12 @@ try {
     # otherwise valid password.  Use an explicit ASCII fixture and redirect
     # stdin so the account bootstrap is byte-stable across shells.
     $registerInput = Join-Path $runRoot 'register.stdin'
+    if ([string]::IsNullOrWhiteSpace($env:MXH_SMOKE_PASSWORD)) {
+        Write-Error "MXH_SMOKE_PASSWORD is unset or empty" -ErrorAction Continue
+        exit 1
+    }
     [System.IO.File]::WriteAllText(
-        $registerInput, "Test1234`n",
+        $registerInput, ($env:MXH_SMOKE_PASSWORD + "`n"),
         [System.Text.Encoding]::ASCII)
     $register = Start-Process -FilePath $dbTool `
         -ArgumentList @('register', '--db', $dbConfig, 'test') `
@@ -353,7 +357,11 @@ try {
     # read by getenv in the client) is included when the caller set it.
     # PowerShell 7.4+ Start-Process -Environment replaces the block, so the
     # copy must be the full environment. Older hosts keep inheritance.
-    $env:MXH_GUI_SMOKE_PASSWORD = 'Test1234'
+    if ([string]::IsNullOrWhiteSpace($env:MXH_SMOKE_PASSWORD)) {
+        Write-Error "MXH_SMOKE_PASSWORD is unset or empty" -ErrorAction Continue
+        exit 1
+    }
+    $env:MXH_GUI_SMOKE_PASSWORD = $env:MXH_SMOKE_PASSWORD
     $env:MXH_GUI_SMOKE_EXIT = '1'
     if ($ExerciseInventory) { $env:MXH_GUI_SMOKE_OPEN_INVENTORY = '1' }
     if ($ExerciseSkills) { $env:MXH_GUI_SMOKE_SKILLS = '1' }
