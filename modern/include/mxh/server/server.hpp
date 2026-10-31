@@ -472,6 +472,11 @@ public:
     bool clear_vitals_session_for_test(std::uint32_t player_id);
     std::size_t persisted_quest_count_for_test(std::uint32_t player_id) noexcept;
     std::optional<GroundDrop> create_ground_drop_for_test(std::uint32_t source_monster_id, std::uint16_t item_id, std::uint16_t count, float pos_x, float pos_z);
+    // Direct-to-inventory obtain (Item MonsterObtainNotify). Does not
+    // create a ground object.
+    bool send_direct_inventory_obtain(std::uint32_t player_id,
+        std::uint32_t db_idx, std::uint16_t icon, std::uint16_t position,
+        std::uint32_t durability, std::uint16_t count);
     bool claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id);
     void register_drop_table(const DropTable& table);
     bool add_monster_instance(const mxh::game::MonsterInstance& monster);

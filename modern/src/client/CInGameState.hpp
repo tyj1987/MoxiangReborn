@@ -321,7 +321,7 @@ mxh::net::Message make_buy_message(std::uint32_t player_id,
                                    std::uint16_t item_id,
                                    std::uint16_t qty);
 
-// Ground drop pushed after a monster dies (Item MonsterObtainNotify, 20B):
+// Ground drop appearance (Item GroundItemAdd, 20B). Not MonsterObtainNotify.
 //   [object_id:u32][source_monster:u32][item_id:u16][count:u16][x:f32][z:f32]
 struct GroundDropInfo {
     std::uint32_t object_id = 0;

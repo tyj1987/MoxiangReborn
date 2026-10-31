@@ -42,7 +42,7 @@ under `modern/tests/fixtures/sbs_captures_modern/` and locked by the
 | `login`       | Login   | UserConn.LoginSyn (cat=7, proto=0, payload=[id: 17B][pw: 17B])                                                       | UserConn.DistConnectSuccess + UserConn.NotifyUserLoginAck                          |
 | `enter_game`  | Agent   | UserConn.CharacterSelectSyn (cat=7, proto=16) + UserConn.GameInSyn (cat=7, proto=28)                                | UserConn.AgentConnectSuccess + UserConn.GameInNack (no character selected yet)     |
 | `attack`      | Map     | Skill.StartSyn (cat=22, proto=0, payload=[skill_idx:u32][main_target:u32][target_x:f32][target_z:f32])              | Skill.StartNack (err=3 unknown caster, no caster manager yet)                      |
-| `shop`        | Map     | Item.BuySyn (cat=5, proto=22, payload=[item:u16][qty:u16])                                                          | Item.BuyNack (4B payload echo, no NPC shop table yet)                              |
+| `shop`        | Map     | Item.BuySyn (cat=5, proto=19, payload=[item:u16][qty:u16])                                                          | Item.BuyNack (4B payload echo, no NPC shop table yet)                              |
 | `quest`       | Map     | Quest.StartSyn (cat=39, proto=9, payload=[quest_id:u16])                                                            | Quest.StartNack (2B quest_id echo, no modern quest manager yet)                    |
 
 The `attack` / `shop` / `quest` replies are stable Nacks by design: the modern
