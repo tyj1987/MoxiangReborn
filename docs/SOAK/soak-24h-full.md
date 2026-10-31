@@ -12,6 +12,10 @@ private bytes and 10 handles/h, finals within max(1.10x, +20 MB) and
 max(1.10x, +50 handles), an unchanged WatchRoot, guard free space at or above
 `-MinFreeGB` (default 10), and sample gaps at or below `-MaxSampleGapSeconds`
 (default 120). A skipped check is a failure. Exit 0 only for `SOAK PASS`.
+`--hold-seconds`, `--expect-peer`, `--drop-socket-after`, and `--state-dump`
+are the existing `mxh_client_e2e` flags and stay off unless set.
+`--state-dump` writes the entry and exit JSON. `Compare-SoakStateDump`
+compares the drop-time exit snapshot with the post-reconnect entry snapshot.
 
 The commands below this section describe the previous harness and are not the
 current parameter set.

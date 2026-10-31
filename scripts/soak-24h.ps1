@@ -11,9 +11,9 @@
     recorded at launch. A PID whose start time no longer matches is treated
     as dead and is not killed. Cleanup stops only that owned process tree.
 
-    Reconnect, when the future client flags are enabled, means a full
-    re-login after a forced disconnect. There is no auto-resume.
-    Compare-SoakStateDump checks the future --state-dump JSON.
+    Reconnect, when the client flags are enabled, means a full re-login
+    after a forced disconnect. There is no auto-resume.
+    Compare-SoakStateDump checks the existing mxh_client_e2e --state-dump JSON.
 
     Launch on ROG with scripts\soak-24h.cmd. Files are written with
     System.IO APIs as UTF-8 without a BOM.
@@ -910,8 +910,9 @@ function Get-SoakClientArguments {
         [int]$DropSocketAfterSeconds = 0,
         [string]$StateDumpPath = ''
     )
-    # Future flags stay off unless the operator opts in. Today's client
-    # does not implement them. Reconnect is a full re-login, not a resume.
+    # Existing mxh_client_e2e flags. They stay off unless the operator
+    # opts in. --state-dump is that client's state-dump JSON.
+    # Reconnect is a full re-login, not a resume.
     $args = @(
         '--no-spawn',
         '--login-host', '127.0.0.1',

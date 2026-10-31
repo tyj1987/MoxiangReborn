@@ -39,6 +39,25 @@ target_compile_features(mxh_e2e_ports_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_e2e_ports_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
 
+# mxh_client_e2e soak flags. Parser, JSON writer, and the RST linger seam.
+# No client library, no server, no original game bytes. Live login / peer /
+# socket-drop checks stay on Windows.
+add_executable(mxh_e2e_soak_tests
+    e2e_soak_test.cpp
+)
+target_include_directories(mxh_e2e_soak_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/tools/MoxianClientE2E
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(mxh_e2e_soak_tests PRIVATE gtest_main)
+target_compile_features(mxh_e2e_soak_tests PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_definitions(mxh_e2e_soak_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(mxh_e2e_soak_tests PRIVATE /W3 /utf-8)
+endif()
+gtest_add_tests(TARGET mxh_e2e_soak_tests
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
