@@ -342,7 +342,8 @@ jobs:
           require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
           require_passed AgentCli.OmittedDefaultMapIs17 || status=1
           require_passed MapLeaveSenderTest.ConnectedRouteForwardsLeave || status=1
-          require_passed MapLeaveSenderTest.MissingRouteStillClearsRetainedMapPlayer || status=1
+          require_passed MapLeaveSenderTest.AbsentSlotUsesDefaultMapClient || status=1
+          require_passed MapLeaveSenderTest.NullSlotFallsBackToDefaultMapClient || status=1
           if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1

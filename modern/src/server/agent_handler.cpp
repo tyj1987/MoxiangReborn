@@ -907,30 +907,22 @@ void AgentHandler::release_map_sender(mxh::net::ITcpSender* client) {
 AgentHandler::MapLeaveClaim AgentHandler::claim_map_leave_sender(
     std::uint16_t map_num) {
     std::lock_guard<std::mutex> lk(map_route_mu_);
-    MapRoute route{};
-    if (const auto it = map_routes_.find(map_num); it != map_routes_.end()) {
-        route = it->second;
-    } else {
-        route = MapRoute{map_client_, map_conn_id_};
-    }
-    MapRoute retained{};
-    if (const auto it = retained_map_senders_.find(map_num);
-        it != retained_map_senders_.end()) {
-        retained = it->second;
-    }
-    const MapLeaveEndpoint route_ep{
-        route.client != nullptr,
-        route.client != nullptr && route.client->is_connected()};
-    const MapLeaveEndpoint retained_ep{
-        retained.client != nullptr,
-        retained.client != nullptr && retained.client->is_connected()};
+    const bool slot_key_present = map_routes_.find(map_num) != map_routes_.end();
+    MapRoute slot{};
+    if (slot_key_present) slot = map_routes_.find(map_num)->second;
+    const MapLeaveEndpoint slot_ep{
+        slot.client != nullptr,
+        slot.client != nullptr && slot.client->is_connected()};
+    const MapLeaveEndpoint default_ep{
+        map_client_ != nullptr,
+        map_client_ != nullptr && map_client_->is_connected()};
     MapRoute selected{};
-    switch (select_map_leave_forward(route_ep, retained_ep)) {
-        case MapLeaveForward::Route:
-            selected = route;
+    switch (select_map_leave_forward(slot_key_present, slot_ep, default_ep)) {
+        case MapLeaveForward::Slot:
+            selected = slot;
             break;
-        case MapLeaveForward::RetainedConnection:
-            selected = retained;
+        case MapLeaveForward::DefaultMapClient:
+            selected = MapRoute{map_client_, map_conn_id_};
             break;
         case MapLeaveForward::None:
             break;

@@ -1595,12 +1595,12 @@ TEST(AgentHandlerTest, DisconnectSynWithoutCharacterDoesNotTouchMap) {
     EXPECT_TRUE(map.sent_msgs.empty());
 }
 
-// Client RST (SO_LINGER {1,0}) closes only the client-agent socket.
-// MapHandler::on_disconnect removes players whose conn_id matches that
-// socket; the multiplexed agent-map socket stays open, so the map entry
-// survives unless Agent forwards a leave. This reproduces the leak when
-// the session's map route has already been cleared.
-TEST(AgentHandlerTest, AbortiveDisconnectClearsMapPlayerWhenMapRouteIsMissing) {
+// Client RST closes the client-agent socket. The player was forwarded
+// through map_client_. A later set_map_server_for_map(session map, nullptr)
+// leaves that default socket up but stores a null map_routes_ slot.
+// route_for_map returns the null slot and does not fall back, so the
+// leave is skipped and the map player stays.
+TEST(AgentHandlerTest, AbortiveDisconnectClearsMapPlayerWhenMapSlotIsNull) {
     MockDbAdapter db;
     constexpr std::uint32_t char_id = 450035712u;
     db.seed_ready_vitals(char_id, 125u, 0u, 125u);
@@ -1614,7 +1614,8 @@ TEST(AgentHandlerTest, AbortiveDisconnectClearsMapPlayerWhenMapRouteIsMissing) {
     mxh::server::AgentHandler agent(db, make_reply_spy(reply), true,
                                     false, {}, /*default_map_num=*/12);
     agent.set_map_server(&map_sender, map_connection);
-    agent.register_session(client, 3001u, char_id, 12u);
+    agent.set_map_server_for_map(17u, nullptr, mxh::net::ConnectionId{});
+    agent.register_session(client, 3001u, char_id, 17u);
 
     mxh::net::Message game_in;
     game_in.header.category = static_cast<std::uint8_t>(
@@ -1622,16 +1623,10 @@ TEST(AgentHandlerTest, AbortiveDisconnectClearsMapPlayerWhenMapRouteIsMissing) {
     game_in.header.protocol = static_cast<std::uint8_t>(
         mxh::proto::UserConnProtocol::GameInSyn);
     game_in.header.object_id = char_id;
-    game_in.payload.resize(8, 0);
-    agent.on_message(client, game_in);
+    map.on_message(map_connection, game_in);
 
     ASSERT_TRUE(map.player_runtime_snapshot(char_id).has_value());
     ASSERT_EQ(map.player_runtime_count(), 1u);
-
-    // The route slot is gone. The MapHandler and its sender stay alive,
-    // which is the open multiplexed agent-map socket.
-    agent.set_map_server(nullptr, mxh::net::ConnectionId{});
-    ASSERT_TRUE(map.player_runtime_snapshot(char_id).has_value());
 
     agent.on_disconnect(client, mxh::net::NetError::Disconnected);
 
