@@ -158,6 +158,51 @@ struct Sha256Stream {
 }  // namespace detail
 #endif
 
+// Hash an in-memory buffer with the same digest as sha256_file. The
+// rehearsal manifest digest uses this so no scratch file is written into
+// the synthetic tree.
+inline std::string sha256_bytes(const void* data, std::size_t len) {
+    if ((data == nullptr && len != 0) || len > 0xffffffffu) return {};
+#ifdef _WIN32
+    BCRYPT_ALG_HANDLE algorithm = nullptr;
+    BCRYPT_HASH_HANDLE hash = nullptr;
+    DWORD object_size = 0, bytes = 0, digest_size = 0;
+    if (BCryptOpenAlgorithmProvider(&algorithm, BCRYPT_SHA256_ALGORITHM, nullptr, 0) < 0)
+        return {};
+    if (BCryptGetProperty(algorithm, BCRYPT_OBJECT_LENGTH,
+                          reinterpret_cast<PUCHAR>(&object_size), sizeof(object_size), &bytes, 0) < 0 ||
+        BCryptGetProperty(algorithm, BCRYPT_HASH_LENGTH,
+                          reinterpret_cast<PUCHAR>(&digest_size), sizeof(digest_size), &bytes, 0) < 0) {
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return {};
+    }
+    std::vector<unsigned char> object(object_size), digest(digest_size);
+    if (BCryptCreateHash(algorithm, &hash, object.data(), object_size, nullptr, 0, 0) < 0) {
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return {};
+    }
+    if (len > 0 &&
+        BCryptHashData(hash, reinterpret_cast<PUCHAR>(const_cast<void*>(data)),
+                       static_cast<ULONG>(len), 0) < 0) {
+        BCryptDestroyHash(hash);
+        BCryptCloseAlgorithmProvider(algorithm, 0);
+        return {};
+    }
+    const bool ok = BCryptFinishHash(hash, digest.data(), digest_size, 0) >= 0;
+    BCryptDestroyHash(hash);
+    BCryptCloseAlgorithmProvider(algorithm, 0);
+    if (!ok) return {};
+    std::ostringstream output;
+    output << std::hex << std::setfill('0');
+    for (unsigned char value : digest) output << std::setw(2) << static_cast<unsigned>(value);
+    return output.str();
+#else
+    detail::Sha256Stream stream;
+    if (len > 0) stream.update(static_cast<const std::uint8_t*>(data), len);
+    return stream.finish();
+#endif
+}
+
 inline std::string sha256_file(const fs::path& path) {
 #ifdef _WIN32
     BCRYPT_ALG_HANDLE algorithm = nullptr;

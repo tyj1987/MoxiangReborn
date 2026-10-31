@@ -131,6 +131,8 @@ rog_gate_self_test:
 # MXH_PLAYDH_ROOT is not set.
 # Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
 # The same build runs mxh_patch_security_tests and mxh_patch_transaction_tests.
+# mxh_patch_transaction_tests also runs PatchRehearsal.* on synthetic temp trees.
+# Rehearsal is Linux-only; it is not part of the Windows mxh_client compile.
 # Required-Passed includes those synthetic updater cases. The ctest regex matches
 # the GitHub job. The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 cxx_resource_reference_linux:
@@ -165,7 +167,7 @@ cxx_resource_reference_linux:
       cmake --build build --target mxh_resource_reference_tests mxh_patch_security_tests mxh_patch_transaction_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference|PatchSecurity|PatchTransactionTest)\.' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference|PatchSecurity|PatchTransactionTest|PatchRehearsal)\.' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -196,6 +198,16 @@ cxx_resource_reference_linux:
       require_passed PatchTransactionTest.RejectsUserDataDeletes || status=1
       require_passed PatchTransactionTest.ManifestDigestMismatchLeavesTreeUntouched || status=1
       require_passed PatchTransactionTest.JournalResumeThenRollbackRestoresPreUpdateBytes || status=1
+      require_passed PatchRehearsal.UpdateSuccess || status=1
+      require_passed PatchRehearsal.RollbackRestoresBytesAndHashes || status=1
+      require_passed PatchRehearsal.InterruptedUpdateRestoresManifest || status=1
+      require_passed PatchRehearsal.NoLeftoverTmpFiles || status=1
+      require_passed PatchRehearsal.HashMismatchFailure || status=1
+      require_passed PatchRehearsal.RejectsPlayDhTarget || status=1
+      require_passed PatchRehearsal.RejectsRepositoryTarget || status=1
+      require_passed PatchRehearsal.RejectsImplicitTarget || status=1
+      require_passed PatchRehearsal.PassIgnoresRollbackExitCode || status=1
+      require_passed PatchRehearsal.CliCleansOwnTempDir || status=1
       if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
         echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
         status=1

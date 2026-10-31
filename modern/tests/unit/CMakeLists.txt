@@ -322,7 +322,9 @@ gtest_add_tests(TARGET mxh_patch_security_tests)
 
 add_executable(mxh_patch_transaction_tests
     patch_transaction_test.cpp
-    ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher/patch_transaction.cpp)
+    patch_rehearsal_test.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher/patch_transaction.cpp
+    ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher/patch_rehearsal.cpp)
 target_include_directories(mxh_patch_transaction_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/tools/MoxianAutoPatcher)
 target_link_libraries(mxh_patch_transaction_tests PRIVATE gtest_main)
@@ -330,6 +332,9 @@ target_compile_features(mxh_patch_transaction_tests PRIVATE cxx_std_17)
 if(WIN32)
     target_link_libraries(mxh_patch_transaction_tests PRIVATE bcrypt)
 endif()
+get_filename_component(MXH_REPO_ROOT "${CMAKE_SOURCE_DIR}/.." ABSOLUTE)
+file(TO_CMAKE_PATH "${MXH_REPO_ROOT}" MXH_REPO_ROOT_POSIX)
+target_compile_definitions(mxh_patch_transaction_tests PRIVATE "MXH_REPO_ROOT=\"${MXH_REPO_ROOT_POSIX}\"")
 gtest_add_tests(TARGET mxh_patch_transaction_tests)
 
 add_executable(mxh_sqlite_backup_script_tests sqlite_backup_script_test.cpp)
