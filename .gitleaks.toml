@@ -1,0 +1,7 @@
+title = "moxiang gitleaks"
+
+[extend]
+useDefault = true
+
+# Custom rules are not defined in this revision. scripts/gitleaks-selftest.py
+# fails closed until a follow-up commit adds them.
