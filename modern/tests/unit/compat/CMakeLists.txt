@@ -27,6 +27,8 @@ gtest_add_tests(TARGET mxh_ttb_tile_table_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit
     PRE_SHIP_BUILD
 )
+set_tests_properties(TtbTileTableTest.ParsesRecoveredMap17TileTable
+    PROPERTIES LABELS "rog")
 
 # .chr motion parser tests — Phase 10.14
 add_executable(mxh_chr_motion_tests

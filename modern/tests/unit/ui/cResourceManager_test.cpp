@@ -13,33 +13,19 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
 
-// MXH_PLAYDH_ROOT is read once in mxh::test::playdh_dir_override().
-// Unset falls back to the upward search below.
 fs::path resolvePlayDHRoot() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    // Build-time hint from CMake (set by the test target)
-    #ifdef MXH_PLAYDH_ROOT_TS
-    return fs::path(MXH_PLAYDH_ROOT_TS);
-    #endif
-    // Resolve from the executable/test working directory; never depend on a
-    // developer checkout path or the legacy compatibility junction.
-    std::error_code ec;
-    auto current = fs::absolute(fs::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "data" / "PlayDH";
-        std::error_code candidate_ec;
-        if (fs::is_directory(candidate, candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
+    try {
+        return mxh::test::require_rog_playdh_root();
+    } catch (const std::exception& ex) {
+        std::cerr << "FAIL: " << ex.what() << "\n";
+        return {};
     }
-    return {};
 }
 
 int g_failures = 0;
@@ -69,8 +55,8 @@ int main() {
     std::cout << "[cResourceManager_test] image_dir=" << image_dir << "\n";
 
     if (!fs::exists(image_dir / "image_hard_path.bin")) {
-        std::cerr << "SKIP: PlayDH Image dir not found: " << image_dir << "\n";
-        return 0;  // not a failure — environment-dependent
+        std::cerr << "FAIL: PlayDH Image dir not found: " << image_dir << "\n";
+        return 1;
     }
 
     auto& rm = cResourceManager::getInstance();

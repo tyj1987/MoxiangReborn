@@ -65,6 +65,54 @@ gtest_add_tests(TARGET mxh_session_retry_contract_tests)
 # CInGameState::Init is deterministic when CTest runs from an out-of-tree
 # build directory.
 gtest_add_tests(TARGET mxh_client_tests WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+set_tests_properties(
+    ClientUiRuntime.DispatchesRealLegacyFunctionButton
+    ClientUiRuntime.DispatchesRealPushupCharacterSlot
+    ClientUiRuntime.TabAndShiftTabCycleRealLoginControls
+    ClientUiRuntime.KeyboardConfirmProducesButtonActivation
+    ClientUiRuntime.HidingActiveSetClearsStaleKeyboardFocus
+    ClientUiRuntime.RoutesCharactersOnlyToFocusedEditBox
+    ClientUiRuntime.ClearReleasesStateOwnedDialogTree
+    ClientUiRuntime.LoadsGameDialogsWithoutOverwritingLegacyActiveFlags
+    ClientUiRuntime.FailedMultiLoadKeepsPreviousTreeIntact
+    ClientUiRuntime.ActiveChildAlsoActivatesOwningDialog
+    ClientUiRuntime.HidingActiveChildClearsKeyboardFocus
+    ClientUiRuntime.LoadsLegacyChinaGameInCoreDialogSet
+    ClientUiRuntime.LoadsGuildBinAsConcreteGuildDialog
+    ClientUiRuntime.LoadsFriendBinAsConcreteFriendDialog
+    ClientUiRuntime.LoadsMiniFriendBinAsConcreteDialog
+    ClientUiRuntime.LoadsOptionBinAsConcreteOptionDialog
+    ClientUiRuntime.ResolutionChangeUpdatesWindowManagerMode
+    InGameUiRuntime.OptionOkActivationDispatchesConcreteDialogAction
+    InGameUiRuntime.InventoryCloseActivatesHandleUiActivation
+    InGameUiRuntime.MainBarButtonConsumesClickInActiveDialog
+    ClientUiRuntime.ConfirmationOwnsModalInputAndCleansUpAfterEnter
+    ClientUiRuntime.MessageBoxClosesOnEscapeAndRunsCallbackOnce
+    ClientUiRuntime.MessageBoxCentersInCommittedResolutionMode
+    ClientUiRuntime.CharSelectActivateAllMakesRootActiveAndCreateClickable
+    ClientUiRuntime.CharMakeActivateAllMakesEveryRootActive
+    ClientUiRuntime.CharSelectRootBasicImageBoundWhenSpriteHookRegistered
+    ClientUiRuntime.CharSelectSlotThenEnterHitboxesDispatchShippedCommands
+    ClientUiRuntime.CharSelectCreateAndEnterHitboxesDispatchShippedCommands
+    ClientUiRuntime.CharMakeSubmitCancelAndNameHitboxesDispatchShippedCommands
+    InGameUiRuntime.DefaultHudActiveAndMissClickIsNotConsumed
+    InGameUiRuntime.IKeyTogglesInventoryOnShippedGameInTree
+    InGameUiRuntime.DefaultHudRootsBindNonNullSprites
+    ClientUiRuntime.LoginDlgOkAndExitHitboxesDispatchShippedCommands
+    ClientUiRuntime.LoginDlgBindsShippedChatMessageText
+    ClientUiRuntime.LoginIdAndPasswordHitboxesAcceptTypedText
+    CMainTitle.StartLoadsIdDlgAndOkSubmitsCredentials
+    CMainTitle.ClearPasswordPreservesAccountAndEditState
+    CMainTitle.LoginErrorOpensVisibleRetryMessage
+    InGameDisplay.UsesEngineResolutionDuringInitialUiLoad
+    CharacterMakeFormModel.UsesResourceDefaultsAndWrapsSelections
+    CharMakeOptions.LoadsExactChinaResourceValues
+    EffectRuntime.RunsDecodedRealEffectWithObjectContext
+    EffectRuntime.RunsAuthoritativeCombatEffectFromSkillList
+    EffectRuntime.OverlappingInstancesReceiveDistinctIds
+    EffectRuntime.StopObjectRemovesMatchingSourceAndTargetInstances
+    EffectRuntime.CapsBurstInstancesWithoutDroppingExistingTimelines
+    PROPERTIES LABELS "rog")
 
 # Keep one aggregate entry in addition to the per-case entries above.  The
 # aggregate is the stable client regression gate: it executes the complete
