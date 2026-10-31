@@ -102,6 +102,11 @@ on:
       - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
       - scripts/check-client-warnings.py
+      - scripts/tests/test-release-scripts.ps1
+      - deploy/scripts/start_release.ps1
+      - deploy/scripts/rollback_release.ps1
+      - deploy/scripts/healthcheck_release.ps1
+      - deploy/scripts/release_common.ps1
   push:
     branches: [codex/reorg-original-20261009]
     # Existing pull_request paths skip a push that only touches deploy/,
@@ -174,6 +179,11 @@ jobs:
             deploy/resource-profiles.json
             modern/config/resource-profiles/playdh-current.json
             scripts/tests/test-deploy-client-playdh-root.ps1
+            scripts/tests/test-release-scripts.ps1
+            deploy/scripts/start_release.ps1
+            deploy/scripts/rollback_release.ps1
+            deploy/scripts/healthcheck_release.ps1
+            deploy/scripts/release_common.ps1
 
       # Standalone. Does not read the build tree or share state with a ctest step.
       - name: Exercise PowerShell item protocol gate
@@ -604,6 +614,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Release scripts take a public host
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File scripts/tests/test-release-scripts.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Not part of the 84-name behavior list. MoxianClientE2E itself is

@@ -143,3 +143,45 @@ Verifying:
 
 If `PORTAL_JWT_SECRET` is unset, the portal exits with code 6 — see
 `docs/PORTAL_DEPLOY.md` for the secret bootstrap procedure.
+
+## Release scripts
+
+`deploy/scripts/start_release.ps1`, `deploy/scripts/rollback_release.ps1`, and
+`deploy/scripts/healthcheck_release.ps1` prepare a release directory. They do
+not copy artifacts, do not contact a host by themselves, and do not deploy
+anything. `deploy/scripts/start_current_vm112.ps1` and
+`deploy/scripts/start_original_vm112.ps1` are unchanged.
+
+`-PublicHost` is required and has no default. The database connection is the
+existing process variable `MXH_DATABASE_CONFIG`. These scripts do not define a
+new variable and do not store secrets.
+
+Default listeners are the modern stack: Login `16001`, Agent `17001`, Map
+`18001`, map 12 on `18002`, and map 2 on `18003`. Map 17 listens on `18004`
+only when `-EnableMap17` is set. `start_release.ps1` refuses to start when any
+target port is already listening and prints the owner PID. It writes
+`run-state.json` in the release directory with each PID and the executable
+SHA-256.
+
+`rollback_release.ps1` stops only PIDs listed in that file whose image path is
+under `-ReleaseDir`. It does not stop a process by name. The image path must
+match the recorded executable, the SHA-256 must match, and the process start
+time must fall in the window described in `deploy/VM112_R2_STAGE.md`. It then
+starts `-PreviousReleaseDir` on the same ports. `-WhatIf` and `-DryRun` print
+the actions and do not stop or start processes.
+
+`healthcheck_release.ps1` prints `HEALTH OK` or `HEALTH FAIL` for listening
+ports, recorded processes, `PROTOCOL_MATCH` when a log contains it, and an
+optional portal `/api/healthz` when `-PortalUrl` is set. Any FAIL line exits 1.
+
+### Prerequisites before any real start
+
+Do not point these scripts at VM112, or at any other machine, until all of the
+following are true:
+
+1. Pull request #114 is merged. That change generates the client ServerPort from the modern login port (`deploy_client.ps1 -LoginPort` default 16001). This is a hard prerequisite.
+2. Pull request #109 is merged. That change requires an explicit PlayDH root for the remaining entry points. This is a hard prerequisite.
+3. The agreed merge order has finished: #110 (done), then #117, #107, #114, #116, and #109. This pull request stays draft until those are merged.
+4. ROG smoke and soak have passed.
+5. Yongjun has made the repository private, or has accepted that it stays public.
+6. VM112 staging rehearsal is confirmed by the owner. This item is pending that confirmation.
