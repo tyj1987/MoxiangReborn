@@ -483,3 +483,20 @@ TEST(ItemProtocol, GroundAddIsNotDirectObtain) {
     EXPECT_EQ(obtain_round->items.size(), 1u);
     EXPECT_EQ(obtain_round->items[0].Position, 3u);
 }
+
+TEST(ItemProtocol, DirectObtainEmitsProtocol32AndRejectsGroundDecode) {
+    const auto built = mxh::proto::original_item::make_direct_inventory_obtain(
+        7001u, 501u, 4u, 100u, 1u);
+    ASSERT_TRUE(built);
+    EXPECT_EQ(built->protocol, 32u);
+    EXPECT_EQ(built->protocol, modern_number(Modern::MonsterObtainNotify));
+    const auto obtained =
+        mxh::proto::original_item::decode_item_obtain_payload(built->payload);
+    ASSERT_TRUE(obtained);
+    ASSERT_EQ(obtained->items.size(), 1u);
+    EXPECT_EQ(obtained->items[0].dwDBIdx, 7001u);
+    EXPECT_EQ(obtained->items[0].wIconIdx, 501u);
+    EXPECT_EQ(obtained->items[0].Position, 4u);
+    EXPECT_EQ(obtained->obtain_count, 1u);
+    EXPECT_FALSE(mxh::proto::decode_ground_item_add(built->payload));
+}

@@ -4,6 +4,7 @@
 // obtain array: a handler that holds one must not decode the other.
 // 20 bytes: object id, source monster, item id, count, x, z.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <optional>
@@ -25,6 +26,8 @@ struct GroundItemAddBody {
 };
 #pragma pack(pop)
 static_assert(sizeof(GroundItemAddBody) == kGroundItemAddBytes);
+static_assert(std::endian::native == std::endian::little,
+              "ground item bytes are copied in host order");
 
 inline std::optional<std::vector<std::uint8_t>> encode_ground_item_add(
     const GroundItemAddBody& body) {

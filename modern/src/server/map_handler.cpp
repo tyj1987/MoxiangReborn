@@ -1153,11 +1153,9 @@ std::optional<MapHandler::GroundDrop> MapHandler::create_ground_drop_for_test(st
 bool MapHandler::send_direct_inventory_obtain(std::uint32_t player_id,
     std::uint32_t db_idx, std::uint16_t icon, std::uint16_t position,
     std::uint32_t durability, std::uint16_t count) {
-    mxh::proto::original_item::ItemObtainArray obtained;
-    obtained.obtain_count = count;
-    obtained.items.push_back(mxh::game::make_item(db_idx, icon, position, durability, count));
-    auto payload = mxh::proto::original_item::encode_item_obtain_payload(obtained);
-    if (!payload) return false;
+    auto built = mxh::proto::original_item::make_direct_inventory_obtain(
+        db_idx, icon, position, durability, count);
+    if (!built) return false;
     mxh::net::ConnectionId conn{};
     {
         std::lock_guard<std::mutex> lock(players_mu_);
@@ -1167,9 +1165,9 @@ bool MapHandler::send_direct_inventory_obtain(std::uint32_t player_id,
     }
     mxh::net::Message msg;
     msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-    msg.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    msg.header.protocol = built->protocol;
     msg.header.object_id = player_id;
-    msg.payload = std::move(*payload);
+    msg.payload = std::move(built->payload);
     reply_(conn, msg);
     return true;
 }
