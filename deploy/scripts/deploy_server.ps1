@@ -7,10 +7,130 @@
 param(
     [string]$SourceDir = "",
     [string]$DeployDir = "",
-    [string]$ResourceDir = ""
+    [string]$ResourceDir = "",
+    [switch]$SelfTest,
+    [string]$PackageScanRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'playdh_package_guard.ps1')
+
+function Copy-MxhServerResourceTrees {
+    param(
+        [Parameter(Mandatory)][string]$ResourceDir,
+        [Parameter(Mandatory)][string]$DeployDir,
+        [Parameter(Mandatory)][string[]]$Patterns
+    )
+    $resourceDirs = @(
+        @{Source="Resource\Map"; Dest="Map\Resource\Map"},
+        @{Source="Resource\Client"; Dest="Map\Resource\Client"},
+        @{Source="Resource\QuestScript"; Dest="Map\Resource\QuestScript"},
+        @{Source="Resource\SkillArea"; Dest="Map\Resource\SkillArea"},
+        @{Source="Resource\EffectScript"; Dest="Map\Resource\EffectScript"},
+        @{Source="Data"; Dest="Map\Data"},
+        @{Source="Image"; Dest="Map\Image"},
+        @{Source="Sound"; Dest="Map\Sound"}
+    )
+    foreach ($res in $resourceDirs) {
+        $src = Join-Path $ResourceDir $res.Source
+        $dst = Join-Path $DeployDir $res.Dest
+        if (Test-Path -LiteralPath $src) {
+            if (-not (Test-Path -LiteralPath $dst)) {
+                New-Item -ItemType Directory -Path $dst -Force | Out-Null
+            }
+            Copy-MxhPlayDhFiltered -SourceRoot $ResourceDir -SourcePath $src -DestinationRoot $dst -Patterns $Patterns
+        }
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($PackageScanRoot)) {
+    $mxhProfilePath = Join-Path (Get-MxhPlayDhRepoRoot) 'modern/config/resource-profiles/playdh-current.json'
+    $mxhPatterns = @(Get-MxhPlayDhExcludePatterns -ProfilePath $mxhProfilePath)
+    exit (Invoke-MxhPlayDhPackageScan -Root $PackageScanRoot -Patterns $mxhPatterns)
+}
+
+if ($SelfTest) {
+    $mxhFailed = $false
+    $mxhParent = if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { $env:RUNNER_TEMP } else { [System.IO.Path]::GetTempPath() }
+    $mxhTemp = Join-Path $mxhParent ('mxh-server-exclude-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $mxhTemp | Out-Null
+    try {
+        $mxhProfilePath = Join-Path (Get-MxhPlayDhRepoRoot) 'modern/config/resource-profiles/playdh-current.json'
+        $mxhPatterns = @(Get-MxhPlayDhExcludePatterns -ProfilePath $mxhProfilePath)
+        $mxhSource = Join-Path $mxhTemp 'source'
+        $mxhPackage = Join-Path $mxhTemp 'package'
+        New-Item -ItemType Directory -Path $mxhSource | Out-Null
+        $mxhKept = Join-Path (Join-Path (Join-Path $mxhSource 'Resource') 'EffectScript') 'kept.txt'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $mxhKept) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($mxhKept, [Text.Encoding]::ASCII.GetBytes('synthetic-kept'))
+        foreach ($mxhPattern in $mxhPatterns) {
+            $mxhNormalized = (($mxhPattern -replace '\\','/').Trim())
+            if ($mxhNormalized.EndsWith('/')) {
+                $mxhSample = 'Resource/EffectScript/' + $mxhNormalized + 'synthetic.txt'
+            } else {
+                $mxhSample = 'Resource/EffectScript/nested/' + $mxhNormalized.Replace('*', 'Synth')
+            }
+            $mxhToken = ($mxhNormalized -replace '[^A-Za-z0-9]+','-').Trim('-')
+            if (-not (Test-MxhPlayDhExcludedRelativePath -RelativePath $mxhSample -Patterns $mxhPatterns)) {
+                Write-Host "PS_GATE_CASE server-exclude-$mxhToken exit=1 FAIL"
+                $mxhFailed = $true
+                continue
+            }
+            $mxhSamplePath = Join-Path $mxhSource ($mxhSample -replace '/',[IO.Path]::DirectorySeparatorChar)
+            $mxhSampleParent = Split-Path -Parent $mxhSamplePath
+            if (-not (Test-Path -LiteralPath $mxhSampleParent)) {
+                New-Item -ItemType Directory -Path $mxhSampleParent -Force | Out-Null
+            }
+            [System.IO.File]::WriteAllBytes($mxhSamplePath, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
+            Write-Host "PS_GATE_CASE server-exclude-$mxhToken exit=0 OK"
+        }
+        $mxhMapBak = Join-Path (Join-Path (Join-Path $mxhSource 'Resource') 'Map') 'x.bin_bak'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $mxhMapBak) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($mxhMapBak, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
+        Copy-MxhServerResourceTrees -ResourceDir $mxhSource -DeployDir $mxhPackage -Patterns $mxhPatterns
+        $mxhLeaked = @(Get-MxhPlayDhPackageForbidden -Root $mxhPackage -Patterns $mxhPatterns)
+        $mxhKeptCopied = Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path (Join-Path $mxhPackage 'Map') 'Resource') 'EffectScript') 'kept.txt')
+        if ($mxhLeaked.Count -eq 0 -and $mxhKeptCopied) {
+            Write-Host 'PS_GATE_CASE server-copy-excludes exit=0 OK'
+        } else {
+            Write-Host 'PS_GATE_CASE server-copy-excludes exit=1 FAIL'
+            foreach ($mxhHit in $mxhLeaked) { Write-Host "PLAYDH_PACKAGE_FORBIDDEN $mxhHit" }
+            $mxhFailed = $true
+        }
+        $mxhMapBakDest = Join-Path (Join-Path (Join-Path (Join-Path $mxhPackage 'Map') 'Resource') 'Map') 'x.bin_bak'
+        if (Test-Path -LiteralPath $mxhMapBakDest) {
+            Write-Host 'PS_GATE_CASE server-exclude-underscore-bak exit=1 FAIL'
+            $mxhFailed = $true
+        } else {
+            Write-Host 'PS_GATE_CASE server-exclude-underscore-bak exit=0 OK'
+        }
+        $mxhPwsh = (Get-Process -Id $PID).Path
+        function Invoke-MxhServerGateCase {
+            param($Name, $Root, $ExpectZero, $ExpectText)
+            $mxhOutput = & $mxhPwsh -NoProfile -File $PSCommandPath -PackageScanRoot $Root 2>&1 | Out-String
+            $mxhCode = $LASTEXITCODE
+            $mxhTextOk = $mxhOutput.Contains($ExpectText)
+            $mxhExitOk = if ($ExpectZero) { $mxhCode -eq 0 } else { $mxhCode -ne 0 }
+            if (-not $mxhTextOk -or -not $mxhExitOk) {
+                Write-Host "PS_GATE_CASE $Name exit=$mxhCode FAIL"
+                throw "server package gate case $Name failed"
+            }
+            Write-Host "PS_GATE_CASE $Name exit=$mxhCode OK"
+        }
+        Invoke-MxhServerGateCase -Name 'server-scan-clean' -Root $mxhPackage -ExpectZero $true -ExpectText 'PLAYDH_PACKAGE_SCAN OK'
+        $mxhInjected = Join-Path (Join-Path (Join-Path (Join-Path $mxhPackage 'Map') 'Resource') 'EffectScript') 'MHClientInjected.exe'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $mxhInjected) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($mxhInjected, [Text.Encoding]::ASCII.GetBytes('synthetic-injected'))
+        Invoke-MxhServerGateCase -Name 'server-scan-injected' -Root $mxhPackage -ExpectZero $false -ExpectText 'PLAYDH_PACKAGE_FORBIDDEN Map/Resource/EffectScript/MHClientInjected.exe'
+    } finally {
+        if (Test-Path -LiteralPath $mxhTemp) {
+            Remove-Item -LiteralPath $mxhTemp -Recurse -Force
+        }
+    }
+    if ($mxhFailed) { exit 1 }
+    exit 0
+}
+
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 if ([string]::IsNullOrWhiteSpace($SourceDir)) {
     $SourceDir = Join-Path $repoRoot 'modern\build\tools'
@@ -111,30 +231,12 @@ foreach ($file in $configFiles) {
     }
 }
 
-# 复制游戏资源
+# 复制游戏资源。派生路径和 MHClient*.exe 不进入包，打包后再扫一遍。
 Write-Host "[4/5] 复制游戏资源..." -ForegroundColor Yellow
-$resourceDirs = @(
-    @{Source="Resource\Map"; Dest="Map\Resource\Map"},
-    @{Source="Resource\Client"; Dest="Map\Resource\Client"},
-    @{Source="Resource\QuestScript"; Dest="Map\Resource\QuestScript"},
-    @{Source="Resource\SkillArea"; Dest="Map\Resource\SkillArea"},
-    @{Source="Resource\EffectScript"; Dest="Map\Resource\EffectScript"},
-    @{Source="Data"; Dest="Map\Data"},
-    @{Source="Image"; Dest="Map\Image"},
-    @{Source="Sound"; Dest="Map\Sound"}
-)
-
-foreach ($res in $resourceDirs) {
-    $src = Join-Path $ResourceDir $res.Source
-    $dst = Join-Path $DeployDir $res.Dest
-    if (Test-Path $src) {
-        if (-not (Test-Path $dst)) {
-            New-Item -ItemType Directory -Path $dst -Force | Out-Null
-        }
-        Copy-Item -Path "$src\*" -Destination $dst -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "  复制: $($res.Source)" -ForegroundColor Gray
-    }
-}
+$mxhExcludeProfile = Join-Path $repoRoot 'modern/config/resource-profiles/playdh-current.json'
+$mxhExcludePatterns = @(Get-MxhPlayDhExcludePatterns -ProfilePath $mxhExcludeProfile)
+Copy-MxhServerResourceTrees -ResourceDir $ResourceDir -DeployDir $DeployDir -Patterns $mxhExcludePatterns
+Write-Host "  复制: Resource/Map Client QuestScript SkillArea EffectScript Data Image Sound" -ForegroundColor Gray
 
 # 创建服务器配置文件
 Write-Host "[5/5] 生成服务器配置文件..." -ForegroundColor Yellow
@@ -220,3 +322,11 @@ Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Yellow
 Write-Host "  1. Ensure database is installed (run install_database.ps1)" -ForegroundColor White
 Write-Host "  2. Run .\start_server.ps1 to start servers" -ForegroundColor White
+$mxhPackageHits = @(Get-MxhPlayDhPackageForbidden -Root $DeployDir -Patterns $mxhExcludePatterns)
+if ($mxhPackageHits.Count -gt 0) {
+    foreach ($mxhPackageHit in $mxhPackageHits) {
+        Write-Host "PLAYDH_PACKAGE_FORBIDDEN $mxhPackageHit"
+    }
+    exit 1
+}
+Write-Host ("PLAYDH_PACKAGE_SCAN OK files=" + @(Get-ChildItem -LiteralPath $DeployDir -Recurse -File -Force).Count)
