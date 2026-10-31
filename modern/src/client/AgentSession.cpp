@@ -41,6 +41,15 @@ void AgentSession::disconnect() {
     m_hsel.reset();
 }
 
+void AgentSession::abort() {
+    m_ready.store(false, std::memory_order_release);
+    if (m_client) {
+        m_client->abort();
+        m_client.reset();
+    }
+    m_hsel.reset();
+}
+
 mxh::net::NetError AgentSession::send(const mxh::net::Message& message) {
     if (!m_client || !m_client->is_connected()) return mxh::net::NetError::Disconnected;
     return m_client->send(message);
