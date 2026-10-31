@@ -317,7 +317,6 @@ original_lfs_integrity:
   # so other pipelines do not spend the LFS bandwidth quota.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
     # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
     # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'
@@ -384,7 +383,6 @@ unity_lfs_and_source_integrity:
   # so other pipelines do not spend the LFS bandwidth quota.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
     # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
     # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'
