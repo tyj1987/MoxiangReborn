@@ -269,9 +269,8 @@ std::string resolve_server_exe(const char* argv0,
 }
 
 std::filesystem::path find_e2e_playdh_root(const std::string& map_exe) {
-    // MXH_PLAYDH_ROOT replaces the upward search. A set value that is empty,
-    // not a directory, or missing Resource/Server or Image/InterfaceScript
-    // throws; it must not fall back or be skipped.
+    // MXH_PLAYDH_ROOT is required. Unset, empty, not a directory, or missing
+    // Resource/Server or Image/InterfaceScript throws. There is no fallback.
     return mxh::test::find_e2e_playdh_root_from_map_exe(map_exe);
 }
 

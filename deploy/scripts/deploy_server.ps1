@@ -8,6 +8,7 @@ param(
     [string]$SourceDir = "",
     [string]$DeployDir = "",
     [string]$ResourceDir = "",
+    [switch]$ResolveOnly,
     [switch]$SelfTest,
     [string]$PackageScanRoot = ""
 )
@@ -132,14 +133,32 @@ if ($SelfTest) {
 }
 
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
+        $ResourceDir = $env:MXH_PLAYDH_ROOT
+    } else {
+        Write-Host 'MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given'
+        exit 1
+    }
+}
+if ($ResolveOnly) {
+    if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+        Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+        exit 1
+    }
+    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    Write-Output "RESOURCE_DIR=$ResourceDir"
+    exit 0
+}
 if ([string]::IsNullOrWhiteSpace($SourceDir)) {
     $SourceDir = Join-Path $repoRoot 'modern\build\tools'
 }
 if ([string]::IsNullOrWhiteSpace($DeployDir)) {
     $DeployDir = Join-Path $repoRoot 'deploy\server'
 }
-if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
-    $ResourceDir = Join-Path $repoRoot 'modern\data\PlayDH'
+if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+    Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+    exit 1
 }
 
 Write-Host "========================================" -ForegroundColor Cyan

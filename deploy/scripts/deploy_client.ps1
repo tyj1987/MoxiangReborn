@@ -13,6 +13,8 @@ param(
     [string]$ResourceProfileId = 'playdh-current',
     [switch]$Help,
     [switch]$DryRun,
+    [switch]$ResolveOnly,
+    [switch]$SyntheticPackage,
     [switch]$SelfTest,
     [string]$PackageScanRoot = ""
 )
@@ -138,7 +140,44 @@ if ($Help) {
     exit 0
 }
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
+    if (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
+        $ResourceDir = $env:MXH_PLAYDH_ROOT
+    } else {
+        Write-Host 'MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given'
+        exit 1
+    }
+}
+if ($ResolveOnly) {
+    if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+        Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+        exit 1
+    }
+    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    Write-Output "RESOURCE_DIR=$ResourceDir"
+    exit 0
+}
 $profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
+if ($SyntheticPackage) {
+    if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($DeployDir)) {
+        Write-Host 'SYNTHETIC_PACKAGE requires -SourceDir and -DeployDir'
+        exit 1
+    }
+    if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+        Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+        exit 1
+    }
+    $mxhRepoPlay = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'modern/data/PlayDH'))
+    $mxhResFull = [System.IO.Path]::GetFullPath($ResourceDir)
+    $mxhRepoPrefix = $mxhRepoPlay.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    $mxhResPrefix = $mxhResFull.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (($mxhResFull -eq $mxhRepoPlay) -or $mxhResPrefix.StartsWith($mxhRepoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Write-Host 'SYNTHETIC_PACKAGE refuses the repo PlayDH tree'
+        exit 1
+    }
+    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    Write-Host 'SYNTHETIC_PACKAGE skip profile hash verification'
+} else {
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
 $profileProperty = $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]
 if ($null -eq $profileProperty) { throw "Unknown resource profile: $ResourceProfileId" }
@@ -148,9 +187,6 @@ if ([string]::IsNullOrWhiteSpace($SourceDir)) {
 }
 if ([string]::IsNullOrWhiteSpace($DeployDir)) {
     $DeployDir = Join-Path $repoRoot 'deploy\client'
-}
-if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
-    $ResourceDir = Join-Path $repoRoot ([string]$profile.source)
 }
 $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
 $hashManifestPath = Join-Path $repoRoot ([string]$profile.hashManifest)
@@ -203,6 +239,7 @@ if ($DryRun) {
     Write-Host "Dry-run passed: profile '$ResourceProfileId' is complete and hash-verified."
     Write-Host "No deployment files were created or modified."
     exit 0
+}
 }
 $profileDataRoot = Join-Path $DeployDir 'data\PlayDH'
 
@@ -351,7 +388,9 @@ ServerPort=9000
 $wonuke | Out-File -FilePath "$DeployDir\Ini\wonuke.ini" -Encoding UTF8
 Write-Host "  生成: Ini\wonuke.ini" -ForegroundColor Gray
 
-# 创建启动器
+# 创建启动器. This package does not ship MoxianLauncher.exe.
+# deploy_server.ps1 writes no client bat or shortcut.
+# The bat passes the in-package data\PlayDH tree; end-user machines do not set MXH_PLAYDH_ROOT.
 Write-Host "[5/5] 创建启动器..." -ForegroundColor Yellow
 $launcher = @"
 @echo off
@@ -377,7 +416,7 @@ if errorlevel 1 (
 )
 
 :: 启动游戏
-    start "" "%~dp0MoxianClient.exe"
+    start "" "%~dp0MoxianClient.exe" --resource-root "%~dp0data\PlayDH"
 
 echo 游戏已启动
 echo.

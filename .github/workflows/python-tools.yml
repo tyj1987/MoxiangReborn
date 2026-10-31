@@ -51,12 +51,15 @@
 #     pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
 #     pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
 #     pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
+#     pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
 #   任一 FAIL 都会让 pwsh 非零退出。Linux 容器里的符号链接不在 ROG Windows 上创建。
 #   第三条是 commercial-smoke 的 LocalDB 可用性脚本测试，加在这个已有的 pwsh job 上。
 #   第四条是 gui-client-smoke 的 ephemeral 安全检查，加在同一个 pwsh job 上。
 #   第五条核对 start_modern.ps1 的 --default-map 与 map 进程的 --map 都是 $MapNumber，加在同一个 pwsh job 上。
 #   第六条是 24h soak harness 的 Linux stub 测试，加在同一个 pwsh job 上。
 #   第七条是 deploy_client.ps1 的 PlayDH 派生路径排除自测，只用 runner 临时目录里的合成文件。
+#   下一条是 deploy_client.ps1 在未设置 MXH_PLAYDH_ROOT 且未给 -ResourceDir 时必须失败。
+#   用例名是 PLAYDH_ROOT_CASE，不使用 rog 标签。
 # - 不删除、不放宽现有 job。#49 加进 paths / python_tooling_changes 的 smoke 脚本保留。
 # - rules 与 original_governance_and_python_tests 相同。GitHub checkout 不是
 #   GitLab script 的一部分；这个镜像自带 git，不调用 apk，也不用 actions/checkout。
@@ -108,6 +111,7 @@ on:
       - scripts/soak-24h.cmd
       - scripts/tests/test-soak-24h.ps1
       - scripts/tests/test-deploy-default-map.ps1
+      - scripts/tests/test-deploy-client-playdh-root.ps1
       - deploy/scripts/start_modern.ps1
       - deploy/scripts/deploy_client.ps1
       - deploy/scripts/deploy_server.ps1
@@ -277,6 +281,7 @@ jobs:
           pwsh -NoProfile -File scripts/tests/test-soak-24h.ps1
           pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
           pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
+          pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
 
   cxx_resource_reference_linux:
     runs-on: ubuntu-latest
@@ -325,14 +330,14 @@ jobs:
           set -eu
           cmake --version
           cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests
+          cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests mxh_login_protocol_gate_tests mxh_playdh_env_tests mxh_ingame_playdh_root_tests
 
       - name: Run MxhResourceReference ctest
         run: |
           # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
           # so ctest runs under bash and a failing ctest still fails the step.
           bash -euo pipefail <<'EOF'
-          ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.)' --output-on-failure 2>&1 | tee ctest.log
+          ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.|LoginProtocolGate\.|PlayDhRootRequired\.|InGamePlayDhRoot\.)' --output-on-failure 2>&1 | tee ctest.log
           EOF
 
       - name: Require PlayDH reference tests passed
@@ -408,6 +413,10 @@ jobs:
           require_passed LoginProtocolGate.MissingHashRejected || status=1
           require_passed LoginProtocolGate.MatchAccepted || status=1
           require_passed LoginProtocolGate.ReasonCodeReachesClient || status=1
+          require_passed PlayDhRootRequired.UnsetDoesNotReadRepoTree || status=1
+          require_passed PlayDhRootRequired.SyntheticEnvSucceeds || status=1
+          require_passed InGamePlayDhRoot.UnsetDoesNotReadRepoTree || status=1
+          require_passed InGamePlayDhRoot.SyntheticEnvSucceeds || status=1
           if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
             echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
             status=1
