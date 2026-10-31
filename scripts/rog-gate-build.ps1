@@ -4084,11 +4084,15 @@ function Invoke-RogGateSelfTest {
     try {
         $playdhSource = Join-Path -Path $playdhTemp -ChildPath 'src'
         New-Item -ItemType Directory -Path $playdhSource -Force | Out-Null
-        $worktreePlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        $worktreePlayDh = [System.IO.Path]::GetFullPath((Join-Path -Path (Join-Path -Path (Join-Path -Path $playdhSource -ChildPath 'modern') -ChildPath 'data') -ChildPath 'PlayDH'))
         $syntheticPlayDh = Join-Path -Path $playdhTemp -ChildPath 'synthetic'
         New-Item -ItemType Directory -Path $syntheticPlayDh -Force | Out-Null
         $syntheticPlayDhFull = [System.IO.Path]::GetFullPath($syntheticPlayDh)
+        $stalePlayDh = Join-Path -Path $playdhTemp -ChildPath 'stale'
+        New-Item -ItemType Directory -Path $stalePlayDh -Force | Out-Null
+        $stalePlayDhFull = [System.IO.Path]::GetFullPath($stalePlayDh)
         $missingMessage = 'MXH_PLAYDH_ROOT is not set and no -PlayDhRoot was given'
+        $gateRequires = 'gate run requires -PlayDhRoot; MXH_PLAYDH_ROOT is not a fallback'
         Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
         $unsetThrew = $false
         $unsetMessage = ''
@@ -4102,20 +4106,36 @@ function Invoke-RogGateSelfTest {
         $unsetOk = $unsetThrew -and ($unsetMessage -eq $missingMessage) -and [string]::IsNullOrWhiteSpace($unsetEnv) -and ($unsetMessage -ne $worktreePlayDh) -and ($unsetEnv -ne $worktreePlayDh)
         Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT exits with a message and does not assign the worktree' -Condition $unsetOk
 
-        $env:MXH_PLAYDH_ROOT = $syntheticPlayDhFull
-        $keptThrew = $false
-        $keptPlayDh = $null
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $overThrew = $false
+        $overPlayDh = $null
         try {
-            $keptPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+            $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource -ExplicitRoot $syntheticPlayDhFull
         } catch {
-            $keptThrew = $true
+            $overThrew = $true
         }
-        $keptPath = ''
-        if ($null -ne $keptPlayDh) { $keptPath = [string]$keptPlayDh.Path }
-        $keptOk = (-not $keptThrew) -and ($keptPath -eq $syntheticPlayDhFull) -and ($env:MXH_PLAYDH_ROOT -eq $syntheticPlayDhFull) -and ($keptPath -ne $worktreePlayDh)
-        Assert-RogGateSelfTest -Name 'synthetic MXH_PLAYDH_ROOT is kept and is not the worktree path' -Condition $keptOk
+        $overPath = ''
+        $overInfo = ''
+        if ($null -ne $overPlayDh) {
+            $overPath = [string]$overPlayDh.Path
+            $overInfo = [string]$overPlayDh.Info
+        }
+        $overOk = (-not $overThrew) -and ($overPath -eq $syntheticPlayDhFull) -and ($env:MXH_PLAYDH_ROOT -eq $syntheticPlayDhFull) -and ($overPath -ne $stalePlayDhFull) -and ($overInfo -match 'source=explicit')
+        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden for children' -Condition $overOk
 
         $rogPwsh = (Get-Process -Id $PID).Path
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $mainEnv = & $rogPwsh -NoProfile -File $PSCommandPath 2>&1 | Out-String
+        $mainEnvCode = $LASTEXITCODE
+        $mainEnvOk = ($mainEnvCode -eq 1) -and ($mainEnv.Contains($gateRequires))
+        Assert-RogGateSelfTest -Name 'gate main with MXH_PLAYDH_ROOT and no -PlayDhRoot exits 1' -Condition $mainEnvOk
+
+        $missingForMain = Join-Path -Path $playdhTemp -ChildPath 'missing-main'
+        $env:MXH_PLAYDH_ROOT = $stalePlayDhFull
+        $mainMissing = & $rogPwsh -NoProfile -File $PSCommandPath -PlayDhRoot $missingForMain 2>&1 | Out-String
+        $mainMissingCode = $LASTEXITCODE
+        $mainMissingOk = ($mainMissingCode -eq 1) -and ($mainMissing.Contains('does not exist')) -and ($mainMissing.Contains($missingForMain))
+        Assert-RogGateSelfTest -Name 'nonexistent -PlayDhRoot makes main exit 1' -Condition $mainMissingOk
         Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
         $childUnset = & $rogPwsh -NoProfile -File $PSCommandPath -ResolvePlayDhOnly 2>&1 | Out-String
         $childUnsetCode = $LASTEXITCODE
