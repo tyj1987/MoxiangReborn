@@ -88,8 +88,10 @@
 #   不拉 gitleaks 的 :latest，也不需要密钥。
 # - GIT_LFS_SKIP_SMUDGE=1。扫的是本次检出的工作树（gitleaks dir），不扫 git 历史。
 # - 下载 gitleaks 8.30.1 linux_x64 发行包，用 sha256 校验后再解压。
-# - 先跑 scripts/gitleaks-selftest.py（样本写在仓库外的临时目录），再扫检出目录。
-#   报告只打印 rule id 和 path:line，并带 --redact=100。
+# - 先跑 scripts/gitleaks-selftest.py（样本写在仓库外的临时目录）。
+#   扫目录前只打印 modern/data/PlayDH/Titan.pak 的字节数，以及它是不是
+#   LFS pointer（第一行恰好是 version https://git-lfs.github.com/spec/v1）。
+#   不是 pointer 时不打印文件内容。报告只打印 rule id 和 path:line，并带 --redact=100。
 # - rules 与 original_governance_and_python_tests 相同。
 
 name: original_governance_and_python_tests
@@ -478,4 +480,19 @@ jobs:
           tar -xzf "${tarball}" -C "${gitleaks_dir}"
           chmod +x "${gitleaks_dir}/gitleaks"
           python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml
+          python3 - <<'PY'
+          import pathlib
+          pak = pathlib.Path("modern/data/PlayDH/Titan.pak")
+          if not pak.is_file():
+              print("TITAN_PAK missing")
+          else:
+              size = pak.stat().st_size
+              prefix = pak.read_bytes()[:80]
+              marker = b"version https://git-lfs.github.com/spec/v1"
+              if prefix.startswith(marker):
+                  print(f"TITAN_PAK pointer bytes={size}")
+                  print("TITAN_PAK first-line: version https://git-lfs.github.com/spec/v1")
+              else:
+                  print(f"TITAN_PAK not-a-pointer bytes={size}")
+          PY
           python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan .
