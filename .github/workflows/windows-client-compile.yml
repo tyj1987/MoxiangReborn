@@ -148,6 +148,12 @@ jobs:
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
             modern/data/PlayDH/monster.pak
+            deploy/scripts/deploy_client.ps1
+            deploy/scripts/deploy_server.ps1
+            deploy/scripts/playdh_package_guard.ps1
+            deploy/resource-profiles.json
+            modern/config/resource-profiles/playdh-current.json
+            scripts/tests/test-deploy-client-playdh-root.ps1
 
       # Standalone. Does not read the build tree or share state with a ctest step.
       - name: Exercise PowerShell item protocol gate
@@ -561,6 +567,13 @@ jobs:
           $result = Invoke-MxhBehaviorRequire -LogText $logText -Entries $entries
           foreach ($line in $result.Lines) { Write-Host $line }
           exit $result.ExitCode
+
+      - name: PlayDH root is required for deploy_client
+        if: always()
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Not part of the 84-name behavior list. MoxianClientE2E itself is
       # not selected here, so this job does not read MXH_SMOKE_PASSWORD.
