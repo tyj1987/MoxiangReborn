@@ -1,4 +1,4 @@
-# [Client]MH — 墨香 legacy `MHClient-Connect.exe` (game client)
+# [Client]MH — 墨香 legacy game client
 #
 # Phase 6: convert [Client]MH/MHClient.vcproj (VS 7.10 / 2003 format)
 # into CMakeLists.txt. This is the MAIN game client — the largest single
@@ -21,7 +21,7 @@
 #                          We use /MT(d) for ABI compat (server convention)
 #   PrecompiledHeader    = stdafx.h
 #   SubSystem            = 2 (Windows GUI)
-#   Output: ..\CWorking\MHClient-Connect.exe
+#   Output: ..\CWorking\<legacy client executable>
 #
 # Link libraries (from vcproj AdditionalDependencies):
 #   wmstub.lib         — Windows Media stub (intro video playback)
@@ -336,7 +336,7 @@ target_link_options(MHClient PRIVATE
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
-# Legacy output was CWorking/MHClient-Connect.exe.
+# Legacy CWorking output name is not part of this tree.
 # Our modern output is MHClient.exe (or MHClient-Modern.exe).
 set_target_properties(MHClient PROPERTIES
     OUTPUT_NAME MHClient-Modern
