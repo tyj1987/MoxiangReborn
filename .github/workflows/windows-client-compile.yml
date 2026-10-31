@@ -140,7 +140,6 @@ jobs:
             modern/tools/dialog_children_type_scan
             modern/tools/MoxianPortal
             modern/tools/MxDumpInspect
-            modern/data/PlayDH/Resource/CharacterExpPoint.bin
             modern/data/PlayDH/Map.pak
             modern/data/PlayDH/Character.pak
             modern/data/PlayDH/Effect.pak
@@ -385,6 +384,44 @@ jobs:
       - name: Configure behavior tests without PlayDH
         run: |
           $ErrorActionPreference = 'Stop'
+          # Reject sparse-checkout paths under modern/data/PlayDH/Resource/ before
+          # this step configures or builds. The self-test uses an in-memory list.
+          function Get-MxhSparseResourceViolations {
+            param([string[]]$Paths)
+            $prefix = 'modern/data/PlayDH/Resource/'
+            $failures = [System.Collections.Generic.List[string]]::new()
+            foreach ($raw in $Paths) {
+              if ([string]::IsNullOrWhiteSpace($raw)) { continue }
+              $path = ($raw.Trim() -replace '\\','/')
+              if ($path.StartsWith('/')) { $path = $path.TrimStart('/') }
+              if ($path.StartsWith($prefix)) { $failures.Add($path) }
+            }
+            # -NoEnumerate keeps a 0- or 1-element list from becoming $null or a string.
+            Write-Output $failures -NoEnumerate
+          }
+          $probe = Get-MxhSparseResourceViolations -Paths @(
+            'modern/src/game/experience_curve.cpp',
+            'modern/data/PlayDH/Resource/SyntheticProbe.bin',
+            'modern/data/PlayDH/Map.pak')
+          if ($probe.Count -ne 1 -or $probe[0] -ne 'modern/data/PlayDH/Resource/SyntheticProbe.bin') {
+            throw "SPARSE_RESOURCE_SELFTEST expected the synthetic Resource path to fail, got: $($probe -join ' | ')"
+          }
+          $clean = Get-MxhSparseResourceViolations -Paths @(
+            'modern/src/game/experience_curve.cpp',
+            'modern/data/PlayDH/Map.pak')
+          if ($clean.Count -ne 0) {
+            throw "SPARSE_RESOURCE_SELFTEST expected a non-Resource list to pass, got: $($clean -join ' | ')"
+          }
+          Write-Host 'SPARSE_RESOURCE_SELFTEST OK'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $listed = @(git sparse-checkout list)
+          if ($LASTEXITCODE -ne 0) { throw "git sparse-checkout list failed ($LASTEXITCODE)" }
+          $violations = Get-MxhSparseResourceViolations -Paths $listed
+          if ($violations.Count -gt 0) {
+            foreach ($path in $violations) { Write-Host "SPARSE_RESOURCE_CHECK FAIL $path" }
+            exit 1
+          }
+          Write-Host 'SPARSE_RESOURCE_CHECK OK'
           if (Test-Path Env:MXH_PLAYDH_ROOT) { Remove-Item Env:MXH_PLAYDH_ROOT }
           if (-not [string]::IsNullOrEmpty($env:MXH_PLAYDH_ROOT)) {
             throw 'MXH_PLAYDH_ROOT is set'
