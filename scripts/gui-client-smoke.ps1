@@ -134,6 +134,7 @@ if (-not (Test-Path -LiteralPath $clientExe -PathType Leaf)) {
 }
 $serverScript = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
 if (-not (Test-Path -LiteralPath $clientExe)) { throw "Missing GUI client: $clientExe" }
+. (Join-Path $PSScriptRoot 'protocol_manifest_gate.ps1')
 
 $runId = [Guid]::NewGuid().ToString('N')
 $runRoot = Join-Path $buildRoot "runtime\gui-smoke\$runId"
@@ -208,6 +209,7 @@ try {
         # Safety gate before any process, including the optional python audit.
         $layout = Get-EphemeralResourceLayout -RepoRoot $repoRoot -ResourceRoot $smokeResourceRoot
         $mapExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe'
+        Assert-MxhItemProtocolMatch -MapExecutable $mapExe -ClientExecutable $clientExe
         $agentExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianAgentServer' -FileName 'mxh_agent_server_CHINA.exe'
         $loginExe = Resolve-EphemeralServerExecutable -BuildRoot $buildRoot -Configuration $Configuration -ToolDirectory 'MoxianLoginServer' -FileName 'mxh_login_server.exe'
         $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
@@ -287,6 +289,9 @@ try {
         if ($readinessFailure) { throw $readinessFailure }
         $dbConfig = $ephemeralSpec.RegisterDatabaseArgument
     } else {
+        $gateTools = Join-Path $buildRoot 'tools'
+        $gateMap = Resolve-MxhBuiltExecutable -ToolsRoot $gateTools -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe' -Config $Configuration
+        Assert-MxhItemProtocolMatch -MapExecutable $gateMap -ClientExecutable $clientExe
         & $serverScript -Mode start -Backend sqlite -DataDir $dataRoot -MapNumber $MapNumber
         $dbTool = Join-Path $buildRoot 'tools\MoxianDbTool\mxh_db_tool.exe'
         if (-not (Test-Path -LiteralPath $dbTool -PathType Leaf)) {

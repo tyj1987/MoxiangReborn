@@ -30,7 +30,11 @@ add_library(mxh_client_lib STATIC
 target_include_directories(mxh_client_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
-target_link_libraries(mxh_client_lib PUBLIC mxh_ui mxh_render mxh_log mxh_net mxh_crypto)
+target_link_libraries(mxh_client_lib PUBLIC mxh_ui mxh_render mxh_log mxh_net mxh_crypto mxh_protocol_hash)
+target_sources(mxh_client_lib PRIVATE ${CMAKE_SOURCE_DIR}/src/proto/protocol_hash_anchor.cpp)
+set_source_files_properties(${CMAKE_SOURCE_DIR}/src/proto/protocol_hash_anchor.cpp
+    PROPERTIES OBJECT_DEPENDS "${MXH_ITEM_PROTOCOL_HEADER}")
+add_dependencies(mxh_client_lib mxh_item_protocol_hash)
 # The library is also linked by the fixture-driven client test executable.
 # Its fixture-only resource fallback is inert in production because the host
 # always supplies CEngine::playdh_root().

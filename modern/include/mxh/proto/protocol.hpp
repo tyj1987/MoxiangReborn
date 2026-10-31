@@ -472,8 +472,10 @@ enum class GuildProtocol : std::uint8_t {
 // Shared values match original_item::ItemProtocol. Pickup is a modern
 // extension above the last original item number so it does not occupy
 // Buy 19..21. Payload layouts are unchanged.
-// One list feeds the enum and kItemProtocolValues. kItemProtocolCount is
-// that list's length, so the array cannot drift from the enumerators.
+// One list feeds the enum, kItemProtocolValues, and kItemProtocolNames.
+// kItemProtocolCount is that list's length, so the arrays cannot drift
+// from the enumerators. The deploy hash reads the compiled name/value
+// pairs, not the text of this header.
 // ============================================================================
 #define MXH_ITEM_PROTOCOL_EACH(X) \
     X(TotalInfoLocal, 0) \
@@ -549,6 +551,12 @@ inline constexpr ItemProtocol kItemProtocolValues[] = {
 #undef MXH_ITEM_PROTOCOL_VALUE
 };
 
+inline constexpr char const* const kItemProtocolNames[] = {
+#define MXH_ITEM_PROTOCOL_NAME(name, value) #name,
+    MXH_ITEM_PROTOCOL_EACH(MXH_ITEM_PROTOCOL_NAME)
+#undef MXH_ITEM_PROTOCOL_NAME
+};
+
 #define MXH_ITEM_PROTOCOL_PLUS_ONE(name, value) + 1
 inline constexpr std::size_t kItemProtocolEnumeratorCount =
     0 MXH_ITEM_PROTOCOL_EACH(MXH_ITEM_PROTOCOL_PLUS_ONE);
@@ -560,6 +568,8 @@ inline constexpr std::size_t kItemProtocolCount =
 
 static_assert(kItemProtocolCount == kItemProtocolEnumeratorCount,
               "ItemProtocol value list must name every enumerator");
+static_assert(sizeof(kItemProtocolNames) / sizeof(kItemProtocolNames[0]) == kItemProtocolCount,
+              "ItemProtocol names must match kItemProtocolCount");
 static_assert(kItemProtocolCount == 60,
               "update the ItemProtocol list and this count together");
 

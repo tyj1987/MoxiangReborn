@@ -1939,6 +1939,23 @@ function Invoke-CleanDeploySelfTestSkipCases {
     New-Item -ItemType Directory -Path $bindScripts -Force | Out-Null
     $bindDeploy = Join-Path $bindScripts "clean-deploy.ps1"
     [System.IO.File]::Copy($script:CleanDeployScriptPath, $bindDeploy, $true)
+    $gateSource = Join-Path $script:CleanDeployScriptRoot "protocol_manifest_gate.ps1"
+    $gateDest = Join-Path $bindScripts "protocol_manifest_gate.ps1"
+    [System.IO.File]::Copy($gateSource, $gateDest, $true)
+    $fixtureHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    $fixtureLine = "item_protocol_sha256=" + $fixtureHash + "`n"
+    $fixtureUtf8 = New-Object System.Text.UTF8Encoding $false
+    $fixtureTools = Join-Path $emptyRepoFull "modern"
+    $fixtureTools = Join-Path $fixtureTools "build"
+    $fixtureTools = Join-Path $fixtureTools "tools"
+    $fixtureMapDir = Join-Path $fixtureTools "MoxianMapServer"
+    $fixtureClientDir = Join-Path $fixtureTools "MoxianClient"
+    New-Item -ItemType Directory -Path $fixtureMapDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $fixtureClientDir -Force | Out-Null
+    [System.IO.File]::WriteAllBytes((Join-Path $fixtureMapDir "mxh_map_server_CHINA.exe"), (New-Object byte[] 1))
+    [System.IO.File]::WriteAllBytes((Join-Path $fixtureClientDir "mxh_client.exe"), (New-Object byte[] 1))
+    [System.IO.File]::WriteAllText((Join-Path $fixtureMapDir "protocol.manifest"), $fixtureLine, $fixtureUtf8)
+    [System.IO.File]::WriteAllText((Join-Path $fixtureClientDir "protocol.manifest"), $fixtureLine, $fixtureUtf8)
     $bindStub = Join-Path $bindScripts "commercial-smoke.ps1"
     $bindRecord = Join-Path $bindScripts "bound-parameters.txt"
     $bindStubText = @'
@@ -2356,6 +2373,12 @@ if (-not $SkipSmoke) {
     if ($DryRun) {
         Info ('would run: ' + $smokeScript + ' -BuildDir ' + $buildDir + ' ' + ($smokeShown -join ' ') + ')')
     } else {
+        $protocolGate = Join-Path $PSScriptRoot "protocol_manifest_gate.ps1"
+        . $protocolGate
+        $protocolTools = Join-Path $buildDir "tools"
+        $protocolMap = Resolve-MxhBuiltExecutable -ToolsRoot $protocolTools -ToolDirectory "MoxianMapServer" -FileName "mxh_map_server_CHINA.exe" -Config $Config
+        $protocolClient = Resolve-MxhBuiltExecutable -ToolsRoot $protocolTools -ToolDirectory "MoxianClient" -FileName "mxh_client.exe" -Config $Config
+        Assert-MxhItemProtocolMatch -MapExecutable $protocolMap -ClientExecutable $protocolClient
         if ($script:CleanDeploySupplementExpectedFilled) {
             $smokeBefore = Get-CleanDeployGuiSmokeRunNames -BuildDir $buildDir
         }
