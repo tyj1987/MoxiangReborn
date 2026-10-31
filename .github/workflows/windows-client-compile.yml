@@ -136,7 +136,20 @@ jobs:
             throw 'MXH_PLAYDH_ROOT is set'
           }
           cmake --version
-          cmake -S modern -B build -G "Visual Studio 17 2022" -A Win32 -DMXH_CLIENT_COMPILE_ONLY=ON
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+          if (-not (Test-Path -LiteralPath $vswhere)) { throw "vswhere.exe was not found at $vswhere" }
+          $installVersion = @( & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion )
+          if ($installVersion.Count -lt 1 -or [string]::IsNullOrWhiteSpace($installVersion[0])) {
+            throw 'windows-latest has no VC Tools instance'
+          }
+          $major = [int](($installVersion[0] -split '\.')[0])
+          $generator = switch ($major) {
+            17 { 'Visual Studio 17 2022' }
+            18 { 'Visual Studio 18 2026' }
+            default { throw "unsupported Visual Studio $major ($($installVersion[0]))" }
+          }
+          Write-Host "VS $($installVersion[0]) generator=$generator arch=Win32"
+          cmake -S modern -B build -G $generator -A Win32 -DMXH_CLIENT_COMPILE_ONLY=ON
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $cache = Join-Path (Get-Location) 'build\CMakeCache.txt'
           $playdh = Select-String -LiteralPath $cache -Pattern 'MXH_PLAYDH' -SimpleMatch
