@@ -84,6 +84,9 @@ if ($SelfTest) {
             [System.IO.File]::WriteAllBytes($mxhSamplePath, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
             Write-Host "PS_GATE_CASE server-exclude-$mxhToken exit=0 OK"
         }
+        $mxhMapBak = Join-Path (Join-Path (Join-Path $mxhSource 'Resource') 'Map') 'x.bin_bak'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $mxhMapBak) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($mxhMapBak, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
         Copy-MxhServerResourceTrees -ResourceDir $mxhSource -DeployDir $mxhPackage -Patterns $mxhPatterns
         $mxhLeaked = @(Get-MxhPlayDhPackageForbidden -Root $mxhPackage -Patterns $mxhPatterns)
         $mxhKeptCopied = Test-Path -LiteralPath (Join-Path (Join-Path (Join-Path (Join-Path $mxhPackage 'Map') 'Resource') 'EffectScript') 'kept.txt')
@@ -93,6 +96,13 @@ if ($SelfTest) {
             Write-Host 'PS_GATE_CASE server-copy-excludes exit=1 FAIL'
             foreach ($mxhHit in $mxhLeaked) { Write-Host "PLAYDH_PACKAGE_FORBIDDEN $mxhHit" }
             $mxhFailed = $true
+        }
+        $mxhMapBakDest = Join-Path (Join-Path (Join-Path (Join-Path $mxhPackage 'Map') 'Resource') 'Map') 'x.bin_bak'
+        if (Test-Path -LiteralPath $mxhMapBakDest) {
+            Write-Host 'PS_GATE_CASE server-exclude-underscore-bak exit=1 FAIL'
+            $mxhFailed = $true
+        } else {
+            Write-Host 'PS_GATE_CASE server-exclude-underscore-bak exit=0 OK'
         }
         $mxhPwsh = (Get-Process -Id $PID).Path
         function Invoke-MxhServerGateCase {

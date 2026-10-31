@@ -74,6 +74,9 @@ if ($SelfTest) {
             [System.IO.File]::WriteAllBytes($mxhSamplePath, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
             Write-Host "PS_GATE_CASE exclude-$mxhToken exit=0 OK"
         }
+        $mxhBinBak = Join-Path (Join-Path $mxhSource 'nested') 'x.bin_bak'
+        New-Item -ItemType Directory -Path (Split-Path -Parent $mxhBinBak) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($mxhBinBak, [Text.Encoding]::ASCII.GetBytes('synthetic-forbidden'))
 
         $mxhPlayDh = Join-Path (Join-Path $mxhPackage 'data') 'PlayDH'
         Copy-MxhPlayDhFiltered -SourceRoot $mxhSource -SourcePath $mxhSource -DestinationRoot $mxhPlayDh -Patterns $mxhPatterns
@@ -88,6 +91,13 @@ if ($SelfTest) {
             Write-Host 'PS_GATE_CASE copy-excludes exit=1 FAIL'
             foreach ($mxhHit in $mxhLeaked) { Write-Host "PLAYDH_PACKAGE_FORBIDDEN $mxhHit" }
             $mxhFailed = $true
+        }
+        $mxhBinBakDest = Join-Path (Join-Path $mxhPlayDh 'nested') 'x.bin_bak'
+        if (Test-Path -LiteralPath $mxhBinBakDest) {
+            Write-Host 'PS_GATE_CASE exclude-underscore-bak exit=1 FAIL'
+            $mxhFailed = $true
+        } else {
+            Write-Host 'PS_GATE_CASE exclude-underscore-bak exit=0 OK'
         }
 
         $mxhPwsh = (Get-Process -Id $PID).Path
