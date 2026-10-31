@@ -72,6 +72,31 @@ target_link_libraries(mxh_item_protocol_tests PRIVATE gtest_main)
 target_compile_features(mxh_item_protocol_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_item_protocol_tests)
 
+# Canonical Item protocol hash. The host tool and CMake script are the only
+# hash writers. Synthetic cases use temp lists; the real-header case does
+# not assert wire numbers.
+find_program(MXH_PYTHON NAMES python3 python)
+if(NOT MXH_PYTHON)
+  set(MXH_PYTHON "python3")
+endif()
+add_executable(mxh_protocol_hash_tests protocol_hash_test.cpp)
+target_include_directories(mxh_protocol_hash_tests PRIVATE
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_BINARY_DIR}/generated
+  ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(mxh_protocol_hash_tests PRIVATE gtest_main)
+target_compile_features(mxh_protocol_hash_tests PRIVATE cxx_std_20)
+add_dependencies(mxh_protocol_hash_tests mxh_item_protocol_hash)
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/protocol_hash_test_paths.hpp" CONTENT
+"#pragma once
+inline constexpr char kMxhCmake[] = R\"p(${CMAKE_COMMAND})p\";
+inline constexpr char kMxhHashScript[] = R\"p(${MXH_ITEM_PROTOCOL_HASH_SCRIPT})p\";
+inline constexpr char kMxhCanonList[] = R\"p(${MXH_ITEM_CANON_LIST})p\";
+inline constexpr char kMxhGatePy[] = R\"p(${CMAKE_SOURCE_DIR}/../scripts/protocol_manifest_gate.py)p\";
+inline constexpr char kMxhPython[] = R\"p(${MXH_PYTHON})p\";
+")
+gtest_add_tests(TARGET mxh_protocol_hash_tests)
+
 # Audio decisions shared with the Windows playback path. Header-only.
 # Synthetic inputs only: no PlayDH, no pak, no SoundList.bin.
 add_executable(mxh_audio_contract_tests audio_contract_test.cpp)

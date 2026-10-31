@@ -21,6 +21,7 @@ target_include_directories(mxh_client PRIVATE
     ${CMAKE_SOURCE_DIR}/src/client
 )
 target_link_libraries(mxh_client PRIVATE mxh_ui mxh_client_lib mxh_render mxh_audio mxh_log)
+mxh_attach_item_protocol_manifest(mxh_client)
 if(MSVC)
     target_compile_options(mxh_client PRIVATE /W3 /utf-8)
     target_link_libraries(mxh_client PRIVATE d3d11 dxgi d3dcompiler shell32)

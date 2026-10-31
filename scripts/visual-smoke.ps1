@@ -79,6 +79,10 @@ try {
         $SkipServerStart = $true
     }
     if (-not $SkipServerStart) {
+        . (Join-Path $PSScriptRoot 'protocol_manifest_gate.ps1')
+        $gateTools = Join-Path $buildRoot 'tools'
+        $gateMap = Resolve-MxhBuiltExecutable -ToolsRoot $gateTools -ToolDirectory 'MoxianMapServer' -FileName 'mxh_map_server_CHINA.exe' -Config 'Debug'
+        Assert-MxhItemProtocolMatch -MapExecutable $gateMap -ClientExecutable $clientExe
         Write-Host "[visual-smoke] starting modern servers..." -ForegroundColor Cyan
         & $serverScript -Mode start -Backend sqlite -DataDir $dataDir -MapNumber $MapNumber 2>&1
         Start-Sleep -Seconds 2

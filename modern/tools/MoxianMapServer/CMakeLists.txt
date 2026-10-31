@@ -32,6 +32,14 @@ foreach(_locale_def IN ITEMS KOR CHINA JAPAN HK TL)
     endforeach()
 
     add_executable(mxh_map_server_${_locale_def} main.cpp)
+    target_sources(mxh_map_server_${_locale_def} PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/proto/protocol_hash_anchor.cpp)
+    target_include_directories(mxh_map_server_${_locale_def} PRIVATE
+        "${CMAKE_BINARY_DIR}/generated")
+    set_source_files_properties(${CMAKE_SOURCE_DIR}/src/proto/protocol_hash_anchor.cpp
+        PROPERTIES OBJECT_DEPENDS "${MXH_ITEM_PROTOCOL_HEADER}")
+    add_dependencies(mxh_map_server_${_locale_def} mxh_item_protocol_hash)
+    mxh_attach_item_protocol_manifest(mxh_map_server_${_locale_def})
     target_compile_definitions(mxh_map_server_${_locale_def} PRIVATE ${_all_defs})
     target_link_libraries(mxh_map_server_${_locale_def} PRIVATE
         mxh_server mxh_net mxh_crypto mxh_db mxh_log

@@ -63,6 +63,8 @@ endif()
 # not search for PlayDH or other original game resources and it does not
 # read MXH_PLAYDH_ROOT. There is no separate resource-lookup switch: the
 # client target does not probe those files at configure time.
+include(src/proto/ItemProtocolHash.cmake)
+
 option(MXH_CLIENT_COMPILE_ONLY "Configure only the mxh_client link closure" OFF)
 
 if(MXH_CLIENT_COMPILE_ONLY)

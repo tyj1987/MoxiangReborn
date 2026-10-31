@@ -136,11 +136,12 @@ rog_gate_self_test:
 # Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
 # The same build runs mxh_agent_cli_tests, mxh_e2e_soak_tests,
 # mxh_dpi_scale_tests, mxh_session_retry_contract_tests,
-# mxh_audio_contract_tests, and mxh_item_protocol_tests. Required-Passed
+# mxh_audio_contract_tests, mxh_item_protocol_tests, and
+# mxh_protocol_hash_tests. Required-Passed
 # includes AgentCli.OmittedDefaultMapIs17, the extra-map AgentCli cases, the
 # E2eSoak report-peer-gone cases, the DpiScale cases, the
-# SessionRetryContract login/session cases, the AudioContract cases, and
-# the ItemProtocol cases.
+# SessionRetryContract login/session cases, the AudioContract cases,
+# the ItemProtocol cases, and the ProtocolHash cases.
 # The ctest regex matches the GitHub job.
 # The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 cxx_resource_reference_linux:
@@ -172,10 +173,10 @@ cxx_resource_reference_linux:
       apt_get install -y --no-install-recommends build-essential cmake ninja-build python3 git ca-certificates
       cmake --version
       cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests
+      cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests mxh_protocol_hash_tests
     - |
       bash -euo pipefail <<'EOF'
-      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
+      ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak|ProtocolHash\.)' --output-on-failure 2>&1 | tee ctest.log
       EOF
     - |
       set -eu
@@ -234,6 +235,14 @@ cxx_resource_reference_linux:
       require_passed ItemProtocol.PickupDoesNotOccupyOriginalBuy || status=1
       require_passed ItemProtocol.DisplacedNumbersMatchOriginal || status=1
       require_passed ItemProtocol.AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax || status=1
+      require_passed ProtocolHash.GeneratedHashIs64LowercaseHex || status=1
+      require_passed ProtocolHash.LfAndCrlfNormalizeToSameHash || status=1
+      require_passed ProtocolHash.ChangingOneEnumValueChangesHash || status=1
+      require_passed ProtocolHash.CommentOnlyChangeDoesNotChangeHash || status=1
+      require_passed ProtocolHash.RealHeaderCountMatchesAndNamesPickupAndBuy || status=1
+      require_passed ProtocolHash.ScriptMatch || status=1
+      require_passed ProtocolHash.ScriptMismatch || status=1
+      require_passed ProtocolHash.ScriptMissingManifest || status=1
       if ! grep -Eq '(^|[^0-9])0 tests failed' ctest.log; then
         echo "CXX_RESOURCE_REFERENCE missing 0 tests failed" >&2
         status=1
