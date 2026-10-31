@@ -147,6 +147,8 @@ jobs:
             deploy/scripts/deploy_client.ps1
             deploy/scripts/deploy_server.ps1
             deploy/scripts/playdh_package_guard.ps1
+            deploy/resource-profiles.json
+            modern/config/resource-profiles/playdh-current.json
             scripts/tests/test-deploy-client-playdh-root.ps1
 
       # Standalone. Does not read the build tree or share state with a ctest step.

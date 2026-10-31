@@ -14,6 +14,7 @@ param(
     [switch]$Help,
     [switch]$DryRun,
     [switch]$ResolveOnly,
+    [switch]$SyntheticPackage,
     [switch]$SelfTest,
     [string]$PackageScanRoot = ""
 )
@@ -157,6 +158,26 @@ if ($ResolveOnly) {
     exit 0
 }
 $profileManifestPath = Join-Path $repoRoot 'deploy\resource-profiles.json'
+if ($SyntheticPackage) {
+    if ([string]::IsNullOrWhiteSpace($SourceDir) -or [string]::IsNullOrWhiteSpace($DeployDir)) {
+        Write-Host 'SYNTHETIC_PACKAGE requires -SourceDir and -DeployDir'
+        exit 1
+    }
+    if (-not (Test-Path -LiteralPath $ResourceDir -PathType Container)) {
+        Write-Host ("MXH_PLAYDH_ROOT is set to `"" + $ResourceDir + "`" but that directory does not exist")
+        exit 1
+    }
+    $mxhRepoPlay = [System.IO.Path]::GetFullPath((Join-Path $repoRoot 'modern/data/PlayDH'))
+    $mxhResFull = [System.IO.Path]::GetFullPath($ResourceDir)
+    $mxhRepoPrefix = $mxhRepoPlay.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    $mxhResPrefix = $mxhResFull.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (($mxhResFull -eq $mxhRepoPlay) -or $mxhResPrefix.StartsWith($mxhRepoPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        Write-Host 'SYNTHETIC_PACKAGE refuses the repo PlayDH tree'
+        exit 1
+    }
+    $ResourceDir = (Resolve-Path -LiteralPath $ResourceDir).Path
+    Write-Host 'SYNTHETIC_PACKAGE skip profile hash verification'
+} else {
 $profileManifest = Get-Content -LiteralPath $profileManifestPath -Raw | ConvertFrom-Json
 $profileProperty = $profileManifest.profiles.PSObject.Properties[$ResourceProfileId]
 if ($null -eq $profileProperty) { throw "Unknown resource profile: $ResourceProfileId" }
@@ -218,6 +239,7 @@ if ($DryRun) {
     Write-Host "Dry-run passed: profile '$ResourceProfileId' is complete and hash-verified."
     Write-Host "No deployment files were created or modified."
     exit 0
+}
 }
 $profileDataRoot = Join-Path $DeployDir 'data\PlayDH'
 

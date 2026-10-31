@@ -116,6 +116,42 @@ try {
             Remove-Item -LiteralPath $synthetic -Recurse -Force
         }
     }
+
+    Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
+    $pkgParent = Join-Path $tempParent ('mxh-pkg-' + [guid]::NewGuid().ToString('N'))
+    $pkgSrc = Join-Path $pkgParent 'src'
+    $pkgRes = Join-Path $pkgParent 'playdh'
+    $pkgOut = Join-Path $pkgParent 'package'
+    New-Item -ItemType Directory -Path $pkgSrc | Out-Null
+    New-Item -ItemType Directory -Path $pkgRes | Out-Null
+    New-Item -ItemType Directory -Path $pkgOut | Out-Null
+    try {
+        [System.IO.File]::WriteAllBytes((Join-Path $pkgSrc 'mxh_client.exe'), [Text.Encoding]::ASCII.GetBytes('synthetic-client'))
+        [System.IO.File]::WriteAllText((Join-Path $pkgRes 'synthetic.txt'), "synthetic`n")
+        $pkgOutText = & $pwsh -NoProfile -File $deploy -SyntheticPackage -SourceDir $pkgSrc -DeployDir $pkgOut -ResourceDir $pkgRes 2>&1 | Out-String
+        $pkgCode = $LASTEXITCODE
+        $batPath = Join-Path $pkgOut '启动游戏.bat'
+        $staged = Join-Path (Join-Path (Join-Path $pkgOut 'data') 'PlayDH') 'synthetic.txt'
+        $batAscii = ''
+        if (Test-Path -LiteralPath $batPath) {
+            $batAscii = [Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($batPath))
+        }
+        $needArg = '--resource-root "%~dp0data\PlayDH"'
+        $startLine = ''
+        foreach ($line in ($batAscii -split "`r?`n")) {
+            if ($line.Contains('MoxianClient.exe')) { $startLine = $line.Trim() }
+        }
+        $pkgOk = ($pkgCode -eq 0) -and (Test-Path -LiteralPath $staged) -and $batAscii.Contains($needArg) -and (-not $batAscii.Contains($repoPlay))
+        if (-not $pkgOk) {
+            Write-Host "package exit=$pkgCode bat=$startLine"
+            Write-Host $pkgOutText
+        }
+        Write-PlayDhRootCase -Name 'deploy-client-package-bat' -Ok $pkgOk
+    } finally {
+        if (Test-Path -LiteralPath $pkgParent) {
+            Remove-Item -LiteralPath $pkgParent -Recurse -Force
+        }
+    }
 } finally {
     Restore-PlayDhRootEnv
 }
