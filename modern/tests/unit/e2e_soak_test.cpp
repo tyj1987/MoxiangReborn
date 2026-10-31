@@ -223,6 +223,46 @@ TEST(E2eSoakAbort, LingerOneZeroIsSetBeforeCloseAndShutdownIsAbsent) {
     for (const auto& op : ops) EXPECT_EQ(op.find("shutdown"), std::string::npos);
 }
 
+TEST(E2eSoakArgs, ReportPeerGoneRequiresExpectPeer) {
+    const auto missing = parse_error({"--report-peer-gone"});
+    EXPECT_NE(missing.find("requires --expect-peer"), std::string::npos);
+    const auto reversed = parse_ok({"--report-peer-gone", "--expect-peer", "soakB"});
+    EXPECT_TRUE(reversed.report_peer_gone);
+    EXPECT_TRUE(reversed.expect_peer);
+    EXPECT_EQ(reversed.expect_peer_name, "soakB");
+    const auto forward = parse_ok({"--expect-peer", "soakB", "--report-peer-gone"});
+    EXPECT_TRUE(forward.report_peer_gone);
+    EXPECT_EQ(forward.expect_peer_name, "soakB");
+}
+
+TEST(E2eSoakPeer, DetectsRemovalFromPeerList) {
+    const std::vector<mxh::e2e::NamedPeer> before{{42u, "soakA"}, {7u, "other"}};
+    const std::vector<mxh::e2e::NamedPeer> after{{7u, "other"}};
+    const auto gone = mxh::e2e::detect_peer_gone("soakA", before, after);
+    EXPECT_TRUE(gone.gone);
+    EXPECT_EQ(gone.id, 42u);
+    const auto still = mxh::e2e::detect_peer_gone("soakA", before, before);
+    EXPECT_FALSE(still.gone);
+    const auto never = mxh::e2e::detect_peer_gone("missing", before, after);
+    EXPECT_FALSE(never.gone);
+}
+
+TEST(E2eSoakStateDump, PeerGoneMsIsNullUntilRemoval) {
+    mxh::e2e::SessionDump dump;
+    dump.entry.map = 10;
+    dump.exit = dump.entry;
+    dump.report_peer_gone = true;
+    const auto waiting = mxh::e2e::format_session_dump_json(dump);
+    EXPECT_NE(waiting.find("\"peer_gone_ms\": null"), std::string::npos);
+    dump.peer_removed = true;
+    dump.peer_gone_ms = 1500;
+    const auto removed = mxh::e2e::format_session_dump_json(dump);
+    EXPECT_NE(removed.find("\"peer_gone_ms\": 1500"), std::string::npos);
+    const auto exit_at = removed.find("\"exit\"");
+    const auto gone_at = removed.find("\"peer_gone_ms\"");
+    EXPECT_LT(exit_at, gone_at);
+}
+
 TEST(E2eSoakAbort, CloseDoesNotRunWhenLingerFails) {
     int closes = 0;
     int shutdowns = 0;

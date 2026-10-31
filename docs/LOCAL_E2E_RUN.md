@@ -78,6 +78,13 @@ position (`x`, `y`, `map`; `y` is the ground axis), `hp`, `mp`,
 sets SO_LINGER `{l_onoff=1, l_linger=0}` and closes the socket. It does
 not call shutdown and does not send logout. Stdout contains
 `CLIENT_E2E DROPPED rst` and the process exits 4.
+`--report-peer-gone` requires `--expect-peer` and is off by default.
+After `CLIENT_E2E PEER_SEEN <name>`, one later line is printed when that
+character leaves the remote-player list (the client handles this in
+`CInGameState` ObjectRemove): `CLIENT_E2E PEER_GONE <name> char_id=<id> t=<ms>`.
+A `--state-dump` written with the flag set includes `peer_gone_ms`
+(`null` when the peer never left). The password env stays
+`MXH_SMOKE_PASSWORD`.
 
 Ports are `--login-port`, `--agent-port`, and `--map-port` (or
 `MXH_E2E_PORT_BASE`). The ROG set is 26001 / 27001 / 28001. Pass them

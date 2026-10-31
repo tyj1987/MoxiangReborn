@@ -134,6 +134,7 @@ inline Args parse_args(int argc, char** argv) {
                       << "  --legacy              use 4DyuchiNET legacy framing\n"
                       << "  --map-server H:P      connect to MapServer at H:P\n"
                       << "  --map-server-map M=H:P register an additional map route\n"
+                      << "                        (M must not equal --default-map)\n"
                       << "  --default-map N       route used by --map-server (default "
                       << static_cast<unsigned>(kOmittedDefaultMapNum) << ")\n"
                       << "  --start-area N        new-character StartArea that must be registered\n"
@@ -150,6 +151,20 @@ inline Args parse_args(int argc, char** argv) {
     // which is kOmittedDefaultMapNum when --default-map is also omitted.
     if (!a.start_area_explicit) a.start_area = a.default_map_num;
     return a;
+}
+
+// Called after parse_args, once default_map_num is final (including the
+// omitted default of 17). Not called from the --map-server-map branch, so
+// flag order cannot hide a collision. Empty means the arguments are accepted.
+// main prints a non-empty result and exits 2. Tests call this directly and
+// do not exit the process.
+inline std::string extra_map_equals_default_error(const Args& args) {
+    for (const auto& route : args.map_routes) {
+        if (route.map_num != args.default_map_num) continue;
+        return "extra map route " + std::to_string(route.map_num) +
+               " equals default map " + std::to_string(args.default_map_num);
+    }
+    return {};
 }
 
 }  // namespace mxh::agent_cli
