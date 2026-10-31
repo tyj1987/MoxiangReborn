@@ -92,6 +92,10 @@ on:
       - modern/src/server/**
       - modern/tests/unit/client/**
       - modern/tests/unit/server/**
+      - modern/tests/unit/pack_file_header_test.cpp
+      - scripts/playdh_baseline_check.py
+      - scripts/playdh_external_only.py
+      - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:
