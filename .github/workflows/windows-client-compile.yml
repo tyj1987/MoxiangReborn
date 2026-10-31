@@ -608,6 +608,8 @@ jobs:
           Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
           pwsh -NoProfile -File scripts/tests/test-playdh-root-remaining.ps1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B -m unittest modern/tests/unit/tools/test_audit_minimap_root.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload behavior ctest log
         if: always()

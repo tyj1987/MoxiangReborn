@@ -60,28 +60,6 @@ function Invoke-PlayDhScript {
     }
 }
 
-function Get-PythonCommand {
-    # Symlinks are not -PathType Leaf on every host. The Alpine CI image
-    # publishes python3 as a symlink under /usr/local/bin.
-    $known = @(
-        '/usr/local/bin/python3',
-        '/usr/bin/python3',
-        '/usr/local/bin/python',
-        '/usr/bin/python'
-    )
-    foreach ($candidate in $known) {
-        if (Test-Path -LiteralPath $candidate) { return $candidate }
-    }
-    foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
-        if ([string]::IsNullOrWhiteSpace($dir)) { continue }
-        foreach ($name in @('python3', 'python')) {
-            $candidate = Join-Path $dir $name
-            if (Test-Path -LiteralPath $candidate) { return $candidate }
-        }
-    }
-    return $null
-}
-
 $tempParent = if (-not [string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }
 $tempRoot = Join-Path $tempParent ('mxh-playdh-remaining-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tempRoot | Out-Null
@@ -232,40 +210,6 @@ try {
         Write-Host $synGpu.Text
     }
     Write-PlayDhCase -Name 'gpu-explicit-synthetic' -Ok $synGpuOk
-
-    $python = Get-PythonCommand
-    $audit = Join-Path (Join-Path (Join-Path $repoRoot 'modern') 'tools') 'audit_minimap.py'
-    if ([string]::IsNullOrWhiteSpace($python) -or -not (Test-Path -LiteralPath $audit -PathType Leaf)) {
-        Write-PlayDhCase -Name 'audit-python-missing' -Ok $false
-    } else {
-        Push-Location -LiteralPath $tempRoot
-        try {
-            Clear-PlayDhEnv
-            $auditUnset = & $python $audit --resolve-only 2>&1 | Out-String
-            $auditUnsetCode = $LASTEXITCODE
-            $auditUnsetOk = ($auditUnsetCode -eq 1) -and ($auditUnset.Contains('MXH_PLAYDH_ROOT')) -and ($auditUnset.Contains('--playdh')) -and ($auditUnset.Contains('--resource-root')) -and (-not (Test-MentionsRepoPlayDh $auditUnset))
-            if (-not $auditUnsetOk) {
-                Write-Host "audit-unset exit=$auditUnsetCode"
-                Write-Host $auditUnset
-            }
-            Write-PlayDhCase -Name 'audit-unset' -Ok $auditUnsetOk
-
-            $auditSyn = & $python $audit --resolve-only --playdh $syntheticFull 2>&1 | Out-String
-            $auditSynCode = $LASTEXITCODE
-            $auditPrinted = ''
-            foreach ($line in ($auditSyn -split "`r?`n")) {
-                if ($line.StartsWith('resource_root=')) { $auditPrinted = $line.Substring('resource_root='.Length).Trim() }
-            }
-            $auditSynOk = ($auditSynCode -eq 0) -and ($auditPrinted -eq $syntheticFull) -and (-not (Test-MentionsRepoPlayDh $auditSyn))
-            if (-not $auditSynOk) {
-                Write-Host "audit-explicit exit=$auditSynCode printed='$auditPrinted'"
-                Write-Host $auditSyn
-            }
-            Write-PlayDhCase -Name 'audit-explicit-synthetic' -Ok $auditSynOk
-        } finally {
-            Pop-Location
-        }
-    }
 } finally {
     Restore-PlayDhEnv
     Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
