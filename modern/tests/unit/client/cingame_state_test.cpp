@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -940,4 +941,70 @@ TEST(CInGameSmokeExitGate, NonMapTenGateIgnoresMonstersBelow228) {
     _putenv_s("MXH_GUI_SMOKE_SETTLE_FRAMES", "");
     _putenv_s("MXH_GUI_SMOKE_EXIT", "");
     state.Release();
+}
+
+namespace {
+
+class PlayDhRootEnvGuard {
+public:
+    PlayDhRootEnvGuard() {
+        const char* current = std::getenv("MXH_PLAYDH_ROOT");
+        if (current != nullptr) {
+            had_ = true;
+            previous_ = current;
+        }
+        _putenv_s("MXH_PLAYDH_ROOT", "");
+    }
+    void set(const std::string& value) { _putenv_s("MXH_PLAYDH_ROOT", value.c_str()); }
+    ~PlayDhRootEnvGuard() {
+        if (had_) _putenv_s("MXH_PLAYDH_ROOT", previous_.c_str());
+        else _putenv_s("MXH_PLAYDH_ROOT", "");
+    }
+
+    PlayDhRootEnvGuard(const PlayDhRootEnvGuard&) = delete;
+    PlayDhRootEnvGuard& operator=(const PlayDhRootEnvGuard&) = delete;
+
+private:
+    bool had_ = false;
+    std::string previous_;
+};
+
+}  // namespace
+
+TEST(CInGameStatePlayDhRoot, UnsetDoesNotReadRepoTree) {
+    PlayDhRootEnvGuard env;
+    const char* raw = std::getenv("MXH_PLAYDH_ROOT");
+    ASSERT_TRUE(raw == nullptr || raw[0] == '\0');
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    const std::string& error = state.playdh_root_error();
+    EXPECT_NE(error.find(
+                  "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given"),
+              std::string::npos)
+        << error << " path=" << state.resolved_playdh_root().string();
+    EXPECT_TRUE(state.resolved_playdh_root().empty())
+        << state.resolved_playdh_root().string();
+    EXPECT_TRUE(state.ui_runtime().empty());
+}
+
+TEST(CInGameStatePlayDhRoot, SyntheticEnvSucceeds) {
+    const auto synthetic = std::filesystem::temp_directory_path() /
+                           "mxh-cingame-playdh-synthetic";
+    std::filesystem::remove_all(synthetic);
+    std::filesystem::create_directories(synthetic / "Image" / "InterfaceScript");
+    {
+        std::ofstream out(synthetic / "Image" / "InterfaceScript" / "15.bin",
+                          std::ios::binary);
+        ASSERT_TRUE(out);
+        out << "synthetic\n";
+    }
+    PlayDhRootEnvGuard env;
+    env.set(synthetic.string());
+    mxh::client::CInGameState state;
+    state.Init(nullptr);
+    EXPECT_TRUE(state.playdh_root_error().empty()) << state.playdh_root_error();
+    ASSERT_FALSE(state.resolved_playdh_root().empty());
+    EXPECT_EQ(std::filesystem::weakly_canonical(state.resolved_playdh_root()),
+              std::filesystem::weakly_canonical(synthetic));
+    std::filesystem::remove_all(synthetic);
 }

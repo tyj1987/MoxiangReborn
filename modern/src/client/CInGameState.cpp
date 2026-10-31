@@ -2,6 +2,7 @@
 // Phase B.2.3 â€” in-game state implementation.
 
 #include "CInGameState.hpp"
+#include "ingame_playdh_root.hpp"
 #include "CEngine.hpp"
 #include "CMainGame.hpp"
 #include "cinventoryexdialog.hpp"
@@ -727,24 +728,19 @@ void CInGameState::Init(void* pInitParam) {
 #if defined(MXH_CLIENT_TEST_BUILD)
     } else if (!engine && m_uiRuntime.empty()) {
         // Unit tests exercise dialog behavior without constructing the full
-        // Win32 engine.  Keep this fixture-only path out of production code;
-        // shipped clients must always receive an explicit ResourceProfile.
-        for (const auto& fixture : {
-                 std::filesystem::path("modern/data/PlayDH"),
-                 std::filesystem::path("data/PlayDH"),
-                 std::filesystem::path("../data/PlayDH"),
-                 std::filesystem::path("../../data/PlayDH"),
-                 std::filesystem::path("../../../data/PlayDH"),
-                 std::filesystem::path("../../../../data/PlayDH")}) {
-            if (!std::filesystem::exists(fixture / "Image" / "InterfaceScript" /
-                                          "15.bin")) continue;
+        // Win32 engine. MXH_PLAYDH_ROOT is the only root here. There is no
+        // walk to modern/data/PlayDH. Shipped clients pass CEngine.
+        const auto resolved = resolve_ingame_playdh_root(
+            std::nullopt, std::getenv("MXH_PLAYDH_ROOT"));
+        m_resolvedPlaydhRoot = resolved.path;
+        m_playdhRootError = resolved.error;
+        if (!resolved.path.empty()) {
             std::string ui_error;
-            if (m_uiRuntime.loadMany(fixture, kChinaGameInUiScripts,
+            if (m_uiRuntime.loadMany(resolved.path, kChinaGameInUiScripts,
                                      mxh::ui::ResolutionMode::Low800x600,
                                      &ui_error)) {
                 m_uiRuntime.applyActiveSet(kDefaultHudDialogIds);
             }
-            break;
         }
 #endif
     }
