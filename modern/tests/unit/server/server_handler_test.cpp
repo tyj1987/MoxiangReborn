@@ -3666,12 +3666,13 @@ TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     MockDbAdapter db; std::vector<mxh::net::Message> replies;
     db.seed_ready_vitals(123u, 60u, 80u, 20u);
     mxh::server::MapHandler handler(db, 7, [&](mxh::net::ConnectionId, const auto& message) { replies.push_back(message); });
-    const std::string exp_path = std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin";
-    handler.load_experience_curve(exp_path);
+    // Synthetic curve: level N needs N * 100000. 100103 crosses level 1
+    // and leaves remainder 103 at level 2 (threshold 200000).
+    install_synthetic_experience_curve(handler);
     mxh::net::Message game_in; game_in.header.object_id = 123; game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
     handler.on_message(mxh::net::make_connection_id(55), game_in);
-    mxh::game::MonsterInstance monster; monster.object_id=88001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1; monster.exp_reward=123;
+    mxh::game::MonsterInstance monster; monster.object_id=88001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1; monster.exp_reward=100103;
     ASSERT_TRUE(handler.add_monster_instance(monster));
     (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
     const auto level = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
@@ -3686,7 +3687,7 @@ TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     std::memcpy(&maximum, level->payload.data() + 10u, sizeof(maximum));
     EXPECT_EQ(notified_level, 2u);
     EXPECT_EQ(remaining, 103);
-    EXPECT_GT(maximum, 0);
+    EXPECT_EQ(maximum, 200000);
     const auto points = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Character) &&
             message.header.protocol == static_cast<std::uint8_t>(mxh::proto::CharacterProtocol::LevelUpPointNotify);
@@ -3694,6 +3695,7 @@ TEST(MapHandlerTest, MonsterDeathAwardsExperienceAndSendsLegacyNotification) {
     ASSERT_NE(points, replies.end()); ASSERT_EQ(points->payload.size(), 4u);
     std::uint32_t notified_points = 0;
     std::memcpy(&notified_points, points->payload.data(), sizeof(notified_points));
+    EXPECT_EQ(notified_points, 6u);
     EXPECT_EQ(notified_points, db.progress_rows.at(123)[5]);
     EXPECT_EQ(db.progress_rows.at(123)[0], 2);
     EXPECT_EQ(db.progress_rows.at(123)[1], 103);
@@ -3749,8 +3751,8 @@ TEST(MapHandlerTest, NormalExperienceSegmentRefillsAndPersistsOnce) {
     std::vector<mxh::net::Message> replies;
     mxh::server::MapHandler handler(db, 7, [&](mxh::net::ConnectionId,
         const auto& message) { replies.push_back(message); });
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    // Synthetic level 1 needs 100000. 20000 is the first 20% interval.
+    install_synthetic_experience_curve(handler);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -3761,11 +3763,11 @@ TEST(MapHandlerTest, NormalExperienceSegmentRefillsAndPersistsOnce) {
     monster.object_id = 88091u;
     monster.monster_kind = 77u;
     monster.max_life = monster.current_life = 1u;
-    monster.exp_reward = 4u;  // canonical Lv1 threshold 20: first 20% interval
+    monster.exp_reward = 20000u;  // synthetic Lv1 first 20% interval
     ASSERT_TRUE(handler.add_monster_instance(monster));
     (void)handler.apply_monster_damage(123u, monster.object_id, 1u, 99u);
     ASSERT_EQ(db.progress_rows.at(123u)[0], 1);
-    EXPECT_EQ(db.progress_rows.at(123u)[1], 4);
+    EXPECT_EQ(db.progress_rows.at(123u)[1], 20000);
     EXPECT_EQ(db.progress_rows.at(123u)[4], 0x11);
     EXPECT_EQ(db.progress_rows.at(123u)[5], 1);
     EXPECT_EQ(db.progress_rows.at(123u)[6], 1);
@@ -3782,7 +3784,7 @@ TEST(MapHandlerTest, NormalExperienceSegmentRefillsAndPersistsOnce) {
     ASSERT_EQ(exp->payload.size(), 9u);
     std::int64_t absolute = 0;
     std::memcpy(&absolute, exp->payload.data(), sizeof(absolute));
-    EXPECT_EQ(absolute, 4);
+    EXPECT_EQ(absolute, 20000);
     EXPECT_EQ(exp->payload[8], 0u);
 }
 
@@ -3791,8 +3793,9 @@ TEST(MapHandlerTest, FailedMonsterExperienceTransactionKeepsMonsterAliveAndNoRew
     std::vector<mxh::net::Message> replies;
     mxh::server::MapHandler handler(db, 7,
         [&](mxh::net::ConnectionId, const auto& message) { replies.push_back(message); });
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    // Synthetic level 1 needs 100000. 100103 leaves remainder 103 at level 2
+    // after the failed transaction is retried.
+    install_synthetic_experience_curve(handler);
     mxh::net::Message game_in;
     game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -3803,7 +3806,7 @@ TEST(MapHandlerTest, FailedMonsterExperienceTransactionKeepsMonsterAliveAndNoRew
     monster.object_id = 88002;
     monster.monster_kind = 77;
     monster.max_life = monster.current_life = 1;
-    monster.exp_reward = 123;
+    monster.exp_reward = 100103;
     ASSERT_TRUE(handler.add_monster_instance(monster));
     const auto live_before = handler.live_monster_count_for_test();
     replies.clear();
@@ -3832,13 +3835,16 @@ TEST(MapHandlerTest, MonsterExperiencePersistsAndLevelRestoresOnRelogin) {
     ReplySpy reply;
     {
         mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
-        handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
+        install_synthetic_experience_curve(handler);
         mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); handler.on_message(mxh::net::make_connection_id(55), in);
         mxh::game::MonsterInstance monster; monster.object_id=99001; monster.max_life=1; monster.current_life=1; monster.exp_reward=1000000; ASSERT_TRUE(handler.add_monster_instance(monster));
         (void)handler.apply_monster_damage(123, monster.object_id, 1, 99);
     }
     mxh::db::ResultSet saved; ASSERT_TRUE(db->query("SELECT level,exp FROM modern_player_state WHERE player_id=123", saved).ok()); ASSERT_EQ(saved.rows.size(),1u);
-    const auto saved_level=std::get<std::int64_t>(saved.rows[0][0]); EXPECT_GT(saved_level,1);
+    const auto saved_level=std::get<std::int64_t>(saved.rows[0][0]);
+    // One grant raises one level. 1000000 - level-1 threshold 100000 = 900000.
+    EXPECT_EQ(saved_level, 2);
+    EXPECT_EQ(std::get<std::int64_t>(saved.rows[0][1]), 900000);
     mxh::server::MapHandler restored(*db, 7, make_reply_spy(reply)); mxh::net::Message in; in.header.object_id=123; in.header.category=static_cast<std::uint8_t>(mxh::proto::Category::UserConn); in.header.protocol=static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn); restored.on_message(mxh::net::make_connection_id(56), in);
     const auto snapshot=restored.player_runtime_snapshot(123); ASSERT_TRUE(snapshot); EXPECT_EQ(snapshot->level, saved_level);
 }
@@ -5176,7 +5182,7 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
     ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
     ReplySpy reply; mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    install_synthetic_experience_curve(handler);
     const std::string quest_text =
         "$QUEST 99 { $SUBQUEST 1 { #TRIGGER @HUNT 77 1 *GIVEMONEY 50 *TAKEEXP 25 *GIVEITEM 8000 2 *ENDQUEST 1 } }";
     const auto qpath = write_temp_bin(synthesize_dealitem_bin(quest_text));
@@ -5187,7 +5193,7 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     mxh::net::Message start; start.header.object_id=123; start.header.category=static_cast<std::uint8_t>(mxh::proto::Category::Quest);
     start.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::StartSyn); start.payload.resize(2);
     const std::uint16_t qid=99; std::memcpy(start.payload.data(),&qid,sizeof(qid)); handler.on_message(connection,start);
-    mxh::game::MonsterInstance monster; monster.object_id=99001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1;
+    mxh::game::MonsterInstance monster; monster.object_id=99001; monster.monster_kind=77; monster.max_life=1; monster.current_life=1; monster.exp_reward=99990;
     ASSERT_TRUE(handler.add_monster_instance(monster)); (void)handler.apply_monster_damage(123,monster.object_id,1,99);
     mxh::net::Message end=start; end.header.protocol=static_cast<std::uint8_t>(mxh::proto::QuestProtocol::EndSyn);
     reply.messages.clear(); handler.on_message(connection,end);
@@ -5198,8 +5204,8 @@ TEST(MapHandlerTest, CompletedQuestRewardPersistsAndCannotBeClaimedTwice) {
     ASSERT_EQ(state.rows.size(),1u);
     EXPECT_EQ(std::get<std::int64_t>(state.rows[0][0]),150);
     // Legacy CPlayer::SetPlayerExpPoint subtracts the level threshold on
-    // level-up.  Monster (10) + quest (25) crosses level-1's 20-point
-    // threshold, so the persisted current-level experience is 15 at level 2.
+    // level-up. Synthetic level 1 needs 100000. Monster (99990) + quest (25)
+    // crosses it once, so the persisted current-level experience is 15 at level 2.
     EXPECT_EQ(std::get<std::int64_t>(state.rows[0][1]),2);
     EXPECT_EQ(std::get<std::int64_t>(state.rows[0][2]),15);
     mxh::db::ResultSet items; ASSERT_TRUE(db.query("SELECT item_idx,item_param FROM modern_player_item WHERE player_id=123",none,items).ok());
@@ -5501,8 +5507,9 @@ TEST(MapHandlerTest, PreloadedQuestAllowsRevisionedSkillAndAdvancesKillProgress)
     handler.load_skill_list(skill_path.string());
     std::filesystem::remove(skill_path, ec);
     ASSERT_NE(handler.find_skill(42u), nullptr);
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    // Synthetic level 1 needs 100000. 20000 is the first 20% interval, so the
+    // lethal skill refills MP without raising the level (max MP stays 125).
+    install_synthetic_experience_curve(handler);
     const auto source = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.object_id = 123u;
@@ -5517,6 +5524,7 @@ TEST(MapHandlerTest, PreloadedQuestAllowsRevisionedSkillAndAdvancesKillProgress)
     monster.monster_kind = 73u;
     monster.map_num = 10u;
     monster.max_life = monster.current_life = 1u;
+    monster.exp_reward = 20000u;
     monster.pos_x = monster.pos_z = 0.0f;
     ASSERT_TRUE(handler.add_monster_instance(monster));
     mxh::net::Message skill;
@@ -5568,8 +5576,7 @@ TEST(MapHandlerTest, LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend) {
     handler.load_skill_list(path.string());
     std::error_code ec;
     std::filesystem::remove(path, ec);
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    install_synthetic_experience_curve(handler);
     mxh::net::Message game_in;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -5640,8 +5647,9 @@ TEST(MapHandlerTest, LethalSkillPublishesFinalRefilledMpToClient) {
     handler.load_skill_list(path.string());
     std::error_code ec;
     std::filesystem::remove(path, ec);
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    // Synthetic level 1 needs 100000. 20000 is the first 20% interval and
+    // refills MP to the level-1 maximum after the skill spend.
+    install_synthetic_experience_curve(handler);
     const auto source = mxh::net::make_connection_id(55);
     mxh::net::Message game_in;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -5662,7 +5670,7 @@ TEST(MapHandlerTest, LethalSkillPublishesFinalRefilledMpToClient) {
     monster.map_num = 10u;
     monster.level = 1u;
     monster.max_life = monster.current_life = 1u;
-    monster.exp_reward = 4u;  // canonical Lv1 first 20% interval refills MP
+    monster.exp_reward = 20000u;  // synthetic Lv1 first 20% interval refills MP
     const auto initial_monster_count = handler.live_monster_count_for_test();
     ASSERT_TRUE(handler.add_monster_instance(monster));
     mxh::net::Message skill;
@@ -5675,7 +5683,7 @@ TEST(MapHandlerTest, LethalSkillPublishesFinalRefilledMpToClient) {
     std::memcpy(skill.payload.data() + 4u, &monster.object_id, 4u);
     reply.messages.clear();
     handler.on_message(source, skill);
-    ASSERT_EQ(db.progress_rows.at(123u)[1], 4);
+    ASSERT_EQ(db.progress_rows.at(123u)[1], 20000);
     ASSERT_EQ(db.vitals_rows.at(123u)[2], 125);
     ASSERT_EQ(handler.live_monster_count_for_test(), initial_monster_count);
     std::vector<mxh::net::Message> mp_messages;
