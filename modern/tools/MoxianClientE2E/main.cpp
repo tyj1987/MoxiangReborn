@@ -74,6 +74,7 @@
 //                  [--account NAME] [--password-env MXH_SMOKE_PASSWORD]
 //                      # password lives only in MXH_SMOKE_PASSWORD; the
 //                      # flag names that variable and the value is not logged
+//                      # neither --password nor --password-env exits 3
 //                  [--timeout N] # per-step timeout in seconds (default 10)
 //                  [--backend NAME]   'sqlite' (default) or 'mssql_odbc'
 //                  [--db DB]          SQLite file or MSSQL kv string
@@ -208,8 +209,9 @@ struct CliArgs {
                                // follow-up GUI client can attach after E2E PASS
     std::string character_name;
     std::string account = "mxh_e2e";
-    std::string password = "Pass1234";
+    std::string password;
     std::string password_env;
+    bool password_from_arg = false;
     // Remote PVE is the authoritative test environment.  Local loopback is
     // still available, but must be selected explicitly with --login-host
     // (or MXH_LOGIN_HOST) so a remote run can never silently fall back to a
@@ -304,7 +306,10 @@ CliArgs parse_cli(int argc, char** argv) {
         else if (s == "--keep-servers") a.keep_servers = true;
         else if (s == "--character-name" && i + 1 < argc) a.character_name = argv[++i];
         else if (s == "--account" && i + 1 < argc) a.account = argv[++i];
-        else if (s == "--password" && i + 1 < argc) a.password = argv[++i];
+        else if (s == "--password" && i + 1 < argc) {
+            a.password = argv[++i];
+            a.password_from_arg = true;
+        }
         else if (s == "--password-env" && i + 1 < argc) a.password_env = argv[++i];
         else if (s == "--login-host" && i + 1 < argc) {
             a.login_host = argv[++i];
@@ -363,14 +368,26 @@ CliArgs parse_cli(int argc, char** argv) {
             a.login_host = host;
         }
     }
-    if (!a.password_env.empty()) {
-        const char* value = std::getenv(a.password_env.c_str());
-        if (value == nullptr || *value == '\0') {
-            std::fprintf(stderr, "password environment variable is empty: %s\n",
-                         a.password_env.c_str());
+    // --dump-cli is offline and must not require a password.
+    if (!a.dump_cli) {
+        if (!a.password_env.empty()) {
+            const char* value = std::getenv(a.password_env.c_str());
+            if (value == nullptr || *value == '\0') {
+                std::fprintf(stderr, "password environment variable is empty: %s\n",
+                             a.password_env.c_str());
+                std::exit(3);
+            }
+            a.password = value;
+        }
+        if (!a.password_from_arg && a.password_env.empty()) {
+            std::fprintf(stderr,
+                         "password required: pass --password or --password-env\n");
             std::exit(3);
         }
-        a.password = value;
+        if (a.password.empty()) {
+            std::fprintf(stderr, "password is empty\n");
+            std::exit(3);
+        }
     }
     try {
         const auto resolved = mxh::test::resolve_e2e_cli_ports(

@@ -24,12 +24,11 @@ param(
     [int]$TimeoutSeconds = 300,
     [int]$MapNumber = 12,
     [string]$Username = 'visualsmoke',
-    [string]$Password = 'V1sualSm0ke',
     [string]$CharacterName = 'VisualSmoke',
     [string]$LoginHost = '127.0.0.1',
-    [ValidateRange(1, 65535)] [int]$LoginPort = 16001,
-    [ValidateRange(1, 65535)] [int]$AgentPort = 17001,
-    [ValidateRange(1, 65535)] [int]$MapPort = 18001,
+    [ValidateRange(1, 65535)] [int]$LoginPort = 26001,
+    [ValidateRange(1, 65535)] [int]$AgentPort = 27001,
+    [ValidateRange(1, 65535)] [int]$MapPort = 28001,
     [string]$DbCfg = '',
     [string]$SqlHost = '192.168.2.203',
     [string]$SqlDatabase = 'Moxiang',
@@ -40,6 +39,11 @@ param(
     [switch]$SkipRegister,
     [switch]$ExistingCharacter
 )
+if ([string]::IsNullOrWhiteSpace($env:MXH_SMOKE_PASSWORD)) {
+    Write-Error "MXH_SMOKE_PASSWORD is unset or empty" -ErrorAction Continue
+    exit 1
+}
+$Password = $env:MXH_SMOKE_PASSWORD
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
