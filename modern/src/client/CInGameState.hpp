@@ -1,28 +1,25 @@
 // mxh/client/CInGameState.hpp
 // Phase B.2.3 â€” in-game state (replaces CGameIn stub).
 //
-// Wires the eGS_GAMEIN (GameStateId::GameIn = 7) slot to the modern
-// mxh::net::TcpClient and drives the legacy 4DyuchiNET game-in
-// handshake against MoxianMapServer:
+// Wires the eGS_GAMEIN (GameStateId::GameIn = 7) slot to the persistent
+// AgentSession. Map traffic is not a second TCP connection: GameInSyn goes
+// out on that session and AgentServer forwards it to MapServer.
 //
-//   client.Connect(map_host:map_port) ->  no DistConnectSuccess (MapServer
-//                                         on_connect is silent)
-//                                     ->  send GameInSyn (proto=28, empty
-//                                         payload; player_id in MSGBASE)
-//                                     ->  recv GameInAck (proto=29, ~3000B
-//                                         SEND_HERO_TOTALINFO)
-//                                     ->  parse + render "in game" overlay
+//   agent session already connected
+//       -> send GameInSyn (proto=28, empty payload; player_id in MSGBASE)
+//       -> if that send fails, Process() retries on the next tick
+//       -> recv GameInAck (proto=29, SEND_HERO_TOTALINFO)
+//       -> parse + render "in game" overlay
 //
 // 1:1 with the legacy MHClient GameIn flow + map_handler.cpp:handle_gamein.
 // In the legacy flow the player goes through GameLoading first; the
-// modern client can either (a) get there via GameLoading (Phase C+)
-// or (b) jump straight from CharSelect to GameIn (B.2.3 dev path).
+// modern client can either (a) get there via GameLoading
+// or (b) jump straight from CharSelect to GameIn.
 //
 // Modern port notes:
-//   * Bypasses the AgentServer's Phase 9 forwarding (which requires
-//     CharacterSelectSyn first).  MapServer is reached directly so the
-//     "in game" overlay can be exercised before B.4+ wires up
-//     Player/AISystem.
+//   * There is no direct MapServer socket here. A dropped session requests
+//     Title so the player logs in again. The client does not auto-resume
+//     the map session.
 //   * GameInSyn payload is empty (the channel/level fields the
 //     legacy MSG_DWORD2 carried aren't read by the modern server).
 //   * GameInAck parser is a free function so unit tests can lock the
@@ -35,6 +32,7 @@
 #include "mxh/game/skill_manager.hpp"
 #include "mxh/game/experience_curve.hpp"
 #include "ClientUiRuntime.hpp"
+#include "mxh/client/session_retry.hpp"
 #include "WorldScreenProjection.hpp"
 
 #include <cstdint>
@@ -572,6 +570,8 @@ public:
     // calls these.  `ArmGameInAckDeadlineForTest` puts the pending
     // timestamp `m_gameInAckTimeoutMs` milliseconds in the past so the
     // next Process() tick fires the timeout.
+    static constexpr std::uint64_t kGameInAckTimeoutMs = ::mxh::client::kGameInAckTimeoutMs;
+
     void SetGameInAckTimeoutForTest(std::uint64_t budget_ms) noexcept {
         m_gameInAckTimeoutMs = budget_ms;
     }
@@ -666,7 +666,7 @@ public:
     // dispatch path or by Release).  Mirrors the four other request
     // timeouts in this class (pickup / inventory / combat / shop).
     std::uint64_t            m_pendingGameInAckSinceMs = 0;
-    std::uint64_t            m_gameInAckTimeoutMs      = 10000;  // 10s default
+    std::uint64_t            m_gameInAckTimeoutMs      = kGameInAckTimeoutMs;
     bool                     m_releasing = false;
     bool                     m_useHsel = false;
     std::unique_ptr<mxh::crypto::HselStreamCipher> m_hsel;

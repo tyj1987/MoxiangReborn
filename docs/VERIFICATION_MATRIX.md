@@ -23,7 +23,7 @@
 | G1 | Profiles、路径与秘密保护 | PARTIAL | PVE 分线和 GitLab 专用候选通道已核验；干净机器的全路径/秘密审计及 Unity 依赖闭合未完成。 |
 | G2 | 干净树、构建与当前文档 | 未通过 | 原版 Unity 工作区仍有保留 WIP；本轮文档更新不等于工作树清洁。不得沿用旧 clean-tree PASS。 |
 | G3 | 客户端状态、显示与加载基础 | PARTIAL | Unity原资源隔离后的历史空Library EditMode191/0/13；当前Player42fe79dd/core39836319构建及首次正常GUI入图通过。新呈现诊断与后续源码不继承旧全套测试。 |
-| G4 | 启动器、登录与显示转换 | PARTIAL | r14/e244正常Launcher→登录→选角→Map10通过；无旧audit DLL依赖。Linux ctest 的 DpiScale.* 只锁定“客户区像素不被 DPI 相乘”这一纯计算约定，不证明 Win32 行为。真实验收未做：待 ROG 上的 MSVC 构建以及 125%/150% 运行。完整异常流程、多显示器及真人验收未完成。 |
+| G4 | 启动器、登录与显示转换 | PARTIAL | r14/e244正常Launcher→登录→选角→Map10通过；无旧audit DLL依赖。Linux ctest 锁定现有策略：连接在 3 秒预算内重试，登录/选角/建角/入图应答 10 秒超时后失败，局内断线回到标题并完整重登，不自动续会话。Linux ctest 的 DpiScale.* 只锁定“客户区像素不被 DPI 相乘”这一纯计算约定，不证明 Win32 行为。真实验收未做：待 ROG 上的 MSVC 构建以及 125%/150% 运行。完整异常流程、DPI/多显示器及真人验收未完成。 |
 | G5 | 角色与加载流程 | PARTIAL | 原版GUI建角100003及PVE非SA四属性12读回；owned item无行。Unity当前Player正常选UnityTrail01入Map10并原地复活，UI生命0→37/125；未完成持有装备DBID和完整业务链。 |
 | G6 | Map10 世界呈现 | PARTIAL | 原版r14地形、蓝衣长武器角色与怪物可见，死亡后仍站立。Unity当前Player只清楚显示全图地形，角色/怪物不可辨认。两线姿态、遮挡和完整画面尚未验收。 |
 | G7 | UI 实时绑定 | PARTIAL | r14固定canonical的名字/等级/HP/盾/内力/地图坐标完整可读，实际像素原色正确；独立parser25/adapter5通过。全部控件、原字体和多DPI尚未通过；极端样式坐标仍有后续布局边界。 |

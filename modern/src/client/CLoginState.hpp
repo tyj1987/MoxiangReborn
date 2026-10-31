@@ -42,6 +42,7 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/crypto/hsel_encryptor.hpp"
+#include "mxh/client/session_retry.hpp"
 #include "NetworkEventQueue.hpp"
 
 namespace mxh::client {
@@ -100,10 +101,17 @@ public:
 
     // Public start hook.  Host calls this right after SetGameState()
     // to begin the connection.  Idempotent — calling twice is a no-op
-    // (the existing TcpClient is reused).
+    // while this attempt is still started.  Release() clears that guard
+    // so a later Start() opens a new login.  A dropped session is a full
+    // re-login; this state does not resume the previous socket.
     void Start(CEngine* engine, std::string host, std::uint16_t port,
                std::string user_id, std::string password,
                bool use_hsel = false);
+
+    // TCP connect budget for this handshake, and the LoginAck wait after
+    // RequestLogin is sent.  Both are the production defaults.
+    static constexpr std::chrono::milliseconds kConnectTimeout = kLoginConnectTimeout;
+    static constexpr std::chrono::seconds kAckTimeout = kLoginAckTimeout;
 
     // Inspectors (test + diagnostics).  All public accessors return
     // values written by the TcpClient recv thread; we use std::atomic
@@ -204,7 +212,7 @@ private:
     // by `SetLoginAckTimeoutForTest`.  We use steady_clock so a wall-
     // clock adjustment (e.g. NTP) does not falsely fire the timeout.
     std::chrono::steady_clock::time_point m_loginAckDeadline{};
-    std::chrono::milliseconds             m_loginAckTimeout{std::chrono::seconds(10)};
+    std::chrono::milliseconds             m_loginAckTimeout{kAckTimeout};
 };
 
 } // namespace mxh::client

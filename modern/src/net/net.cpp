@@ -6,6 +6,7 @@
 
 #include "mxh/net/net.hpp"
 #include "mxh/net/abortive_close.hpp"
+#include "mxh/net/connect_retry.hpp"
 #include "mxh/net/packet_trace.hpp"
 
 #include <algorithm>
@@ -822,29 +823,32 @@ NetError TcpClient::connect(const ClientConfig& cfg) {
     if (bind_ip.empty()) {
         if (const char* env = std::getenv("MXH_BIND_IP")) bind_ip = env;
     }
-    const auto deadline = std::chrono::steady_clock::now() + cfg.connect_timeout;
-    do {
-        impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (impl_->sock != INVALID_SOCKET && !bind_ip.empty()) {
-            sockaddr_in local{};
-            local.sin_family = AF_INET;
-            local.sin_port = 0;
-            if (inet_pton(AF_INET, bind_ip.c_str(), &local.sin_addr) == 1) {
-                ::bind(impl_->sock, reinterpret_cast<sockaddr*>(&local), sizeof(local));
+    const bool connected = retry_connect_until(
+        cfg.connect_timeout,
+        [] { return std::chrono::steady_clock::now(); },
+        [](std::chrono::milliseconds delay) {
+            std::this_thread::sleep_for(delay);
+        },
+        [&] {
+            impl_->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            if (impl_->sock != INVALID_SOCKET && !bind_ip.empty()) {
+                sockaddr_in local{};
+                local.sin_family = AF_INET;
+                local.sin_port = 0;
+                if (inet_pton(AF_INET, bind_ip.c_str(), &local.sin_addr) == 1) {
+                    ::bind(impl_->sock, reinterpret_cast<sockaddr*>(&local), sizeof(local));
+                }
             }
-        }
-        if (impl_->sock != INVALID_SOCKET &&
-            ::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
-                != SOCKET_ERROR) {
-            break;
-        }
-        if (impl_->sock != INVALID_SOCKET) closesocket(impl_->sock);
-        impl_->sock = INVALID_SOCKET;
-        if (std::chrono::steady_clock::now() >= deadline) {
-            return NetError::ConnectFailed;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    } while (true);
+            if (impl_->sock != INVALID_SOCKET &&
+                ::connect(impl_->sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr))
+                    != SOCKET_ERROR) {
+                return true;
+            }
+            if (impl_->sock != INVALID_SOCKET) closesocket(impl_->sock);
+            impl_->sock = INVALID_SOCKET;
+            return false;
+        });
+    if (!connected) return NetError::ConnectFailed;
 
     if (impl_->sock == INVALID_SOCKET) {
         return NetError::ConnectFailed;

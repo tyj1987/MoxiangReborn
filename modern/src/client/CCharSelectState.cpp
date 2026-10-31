@@ -316,16 +316,14 @@ void CCharSelectState::Process() {
     // timeout path through `ArmListAckDeadlineForTest`.
     if (!m_failed) {
         const auto now = std::chrono::steady_clock::now();
-        if (m_listAckDeadline != std::chrono::steady_clock::time_point{} &&
-            now >= m_listAckDeadline && !m_listReceived) {
-            fail_with("CharacterListAck timeout (no response from AgentServer)");
-        } else if (m_selectAckDeadline != std::chrono::steady_clock::time_point{} &&
-                   now >= m_selectAckDeadline) {
+        if (ack_wait_expired(m_failed, m_listReceived, m_listAckDeadline, now)) {
+            fail_with(kCharacterListAckTimeoutReason);
+        } else if (ack_wait_expired(m_failed, false, m_selectAckDeadline, now)) {
             // The select-ack deadline is set ONLY by `send_select_syn`
             // (production) or `ArmSelectAckDeadlineForTest` (test), both
             // of which happen *after* the Syn is sent — so the deadline
             // itself implies "we are waiting for the SelectAck".
-            fail_with("CharacterSelectAck timeout (no response from AgentServer)");
+            fail_with(kCharacterSelectAckTimeoutReason);
         }
     }
     if (!m_pEngine) return;

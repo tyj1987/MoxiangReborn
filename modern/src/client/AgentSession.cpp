@@ -26,7 +26,7 @@ mxh::net::NetError AgentSession::connect(
     config.port = port;
     config.use_legacy_framing = true;
     config.use_encryption = use_hsel;
-    config.connect_timeout = std::chrono::milliseconds(3000);
+    config.connect_timeout = kConnectTimeout;
     const auto result = m_client->connect(config);
     if (result != mxh::net::NetError::Ok) m_client.reset();
     return result;
