@@ -117,6 +117,18 @@ function Invoke-Case {
     } catch {
         $detail = [string]$_.Exception.Message
         if ([string]::IsNullOrWhiteSpace($detail)) { $detail = [string]$_ }
+        $inner = $_.Exception.InnerException
+        if ($null -ne $inner) { $detail = $detail + ' | inner ' + [string]$inner.Message }
+        $position = ''
+        try { $position = [string]$_.InvocationInfo.PositionMessage } catch { $position = '' }
+        if (-not [string]::IsNullOrWhiteSpace($position)) {
+            $detail = $detail + ' | ' + ($position -replace '\s+', ' ')
+        }
+        $stack = ''
+        try { $stack = [string]$_.ScriptStackTrace } catch { $stack = '' }
+        if (-not [string]::IsNullOrWhiteSpace($stack)) {
+            $detail = $detail + ' | ' + ($stack -replace '\s+', ' ')
+        }
         $script:Failures.Add($Name + ' :: ' + $detail)
         Write-Output ('FAIL ' + $Name + ' :: ' + $detail)
     } finally {
@@ -1696,7 +1708,8 @@ try {
                 }
                 Assert-True (-not (Test-PidStillRunning -ProcessId $ownedPid)) "timed out pid $ownedPid still running"
                 Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'timeout cleanup stopped a same-named process outside the job'
-                $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's'
+                $elapsedText = '{0:0.0}' -f $sw.Elapsed.TotalSeconds
+                $script:CasePassDetail = ' elapsed=' + $elapsedText + 's'
             } finally {
                 $outsideId = 0
                 if ($null -ne $outside) {
@@ -1855,7 +1868,8 @@ class OrphanParent {
                     if ($null -eq $entry) { continue }
                     if ([int]$entry.Id -eq $orphanPid) { $inOwned = $true }
                 }
-                $script:CasePassDetail = ' elapsed=' + [math]::Round($sw.Elapsed.TotalSeconds, 1) + 's inOwned=' + [int]$inOwned
+                $elapsedText = '{0:0.0}' -f $sw.Elapsed.TotalSeconds
+                $script:CasePassDetail = ' elapsed=' + $elapsedText + 's inOwned=' + [int]$inOwned
             } finally {
                 $outsideId = 0
                 if ($null -ne $outside) {
