@@ -118,7 +118,8 @@ try {
     }
 
     Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
-    $pkgParent = Join-Path $tempParent ('mxh-pkg-' + [guid]::NewGuid().ToString('N'))
+    $sysTemp = [System.IO.Path]::GetTempPath()
+    $pkgParent = Join-Path $sysTemp ('mxh-pkg-' + [guid]::NewGuid().ToString('N'))
     $pkgSrc = Join-Path $pkgParent 'src'
     $pkgRes = Join-Path $pkgParent 'playdh'
     $pkgOut = Join-Path $pkgParent 'package'
@@ -150,6 +151,75 @@ try {
     } finally {
         if (Test-Path -LiteralPath $pkgParent) {
             Remove-Item -LiteralPath $pkgParent -Recurse -Force
+        }
+    }
+
+    $guardSrc = Join-Path $sysTemp ('mxh-guard-src-' + [guid]::NewGuid().ToString('N'))
+    $guardRes = Join-Path $sysTemp ('mxh-guard-res-' + [guid]::NewGuid().ToString('N'))
+    $guardOut = Join-Path $sysTemp ('mxh-guard-out-' + [guid]::NewGuid().ToString('N'))
+    $outside = Join-Path $repoRoot ('mxh-synth-outside-' + [guid]::NewGuid().ToString('N'))
+    $outsideRes = Join-Path $outside 'playdh'
+    $outsideOut = Join-Path $outside 'package'
+    $pakRes = Join-Path $sysTemp ('mxh-guard-pak-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $guardSrc | Out-Null
+    New-Item -ItemType Directory -Path $guardRes | Out-Null
+    New-Item -ItemType Directory -Path $guardOut | Out-Null
+    New-Item -ItemType Directory -Path $outsideRes | Out-Null
+    New-Item -ItemType Directory -Path $outsideOut | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $pakRes 'nested') | Out-Null
+    try {
+        [System.IO.File]::WriteAllBytes((Join-Path $guardSrc 'mxh_client.exe'), [Text.Encoding]::ASCII.GetBytes('synthetic-client'))
+        [System.IO.File]::WriteAllText((Join-Path $guardRes 'synthetic.txt'), "synthetic`n")
+        [System.IO.File]::WriteAllText((Join-Path $outsideRes 'synthetic.txt'), "synthetic`n")
+        [System.IO.File]::WriteAllBytes((Join-Path (Join-Path $pakRes 'nested') 'Synthetic.PAK'), [Text.Encoding]::ASCII.GetBytes('synthetic-pak'))
+        $tempFull = [System.IO.Path]::GetFullPath($sysTemp).TrimEnd('\', '/')
+        $repoFullCheck = [System.IO.Path]::GetFullPath($repoRoot).TrimEnd('\', '/')
+        $tempPrefix = $tempFull + [System.IO.Path]::DirectorySeparatorChar
+        if ($repoFullCheck.StartsWith($tempPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            Write-PlayDhRootCase -Name 'deploy-client-resourcedir-outside-temp' -Ok $false
+            Write-PlayDhRootCase -Name 'deploy-client-deploydir-outside-temp' -Ok $false
+            Write-Host 'checkout is inside the system temp dir'
+        } else {
+            $resText = & $pwsh -NoProfile -File $deploy -SyntheticPackage -SourceDir $guardSrc -DeployDir $guardOut -ResourceDir $outsideRes 2>&1 | Out-String
+            $resCode = $LASTEXITCODE
+            $resOk = ($resCode -eq 1) -and $resText.Contains('SYNTHETIC_PACKAGE -ResourceDir must resolve under the system temp dir')
+            if (-not $resOk) {
+                Write-Host "resourcedir-outside exit=$resCode"
+                Write-Host $resText
+            }
+            Write-PlayDhRootCase -Name 'deploy-client-resourcedir-outside-temp' -Ok $resOk
+
+            $depText = & $pwsh -NoProfile -File $deploy -SyntheticPackage -SourceDir $guardSrc -DeployDir $outsideOut -ResourceDir $guardRes 2>&1 | Out-String
+            $depCode = $LASTEXITCODE
+            $depOk = ($depCode -eq 1) -and $depText.Contains('SYNTHETIC_PACKAGE -DeployDir must resolve under the system temp dir')
+            if (-not $depOk) {
+                Write-Host "deploydir-outside exit=$depCode"
+                Write-Host $depText
+            }
+            Write-PlayDhRootCase -Name 'deploy-client-deploydir-outside-temp' -Ok $depOk
+        }
+
+        $pakOut = Join-Path $sysTemp ('mxh-guard-pak-out-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $pakOut | Out-Null
+        try {
+            $pakText = & $pwsh -NoProfile -File $deploy -SyntheticPackage -SourceDir $guardSrc -DeployDir $pakOut -ResourceDir $pakRes 2>&1 | Out-String
+            $pakCode = $LASTEXITCODE
+            $pakOk = ($pakCode -eq 1) -and $pakText.Contains('SYNTHETIC_PACKAGE -ResourceDir must not contain a .pak file')
+            if (-not $pakOk) {
+                Write-Host "pak exit=$pakCode"
+                Write-Host $pakText
+            }
+            Write-PlayDhRootCase -Name 'deploy-client-resourcedir-pak' -Ok $pakOk
+        } finally {
+            if (Test-Path -LiteralPath $pakOut) {
+                Remove-Item -LiteralPath $pakOut -Recurse -Force
+            }
+        }
+    } finally {
+        foreach ($mxhCleanup in @($guardSrc, $guardRes, $guardOut, $outside, $pakRes)) {
+            if (Test-Path -LiteralPath $mxhCleanup) {
+                Remove-Item -LiteralPath $mxhCleanup -Recurse -Force
+            }
         }
     }
 } finally {
