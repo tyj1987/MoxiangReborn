@@ -26,7 +26,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace fs = std::filesystem;
 
@@ -45,18 +45,12 @@ int g_passes = 0;
 } while (0)
 
 fs::path resolvePlayDHRoot() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    std::error_code ec;
-    auto current = fs::absolute(fs::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "data" / "PlayDH";
-        std::error_code candidate_ec;
-        if (fs::is_directory(candidate, candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
+    try {
+        return mxh::test::require_rog_playdh_root();
+    } catch (const std::exception& ex) {
+        std::cerr << "FAIL: " << ex.what() << "\n";
+        return {};
     }
-    return {};
 }
 
 int main() {
@@ -64,8 +58,8 @@ int main() {
     const auto is_dir = playdh / "Image" / "InterfaceScript";
 
     if (!fs::exists(is_dir)) {
-        std::cerr << "SKIP: PlayDH not found at " << is_dir << "\n";
-        return 0;
+        std::cerr << "FAIL: PlayDH not found at " << is_dir << "\n";
+        return 1;
     }
 
     // (1) default 3 参数 apply_legacy_layout 走 #POINT 1:1

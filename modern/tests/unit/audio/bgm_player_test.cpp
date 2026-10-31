@@ -1,32 +1,45 @@
 #include "mxh/audio/bgm_player.hpp"
+#include "mxh/compat/mh_file_ex.hpp"
 
 #include <gtest/gtest.h>
 
-#include <filesystem>
 #include <limits>
-#include "../../support/playdh_env.hpp"
+#include <string>
+#include "../../support/rog_playdh.hpp"
+#include "../../support/synthetic_fixture.hpp"
 
 namespace {
-std::filesystem::path findSoundRoot() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override())
-        return *playdh_override / "Sound";
-    auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8; ++level) {
-        for (const auto& first : std::filesystem::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto direct = first.path() / "PlayDH" / "Sound";
-            if (std::filesystem::exists(direct / "SoundList.bin")) return direct;
-        }
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
+
+const std::string kHandWrittenSoundList =
+    "3\r\n"
+    "0 fx/tap.wav 0 0 2 90 1\r\n"
+    "1 NULL.WAV 0 0 0 0 0\r\n"
+    "2 bgm/theme.mp3 1 1 12 600 0.5\r\n";
+
+class HandWrittenSoundRoot {
+public:
+    HandWrittenSoundRoot() {
+        const auto list = dir_.write_bytes("SoundList.bin", "x");
+        const auto encoded = mxh::compat::write_mh_bin(
+            list, {reinterpret_cast<const std::uint8_t*>(kHandWrittenSoundList.data()),
+                   kHandWrittenSoundList.size()});
+        ok_ = dir_.created() && !list.empty() && encoded == mxh::compat::MhError::Ok &&
+              !dir_.write_bytes("fx/tap.wav", "RIFF").empty() &&
+              !dir_.write_bytes("bgm/theme.mp3", "ID3").empty();
     }
-    return {};
-}
-}
+
+    bool ok() const { return ok_; }
+    const std::filesystem::path& path() const { return dir_.path(); }
+
+private:
+    mxh::test::SyntheticFixtureDir dir_;
+    bool ok_ = false;
+};
+
+}  // namespace
 
 TEST(BgmPlayer, ResolvesOriginalLoginMusic) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto root = mxh::test::require_rog_playdh_root() / "Sound";
     mxh::audio::BgmPlayer player;
     std::string error;
     ASSERT_TRUE(player.initialize(root, &error)) << error;
@@ -37,20 +50,22 @@ TEST(BgmPlayer, ResolvesOriginalLoginMusic) {
 }
 
 TEST(BgmPlayer, RejectsEffectAndNullSlotsAsBgm) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    HandWrittenSoundRoot sound;
+    ASSERT_TRUE(sound.ok());
     mxh::audio::BgmPlayer player;
-    ASSERT_TRUE(player.initialize(root));
+    ASSERT_TRUE(player.initialize(sound.path()));
     EXPECT_TRUE(player.resolve(0).empty());
     EXPECT_TRUE(player.resolve(1).empty());
+    const auto theme = player.resolve(2);
+    ASSERT_FALSE(theme.empty());
+    EXPECT_EQ(theme.filename(), "theme.mp3");
 }
 
 // Playback lifecycle verification: confirm play()/stop() drives the player
 // state. Windows uses the production Media Foundation/XAudio2 backend;
 // non-Windows builds intentionally report that native playback is unavailable.
 TEST(BgmPlayer, PlaybackLoopReportsCurrentId) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto root = mxh::test::require_rog_playdh_root() / "Sound";
     mxh::audio::BgmPlayer player;
     std::string error;
     ASSERT_TRUE(player.initialize(root, &error)) << error;
@@ -62,41 +77,37 @@ TEST(BgmPlayer, PlaybackLoopReportsCurrentId) {
     player.stop();
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #else
-    // Non-Windows: native Windows playback is intentionally unavailable.
     EXPECT_FALSE(played);
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #endif
 }
 
 TEST(BgmPlayer, PlaybackReplacesCurrentBgm) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    const auto root = mxh::test::require_rog_playdh_root() / "Sound";
     mxh::audio::BgmPlayer player;
     std::string error;
     ASSERT_TRUE(player.initialize(root, &error)) << error;
 
 #ifdef _WIN32
-    ASSERT_TRUE(player.play(1667, &error)) << error;  // bg_login
+    ASSERT_TRUE(player.play(1667, &error)) << error;
     EXPECT_EQ(player.currentSoundId(), 1667u);
-    ASSERT_TRUE(player.play(1663, &error)) << error;  // bg_field
+    ASSERT_TRUE(player.play(1663, &error)) << error;
     EXPECT_EQ(player.currentSoundId(), 1663u);
     player.stop();
     EXPECT_EQ(player.currentSoundId(), 0xffffu);
 #else
-    // On non-Windows, native playback refuses - repeated calls remain safe.
     EXPECT_FALSE(player.play(1667, &error));
     EXPECT_FALSE(player.play(1663, &error));
 #endif
 }
 
 TEST(BgmPlayer, VolumeClampIsApplied) {
-    const auto root = findSoundRoot();
-    if (root.empty()) GTEST_SKIP() << "PlayDH fixture is not installed";
+    HandWrittenSoundRoot sound;
+    ASSERT_TRUE(sound.ok());
     mxh::audio::BgmPlayer player;
-    ASSERT_TRUE(player.initialize(root));
-    player.setVolume(2.5f);   // above max
-    player.setVolume(-0.5f);  // below min
-    // This assertion guards that volume updates remain safe before playback.
+    ASSERT_TRUE(player.initialize(sound.path()));
+    player.setVolume(2.5f);
+    player.setVolume(-0.5f);
     SUCCEED();
 }
 

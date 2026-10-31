@@ -21,28 +21,15 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "../support/playdh_env.hpp"
+#include "../support/rog_playdh.hpp"
 
 using namespace mxh::compat;
 
 namespace {
 
 std::filesystem::path playdh_map(std::string_view name) {
-    if (const auto playdh_override = mxh::test::playdh_dir_override())
-        return *playdh_override / "Resource" / "Map" / std::string(name);
-    auto root = std::filesystem::current_path();
-    for (int depth = 0; depth < 8 && !root.empty(); ++depth,
-         root = root.parent_path()) {
-        const auto candidate = root / "modern" / "data" / "PlayDH" /
-                               "Resource" / "Map" / std::string(name);
-        if (std::filesystem::is_regular_file(candidate)) return candidate;
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root() / "Resource" / "Map" / std::string(name);
 }
-
-const std::filesystem::path kRealMap0 = playdh_map("Map0.bmhm");
-const std::filesystem::path kRealMap17 = playdh_map("Map17.bmhm");
-const std::filesystem::path kRealMap101 = playdh_map("Map101.bmhm");
 
 // Read a file fully into a byte vector.
 std::vector<std::uint8_t> read_file(const std::filesystem::path& p) {
@@ -341,9 +328,8 @@ TEST(BmhmMap, LoadMissingFile) {
 // ---------------------------------------------------------------------
 
 TEST(BmhmMap, RealMap0) {
-    if (!std::filesystem::exists(kRealMap0)) {
-        GTEST_SKIP() << "Map0.bmhm not found at " << kRealMap0.string();
-    }
+    const auto kRealMap0 = playdh_map("Map0.bmhm");
+    ASSERT_TRUE(std::filesystem::is_regular_file(kRealMap0)) << kRealMap0.string();
     auto loaded = BmhmMap::load(kRealMap0);
     ASSERT_TRUE(loaded.has_value());
     EXPECT_TRUE(loaded->has_bmhm_header());
@@ -371,9 +357,8 @@ TEST(BmhmMap, RealMap0) {
 }
 
 TEST(BmhmMap, RealMap17) {
-    if (!std::filesystem::exists(kRealMap17)) {
-        GTEST_SKIP() << "Map17.bmhm not found at " << kRealMap17.string();
-    }
+    const auto kRealMap17 = playdh_map("Map17.bmhm");
+    ASSERT_TRUE(std::filesystem::is_regular_file(kRealMap17)) << kRealMap17.string();
     auto loaded = BmhmMap::load(kRealMap17);
     ASSERT_TRUE(loaded.has_value());
     const auto& d = loaded->desc();
@@ -390,9 +375,8 @@ TEST(BmhmMap, RealMap17) {
 }
 
 TEST(BmhmMap, RealMap101) {
-    if (!std::filesystem::exists(kRealMap101)) {
-        GTEST_SKIP() << "Map101.bmhm not found at " << kRealMap101.string();
-    }
+    const auto kRealMap101 = playdh_map("Map101.bmhm");
+    ASSERT_TRUE(std::filesystem::is_regular_file(kRealMap101)) << kRealMap101.string();
     auto loaded = BmhmMap::load(kRealMap101);
     ASSERT_TRUE(loaded.has_value());
 

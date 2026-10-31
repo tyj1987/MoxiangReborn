@@ -65,34 +65,19 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
 
 fs::path resolvePlayDHRoot() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    #ifdef MXH_PLAYDH_ROOT_TS
-    return fs::path(MXH_PLAYDH_ROOT_TS);
-    #endif
-    // 现代位置 (M-R2 之后统一用这里 — MoxianClient find_playdh_root() 也指这):
-    //   C:\moxiang\modern\data\PlayDH
-    // 老位置 (M-R2 之前用, 现已废弃):
-    //   C:\moxiang\墨香【源码配套资源】/PlayDH
-    // Test 1-9 默认走 modern/data. MXH_PLAYDH_ROOT is read once in
-    // mxh::test::playdh_dir_override().
-    std::error_code ec;
-    auto current = fs::absolute(fs::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "data" / "PlayDH";
-        std::error_code candidate_ec;
-        if (fs::is_directory(candidate, candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
+    try {
+        return mxh::test::require_rog_playdh_root();
+    } catch (const std::exception& ex) {
+        std::cerr << "FAIL: " << ex.what() << "\n";
+        return {};
     }
-    return {};
 }
 
 int g_failures = 0;
@@ -118,10 +103,8 @@ int main() {
     std::cout << "[cDialogLoader_test] is_dir=" << is_dir << "\n";
 
     if (!fs::exists(is_dir)) {
-        std::cerr << "SKIP: InterfaceScript dir not found: " << is_dir << "\n";
-        std::cout << "\n[cDialogLoader_test] PASS " << g_passes
-                  << " / SKIP\n";
-        return 0;
+        std::cerr << "FAIL: InterfaceScript dir not found: " << is_dir << "\n";
+        return 1;
     }
 
     // ---- Test 1: LoadOneParsesRealMainDlg ----
