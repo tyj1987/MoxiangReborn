@@ -44,6 +44,8 @@ workflow:
         - .gitignore
         - "**/*.[Pp][Aa][Kk]"
         - .gitlab-ci.yml
+        - .gitleaks.toml
+        - scripts/gitleaks-selftest.py
         - reference/manifests/**/*
     # Separate from python_tooling_changes so a C++-only diff does not schedule
     # original_governance_and_python_tests or rog_gate_self_test. The workflow
@@ -266,6 +268,49 @@ cxx_resource_reference_linux:
       fi
       exit "$status"
 
+# gitleaks_tree_scan
+# Kept in sync with the GitHub job of the same name. Same image digest as
+# .linux_trusted. Downloads pinned gitleaks 8.30.1, verifies sha256, and runs
+# gitleaks dir on the checkout. GIT_LFS_SKIP_SMUDGE stays 1. No :latest image.
+# Tracked *.pak files that are not Git LFS pointers print
+# NON_LFS_PAK <path> bytes=<n> and fail the job. File contents are not printed.
+gitleaks_tree_scan:
+  extends: .linux_trusted
+  stage: verify
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "1"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
+    - if: '$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "codex/reorg-original-20261009" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != "codex/reorg-original-20261009" && $CI_COMMIT_BRANCH != "codex/reorg-unity-20261009"'
+      changes: *python_tooling_changes
+  script:
+    - |
+      set -eu
+      gitleaks_dir="$(mktemp -d)"
+      tarball="${gitleaks_dir}/gitleaks_8.30.1_linux_x64.tar.gz"
+      python3 - "$tarball" <<'PY'
+      import hashlib, pathlib, sys, urllib.request
+      dest = pathlib.Path(sys.argv[1])
+      url = "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+      expected = "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+      urllib.request.urlretrieve(url, dest)
+      digest = hashlib.sha256(dest.read_bytes()).hexdigest()
+      if digest != expected:
+          raise SystemExit("gitleaks sha256 mismatch")
+      PY
+      tar -xzf "${tarball}" -C "${gitleaks_dir}"
+      chmod +x "${gitleaks_dir}/gitleaks"
+      status=0
+      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml || status=1
+      python3 scripts/gitleaks-selftest.py --check-paks . || status=1
+      python3 scripts/gitleaks-selftest.py --gitleaks "${gitleaks_dir}/gitleaks" --config .gitleaks.toml --scan . || status=1
+      exit "$status"
+
 original_lfs_integrity:
   extends: .linux_trusted
   stage: resources
@@ -276,7 +321,6 @@ original_lfs_integrity:
   # so other pipelines do not spend the LFS bandwidth quota.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-original-20261009"'
     # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
     # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-original-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'
@@ -366,7 +410,6 @@ unity_lfs_and_source_integrity:
   # so other pipelines do not spend the LFS bandwidth quota.
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009"'
-    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == "codex/reorg-unity-20261009"'
     # Plain changes vs CI_COMMIT_BEFORE_SHA. compare_to this same branch diffs
     # itself and never runs. Skip all-zero BEFORE_SHA: changes is always true.
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == "codex/reorg-unity-20261009" && $CI_COMMIT_BEFORE_SHA != "0000000000000000000000000000000000000000"'

@@ -118,7 +118,11 @@ $dbCfgForRegister = "backend=sqlite;path=$sqlitePath"
 # collides when two runs start in the same second).  cgi_ (4) +
 # 8-char hex guid = 12 chars, well under the 16-char regex cap.
 $accountName = 'cgi_' + $guid8
-$passwordPlain = 'Test1234!GameIn'
+$passwordPlain = $env:MXH_SMOKE_PASSWORD
+if ([string]::IsNullOrWhiteSpace($passwordPlain)) {
+    Write-Host "MXH_SMOKE_PASSWORD is unset or empty" -ForegroundColor Red
+    exit 1
+}
 Write-Host "Registering test account $accountName" -ForegroundColor Yellow
 & "$repoRoot\scripts\register-test-account.ps1" -AccountName $accountName -Password $passwordPlain -DbConfig $dbCfgForRegister | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "register-test-account.ps1 failed with exit $LASTEXITCODE" }
