@@ -616,6 +616,68 @@ def self_test() -> int:
                 for line in lines:
                     print(line)
             failed = True
+
+    listed_payload = b"synthetic-listed-ok"
+    listed_hash = hashlib.sha256(listed_payload).hexdigest()
+    with tempfile.TemporaryDirectory(prefix="playdh-external-root-", dir=base) as temporary:
+        root = Path(temporary)
+        external_root = root / "external-root"
+        external_root.mkdir()
+        (external_root / "keep.bin").write_bytes(b"synthetic-keep")
+        (external_root / "listed.bin").write_bytes(listed_payload)
+        manifest = root / "manifest.json"
+        listed_list = root / "external.txt"
+        listed_list.write_text(
+            "# synthetic\nmodern/data/PlayDH/listed.bin\n",
+            encoding="utf-8",
+        )
+        _write_manifest(
+            manifest,
+            [("keep.bin", b"synthetic-keep"), ("listed.bin", listed_payload)],
+        )
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        coverage = "PLAYDH_BASELINE COVERAGE MATCH=2 MISSING=0 MISMATCH=0 CASE_MISMATCH=0"
+        matched = "PLAYDH_BASELINE MATCH listed.bin %s" % listed_hash
+        if code != 0 or coverage not in lines or matched not in lines:
+            print("PLAYDH_BASELINE SELFTEST FAIL external-root-match")
+            for line in lines:
+                print(line)
+            failed = True
+        else:
+            print("PLAYDH_BASELINE SELFTEST OK external-root-match")
+
+        (external_root / "listed.bin").write_bytes(b"synthetic-listed-bad")
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-mismatch",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE MISMATCH listed.bin expected=%s" % listed_hash,
+        ):
+            failed = True
+
+        (external_root / "listed.bin").unlink()
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-missing",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE MISSING listed.bin expected=%s" % listed_hash,
+        ):
+            failed = True
+
+        (external_root / "Listed.bin").write_bytes(listed_payload)
+        code, lines = check_playdh(external_root, manifest, listed_list)
+        if not _expect(
+            "external-root-case",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE CASE_MISMATCH listed.bin",
+        ):
+            failed = True
     if failed:
         return 1
     print("PLAYDH_BASELINE SELFTEST OK")
