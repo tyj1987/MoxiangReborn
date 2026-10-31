@@ -293,7 +293,7 @@ void AgentHandler::clear_session_routes(mxh::net::ConnectionId id) {
     // bIsExiting=1), which is the leave this agent already forwards.
     // MP_USERCONN_DISCONNECTED is not handled there, so the notice
     // stays GameOutSyn and still follows the original send step:
-    // use the retained map-server connection when the route slot is gone.
+    // A map_routes_ slot whose client is null does not hide map_client_.
     if (removed_char_id != 0 && had_map_num) {
         const auto leave = claim_map_leave_sender(removed_map_num);
         mxh::net::ITcpSender* mc = leave.route.client;
@@ -866,11 +866,6 @@ void AgentHandler::set_map_server(mxh::net::ITcpSender* client,
     map_client_ = client;
     map_conn_id_ = map_conn_id;
     map_routes_[default_map_num_] = MapRoute{client, map_conn_id};
-    // dwMapServerConnectionIndex stays on the user after the route slot
-    // is cleared (UserTable.cpp:396). Remember the last live sender.
-    if (client != nullptr) {
-        retained_map_senders_[default_map_num_] = MapRoute{client, map_conn_id};
-    }
 }
 
 void AgentHandler::set_map_server_for_map(
@@ -879,9 +874,6 @@ void AgentHandler::set_map_server_for_map(
     if (map_num == 0u) return;
     std::lock_guard<std::mutex> lk(map_route_mu_);
     map_routes_[map_num] = MapRoute{client, map_conn_id};
-    if (client != nullptr) {
-        retained_map_senders_[map_num] = MapRoute{client, map_conn_id};
-    }
 }
 
 void AgentHandler::release_map_sender(mxh::net::ITcpSender* client) {
@@ -897,11 +889,14 @@ void AgentHandler::release_map_sender(mxh::net::ITcpSender* client) {
             entry.second.connection = {};
         }
     }
-    for (auto it = retained_map_senders_.begin(); it != retained_map_senders_.end();) {
-        if (it->second.client == client) it = retained_map_senders_.erase(it);
-        else ++it;
-    }
-    map_sender_cv_.wait(lk, [this] { return map_sender_claims_ == 0; });
+    // Drop map_route_mu_ before waiting. clear_session_routes holds a
+    // claim across send() on the client recv thread (net.cpp:556) or on
+    // on_message (net.cpp:541). The main loop is the only caller of
+    // release_map_sender (MoxianAgentServer/main.cpp reconnect and
+    // shutdown). server.stop() can call on_disconnect on this thread,
+    // but only after these releases have returned.
+    lk.unlock();
+    map_sender_gate_.wait_until_idle();
 }
 
 AgentHandler::MapLeaveClaim AgentHandler::claim_map_leave_sender(
@@ -929,17 +924,10 @@ AgentHandler::MapLeaveClaim AgentHandler::claim_map_leave_sender(
     }
     MapLeaveClaim claim;
     if (selected.client != nullptr) {
-        ++map_sender_claims_;
-        claim.self = this;
+        claim.claim = map_sender_gate_.acquire();
         claim.route = selected;
     }
     return claim;
-}
-
-void AgentHandler::end_map_sender_claim() noexcept {
-    std::lock_guard<std::mutex> lk(map_route_mu_);
-    if (map_sender_claims_ > 0) --map_sender_claims_;
-    map_sender_cv_.notify_all();
 }
 
 AgentHandler::MapRoute AgentHandler::route_for_connection(

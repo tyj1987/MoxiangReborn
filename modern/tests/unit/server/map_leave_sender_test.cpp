@@ -2,6 +2,10 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 namespace {
 
 struct MapPlayer {
@@ -46,4 +50,25 @@ TEST(MapLeaveSenderTest, NullSlotFallsBackToDefaultMapClient) {
     EXPECT_FALSE(player.present);
     EXPECT_EQ(mxh::server::select_map_leave_forward(true, null_slot, default_client),
               mxh::server::MapLeaveForward::DefaultMapClient);
+}
+
+TEST(MapLeaveSenderTest, ReleaseWaitsForHeldClaimThenReturns) {
+    mxh::server::MapSenderClaimGate gate;
+    auto claim = gate.acquire();
+    std::atomic<int> phase{0};
+    std::thread waiter([&] {
+        phase.store(1);
+        const bool idle = gate.wait_for_idle(std::chrono::milliseconds(2000));
+        phase.store(idle ? 2 : 3);
+    });
+    const auto start = std::chrono::steady_clock::now();
+    while (phase.load() == 0 &&
+           std::chrono::steady_clock::now() - start < std::chrono::milliseconds(500)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(phase.load(), 1);
+    claim.reset();
+    waiter.join();
+    EXPECT_EQ(phase.load(), 2);
 }
