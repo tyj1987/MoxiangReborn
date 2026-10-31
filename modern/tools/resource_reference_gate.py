@@ -1944,6 +1944,44 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     strict = strict_enabled(args.strict)
+    _scripts = Path(__file__).resolve().parents[2] / "scripts"
+    if str(_scripts) not in sys.path:
+        sys.path.insert(0, str(_scripts))
+    import playdh_external_only
+    _manifest_path = _scripts.parent / "reference" / "manifests" / "playdh-current.sha256.json"
+    _manifest_paths: set[str] = set()
+    _document: dict = {}
+    if _manifest_path.is_file():
+        _document = _load_json(_manifest_path)
+        for _entry in _document.get("files", []):
+            _rel = _entry.get("path") if isinstance(_entry, dict) else None
+            if isinstance(_rel, str):
+                _manifest_paths.add(_rel.replace("\\", "/"))
+    _names = set(playdh_external_only.playdh_names())
+    if playdh_external_only.is_repo_playdh(args.root):
+        _external_errors = playdh_external_only.errors_for_tree(args.root, _manifest_paths)
+    elif playdh_external_only.root_has_manifest_file(args.root, _manifest_paths, _names):
+        _expected: dict[str, tuple[str, int]] = {}
+        for _entry in _document.get("files", []):
+            if not isinstance(_entry, dict):
+                continue
+            _rel = _entry.get("path")
+            if not isinstance(_rel, str) or _rel.replace("\\", "/") not in _names:
+                continue
+            _expected[_rel.replace("\\", "/")] = (str(_entry["sha256"]).lower(), int(_entry["bytes"]))
+        _status, _external_errors = playdh_external_only.coverage_lines(args.root, _expected)
+        _missing_names = playdh_external_only.errors_for_tree(args.root, _manifest_paths)
+        _external_errors = [
+            _line for _line in _missing_names if _line.startswith("PLAYDH_BASELINE EXTERNAL_NOT_IN_MANIFEST")
+        ] + _external_errors
+        if _status:
+            _external_errors.append("PLAYDH_BASELINE EXTERNAL_ROOT_FAIL")
+    else:
+        _external_errors = []
+    if _external_errors:
+        for _line in _external_errors:
+            print(_line, file=sys.stderr)
+        return 1
     report = check(_load_json(args.manifest), args.root, strict=strict, pak=args.pak)
     text = format_report(report)
     print(text, end="")

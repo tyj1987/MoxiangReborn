@@ -1,0 +1,6 @@
+# Temporary. Refs TYJ-188. Approved by 战略专家/架构师 in the room.
+# Deleted together with the repo-tree-vs-manifest comparison, in whichever
+# phase removes that comparison, at the latest P3 (that phase's acceptance item).
+modern/data/PlayDH/Titan.pak
+modern/data/PlayDH/npc.pak
+modern/data/PlayDH/Pet.pak
