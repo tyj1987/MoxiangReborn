@@ -304,6 +304,8 @@ gtest_add_tests(TARGET mxh_render_tests
     FrustumIntersectsAABB.BoxOffToTheLeftOfLeftPlaneIsCulled
     FrustumIntersectsAABB.EmptyPlanesDontCrash
 )
+set_tests_properties(TextureLoader.RogLoginDdsSkyBandFromPlayDhRoot
+    PROPERTIES LABELS "rog")
 
 # describeSource()/FSOpenFile() share FilesystemFileStorage::locate():
 # loose / pak / missing, pak names as printed by "[pak] mount order".

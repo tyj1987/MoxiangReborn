@@ -30,7 +30,7 @@
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/cResourceManager.hpp"
 #include "mxh/ui/cSpriteAtlas.hpp"
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace {
 
@@ -272,24 +272,7 @@ TEST(ClientSettings, InvalidFileIsBackedUpBeforeDefaults) {
 }
 
 std::filesystem::path find_playdh_root() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    std::filesystem::path cursor = std::filesystem::current_path();
-    for (int depth = 0; depth < 8; ++depth) {
-        const auto candidate = cursor / "modern" / "data" / "PlayDH";
-        if (std::filesystem::exists(
-                candidate / "Image" / "InterfaceScript" /
-                "CharSelectDlg.bin")) {
-            return std::filesystem::absolute(candidate);
-        }
-        if (std::filesystem::exists(
-                cursor / "data" / "PlayDH" / "Image" /
-                "InterfaceScript" / "CharSelectDlg.bin")) {
-            return std::filesystem::absolute(cursor / "data" / "PlayDH");
-        }
-        if (!cursor.has_parent_path() || cursor == cursor.parent_path()) break;
-        cursor = cursor.parent_path();
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 
 } // namespace
