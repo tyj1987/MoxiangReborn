@@ -1629,7 +1629,17 @@ struct DamageFeedback {
 std::vector<DamageFeedback> g_damageFeedback;
 
 #ifdef _WIN32
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+#ifndef WM_GETDPISCALEDSIZE
+#define WM_GETDPISCALEDSIZE 0x02E4
+#endif
+
 using AdjustWindowRectExForDpiFn = BOOL (WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+using GetDpiForWindowFn = UINT (WINAPI*)(HWND);
+
+const char* g_dpiAwarenessFallback = "unknown";
 
 AdjustWindowRectExForDpiFn adjust_window_rect_for_dpi() {
     static const auto fn = []() -> AdjustWindowRectExForDpiFn {
@@ -1638,6 +1648,43 @@ AdjustWindowRectExForDpiFn adjust_window_rect_for_dpi() {
             GetProcAddress(user32, "AdjustWindowRectExForDpi")) : nullptr;
     }();
     return fn;
+}
+
+GetDpiForWindowFn dpi_for_window_fn() {
+    static const auto fn = []() -> GetDpiForWindowFn {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        return user32 ? reinterpret_cast<GetDpiForWindowFn>(
+            GetProcAddress(user32, "GetDpiForWindow")) : nullptr;
+    }();
+    return fn;
+}
+
+const char* dpi_awareness_name() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    using GetCtxFn = HANDLE (WINAPI*)();
+    using EqualFn = BOOL (WINAPI*)(HANDLE, HANDLE);
+    auto get_ctx = user32 ? reinterpret_cast<GetCtxFn>(
+        GetProcAddress(user32, "GetThreadDpiAwarenessContext")) : nullptr;
+    auto equal = user32 ? reinterpret_cast<EqualFn>(
+        GetProcAddress(user32, "AreDpiAwarenessContextsEqual")) : nullptr;
+    if (get_ctx && equal) {
+        const HANDLE ctx = get_ctx();
+        const HANDLE per_monitor_v2 = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-4));
+        const HANDLE per_monitor = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-3));
+        const HANDLE system = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-2));
+        const HANDLE unaware = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-1));
+        if (equal(ctx, per_monitor_v2)) return "PerMonitorV2";
+        if (equal(ctx, per_monitor)) return "PerMonitor";
+        if (equal(ctx, system)) return "System";
+        if (equal(ctx, unaware)) return "Unaware";
+    }
+    return g_dpiAwarenessFallback;
+}
+
+void log_dpi_line(UINT dpi, int client_w, int client_h, int outer_w, int outer_h) {
+    MLOG_INFO("DPI dpi=%u awareness=%s client=%dx%d outer=%dx%d",
+              static_cast<unsigned>(dpi), dpi_awareness_name(),
+              client_w, client_h, outer_w, outer_h);
 }
 
 // Manifest sets PerMonitorV2 when the linker embeds it. This runs first
@@ -1654,9 +1701,16 @@ void enable_per_monitor_dpi_awareness() {
             reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-3)), // PerMonitor
             reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-2)), // System
         };
-        for (HANDLE context : contexts) {
-            if (set_context(context)) return;
-            if (GetLastError() == ERROR_ACCESS_DENIED) return;
+        const char* names[] = {"PerMonitorV2", "PerMonitor", "System"};
+        for (int i = 0; i < 3; ++i) {
+            if (set_context(contexts[i])) {
+                g_dpiAwarenessFallback = names[i];
+                return;
+            }
+            if (GetLastError() == ERROR_ACCESS_DENIED) {
+                g_dpiAwarenessFallback = "PerMonitorV2";
+                return;
+            }
         }
     }
     HMODULE shcore = LoadLibraryW(L"shcore.dll");
@@ -1664,6 +1718,7 @@ void enable_per_monitor_dpi_awareness() {
     auto set_awareness = shcore ? reinterpret_cast<SetAwarenessFn>(
         GetProcAddress(shcore, "SetProcessDpiAwareness")) : nullptr;
     if (set_awareness && SUCCEEDED(set_awareness(2))) {
+        g_dpiAwarenessFallback = "PerMonitor";
         FreeLibrary(shcore);
         return;
     }
@@ -1671,7 +1726,7 @@ void enable_per_monitor_dpi_awareness() {
     using SetDpiAwareFn = BOOL (WINAPI*)();
     auto set_dpi_aware = user32 ? reinterpret_cast<SetDpiAwareFn>(
         GetProcAddress(user32, "SetProcessDPIAware")) : nullptr;
-    if (set_dpi_aware) set_dpi_aware();
+    if (set_dpi_aware && set_dpi_aware()) g_dpiAwarenessFallback = "System";
 }
 
 UINT system_dpi() {
@@ -1701,11 +1756,21 @@ UINT system_dpi() {
     return dpi;
 }
 
-bool adjust_client_rect(RECT* rect, DWORD style, UINT dpi) {
-    if (auto adjust = adjust_window_rect_for_dpi()) {
-        return adjust(rect, style, FALSE, 0, dpi) != FALSE;
+UINT window_dpi(HWND hwnd) {
+    if (auto get_dpi = dpi_for_window_fn()) {
+        if (hwnd) {
+            const UINT dpi = get_dpi(hwnd);
+            if (dpi > 0) return dpi;
+        }
     }
-    return AdjustWindowRectEx(rect, style, FALSE, 0) != FALSE;
+    return system_dpi();
+}
+
+bool adjust_client_rect(RECT* rect, DWORD style, UINT dpi, DWORD ex_style = 0) {
+    if (auto adjust = adjust_window_rect_for_dpi()) {
+        return adjust(rect, style, FALSE, ex_style, dpi) != FALSE;
+    }
+    return AdjustWindowRectEx(rect, style, FALSE, ex_style) != FALSE;
 }
 
 std::optional<mxh::client::DpiPoint> game_mouse_point(HWND hwnd, int x, int y) {
@@ -1761,12 +1826,12 @@ DisplayTransitionResult applyDisplayTransition(
     // AdjustWindowRectEx without the current monitor DPI produces a client
     // area smaller than the requested pixel size (and shifts hitboxes).
     // The back buffer stays at the requested client pixels; DPI scales the frame.
+    const UINT dpi = window_dpi(hwnd);
     const auto client_pixels = mxh::client::render_client_size(
         static_cast<int>(requested_width), static_cast<int>(requested_height),
-        static_cast<int>(GetDpiForWindow(hwnd)));
+        static_cast<int>(dpi));
     desired.right = client_pixels.width;
     desired.bottom = client_pixels.height;
-    const UINT dpi = GetDpiForWindow(hwnd);
     const DWORD frame_style = static_cast<DWORD>(new_style);
     const bool adjusted = adjust_client_rect(&desired, frame_style, dpi);
     if (!adjusted) {
@@ -2873,47 +2938,68 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(HIWORD(l)));
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
-    case WM_DPICHANGED: {
-        // The window is resizable and can move between monitors, so this
-        // message is required once the process is per-monitor aware.
-        // Windows' suggested rectangle would scale the client with the new
-        // DPI and resize the swap chain. Keep the client pixel size and
-        // only recompute the non-client frame. The suggested origin keeps
-        // the window on the monitor Windows chose.
-        const UINT new_dpi = HIWORD(wParam);
+    case WM_GETDPISCALEDSIZE: {
+        // PerMonitorV2 asks for the outer size before it moves the window.
+        // Keep the current client pixels and only change the frame. Writing
+        // that size here lets WM_DPICHANGED apply Windows' suggested RECT
+        // without a second resize when the window straddles two monitors.
+        auto* scaled = reinterpret_cast<SIZE*>(l);
+        if (!scaled) return FALSE;
+        const UINT new_dpi = static_cast<UINT>(w);
         RECT client{};
+        if (!GetClientRect(h, &client)) return FALSE;
+        const auto pixels = mxh::client::render_client_size(
+            client.right - client.left, client.bottom - client.top,
+            static_cast<int>(new_dpi));
+        RECT desired{0, 0, pixels.width, pixels.height};
+        const DWORD style = static_cast<DWORD>(GetWindowLongPtrW(h, GWL_STYLE));
+        const DWORD ex_style = static_cast<DWORD>(GetWindowLongPtrW(h, GWL_EXSTYLE));
+        if (!adjust_client_rect(&desired, style, new_dpi, ex_style)) return FALSE;
+        const int frame_left = desired.left < 0 ? -desired.left : 0;
+        const int frame_top = desired.top < 0 ? -desired.top : 0;
+        const int frame_right = desired.right > pixels.width
+            ? desired.right - pixels.width : 0;
+        const int frame_bottom = desired.bottom > pixels.height
+            ? desired.bottom - pixels.height : 0;
+        const auto outer = mxh::client::outer_size_for_unchanged_client(
+            pixels.width, pixels.height,
+            frame_left, frame_top, frame_right, frame_bottom,
+            static_cast<int>(new_dpi));
+        scaled->cx = outer.width;
+        scaled->cy = outer.height;
+        return TRUE;
+    }
+    case WM_DPICHANGED: {
+        // WndProc parameters are h, m, w, l. The new DPI is HIWORD(w).
+        // The suggested RECT in l already uses the size returned from
+        // WM_GETDPISCALEDSIZE. Apply it as given.
+        const UINT new_dpi = HIWORD(w) != 0
+            ? static_cast<UINT>(HIWORD(w)) : window_dpi(h);
+        if (l != 0) {
+            const auto* suggested = reinterpret_cast<const RECT*>(l);
+            SetWindowPos(h, nullptr,
+                         suggested->left, suggested->top,
+                         suggested->right - suggested->left,
+                         suggested->bottom - suggested->top,
+                         SWP_NOZORDER | SWP_NOACTIVATE);
+        }
+        RECT client{};
+        RECT window{};
+        int client_w = 0;
+        int client_h = 0;
+        int outer_w = 0;
+        int outer_h = 0;
         if (GetClientRect(h, &client)) {
-            const auto pixels = mxh::client::render_client_size(
-                client.right - client.left, client.bottom - client.top,
-                static_cast<int>(new_dpi));
-            RECT desired{0, 0, pixels.width, pixels.height};
-            const auto style = static_cast<DWORD>(GetWindowLongPtrW(h, GWL_STYLE));
-            int origin_x = 0;
-            int origin_y = 0;
-            if (l != 0) {
-                const auto* suggested = reinterpret_cast<const RECT*>(l);
-                origin_x = suggested->left;
-                origin_y = suggested->top;
-            } else {
-                RECT window{};
-                if (GetWindowRect(h, &window)) {
-                    origin_x = window.left;
-                    origin_y = window.top;
-                }
-            }
-            if (adjust_client_rect(&desired, style, new_dpi)) {
-                SetWindowPos(h, nullptr, origin_x, origin_y,
-                             desired.right - desired.left,
-                             desired.bottom - desired.top,
-                             SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-            }
-            RECT actual{};
-            if (GetClientRect(h, &actual)) {
-                g_logicalViewport.update(actual.right - actual.left,
-                                         actual.bottom - actual.top);
-            }
+            client_w = client.right - client.left;
+            client_h = client.bottom - client.top;
+            g_logicalViewport.update(client_w, client_h);
+        }
+        if (GetWindowRect(h, &window)) {
+            outer_w = window.right - window.left;
+            outer_h = window.bottom - window.top;
         }
         if (g_renderer) g_renderer->UpdateWindowSize();
+        log_dpi_line(new_dpi, client_w, client_h, outer_w, outer_h);
         return 0;
     }
     case WM_DISPLAYCHANGE: {
@@ -3340,9 +3426,6 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         std::fprintf(stderr, "mxh_client: AdjustWindowRect failed\n");
         return 1;
     }
-    MLOG_INFO("mxh_client: dpi=%u client=%dx%d",
-              static_cast<unsigned>(initial_dpi),
-              initial_client.width, initial_client.height);
     HWND hwnd = CreateWindowW(
         L"MoxianClientWnd", L"Moxian Client (modern)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -3353,6 +3436,25 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (!hwnd) {
         std::fprintf(stderr, "mxh_client: CreateWindow failed\n");
         return 1;
+    }
+    {
+        RECT created_client{};
+        RECT created_window{};
+        int client_w = initial_client.width;
+        int client_h = initial_client.height;
+        int outer_w = initial_rect.right - initial_rect.left;
+        int outer_h = initial_rect.bottom - initial_rect.top;
+        if (GetClientRect(hwnd, &created_client)) {
+            client_w = created_client.right - created_client.left;
+            client_h = created_client.bottom - created_client.top;
+        }
+        if (GetWindowRect(hwnd, &created_window)) {
+            outer_w = created_window.right - created_window.left;
+            outer_h = created_window.bottom - created_window.top;
+        }
+        const UINT created_dpi = window_dpi(hwnd);
+        log_dpi_line(created_dpi != 0 ? created_dpi : initial_dpi,
+                     client_w, client_h, outer_w, outer_h);
     }
 
     if (options.resource_root.empty()) options.resource_root = find_playdh_root();

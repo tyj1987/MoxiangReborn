@@ -22,6 +22,30 @@ TEST(DpiScale, RenderClientStaysRequestedAtCommonScales) {
     }
 }
 
+TEST(DpiScale, UnchangedClientOuterUsesTargetFrame) {
+    // Thicknesses are already the 144 DPI frame. The client stays 800x600
+    // and those thicknesses are not multiplied by 144/96.
+    const auto at150 = mxh::client::outer_size_for_unchanged_client(
+        800, 600, 12, 45, 12, 12, kDpi150);
+    EXPECT_EQ(at150.width, 824);
+    EXPECT_EQ(at150.height, 657);
+
+    const auto same_frame_at96 = mxh::client::outer_size_for_unchanged_client(
+        800, 600, 12, 45, 12, 12, kDpi96);
+    EXPECT_EQ(same_frame_at96.width, at150.width);
+    EXPECT_EQ(same_frame_at96.height, at150.height);
+
+    const auto at125 = mxh::client::outer_size_for_unchanged_client(
+        1024, 768, 10, 38, 10, 10, kDpi125);
+    EXPECT_EQ(at125.width, 1044);
+    EXPECT_EQ(at125.height, 816);
+
+    const auto clamped = mxh::client::outer_size_for_unchanged_client(
+        800, 600, -4, 30, 8, 8, kDpi150);
+    EXPECT_EQ(clamped.width, 808);
+    EXPECT_EQ(clamped.height, 638);
+}
+
 TEST(DpiScale, OuterFrameScalesAndClientDoesNot) {
     // Synthetic 96-DPI frame: 8 px left/right, 30 px top, 8 px bottom.
     const auto at96 = mxh::client::outer_window_size(800, 600, 8, 30, 8, 8, kDpi96);

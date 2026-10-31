@@ -42,6 +42,26 @@ inline DpiSize render_client_size(int requested_width, int requested_height,
     return DpiSize{requested_width, requested_height};
 }
 
+// Outer window size for WM_GETDPISCALEDSIZE. `client_*` stays the back
+// buffer size. `frame_*` are already the non-client thicknesses at the
+// target DPI (what AdjustWindowRectExForDpi reports). They are not scaled
+// again. `dpi` selects that measurement; it does not multiply the client.
+inline DpiSize outer_size_for_unchanged_client(int client_width,
+                                               int client_height,
+                                               int frame_left, int frame_top,
+                                               int frame_right, int frame_bottom,
+                                               int dpi) noexcept {
+    const DpiSize client = render_client_size(client_width, client_height, dpi);
+    if (frame_left < 0) frame_left = 0;
+    if (frame_top < 0) frame_top = 0;
+    if (frame_right < 0) frame_right = 0;
+    if (frame_bottom < 0) frame_bottom = 0;
+    return DpiSize{
+        client.width + frame_left + frame_right,
+        client.height + frame_top + frame_bottom,
+    };
+}
+
 // Outer window size whose client area stays `client_*` pixels when the
 // non-client thicknesses were measured at 96 DPI.
 inline DpiSize outer_window_size(int client_width, int client_height,

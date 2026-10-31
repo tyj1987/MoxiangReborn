@@ -343,6 +343,7 @@ jobs:
           require_passed MxhResourceReference.SyntheticFixtureCompareLoopDetectsMatchAndMismatches || status=1
           require_passed AgentCli.OmittedDefaultMapIs17 || status=1
           require_passed DpiScale.RenderClientStaysRequestedAtCommonScales || status=1
+          require_passed DpiScale.UnchangedClientOuterUsesTargetFrame || status=1
           require_passed DpiScale.OuterFrameScalesAndClientDoesNot || status=1
           require_passed DpiScale.MouseInsideClientIsNotDpiScaled || status=1
           require_passed DpiScale.MouseOutsideClientIsRejected || status=1
