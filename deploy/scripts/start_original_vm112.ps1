@@ -7,7 +7,7 @@ param(
     [ValidateRange(1, 65535)] [int]$LoginPort = 36001,
     [ValidateRange(1, 65535)] [int]$AgentPort = 37001,
     [ValidateRange(1, 65535)] [int]$MapPort = 38001,
-    [ValidateRange(0, 255)] [int]$MapNumber = 17,
+    [ValidateRange(0, 255)] [int]$MapNumber = 10,
     # Map17 listens on 38004 only when this switch is set. Default off.
     # --start-area 17 is passed only in that branch. Occupied 38004 refuses
     # the start; there is no fallback port.

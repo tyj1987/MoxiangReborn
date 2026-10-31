@@ -1,104 +1,138 @@
-# Static parse of the three deploy launchers' --default-map value.
+# Static invariant for deploy/scripts/start_modern.ps1.
 # Not a Pester suite. Run: pwsh -NoProfile -File scripts/tests/test-deploy-default-map.ps1
-# Requires PowerShell 7.4 or newer. Runs on Linux and Windows.
-#
-# Get-DeployScriptDefaultMap is the script-side extractor. A later check can
-# compare its result with modern/tools/MoxianAgentServer/main.cpp. This test
-# does not read main.cpp.
+# The map process --map argument and --default-map must both be $MapNumber.
+# This test does not check the parameter default, the VM112 wrappers, or main.cpp.
 $ErrorActionPreference = 'Stop'
 
 function Assert-True($Condition, [string]$Message) {
     if (-not $Condition) { throw "FAIL: $Message" }
 }
 
-function Get-DeployScriptDefaultMap {
-    param([Parameter(Mandatory)][string]$Path)
-
-    $tokens = $null
-    $parseErrors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
-        $Path, [ref]$tokens, [ref]$parseErrors)
-    if ($parseErrors -and @($parseErrors).Count -gt 0) {
-        throw "FAIL: parse error in ${Path}: $($parseErrors[0])"
-    }
-
-    $mapNumberDefault = $null
-    if ($null -eq $ast.ParamBlock) {
-        throw "FAIL: $Path has no param block for MapNumber"
-    }
-    $parameters = @($ast.ParamBlock.Parameters | Where-Object {
-        $_.Name.VariablePath.UserPath -eq 'MapNumber'
-    })
-    if ($parameters.Count -ne 1) {
-        throw "FAIL: $Path must declare one MapNumber parameter"
-    }
-    $defaultValue = $parameters[0].DefaultValue
-    if ($null -eq $defaultValue -or
-        $defaultValue -isnot [System.Management.Automation.Language.ConstantExpressionAst] -or
-        [string]$defaultValue.Extent.Text -notmatch '^[0-9]+$') {
-        throw "FAIL: $Path MapNumber default is not an integer constant"
-    }
-    $mapNumberDefault = [int]$defaultValue.Value
-
-    $values = New-Object System.Collections.Generic.List[int]
-    for ($index = 0; $index -lt $tokens.Count; $index++) {
-        $token = $tokens[$index]
-        $tokenKind = $token.Kind.ToString()
-        $isDefaultMapFlag = $tokenKind -in @('StringLiteral', 'String', 'StringExpandable') -and
-            [string]$token.Value -eq '--default-map'
-        if (-not $isDefaultMapFlag) { continue }
-
-        $nextIndex = $index + 1
-        while ($nextIndex -lt $tokens.Count) {
-            $kind = $tokens[$nextIndex].Kind.ToString()
-            if ($kind -notin @('Comma', 'NewLine', 'LineContinuation', 'Comment')) { break }
-            $nextIndex++
+function Unwrap-PipelineExpression {
+    param($Node)
+    $guard = 0
+    while ($null -ne $Node -and $guard -lt 12) {
+        $guard++
+        if ($Node -is [System.Management.Automation.Language.PipelineAst]) {
+            if (@($Node.PipelineElements).Count -ne 1) { return $Node }
+            $Node = $Node.PipelineElements[0]
+            continue
         }
-        if ($nextIndex -ge $tokens.Count) {
-            throw "FAIL: $Path has --default-map without a value"
+        if ($Node -is [System.Management.Automation.Language.CommandExpressionAst]) {
+            $Node = $Node.Expression
+            continue
         }
-        $next = $tokens[$nextIndex]
-        $nextKind = $next.Kind.ToString()
-        if ($nextKind -eq 'Variable') {
-            if ([string]$next.Name -ne 'MapNumber') {
-                throw "FAIL: $Path --default-map uses `$$($next.Name)"
-            }
-            $values.Add($mapNumberDefault)
-        } elseif ($nextKind -eq 'Number' -and [string]$next.Text -match '^[0-9]+$') {
-            $values.Add([int]$next.Text)
-        } elseif ($nextKind -in @('StringLiteral', 'String', 'StringExpandable') -and [string]$next.Value -match '^[0-9]+$') {
-            $values.Add([int]$next.Value)
-        } else {
-            throw "FAIL: $Path --default-map value is $($next.Extent.Text)"
-        }
+        break
     }
+    return $Node
+}
 
-    if ($values.Count -lt 1) {
-        throw "FAIL: $Path does not pass --default-map"
+function Get-HashtableKeyText {
+    param($Pair)
+    $key = Unwrap-PipelineExpression $Pair.Item1
+    if ($key -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+        return [string]$key.Value
     }
-    $distinct = @($values | Select-Object -Unique)
-    if ($distinct.Count -ne 1) {
-        throw "FAIL: $Path --default-map values disagree ($($values -join ', '))"
+    return [string]$key.Extent.Text
+}
+
+function Get-LeadingArrayElements {
+    param($Expression)
+    $node = Unwrap-PipelineExpression $Expression
+    $guard = 0
+    while ($node -is [System.Management.Automation.Language.BinaryExpressionAst] -and
+        [string]$node.Operator -eq 'Plus' -and $guard -lt 8) {
+        $node = Unwrap-PipelineExpression $node.Left
+        $guard++
     }
-    return [int]$distinct[0]
+    if ($node -isnot [System.Management.Automation.Language.ArrayExpressionAst]) {
+        return @()
+    }
+    $statements = @($node.SubExpression.Statements)
+    if ($statements.Count -ne 1) { return @() }
+    $literal = Unwrap-PipelineExpression $statements[0]
+    if ($literal -isnot [System.Management.Automation.Language.ArrayLiteralAst]) {
+        return @()
+    }
+    return @($literal.Elements | ForEach-Object { Unwrap-PipelineExpression $_ })
+}
+
+function Get-FlagVariableName {
+    param($Elements, [string]$Flag, [string]$Label)
+    $names = New-Object System.Collections.Generic.List[string]
+    for ($index = 0; $index -lt $Elements.Count; $index++) {
+        $element = $Elements[$index]
+        $isFlag = $element -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+            [string]$element.Value -eq $Flag
+        if (-not $isFlag) { continue }
+        if ($index + 1 -ge $Elements.Count) {
+            throw "FAIL: $Label $Flag is missing a value"
+        }
+        $value = $Elements[$index + 1]
+        if ($value -isnot [System.Management.Automation.Language.VariableExpressionAst] -or
+            [string]$value.Extent.Text -ne '$MapNumber') {
+            throw "FAIL: $Label $Flag uses $($value.Extent.Text)"
+        }
+        $names.Add([string]$value.VariablePath.UserPath)
+    }
+    if ($names.Count -eq 0) {
+        throw "FAIL: $Label is missing $Flag"
+    }
+    if ($names.Count -ne 1) {
+        throw "FAIL: $Label has more than one $Flag"
+    }
+    if ($names[0] -ne 'MapNumber') {
+        throw "FAIL: $Label $Flag uses `$$($names[0])"
+    }
+    return $names[0]
 }
 
 $repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$launchers = @(
-    'deploy\scripts\start_modern.ps1',
-    'deploy\scripts\start_original_vm112.ps1',
-    'deploy\scripts\start_current_vm112.ps1'
-)
-$found = @()
-foreach ($relative in $launchers) {
-    $path = Join-Path $repoRoot $relative
-    $value = Get-DeployScriptDefaultMap -Path $path
-    $found += [pscustomobject]@{ Script = ($relative -replace '\\', '/'); DefaultMap = $value }
-    Assert-True ($value -eq 17) "$relative passes --default-map $value"
+$launcher = Join-Path $repoRoot 'deploy\scripts\start_modern.ps1'
+$tokens = $null
+$parseErrors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($launcher, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors -and @($parseErrors).Count -gt 0) {
+    throw "FAIL: parse error in ${launcher}: $($parseErrors[0])"
 }
-$agreed = @($found.DefaultMap | Select-Object -Unique)
-Assert-True ($agreed.Count -eq 1) (
-    "deploy scripts disagree on --default-map: " +
-    (($found | ForEach-Object { "$($_.Script)=$($_.DefaultMap)" }) -join ', ')
+
+$mapArgumentNames = New-Object System.Collections.Generic.List[string]
+$defaultMapArgumentNames = New-Object System.Collections.Generic.List[string]
+$tables = @($ast.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.HashtableAst]
+}, $true))
+foreach ($table in $tables) {
+    $argsPair = $null
+    $nameValue = $null
+    foreach ($pair in $table.KeyValuePairs) {
+        $key = Get-HashtableKeyText $pair
+        if ($key -eq 'args') { $argsPair = $pair }
+        if ($key -eq 'name') {
+            $nameNode = Unwrap-PipelineExpression $pair.Item2
+            if ($nameNode -is [System.Management.Automation.Language.StringConstantExpressionAst]) {
+                $nameValue = [string]$nameNode.Value
+            }
+        }
+    }
+    if ($null -eq $argsPair) { continue }
+    $elements = @(Get-LeadingArrayElements $argsPair.Item2)
+    if ($nameValue -eq 'map') {
+        $mapArgumentNames.Add((Get-FlagVariableName $elements '--map' 'map process'))
+    }
+    foreach ($element in $elements) {
+        $isDefaultMap = $element -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+            [string]$element.Value -eq '--default-map'
+        if ($isDefaultMap) {
+            $defaultMapArgumentNames.Add((Get-FlagVariableName $elements '--default-map' 'start_modern.ps1'))
+            break
+        }
+    }
+}
+
+Assert-True ($mapArgumentNames.Count -eq 1) "expected one map process --map, found $($mapArgumentNames.Count)"
+Assert-True ($defaultMapArgumentNames.Count -eq 1) "expected one --default-map, found $($defaultMapArgumentNames.Count)"
+Assert-True ($mapArgumentNames[0] -eq 'MapNumber' -and $defaultMapArgumentNames[0] -eq 'MapNumber') (
+    "map --map and --default-map must both be `$MapNumber"
 )
-Write-Output "DEPLOY_DEFAULT_MAP PASS ($($agreed[0]))"
+Write-Output "DEPLOY_DEFAULT_MAP PASS (`$MapNumber)"

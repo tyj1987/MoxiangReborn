@@ -9,7 +9,7 @@ param(
     [int]$LoginPort = 16001,
     [int]$AgentPort = 17001,
     [int]$MapPort = 18001,
-    [int]$MapNumber = 17,
+    [int]$MapNumber = 10,
     [ValidateSet('sqlite', 'mssql_odbc')]
     [string]$Backend = 'sqlite',
     [string]$BindAddress = '0.0.0.0',
