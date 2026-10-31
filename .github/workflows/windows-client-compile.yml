@@ -23,8 +23,10 @@
 # ctest -R and require_passed both read it via ci/windows_behavior_require.ps1.
 # Passed is not enough: the checker also requires N `[       OK ]` lines and
 # rejects `[  PASSED  ] 0 tests`, `0 tests from`, `[  SKIPPED ]`, and DISABLED_.
-# Append a CMake target to $behaviorTargets in the build step when the new
-# test is not already in mxh_server_handler_tests or mxh_client_tests.
+# Append a CMake target inside $behaviorTargets. One cmake --build --target
+# invocation builds every name; a missing or failed target fails the step.
+# Behavior tests must not use ROG ports 26001/27001/28001 and must stay on
+# this runner's workspace and RUNNER_TEMP.
 # The raw ctest -V log is uploaded as windows-behavior-ctest-log.
 # Those cases call MapHandler and
 # CInGameState::Init(nullptr) / on_message. They do not call
@@ -419,18 +421,37 @@ jobs:
       - name: Build behavior test targets
         run: |
           $ErrorActionPreference = 'Stop'
+          # Append follow-up CMake targets here, one quoted name per line.
+          # The single cmake --build --target invocation below builds every
+          # name, and the same ctest -R runs the names from the list file.
+          # A target that is not in this build, or that fails to compile,
+          # fails this step. Do not use ROG ports 26001, 27001, or 28001.
+          # Tests may use only this runner's workspace checkout and RUNNER_TEMP.
           $behaviorTargets = @(
             'mxh_server_handler_tests',
             'mxh_client_tests'
+            # append targets here
           )
           if ($behaviorTargets.Count -lt 1) { throw 'behavior target list is empty' }
-          $buildArgs = @('--build', 'build-behavior', '--config', 'Debug')
+          $buildRoot = Join-Path (Get-Location) 'build-behavior'
+          $seen = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
           foreach ($target in $behaviorTargets) {
+            if ([string]::IsNullOrWhiteSpace($target)) { throw 'behavior target name is empty' }
+            if (-not $seen.Add($target)) { throw "behavior target is listed twice: $target" }
+            $proj = @(Get-ChildItem -LiteralPath $buildRoot -Recurse -File -Filter ($target + '.vcxproj') -ErrorAction SilentlyContinue)
+            if ($proj.Count -lt 1) { throw "behavior target is not in the build: $target" }
             Write-Host "BEHAVIOR_TARGET $target"
-            $buildArgs += @('--target', $target)
           }
-          & cmake @buildArgs -- /m /nologo
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmake --build build-behavior --config Debug --target @behaviorTargets -- /m /nologo
+          if ($LASTEXITCODE -ne 0) {
+            throw "behavior target build failed ($LASTEXITCODE): $($behaviorTargets -join ' ')"
+          }
+          foreach ($target in $behaviorTargets) {
+            $exe = @(Get-ChildItem -LiteralPath $buildRoot -Recurse -File -Filter ($target + '.exe') -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '\\Debug\\' })
+            if ($exe.Count -lt 1) { throw "behavior target produced no Debug executable: $target" }
+            Write-Host "BEHAVIOR_EXE $($exe[0].FullName)"
+          }
 
       - name: Run listed behavior tests
         run: |
@@ -467,7 +488,13 @@ jobs:
               Copy-Item -LiteralPath $stdout -Destination $log -Force
             }
           }
-          if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
+          if (Test-Path -LiteralPath $log) {
+            Get-Content -LiteralPath $log
+            foreach ($port in 26001, 27001, 28001) {
+              $hit = Select-String -LiteralPath $log -Pattern ('\b' + $port + '\b') -Quiet
+              if ($hit) { throw "behavior test used ROG port $port" }
+            }
+          }
           exit $proc.ExitCode
 
       - name: Require listed behavior tests passed
