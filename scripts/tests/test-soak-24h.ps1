@@ -325,14 +325,22 @@ $owned = $null
 $stranger = $null
 $decoy = $null
 $childId = 0
+$childIdentity = $null
+$strangerBorn = $null
+$decoyBorn = $null
 try {
     $owned = Start-SoakOwnedProcess -FilePath $parentScript -ArgumentList @($pidFile) -StdoutPath (Join-Path $root 'owned.out') -StderrPath (Join-Path $root 'owned.err')
     $deadline = [datetime]::UtcNow.AddSeconds(5)
     while ((-not [IO.File]::Exists($pidFile)) -and [datetime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 50 }
     Assert-True ([IO.File]::Exists($pidFile)) 'owned parent did not record its child'
     $childId = [int]([IO.File]::ReadAllText($pidFile).Trim())
+    $childProc = $null
+    try { $childProc = Get-Process -Id $childId -ErrorAction SilentlyContinue } catch { $childProc = $null }
+    if ($null -ne $childProc) { $childIdentity = Get-CommercialSmokeOwnedIdentity -Process $childProc }
     $stranger = Start-Process -FilePath '/bin/sleep' -ArgumentList @('120') -PassThru -RedirectStandardOutput (Join-Path $root 'stranger.out') -RedirectStandardError (Join-Path $root 'stranger.err')
+    if ($null -ne $stranger) { $strangerBorn = Get-CommercialSmokeOwnedIdentity -Process $stranger }
     $decoy = Start-Process -FilePath '/bin/sleep' -ArgumentList @('120') -PassThru -RedirectStandardOutput (Join-Path $root 'decoy.out') -RedirectStandardError (Join-Path $root 'decoy.err')
+    if ($null -ne $decoy) { $decoyBorn = Get-CommercialSmokeOwnedIdentity -Process $decoy }
     Assert-True (Test-PidAlive $owned.Identity.Id) 'owned parent should be alive before stop'
     Assert-True (Test-PidAlive $childId) 'owned child should be alive before stop'
     Assert-True (Test-PidAlive $stranger.Id) 'same-name stranger should be alive before stop'
@@ -367,10 +375,16 @@ try {
     $bytes = [IO.File]::ReadAllBytes($csv)
     Assert-True ($bytes.Length -lt 3 -or -not ($bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191)) 'csv must be UTF-8 without BOM'
 } finally {
-    foreach ($pidValue in @($(if ($owned) { [int]$owned.Identity.Id } else { 0 }), $childId, $(if ($stranger) { [int]$stranger.Id } else { 0 }), $(if ($decoy) { [int]$decoy.Id } else { 0 }))) {
-        if ($pidValue -gt 1 -and (Test-PidAlive $pidValue)) {
-            try { Stop-Process -Id $pidValue -Force -ErrorAction SilentlyContinue } catch { }
-        }
+    # Stop only the PID+start-time pairs captured when this test created or
+    # learned them. Stop-SoakOwnedTree re-checks that pair and does not kill
+    # a reused PID.
+    $cleanupIdentities = New-Object System.Collections.Generic.List[object]
+    if ($null -ne $owned -and $null -ne $owned.Identity) { $cleanupIdentities.Add($owned.Identity) }
+    if ($null -ne $childIdentity) { $cleanupIdentities.Add($childIdentity) }
+    if ($null -ne $strangerBorn) { $cleanupIdentities.Add($strangerBorn) }
+    if ($null -ne $decoyBorn) { $cleanupIdentities.Add($decoyBorn) }
+    foreach ($identity in @($cleanupIdentities.ToArray())) {
+        Stop-SoakOwnedTree -Identity $identity | Out-Null
     }
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root, $true) }
 }
