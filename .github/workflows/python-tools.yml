@@ -295,7 +295,7 @@ jobs:
           set -eu
           cmake --version
           cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target mxh_resource_reference_tests
+          cmake --build build --target mxh_resource_reference_tests --target mxh_map_leave_sender_tests
 
       - name: Run MxhResourceReference ctest
         run: |
@@ -332,3 +332,8 @@ jobs:
             status=1
           fi
           exit "$status"
+
+      - name: Run MapLeaveSenderTest ctest
+        run: |
+          set -eu
+          ctest --test-dir build -R '^MapLeaveSenderTest\.' --output-on-failure
