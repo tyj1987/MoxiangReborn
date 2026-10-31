@@ -483,7 +483,7 @@ static bool saveSettings(const LauncherSettings& s) {
 }
 
 static constexpr wchar_t kPlayDhRootMissing[] =
-    L"MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+    L"MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given";
 
 static fs::path playdhRootFromEnv() {
     wchar_t value[32768]{};

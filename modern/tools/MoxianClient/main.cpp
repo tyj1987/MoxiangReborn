@@ -3473,7 +3473,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (options.resource_root.empty()) options.resource_root = find_playdh_root();
     if (options.resource_root.empty()) {
         std::fprintf(stderr,
-                     "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given\n");
+                     "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given\n");
         return 1;
     }
     {

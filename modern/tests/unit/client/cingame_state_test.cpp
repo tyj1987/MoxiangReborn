@@ -992,7 +992,7 @@ TEST(CInGameStatePlayDhRoot, UnsetDoesNotReadRepoTree) {
     state.Init(nullptr);
     const std::string& error = state.playdh_root_error();
     EXPECT_NE(error.find(
-                  "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given"),
+                  "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given"),
               std::string::npos)
         << error << " path=" << state.resolved_playdh_root().string();
     EXPECT_TRUE(state.resolved_playdh_root().empty())

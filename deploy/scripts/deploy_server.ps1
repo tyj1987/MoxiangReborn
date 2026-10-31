@@ -137,7 +137,7 @@ if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
     if (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
         $ResourceDir = $env:MXH_PLAYDH_ROOT
     } else {
-        Write-Host 'MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given'
+        Write-Host 'MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given'
         exit 1
     }
 }

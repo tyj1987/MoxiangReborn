@@ -5,7 +5,7 @@
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 
-$mxhMissing = 'MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given'
+$mxhMissing = 'MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given'
 $repoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $repoPlay = (Join-Path (Join-Path (Join-Path $repoRoot 'modern') 'data') 'PlayDH')
 $deploy = Join-Path (Join-Path $repoRoot 'deploy') (Join-Path 'scripts' 'deploy_client.ps1')

@@ -144,7 +144,7 @@ if ([string]::IsNullOrWhiteSpace($ResourceDir)) {
     if (-not [string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT)) {
         $ResourceDir = $env:MXH_PLAYDH_ROOT
     } else {
-        Write-Host 'MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given'
+        Write-Host 'MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given'
         exit 1
     }
 }
@@ -388,7 +388,9 @@ ServerPort=9000
 $wonuke | Out-File -FilePath "$DeployDir\Ini\wonuke.ini" -Encoding UTF8
 Write-Host "  生成: Ini\wonuke.ini" -ForegroundColor Gray
 
-# 创建启动器
+# 创建启动器. This package does not ship MoxianLauncher.exe.
+# deploy_server.ps1 writes no client bat or shortcut.
+# The bat passes the in-package data\PlayDH tree; end-user machines do not set MXH_PLAYDH_ROOT.
 Write-Host "[5/5] 创建启动器..." -ForegroundColor Yellow
 $launcher = @"
 @echo off
@@ -414,7 +416,7 @@ if errorlevel 1 (
 )
 
 :: 启动游戏
-    start "" "%~dp0MoxianClient.exe"
+    start "" "%~dp0MoxianClient.exe" --resource-root "%~dp0data\PlayDH"
 
 echo 游戏已启动
 echo.

@@ -12,7 +12,7 @@
 namespace mxh::client {
 
 inline constexpr char kInGamePlayDhRootMissing[] =
-    "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+    "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given";
 
 struct InGamePlayDhRoot {
     std::filesystem::path path;

@@ -26,7 +26,7 @@ namespace mxh::test {
 
 inline constexpr const char* kPlayDhRootEnv = "MXH_PLAYDH_ROOT";
 inline constexpr const char* kPlayDhRootMissing =
-    "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+    "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given";
 
 // `value` is the raw environment value. nullptr means the variable is unset.
 // One read of MXH_PLAYDH_ROOT lives here; helpers must not call getenv for it.

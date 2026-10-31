@@ -361,7 +361,7 @@ std::filesystem::path find_full_checkout_root() {
 }
 
 constexpr const char* kPlayDhRootMissing =
-    "MXH_PLAYDH_ROOT is not set and no --playdh-root/-ResourceDir was given";
+    "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given";
 
 TEST(PlayDhRootRequired, UnsetDoesNotReadRepoTree) {
     const auto checkout = find_full_checkout_root();
