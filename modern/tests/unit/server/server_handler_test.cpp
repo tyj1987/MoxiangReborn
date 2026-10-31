@@ -5576,8 +5576,7 @@ TEST(MapHandlerTest, LethalRewardFailureNacksWithoutSkillAckOrSecondMpSpend) {
     handler.load_skill_list(path.string());
     std::error_code ec;
     std::filesystem::remove(path, ec);
-    handler.load_experience_curve(std::string(MXH_SOURCE_DIR) +
-        "/data/PlayDH/Resource/CharacterExpPoint.bin");
+    install_synthetic_experience_curve(handler);
     ASSERT_EQ(handler.experience_level_threshold_for_test(1),
               static_cast<std::uint64_t>(100000));
     mxh::net::Message game_in;
