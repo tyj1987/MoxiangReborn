@@ -56,6 +56,7 @@
 #include "mxh/ui/cWindowManager.hpp"
 #include "TextRender.hpp"
 #include "mxh/log/mlog.hpp"
+#include "mxh/audio/audio_contract.hpp"
 #include "mxh/audio/bgm_player.hpp"
 #include "mxh/audio/sfx_player.hpp"
 #include "mxh/compat/bmhm_map.hpp"
@@ -479,6 +480,19 @@ float g_bgmVolume = 1.0f;
 float g_sfxVolume = 1.0f;
 bool g_audioFocused = true;
 
+mxh::audio::contract::EngineCueKind contract_engine_cue(
+    mxh::client::CEngine::AudioCue cue) {
+    using Cue = mxh::client::CEngine::AudioCue;
+    using Kind = mxh::audio::contract::EngineCueKind;
+    switch (cue) {
+    case Cue::Attack: return Kind::Attack;
+    case Cue::Skill: return Kind::Skill;
+    case Cue::UiClick: return Kind::UiClick;
+    case Cue::Pickup: return Kind::Pickup;
+    default: return Kind::Other;
+    }
+}
+
 struct OptionRuntimeContext {
     mxh::client::ClientSettingsV1* settings = nullptr;
     mxh::audio::BgmPlayer* bgm = nullptr;
@@ -488,24 +502,29 @@ struct OptionRuntimeContext {
 void option_default_callback(mxh::ui::sGAMEOPTION* option, void* user) {
     const auto* ctx = static_cast<const OptionRuntimeContext*>(user);
     if (!option || !ctx || !ctx->settings) return;
-    option->bSoundBGM = ctx->settings->bgm_volume > 0.0f;
-    option->bSoundEnvironment = ctx->settings->ambient_volume > 0.0f;
-    option->nVolumnBGM = static_cast<int>(std::lround(ctx->settings->bgm_volume * 100.0f));
-    option->nVolumnEnvironment = static_cast<int>(std::lround(ctx->settings->ambient_volume * 100.0f));
+    option->bSoundBGM = mxh::audio::contract::checkbox_from_positive_volume(
+        ctx->settings->bgm_volume);
+    option->bSoundEnvironment = mxh::audio::contract::checkbox_from_positive_volume(
+        ctx->settings->ambient_volume);
+    option->nVolumnBGM = mxh::audio::contract::volume_to_percent(ctx->settings->bgm_volume);
+    option->nVolumnEnvironment = mxh::audio::contract::volume_to_percent(
+        ctx->settings->ambient_volume);
 }
 
 void option_apply_callback(mxh::ui::sGAMEOPTION* option, void* user) {
     auto* ctx = static_cast<OptionRuntimeContext*>(user);
     if (!option || !ctx || !ctx->settings) return;
-    const auto normalized = [](int value) {
-        return std::clamp(static_cast<float>(value) / 100.0f, 0.0f, 1.0f);
-    };
-    ctx->settings->bgm_volume = normalized(option->nVolumnBGM);
-    ctx->settings->ambient_volume = normalized(option->nVolumnEnvironment);
-    g_bgmVolume = option->bSoundBGM ? ctx->settings->bgm_volume : 0.0f;
-    if (ctx->bgm) ctx->bgm->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
-    g_sfxVolume = option->bSoundEnvironment ? ctx->settings->sfx_volume : 0.0f;
-    if (ctx->sfx) ctx->sfx->setVolume(g_audioFocused ? g_sfxVolume : 0.0f);
+    ctx->settings->bgm_volume = mxh::audio::contract::percent_to_volume(option->nVolumnBGM);
+    ctx->settings->ambient_volume = mxh::audio::contract::percent_to_volume(
+        option->nVolumnEnvironment);
+    g_bgmVolume = mxh::audio::contract::muted_or_volume(
+        option->bSoundBGM, ctx->settings->bgm_volume);
+    if (ctx->bgm) ctx->bgm->setVolume(
+        mxh::audio::contract::focused_volume(g_bgmVolume, g_audioFocused));
+    g_sfxVolume = mxh::audio::contract::muted_or_volume(
+        option->bSoundEnvironment, ctx->settings->sfx_volume);
+    if (ctx->sfx) ctx->sfx->setVolume(
+        mxh::audio::contract::focused_volume(g_sfxVolume, g_audioFocused));
 }
 
 void configureCharacterPreviewCamera(I4DyuchiGXRenderer* renderer,
@@ -813,10 +832,13 @@ public:
         }
         if (stage_ == 6) {
             std::string audio_error;
-            if (!bgm_.play(descriptor_->desc().bgm_sound_num, &audio_error)) {
-                if (!g_debugUiBounds) {
+            const auto map_bgm = mxh::audio::contract::map_bgm(
+                descriptor_->desc().bgm_sound_num);
+            if (!bgm_.play(map_bgm.sound_id, &audio_error)) {
+                if (mxh::audio::contract::missing_bgm_policy(g_debugUiBounds) ==
+                    mxh::audio::contract::MissingBgm::FailLoad) {
                     return fail("Map BGM unavailable (sound " +
-                                    std::to_string(descriptor_->desc().bgm_sound_num) +
+                                    std::to_string(map_bgm.sound_id) +
                                     "): " + audio_error, error);
                 }
                 MLOG_WARN("mxh_client: map BGM unavailable in debug mode: %s",
@@ -890,13 +912,15 @@ private:
     }
 
     void restore_previous_bgm() noexcept {
-        if (bgm_.currentSoundId() == previous_bgm_id_) return;
-        if (previous_bgm_id_ == 0xffffu) {
+        const auto restored = mxh::audio::contract::restore_previous_bgm(
+            bgm_.currentSoundId(), previous_bgm_id_);
+        if (restored.action == mxh::audio::contract::BgmAction::Keep) return;
+        if (restored.action == mxh::audio::contract::BgmAction::Stop) {
             bgm_.stop();
             return;
         }
         std::string ignored;
-        if (!bgm_.play(previous_bgm_id_, &ignored)) {
+        if (!bgm_.play(restored.sound_id, &ignored)) {
             MLOG_WARN("mxh_client: failed to restore previous BGM id=%u after map rollback: %s",
                       static_cast<unsigned>(previous_bgm_id_), ignored.c_str());
         }
@@ -3017,8 +3041,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
     }
     case WM_ACTIVATEAPP:
         g_audioFocused = w != FALSE;
-        if (g_bgmPlayer) g_bgmPlayer->setVolume(g_audioFocused ? g_bgmVolume : 0.0f);
-        if (g_sfxPlayer) g_sfxPlayer->setVolume(g_audioFocused ? g_sfxVolume : 0.0f);
+        if (g_bgmPlayer) g_bgmPlayer->setVolume(
+            mxh::audio::contract::focused_volume(g_bgmVolume, g_audioFocused));
+        if (g_sfxPlayer) g_sfxPlayer->setVolume(
+            mxh::audio::contract::focused_volume(g_sfxVolume, g_audioFocused));
         if (!g_audioFocused) {
             // Windows may not deliver KeyUp for keys held while the window
             // loses activation.  Release the movement bindings explicitly so
@@ -3513,8 +3539,11 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     std::string audio_error;
     if (bgm.initialize(options.resource_root / "Sound", &audio_error)) {
         bgm.setVolume(persisted_settings.bgm_volume);
-        // 1667 is the original login theme in SoundList.bin.
-        if (!bgm.play(1667, &audio_error) && !g_debugUiBounds) {
+        // Login theme id is the contract constant (SoundList id 1667).
+        const auto login_bgm = mxh::audio::contract::login_bgm();
+        if (!bgm.play(login_bgm.sound_id, &audio_error) &&
+            mxh::audio::contract::missing_bgm_policy(g_debugUiBounds) ==
+                mxh::audio::contract::MissingBgm::FailLoad) {
             MLOG_ERROR("mxh_client: required login BGM unavailable: %s",
                        audio_error.c_str());
             storage->Release();
@@ -3766,28 +3795,27 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
             // Skill sounds are emitted by the decoded BEFF timeline below;
             // keeping this generic cue would play a guessed fallback in
             // parallel with the authoritative SoundList id.
-            if (cue == mxh::client::CEngine::AudioCue::UiClick ||
-                cue == mxh::client::CEngine::AudioCue::Skill) return;
+            if (!mxh::audio::contract::generic_engine_cue_plays(contract_engine_cue(cue))) return;
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
                 ? g_attackSound
                 : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
-            if (sound == 0xffffu) return;
+            if (sound == mxh::audio::contract::kNoSound) return;
             std::string audio_error;
             (void)sfx.play(sound, &audio_error);
         });
     mainGame.GetEngine()->SetSpatialAudioEventFn(
         [&sfx](mxh::client::CEngine::AudioCue cue, float distance) {
-            if (cue == mxh::client::CEngine::AudioCue::Skill) return;
+            if (!mxh::audio::contract::spatial_engine_cue_plays(contract_engine_cue(cue))) return;
             const auto sound = cue == mxh::client::CEngine::AudioCue::Attack
                 ? g_attackSound
                 : (cue == mxh::client::CEngine::AudioCue::Pickup ? g_pickupSound : g_skillSound);
-            if (sound == 0xffffu) return;
+            if (sound == mxh::audio::contract::kNoSound) return;
             std::string audio_error;
             (void)sfx.playAt(sound, distance, &audio_error);
         });
     mainGame.GetEngine()->SetSoundEventFn(
         [&sfx](std::uint32_t sound_id, float distance) {
-            if (sound_id == 0 || sound_id > 0xffffu) return;
+            if (!mxh::audio::contract::effect_sound_id_accepted(sound_id)) return;
             std::string audio_error;
             (void)sfx.playAt(static_cast<std::uint16_t>(sound_id), distance, &audio_error);
         });
@@ -4368,10 +4396,12 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
                                                                &optionContext);
                             option->SetApplyCallbackForTest(&option_apply_callback,
                                                              &optionContext);
-                            option->gameOption().nVolumnBGM = static_cast<int>(
-                                std::lround(persisted_settings.bgm_volume * 100.0f));
-                            option->gameOption().nVolumnEnvironment = static_cast<int>(
-                                std::lround(persisted_settings.ambient_volume * 100.0f));
+                            option->gameOption().nVolumnBGM =
+                                mxh::audio::contract::volume_to_percent(
+                                    persisted_settings.bgm_volume);
+                            option->gameOption().nVolumnEnvironment =
+                                mxh::audio::contract::volume_to_percent(
+                                    persisted_settings.ambient_volume);
                             option->UpdateData(false);
                         }
                         g_inputTarget = g;

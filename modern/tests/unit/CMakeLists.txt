@@ -65,6 +65,14 @@ target_link_libraries(mxh_dpi_scale_tests PRIVATE gtest_main)
 target_compile_features(mxh_dpi_scale_tests PRIVATE cxx_std_20)
 gtest_add_tests(TARGET mxh_dpi_scale_tests)
 
+# Audio decisions shared with the Windows playback path. Header-only.
+# Synthetic inputs only: no PlayDH, no pak, no SoundList.bin.
+add_executable(mxh_audio_contract_tests audio_contract_test.cpp)
+target_include_directories(mxh_audio_contract_tests PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(mxh_audio_contract_tests PRIVATE gtest_main)
+target_compile_features(mxh_audio_contract_tests PRIVATE cxx_std_20)
+gtest_add_tests(TARGET mxh_audio_contract_tests)
+
 # See tests/unit/render/CMakeLists.txt for why we don't use gtest_discover_tests.
 # gtest_add_tests auto-discovers TEST macros; do NOT list names here.
 # chx / chr tests picked up automatically.
