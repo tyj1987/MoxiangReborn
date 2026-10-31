@@ -289,24 +289,11 @@ ClientOptions parse_client_options() {
 }
 
 std::filesystem::path find_playdh_root() {
-    std::error_code ec;
-    auto base = std::filesystem::current_path(ec);
-    for (int depth = 0; !base.empty() && depth < 8; ++depth) {
-        // Only accept canonical runtime locations.  Never probe an arbitrary
-        // `PlayDH` child directory: compatibility junctions and recovered
-        // reference trees must be selected explicitly through a profile/root.
-        const std::filesystem::path candidates[] = {
-            base / "modern" / "data" / "PlayDH",
-            base / "data" / "PlayDH"
-        };
-        for (const auto& candidate : candidates) {
-            if (std::filesystem::is_directory(candidate, ec)) return candidate;
-        }
-        const auto parent = base.parent_path();
-        if (parent == base) break;
-        base = parent;
-    }
-    return {};
+    wchar_t value[32768]{};
+    const auto length = GetEnvironmentVariableW(
+        L"MXH_PLAYDH_ROOT", value, static_cast<DWORD>(std::size(value)));
+    if (length == 0 || length >= std::size(value)) return {};
+    return std::filesystem::path(value);
 }
 
 bool validate_runtime_resources(const std::filesystem::path& root,
@@ -3485,7 +3472,8 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
 
     if (options.resource_root.empty()) options.resource_root = find_playdh_root();
     if (options.resource_root.empty()) {
-        std::fprintf(stderr, "mxh_client: PlayDH resource root not found\n");
+        std::fprintf(stderr,
+                     "MXH_PLAYDH_ROOT is not set and no --resource-root/-ResourceDir was given\n");
         return 1;
     }
     {
