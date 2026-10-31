@@ -368,23 +368,26 @@ CliArgs parse_cli(int argc, char** argv) {
             a.login_host = host;
         }
     }
-    if (!a.password_env.empty()) {
-        const char* value = std::getenv(a.password_env.c_str());
-        if (value == nullptr || *value == '\0') {
-            std::fprintf(stderr, "password environment variable is empty: %s\n",
-                         a.password_env.c_str());
+    // --dump-cli is offline and must not require a password.
+    if (!a.dump_cli) {
+        if (!a.password_env.empty()) {
+            const char* value = std::getenv(a.password_env.c_str());
+            if (value == nullptr || *value == '\0') {
+                std::fprintf(stderr, "password environment variable is empty: %s\n",
+                             a.password_env.c_str());
+                std::exit(3);
+            }
+            a.password = value;
+        }
+        if (!a.password_from_arg && a.password_env.empty()) {
+            std::fprintf(stderr,
+                         "password required: pass --password or --password-env\n");
             std::exit(3);
         }
-        a.password = value;
-    }
-    if (!a.password_from_arg && a.password_env.empty()) {
-        std::fprintf(stderr,
-                     "password required: pass --password or --password-env\n");
-        std::exit(3);
-    }
-    if (a.password.empty()) {
-        std::fprintf(stderr, "password is empty\n");
-        std::exit(3);
+        if (a.password.empty()) {
+            std::fprintf(stderr, "password is empty\n");
+            std::exit(3);
+        }
     }
     try {
         const auto resolved = mxh::test::resolve_e2e_cli_ports(

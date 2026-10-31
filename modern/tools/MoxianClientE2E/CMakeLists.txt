@@ -56,6 +56,9 @@ add_test(NAME MoxianClientE2E COMMAND mxh_client_e2e_ctest
     --agent-exe $<TARGET_FILE:mxh_agent_server_CHINA>
     --map-exe $<TARGET_FILE:mxh_map_server_CHINA>
     --login-host 127.0.0.1
+    # Not selected by ci/windows_behavior_tests.txt or the Linux ctest
+    # regexes, so CI does not need MXH_SMOKE_PASSWORD.
+    --password-env MXH_SMOKE_PASSWORD
 )
 set_tests_properties(MoxianClientE2E PROPERTIES
     TIMEOUT 60
