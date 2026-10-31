@@ -209,7 +209,6 @@ target_include_directories(mxh_dialog_atlas_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
 target_compile_definitions(mxh_dialog_atlas_tests PRIVATE
     MXH_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
-add_test(NAME mxh_dialog_atlas_contract COMMAND mxh_dialog_atlas_tests)
 
 target_link_libraries(mxh_ui_tests PRIVATE mxh_ui mxh_compat mxh_log gtest_main)
 # Interface-script goldens live in the repo, not under PlayDH. The test
@@ -233,6 +232,7 @@ endif()
 add_test(NAME mxh_ui_resource_manager_tests
     COMMAND $<TARGET_FILE:mxh_ui_resource_manager_tests>)
 set_tests_properties(mxh_ui_resource_manager_tests PROPERTIES
+    LABELS "rog"
     SKIP_REGULAR_EXPRESSION "\\[  SKIPPED \\]")
 
 # InterfaceScript legacy test uses nlohmann/json for structural compare.
@@ -248,6 +248,7 @@ if(MSVC)
 endif()
 
 include(GoogleTest)
+gtest_add_tests(TARGET mxh_dialog_atlas_tests)
 # Hand-register tests via gtest_add_tests. We can't use gtest_discover_tests
 # because the POST_BUILD cmake_test_discovery_*.json step fails when the
 # build directory contains full-width CJK characters in the path (the cmake
@@ -2373,6 +2374,15 @@ gtest_add_tests(TARGET mxh_ui_tests
     # M-R3 cDialogLoader has a separate hand-rolled executable registered by
     # tests/unit/CMakeLists.txt; mxh_ui_tests itself always uses gtest_main.
 )
+set_tests_properties(
+    InterfaceScriptParser.ApplyLegacyLayoutOnRealMainDlgBinFile
+    InterfaceScript.LoadsPlayDhMPGuageBinAndFindsExpGuageChild
+    InterfaceScript.LoadsPlayDhTitanInventoryBinAndHasInventoryCells
+    InterfaceScriptRender.MainDlgRendersAtLegacyPixelPosition
+    InterfaceScriptRender.QuickDialogRendersAtLegacyPixelPosition
+    InterfaceScriptRender.ExitDialogRendersAtLegacyPixelPosition
+    InterfaceScriptRender.MultipleDialogsRenderAtDistinctLegacyPositions
+    PROPERTIES LABELS "rog")
 
 add_executable(mxh_ui_text_render_tests
     text_render_adapter_test.cpp

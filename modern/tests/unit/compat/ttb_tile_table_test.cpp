@@ -16,26 +16,14 @@
 #include <iterator>
 #include <span>
 #include <vector>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace mxh::compat::test {
 
 namespace {
 
 std::filesystem::path findMap17Ttb() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override())
-        return *playdh_override / "Resource" / "Map" / "17.ttb";
-    auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8; ++level) {
-        for (const auto& first : std::filesystem::directory_iterator(root)) {
-            if (!first.is_directory()) continue;
-            const auto candidate = first.path() / "PlayDH" / "Resource" / "Map" / "17.ttb";
-            if (std::filesystem::exists(candidate)) return candidate;
-        }
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root() / "Resource" / "Map" / "17.ttb";
 }
 
 // Helper: build a headered .ttb buffer (8-byte header + W*H*4 tiles).
@@ -149,7 +137,7 @@ TEST(TtbTileTableTest, ParseHeaderedLargeWidth) {
 
 TEST(TtbTileTableTest, ParsesRecoveredMap17TileTable) {
     const auto path = findMap17Ttb();
-    if (path.empty()) GTEST_SKIP() << "PlayDH Map17 TTB fixture is not installed";
+    ASSERT_TRUE(std::filesystem::is_regular_file(path)) << path.string();
     std::ifstream input(path, std::ios::binary);
     ASSERT_TRUE(input);
     const std::vector<std::uint8_t> bytes(
