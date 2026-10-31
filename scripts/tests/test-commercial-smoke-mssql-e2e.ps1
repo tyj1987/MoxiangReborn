@@ -316,6 +316,18 @@ function Get-SmokeText([string]$Text) {
     return $clean.Replace("`r`n", "`n").Replace("`r", "`n").Trim()
 }
 
+function Write-SmokeChildStdout {
+    param([string]$Text)
+    # Echo the child smoke stdout into this process so a redirected job log
+    # contains the script's OWNED and DROPPED lines. Assertions use $Text
+    # unchanged.
+    if ([string]::IsNullOrEmpty($Text)) { return }
+    # -split with a count does not break this string into lines.
+    foreach ($line in [regex]::Split($Text, '\r\n|\n|\r')) {
+        Write-Host ('CHILD> ' + $line)
+    }
+}
+
 function Count-SmokeLine([string]$Text, [string]$Line) {
     $n = 0
     foreach ($item in ($Text -split "`n")) {
@@ -1317,6 +1329,7 @@ try {
     $okBuild = New-BuildDir -WithExe
     $okRun = Invoke-Smoke -BuildDir $okBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $okState.Env
     $okText = Get-SmokeText $okRun.Stdout
+    Write-SmokeChildStdout -Text $okText
     $okLog = Read-SqlCmdLog -Path $okState.Log
     $okBefore = Get-DatabaseBlock -Text $okText -When 'before' -Server '.\SQLEXPRESS'
     $okAfter = Get-DatabaseBlock -Text $okText -When 'after' -Server '.\SQLEXPRESS'
@@ -1361,6 +1374,7 @@ try {
     $dropBuild = New-BuildDir -WithExe
     $dropRun = Invoke-Smoke -BuildDir $dropBuild.Build -PathValue $sqlPath -MssqlDb $goodConn -StubEnv $dropState.Env
     $dropText = Get-SmokeText $dropRun.Stdout
+    Write-SmokeChildStdout -Text $dropText
     $dropLog = Read-SqlCmdLog -Path $dropState.Log
     Assert-True ($dropRun.ExitCode -ne 0) "drop failure must be non-zero, exit $($dropRun.ExitCode), stdout [$dropText] stderr [$($dropRun.Stderr)]"
     Assert-True ($dropText.Contains("MSSQL_E2E DROP FAILED (database $goodDb; sqlcmd exit 1)")) "drop failure line missing in [$dropText]"
