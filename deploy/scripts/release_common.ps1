@@ -253,12 +253,41 @@ function Get-MxhProcessImagePath {
 
 function Test-MxhProcessAlive {
     param([int]$ProcessId)
+    $procDir = '/proc/' + $ProcessId
+    if (Test-Path -LiteralPath '/proc/self') {
+        if (-not (Test-Path -LiteralPath $procDir)) { return $false }
+        $statPath = Join-Path $procDir 'stat'
+        if (Test-Path -LiteralPath $statPath) {
+            try {
+                $stat = [IO.File]::ReadAllText($statPath)
+                if ($stat -match '\)\s+([A-Za-z])') {
+                    if ($Matches[1] -eq 'Z' -or $Matches[1] -eq 'X') { return $false }
+                }
+            } catch {
+            }
+        }
+        return $true
+    }
     try {
         $process = Get-Process -Id $ProcessId -ErrorAction Stop
         return -not $process.HasExited
     } catch {
         return $false
     }
+}
+
+function Test-MxhSameImageAlive {
+    param(
+        [int]$ProcessId,
+        [string]$ExpectedImage
+    )
+    if (-not (Test-MxhProcessAlive -ProcessId $ProcessId)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($ExpectedImage)) { return $true }
+    $image = Get-MxhProcessImagePath -ProcessId $ProcessId
+    if ([string]::IsNullOrWhiteSpace($image)) { return $false }
+    $imageFull = [IO.Path]::GetFullPath($image)
+    $expectedFull = [IO.Path]::GetFullPath($ExpectedImage)
+    return [string]::Equals($imageFull, $expectedFull, [StringComparison]::OrdinalIgnoreCase)
 }
 
 function Test-MxhPathUnderRoot {
@@ -328,17 +357,33 @@ function Test-MxhOwnedProcess {
 }
 
 function Stop-MxhOwnedProcess {
-    param([int]$ProcessId)
+    param(
+        [int]$ProcessId,
+        [string]$ExpectedImage = ''
+    )
+    $savedNative = $null
+    if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+        $savedNative = $PSNativeCommandUseErrorActionPreference
+        $PSNativeCommandUseErrorActionPreference = $false
+    }
     try {
-        Stop-Process -Id $ProcessId -Force -ErrorAction Stop
-    } catch {
-        if (Test-MxhProcessAlive -ProcessId $ProcessId) { throw }
+    for ($attempt = 0; $attempt -lt 4; $attempt++) {
+        if (-not (Test-MxhSameImageAlive -ProcessId $ProcessId -ExpectedImage $ExpectedImage)) { return }
+        try { Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue } catch { }
+        if (Test-Path -LiteralPath '/bin/kill') {
+            & /bin/kill '-9' ([string]$ProcessId) 2>$null
+        }
+        $deadline = [DateTime]::UtcNow.AddSeconds(2)
+        while ((Test-MxhSameImageAlive -ProcessId $ProcessId -ExpectedImage $ExpectedImage) -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Milliseconds 100
+        }
     }
-    $deadline = [DateTime]::UtcNow.AddSeconds(5)
-    while ((Test-MxhProcessAlive -ProcessId $ProcessId) -and [DateTime]::UtcNow -lt $deadline) {
-        Start-Sleep -Milliseconds 100
-    }
-    if (Test-MxhProcessAlive -ProcessId $ProcessId) {
+    if (Test-MxhSameImageAlive -ProcessId $ProcessId -ExpectedImage $ExpectedImage) {
         throw ('failed to stop pid ' + $ProcessId)
+    }
+    } finally {
+        if ($null -ne $savedNative) {
+            $PSNativeCommandUseErrorActionPreference = $savedNative
+        }
     }
 }

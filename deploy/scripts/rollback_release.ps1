@@ -60,7 +60,7 @@ foreach ($entry in $rows) {
         Write-Host ('WhatIf: stop pid=' + $entry.pid + ' exe=' + $decision.Image)
         continue
     }
-    Stop-MxhOwnedProcess -ProcessId ([int]$entry.pid)
+    Stop-MxhOwnedProcess -ProcessId ([int]$entry.pid) -ExpectedImage $decision.Image
     Write-Host ('stopped pid=' + $entry.pid + ' exe=' + $decision.Image)
 }
 

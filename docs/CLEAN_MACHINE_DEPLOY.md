@@ -179,8 +179,9 @@ optional portal `/api/healthz` when `-PortalUrl` is set. Any FAIL line exits 1.
 Do not point these scripts at VM112, or at any other machine, until all of the
 following are true:
 
-1. The game specialist's client ServerPort to modern login pull request is merged.
-2. Pull request #109 is merged.
-3. ROG smoke and soak have passed.
-4. Yongjun has made the repository private, or has accepted that it stays public.
-5. VM112 staging rehearsal is confirmed by the owner. This item is pending that confirmation.
+1. Pull request #114 is merged. That change generates the client ServerPort from the modern login port (`deploy_client.ps1 -LoginPort` default 16001). This is a hard prerequisite.
+2. Pull request #109 is merged. That change requires an explicit PlayDH root for the remaining entry points. This is a hard prerequisite.
+3. The agreed merge order has finished: #110 (done), then #117, #107, #114, #116, and #109. This pull request stays draft until those are merged.
+4. ROG smoke and soak have passed.
+5. Yongjun has made the repository private, or has accepted that it stays public.
+6. VM112 staging rehearsal is confirmed by the owner. This item is pending that confirmation.

@@ -169,7 +169,7 @@ try {
     foreach ($row in @($rows)) {
         $decision = Test-MxhOwnedProcess -Entry $row -ReleaseDir $releaseFull
         if ($decision.Owned) {
-            try { Stop-MxhOwnedProcess -ProcessId ([int]$row.pid) } catch { }
+            try { Stop-MxhOwnedProcess -ProcessId ([int]$row.pid) -ExpectedImage ([string]$row.exe) } catch { }
         }
     }
     if (Test-Path -LiteralPath $layout.StatePath) {
