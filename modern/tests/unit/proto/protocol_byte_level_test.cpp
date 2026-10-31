@@ -3,7 +3,7 @@
 // Phase 6.1 of the 12-week plan: prove that modern's protocol codec
 // (mxh::net::MsgHeader + TcpServer/TcpClient framing) produces wire
 // bytes that match the legacy MSGBASE / MSGROOT layout used by
-// SWorking/* and the original MHClient-Connect.exe.
+// SWorking/* and the original legacy client.
 //
 // The legacy wire layout (1:1 with [CC]Header/CommonStruct.h):
 //   MSGBASE = [checksum: u8] [code: i8] [category: u8] [protocol: u8] [object_id: u32]

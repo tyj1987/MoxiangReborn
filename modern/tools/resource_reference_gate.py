@@ -129,8 +129,8 @@ KNOWN_NO_ORIGINAL = (
     "Monster_203.bin",
 )
 
-# Tokens printed by the original client EngineMap.cpp loader
-# (MHClient-Connect.exe). A .map reference is one of these sections followed
+# Tokens printed by the original client EngineMap.cpp loader.
+# A .map reference is one of these sections followed
 # by the filename the section stores. The map's own filename is not a
 # requirement.
 MAP_SECTIONS = {
