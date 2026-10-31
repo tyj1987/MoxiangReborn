@@ -11,6 +11,25 @@ It is deleted together with the repo-tree-versus-manifest comparison, in
 whichever phase removes that comparison, at the latest P3 (that phase's
 acceptance item). P2 stops using the list.
 
+## 端口批准 / Port approvals
+
+经战略专家批准（2026-11-01）：ROG 上的 smoke、E2E 和 soak 的 Map12Port 统一用 28002，长期有效，不必每次单独报批。
+
+条件：每次启动前只读确认 28002 没有被其他进程监听，确认结果写入当次报告；若被占用，停下报战略专家，不得换端口。
+
+除 28002 外，任何其他未列入白名单的端口仍须先批。
+
+适用范围包括已排队的 1h soak 与 TYJ-184（均 pin 在 `2bd89f33`，#115 之前的脚本）。
+
+自 #115（`2dc45123`）起，soak 脚本无 Map12Port 默认值，必须显式传 `-Map12Port 28002`。
+
+端口表（白名单与例外只列在这里）：
+
+- 允许：26001 / 27001 / 28001。28002 是上面这条 Map12Port 批准，同样在白名单内，不再逐次报批。
+- 禁止：16001 / 17001 / 18001，以及 36001 / 37001 / 38001。
+- 28003 仅 #59 Map17。
+- 26011 / 27011 / 28011 仅 CI。
+
 ## Real-file checks
 
 These commands are not registered as required CI tests.
