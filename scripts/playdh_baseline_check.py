@@ -160,6 +160,11 @@ def decoded_map_hashes(document: dict) -> tuple[list[str], str | None]:
     return hashes, None
 
 
+def check_tracked_maps(paths: list[str]) -> tuple[int, list[str]]:
+    # Registry-size and LFS pointer checks land with this case. Matching is not implemented yet.
+    return 0, ["TRACKED_MAP_FILES 0"]
+
+
 def list_tracked(repo: Path) -> list[str]:
     proc = subprocess.run(
         ["git", "-c", "safe.directory=%s" % repo, "ls-files", "-z"],
@@ -358,18 +363,42 @@ def self_test() -> int:
             code,
             lines,
             True,
-            "DECODED_MAP_REGISTRY COUNT_MISMATCH expected=82 actual=81",
+            "ORIGINAL_MAP_REGISTRY COUNT_MISMATCH expected=82 actual=81",
         ):
             failed = True
 
         pointer = playdh / "pointer.bin"
-        pointer.write_bytes(LFS_MARKER + b"\noid sha256:" + b"0" * 64 + b"\nsize 1\n")
-        _write_manifest(manifest, [("pointer.bin", pointer.read_bytes()), ("a.bin", file_a)])
-        # Manifest hash is of the pointer bytes, so content would match.
-        # The pointer check must still fail before accepting that hash.
+        manifest_oid = hashlib.sha256(file_a).hexdigest()
+        pointer_oid = "1" * 64
+        pointer.write_bytes(
+            LFS_MARKER + b"\noid sha256:" + pointer_oid.encode("ascii") + b"\nsize " + str(len(file_a)).encode("ascii") + b"\n"
+        )
+        _write_manifest(manifest, [("pointer.bin", file_a), ("a.bin", file_a)])
         (playdh / "b.bin").unlink(missing_ok=True)
         code, lines = check_playdh(playdh, manifest)
-        if not _expect("lfs-pointer", code, lines, True, "PLAYDH_BASELINE LFS_POINTER pointer.bin"):
+        if not _expect(
+            "lfs-oid-mismatch",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE LFS_OID_MISMATCH pointer.bin expected=%s actual=%s" % (manifest_oid, pointer_oid),
+        ):
+            failed = True
+        pointer.write_bytes(
+            LFS_MARKER + b"\noid sha256:" + manifest_oid.encode("ascii") + b"\nsize " + str(len(file_a) + 7).encode("ascii") + b"\n"
+        )
+        code, lines = check_playdh(playdh, manifest)
+        if not _expect(
+            "lfs-size-mismatch",
+            code,
+            lines,
+            True,
+            "PLAYDH_BASELINE LFS_SIZE_MISMATCH pointer.bin expected=%s actual=%s" % (len(file_a), len(file_a) + 7),
+        ):
+            failed = True
+
+        code, lines = check_tracked_maps(["x.map"])
+        if not _expect("tracked-map", code, lines, True, "TRACKED_MAP_FORBIDDEN x.map"):
             failed = True
     if failed:
         return 1
