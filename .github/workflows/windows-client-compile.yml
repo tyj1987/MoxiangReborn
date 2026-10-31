@@ -157,7 +157,7 @@ jobs:
 
             $mapMatch = New-MxhGateSide -Name 'map-match' -Hash $hashA
             $clientMatch = New-MxhGateSide -Name 'client-match' -Hash $hashA
-            Invoke-MxhGateCase -Name 'match' -MapExecutable $mapMatch -ClientExecutable $clientMatch -ExpectZero $true -ExpectText 'PROTOCOL_MATCH item=deliberately-wrong'
+            Invoke-MxhGateCase -Name 'match' -MapExecutable $mapMatch -ClientExecutable $clientMatch -ExpectZero $true -ExpectText "PROTOCOL_MATCH item=$hashA"
 
             $mapDiff = New-MxhGateSide -Name 'map-diff' -Hash $hashA
             $clientDiff = New-MxhGateSide -Name 'client-diff' -Hash $hashB
