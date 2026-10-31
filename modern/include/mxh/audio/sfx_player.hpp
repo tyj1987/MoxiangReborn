@@ -1,7 +1,7 @@
 #pragma once
 
+#include "mxh/audio/audio_contract.hpp"
 #include "mxh/compat/sound_list.hpp"
-#include <algorithm>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -41,8 +41,9 @@ public:
     void setVolume(float normalized) noexcept;
     [[nodiscard]] float volume() const noexcept { return volume_; }
     [[nodiscard]] float currentGain() const noexcept {
-        return std::clamp(volume_ * current_bus_gain_ * current_entry_volume_ *
-                          current_distance_gain_, 0.0f, 1.0f);
+        return contract::sfx_output_gain(volume_, current_bus_gain_,
+                                         current_entry_volume_,
+                                         current_distance_gain_);
     }
     [[nodiscard]] bool ready() const noexcept { return ready_; }
     [[nodiscard]] std::filesystem::path resolve(std::uint16_t sound_id) const;

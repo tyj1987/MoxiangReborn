@@ -28,7 +28,7 @@
 | G6 | Map10 世界呈现 | PARTIAL | 原版r14地形、蓝衣长武器角色与怪物可见，死亡后仍站立。Unity当前Player只清楚显示全图地形，角色/怪物不可辨认。两线姿态、遮挡和完整画面尚未验收。 |
 | G7 | UI 实时绑定 | PARTIAL | r14固定canonical的名字/等级/HP/盾/内力/地图坐标完整可读，实际像素原色正确；独立parser25/adapter5通过。全部控件、原字体和多DPI尚未通过；极端样式坐标仍有后续布局边界。 |
 | G8 | 移动、战斗、掉落与换图 | PARTIAL | 当前提交已在本机 SQLite 与 VM112 隔离 MSSQL 的 canonical Map17 完成 1 级首发权威攻击→死亡→自然掉落→点击拾取→背包移动→重登回读（本次 PVE 216 怪物、5/5、退出码 0）；Map10 1 级首战、真人 GUI、Map17 九个准确纹理、任务奖励、全地图覆盖和 Unity 同等玩法仍未闭合。
-| G9 | 特效与音频 | 未运行 | 本轮没有配套 Player、事件轨迹和原版对照证据。 |
+| G9 | 特效与音频 | 未运行 | Linux ctest 的 AudioContract.* 只锁定从现有客户端搬出的纯计算约定：BGM/SFX 音量与非有限值回退、距离衰减、16 路 SFX 轮转、地图 BGM 选择与缺失时失败或警告、失焦静音、选项百分比。这些测试不播放声音，不证明 XAudio2/Media Foundation 真实播放，也不证明原版听感 1:1。本轮仍没有配套 Player、事件轨迹和原版对照证据。 |
 | G10 | 全部资源、地图与 UI | 未通过 | 资源依赖及来源仍有缺项；本轮 PVE Map10 没有 canonical Dealer，商店目录/购买/重登无法开始，回执 `docs/evidence/original-pve-shop-current-20261015.json`。工作区发现的 16 份 `Dealitem.bin` 全部同一哈希且解码后 Map10 行数为 0，来源审计 `docs/evidence/original-dealitem-map10-provenance-audit-20261015.json`；未完成全地图/功能覆盖矩阵。 |
 | G11 | RC 稳定性 | 未运行 | 未做本轮干净机器、故障注入、更新/回滚和 24 小时 soak。 |
 

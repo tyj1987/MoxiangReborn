@@ -67,12 +67,13 @@
 #   modern/data/PlayDH/Resource. They read no LFS .pak (only
 #   Map/Character/Effect/monster.pak are LFS), so LFS skip-smudge is safe.
 # - Required-Passed also includes SyntheticFixtureCompareLoopDetectsMatchAndMismatches.
-#   The same build runs mxh_agent_cli_tests, mxh_e2e_soak_tests, and
-#   mxh_dpi_scale_tests, mxh_session_retry_contract_tests, and
-#   mxh_item_protocol_tests. Required-Passed
+#   The same build runs mxh_agent_cli_tests, mxh_e2e_soak_tests,
+#   mxh_dpi_scale_tests, mxh_session_retry_contract_tests,
+#   mxh_audio_contract_tests, and mxh_item_protocol_tests. Required-Passed
 #   includes AgentCli.OmittedDefaultMapIs17, the extra-map AgentCli cases, the
 #   E2eSoak report-peer-gone cases, the DpiScale cases, the
-#   SessionRetryContract login/session cases, and the ItemProtocol cases.
+#   SessionRetryContract login/session cases, the AudioContract cases, and
+#   the ItemProtocol cases.
 #   The ctest regex matches the GitLab job.
 #   The summary grep is `(^|[^0-9])0 tests failed` so `10 tests failed` cannot match.
 # - pull_request.paths 作用到整个 workflow。下面额外的 C++ paths 会让本文件里的
@@ -313,14 +314,14 @@ jobs:
           set -eu
           cmake --version
           cmake -S modern -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_item_protocol_tests
+          cmake --build build --target mxh_resource_reference_tests mxh_agent_cli_tests mxh_e2e_soak_tests mxh_dpi_scale_tests mxh_session_retry_contract_tests mxh_audio_contract_tests mxh_item_protocol_tests
 
       - name: Run MxhResourceReference ctest
         run: |
           # Container jobs default to sh (dash). dash rejects `set -o pipefail`,
           # so ctest runs under bash and a failing ctest still fails the step.
           bash -euo pipefail <<'EOF'
-          ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|E2eSoak|ItemProtocol\.)' --output-on-failure 2>&1 | tee ctest.log
+          ctest --test-dir build -R '^(MxhResourceReference\.|AgentCli\.|DpiScale\.|SessionRetryContract\.|AudioContract\.|ItemProtocol\.|E2eSoak)' --output-on-failure 2>&1 | tee ctest.log
           EOF
 
       - name: Require PlayDH reference tests passed
@@ -370,6 +371,14 @@ jobs:
           require_passed SessionRetryContract.InGameDisconnectRequestsTitleWithMessage9106 || status=1
           require_passed SessionRetryContract.ReleaseAllowsSecondStartAndStartedGuardBlocksDoubleStart || status=1
           require_passed SessionRetryContract.LoginFailureWipesPassword || status=1
+          require_passed AudioContract.BgmVolumeAndEntryFallback || status=1
+          require_passed AudioContract.SfxVolumeBusAndEntryFallback || status=1
+          require_passed AudioContract.DistanceGainIsLinearBetweenMinAndMax || status=1
+          require_passed AudioContract.SfxMixClampsAndVoicesRoundRobin || status=1
+          require_passed AudioContract.ChannelAndMissingFileReject || status=1
+          require_passed AudioContract.BgmSelectionRollbackAndMissingPolicy || status=1
+          require_passed AudioContract.FocusMuteAndOptionPercent || status=1
+          require_passed AudioContract.EffectSoundIdLoopAndEngineCue || status=1
           require_passed ItemProtocol.BuyMatchesOriginalNumbers || status=1
           require_passed ItemProtocol.PickupDoesNotOccupyOriginalBuy || status=1
           require_passed ItemProtocol.DisplacedNumbersMatchOriginal || status=1
