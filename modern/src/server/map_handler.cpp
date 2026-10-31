@@ -20,6 +20,8 @@
 //   [2B length LE] [8B MSGBASE: checksum+code+cat+proto+objID] [payload]
 
 #include "mxh/server/server.hpp"
+#include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/original_item_obtain_codec.hpp"
 #include "mxh/net/packet_trace.hpp"
 #include "mxh/server/live_events.hpp"
 #include "mxh/server/distributer.hpp"
@@ -1148,6 +1150,28 @@ std::optional<MapHandler::GroundDrop> MapHandler::create_ground_drop_for_test(st
     return drop;
 }
 
+bool MapHandler::send_direct_inventory_obtain(std::uint32_t player_id,
+    std::uint32_t db_idx, std::uint16_t icon, std::uint16_t position,
+    std::uint32_t durability, std::uint16_t count) {
+    auto built = mxh::proto::original_item::make_direct_inventory_obtain(
+        db_idx, icon, position, durability, count);
+    if (!built) return false;
+    mxh::net::ConnectionId conn{};
+    {
+        std::lock_guard<std::mutex> lock(players_mu_);
+        const auto player = connected_players_.find(player_id);
+        if (player == connected_players_.end()) return false;
+        conn = mxh::net::ConnectionId{player->second.conn_id};
+    }
+    mxh::net::Message msg;
+    msg.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
+    msg.header.protocol = built->protocol;
+    msg.header.object_id = player_id;
+    msg.payload = std::move(built->payload);
+    reply_(conn, msg);
+    return true;
+}
+
 bool MapHandler::claim_ground_drop_for_test(std::uint32_t player_id, std::uint32_t drop_object_id) {
     std::uint16_t item_id = 0;
     std::uint16_t item_count = 0;
@@ -1638,17 +1662,20 @@ std::optional<MapHandler::GroundDrop> MapHandler::apply_monster_damage(
             ground_drops_[drop.object_id] = drop;
             for (const auto& [player_id, player] : connected_players_) {
                 (void)player_id;
+                mxh::proto::GroundItemAddBody body;
+                body.object_id = drop.object_id;
+                body.source_monster_id = drop.source_monster_id;
+                body.item_id = drop.item_id;
+                body.count = drop.count;
+                body.pos_x = drop.pos_x;
+                body.pos_z = drop.pos_z;
+                auto encoded = mxh::proto::encode_ground_item_add(body);
+                if (!encoded) continue;
                 mxh::net::Message notify;
                 notify.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-                notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+                notify.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
                 notify.header.object_id = attacker_player_id;
-                notify.payload.resize(20u, 0u);
-                put_u32(notify.payload, 0u, drop.object_id);
-                put_u32(notify.payload, 4u, drop.source_monster_id);
-                std::memcpy(notify.payload.data() + 8u, &drop.item_id, sizeof(drop.item_id));
-                std::memcpy(notify.payload.data() + 10u, &drop.count, sizeof(drop.count));
-                std::memcpy(notify.payload.data() + 12u, &drop.pos_x, sizeof(drop.pos_x));
-                std::memcpy(notify.payload.data() + 16u, &drop.pos_z, sizeof(drop.pos_z));
+                notify.payload = std::move(*encoded);
                 notifications.emplace_back(mxh::net::ConnectionId{player.conn_id}, std::move(notify));
             }
         }

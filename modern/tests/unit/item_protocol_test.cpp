@@ -3,6 +3,8 @@
 // has an original counterpart must use that counterpart's number.
 // Ground-drop versus direct-to-inventory payload paths are a separate change.
 
+#include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/original_item_obtain_codec.hpp"
 #include "mxh/proto/original_item_profile.hpp"
 #include "mxh/proto/protocol.hpp"
 
@@ -11,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+#include <vector>
 
 namespace {
 
@@ -386,10 +389,10 @@ TEST(ItemProtocol, AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax) {
     static_assert(std::is_same_v<std::underlying_type_t<Modern>, std::uint8_t>);
     static_assert(mxh::proto::kItemProtocolCount ==
                   mxh::proto::kItemProtocolEnumeratorCount);
-    static_assert(mxh::proto::kItemProtocolCount == 59u);
+    static_assert(mxh::proto::kItemProtocolCount == 60u);
     static_assert(kOriginalItemProtocolCount == 252u);
 
-    ASSERT_EQ(mxh::proto::kItemProtocolCount, 59u);
+    ASSERT_EQ(mxh::proto::kItemProtocolCount, 60u);
     for (std::size_t i = 0; i < mxh::proto::kItemProtocolCount; ++i) {
         const unsigned value = modern_number(mxh::proto::kItemProtocolValues[i]);
         EXPECT_LE(value, 255u);
@@ -404,6 +407,8 @@ TEST(ItemProtocol, AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax) {
               modern_number(Modern::PickupAck));
     EXPECT_NE(static_cast<unsigned>(mxh::proto::kModernShopList),
               modern_number(Modern::PickupNack));
+    EXPECT_NE(static_cast<unsigned>(mxh::proto::kModernShopList),
+              modern_number(Modern::GroundItemAdd));
 
     const unsigned original_max =
         original_number(Original::MP_ITEM_TITAN_APPEARANCE_CHANGE);
@@ -412,13 +417,86 @@ TEST(ItemProtocol, AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax) {
     EXPECT_EQ(original_number(Original::MP_ITEM_TOTALINFO_LOCAL), 0u);
     EXPECT_EQ(original_max, 250u);
     EXPECT_EQ(protocol_limit, 256u);
-    for (const Modern pickup : {Modern::PickupSyn, Modern::PickupAck, Modern::PickupNack}) {
-        const unsigned value = modern_number(pickup);
-        EXPECT_GT(value, original_max);
-        EXPECT_LT(value, protocol_limit);
+    unsigned extension_values = 0;
+    for (std::size_t i = 0; i < mxh::proto::kItemProtocolCount; ++i) {
+        const unsigned value = modern_number(mxh::proto::kItemProtocolValues[i]);
+        if (value <= original_max || value >= protocol_limit) continue;
+        ++extension_values;
         EXPECT_LE(value, 255u);
+        EXPECT_NE(value, static_cast<unsigned>(mxh::proto::kModernShopList));
         for (const Original assigned : kOriginalItemProtocols) {
             EXPECT_NE(value, original_number(assigned));
         }
     }
+    EXPECT_EQ(extension_values, 4u);
+}
+
+TEST(ItemProtocol, GroundAddIsNotDirectObtain) {
+    unsigned ground_add = 0;
+    unsigned extension_count = 0;
+    for (std::size_t i = 0; i < mxh::proto::kItemProtocolCount; ++i) {
+        const unsigned value = modern_number(mxh::proto::kItemProtocolValues[i]);
+        const bool pickup =
+            value == modern_number(Modern::PickupSyn) ||
+            value == modern_number(Modern::PickupAck) ||
+            value == modern_number(Modern::PickupNack);
+        if (value > 250u && value < 256u && !pickup) {
+            ++extension_count;
+            ground_add = value;
+        }
+    }
+    EXPECT_EQ(extension_count, 1u);
+    EXPECT_EQ(ground_add, 254u);
+    EXPECT_NE(ground_add, modern_number(Modern::MonsterObtainNotify));
+    EXPECT_EQ(modern_number(Modern::MonsterObtainNotify), 32u);
+    EXPECT_EQ(modern_number(Modern::GroundItemAdd), ground_add);
+
+    mxh::proto::GroundItemAddBody ground{};
+    ground.object_id = 9001u;
+    ground.source_monster_id = 77u;
+    ground.item_id = 501u;
+    ground.count = 1u;
+    ground.pos_x = 10.0f;
+    ground.pos_z = 20.0f;
+    const auto ground_body = mxh::proto::encode_ground_item_add(ground);
+    ASSERT_TRUE(ground_body);
+    EXPECT_EQ(ground_body->size(), mxh::proto::kGroundItemAddBytes);
+    EXPECT_FALSE(mxh::proto::original_item::decode_item_obtain_payload(*ground_body));
+    const auto ground_round = mxh::proto::decode_ground_item_add(*ground_body);
+    ASSERT_TRUE(ground_round);
+    EXPECT_EQ(ground_round->object_id, ground.object_id);
+    EXPECT_EQ(ground_round->item_id, ground.item_id);
+
+    mxh::proto::original_item::ItemObtainArray obtained;
+    obtained.obtain_count = 1u;
+    obtained.items.push_back(mxh::game::ItemBase{});
+    obtained.items.back().dwDBIdx = 42u;
+    obtained.items.back().wIconIdx = 501u;
+    obtained.items.back().Position = 3u;
+    const auto obtain_body =
+        mxh::proto::original_item::encode_item_obtain_payload(obtained);
+    ASSERT_TRUE(obtain_body);
+    EXPECT_FALSE(mxh::proto::decode_ground_item_add(*obtain_body));
+    const auto obtain_round =
+        mxh::proto::original_item::decode_item_obtain_payload(*obtain_body);
+    ASSERT_TRUE(obtain_round);
+    EXPECT_EQ(obtain_round->items.size(), 1u);
+    EXPECT_EQ(obtain_round->items[0].Position, 3u);
+}
+
+TEST(ItemProtocol, DirectObtainEmitsProtocol32AndRejectsGroundDecode) {
+    const auto built = mxh::proto::original_item::make_direct_inventory_obtain(
+        7001u, 501u, 4u, 100u, 1u);
+    ASSERT_TRUE(built);
+    EXPECT_EQ(built->protocol, 32u);
+    EXPECT_EQ(built->protocol, modern_number(Modern::MonsterObtainNotify));
+    const auto obtained =
+        mxh::proto::original_item::decode_item_obtain_payload(built->payload);
+    ASSERT_TRUE(obtained);
+    ASSERT_EQ(obtained->items.size(), 1u);
+    EXPECT_EQ(obtained->items[0].dwDBIdx, 7001u);
+    EXPECT_EQ(obtained->items[0].wIconIdx, 501u);
+    EXPECT_EQ(obtained->items[0].Position, 4u);
+    EXPECT_EQ(obtained->obtain_count, 1u);
+    EXPECT_FALSE(mxh::proto::decode_ground_item_add(built->payload));
 }

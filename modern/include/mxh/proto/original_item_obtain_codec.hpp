@@ -7,6 +7,7 @@
 
 #include "mxh/game/item_types.hpp"
 #include "mxh/proto/original_item_profile.hpp"
+#include "mxh/proto/protocol.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -72,6 +73,27 @@ inline std::optional<std::vector<std::uint8_t>> encode_item_obtain_payload(
         detail::append_u32(out, item.ItemParam);
     }
     return out;
+}
+
+// Bytes MapHandler::send_direct_inventory_obtain puts on MonsterObtainNotify.
+struct DirectInventoryObtain {
+    std::uint8_t protocol =
+        static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    std::vector<std::uint8_t> payload;
+};
+
+inline std::optional<DirectInventoryObtain> make_direct_inventory_obtain(
+    std::uint32_t db_idx, std::uint16_t icon, std::uint16_t position,
+    std::uint32_t durability, std::uint16_t count) {
+    ItemObtainArray obtained;
+    obtained.obtain_count = count;
+    obtained.items.push_back(
+        mxh::game::make_item(db_idx, icon, position, durability, count));
+    auto payload = encode_item_obtain_payload(obtained);
+    if (!payload) return std::nullopt;
+    DirectInventoryObtain message;
+    message.payload = std::move(*payload);
+    return message;
 }
 
 inline std::optional<ItemObtainArray> decode_item_obtain_payload(

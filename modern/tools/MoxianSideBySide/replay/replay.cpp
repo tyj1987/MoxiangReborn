@@ -16,7 +16,7 @@
 //                 proto=28 (GameInSyn)         object_id=char_id payload=[channel:u32]
 //   attack     -> MapServer port    cat=22 (Skill) proto=0 (StartSyn)
 //                 payload=[skill:u16][target:u32]
-//   shop       -> MapServer port    cat=5 (Item) proto=22 (BuySyn)
+//   shop       -> MapServer port    cat=5 (Item) proto=19 (BuySyn)
 //                 payload=[item:u16][qty:u16]
 //   quest      -> MapServer port    cat=39 (Quest) proto=9 (StartSyn)
 //                 payload=[quest:u16]   [modern quest manager not landed;

@@ -664,7 +664,7 @@ TEST(InGameEntityLifecycle, ObjectRemoveClearsGroundDropWithSameObjectId) {
     mxh::client::CInGameState state;
     mxh::net::Message drop;
     drop.header.category = static_cast<std::uint8_t>(mxh::proto::Category::Item);
-    drop.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    drop.header.protocol = static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     drop.payload.resize(20, 0);
     const std::uint32_t object_id = 812u;
     const std::uint16_t item_id = 41u;

@@ -20,6 +20,8 @@
 //     by hsel_stream_test.cpp + aes_gcm_test.cpp.
 
 #include "mxh/game/hero_total_layout.hpp"
+#include "mxh/proto/ground_item.hpp"
+#include "mxh/proto/original_item_obtain_codec.hpp"
 #include "mxh/server/server.hpp"
 #include "mxh/server/ai_system.hpp"
 #include "client/CInGameState.hpp"
@@ -3049,7 +3051,7 @@ TEST(MapHandlerTest, MonsterDeathNotifyReachesClientThenPickupSynClaims) {
     ASSERT_TRUE(drop.has_value());
     const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.protocol ==
-            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     });
     ASSERT_NE(notify, replies.end());
 
@@ -3515,7 +3517,7 @@ TEST(MapHandlerTest, MonsterDeathCreatesNotifiesAndClaimsGroundDrop) {
 
     const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
-            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+            message.header.protocol == static_cast<std::uint8_t>(mxh::proto::ItemProtocol::GroundItemAdd);
     });
     ASSERT_NE(notify, replies.end());
     EXPECT_EQ(notify->header.object_id, 123u);
@@ -3569,7 +3571,7 @@ TEST(MapHandlerTest, RevisionedKillPublishesGroundObtainAndPersistsPickup) {
     EXPECT_TRUE(std::any_of(reply.messages.begin(), reply.messages.end(), [](const auto& message) {
         return message.header.category == static_cast<std::uint8_t>(mxh::proto::Category::Item) &&
             message.header.protocol == static_cast<std::uint8_t>(
-                mxh::proto::ItemProtocol::MonsterObtainNotify);
+                mxh::proto::ItemProtocol::GroundItemAdd);
     }));
     ASSERT_TRUE(handler.claim_ground_drop_for_test(123u, drop->object_id));
     EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, drop->object_id));
@@ -6278,6 +6280,37 @@ TEST(EquipmentPersistence, UnknownAndPartialLegacyAttributesRejectWithoutBackfil
     handler.on_message({91}, game_in);
     const auto imported = handler.player_runtime_snapshot(777); ASSERT_TRUE(imported);
     EXPECT_EQ(imported->max_hp, 48u * 5u + 18u * 10u);
+}
+
+TEST(MapHandlerTest, DirectObtainEmitsProtocol32AndRejectsGroundDecode) {
+    MockDbAdapter db;
+    db.seed_ready_vitals(123u, 100u, 100u, 100u);
+    std::vector<mxh::net::Message> replies;
+    mxh::server::MapHandler handler(db, 7,
+        [&](mxh::net::ConnectionId, const mxh::net::Message& message) {
+            replies.push_back(message);
+        });
+    mxh::net::Message game_in;
+    game_in.header.object_id = 123u;
+    game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
+    game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
+    handler.on_message(mxh::net::make_connection_id(55), game_in);
+    replies.clear();
+    ASSERT_TRUE(handler.send_direct_inventory_obtain(123u, 7001u, 501u, 4u, 100u, 1u));
+    const auto notify = std::find_if(replies.begin(), replies.end(), [](const auto& message) {
+        return message.header.protocol ==
+            static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify);
+    });
+    ASSERT_NE(notify, replies.end());
+    EXPECT_EQ(notify->header.protocol, 32u);
+    const auto obtained =
+        mxh::proto::original_item::decode_item_obtain_payload(notify->payload);
+    ASSERT_TRUE(obtained);
+    ASSERT_EQ(obtained->items.size(), 1u);
+    EXPECT_EQ(obtained->items[0].dwDBIdx, 7001u);
+    EXPECT_EQ(obtained->items[0].Position, 4u);
+    EXPECT_FALSE(mxh::proto::decode_ground_item_add(notify->payload));
+    EXPECT_FALSE(handler.claim_ground_drop_for_test(123u, 1u));
 }
 
 }  // namespace mxh::server::test
