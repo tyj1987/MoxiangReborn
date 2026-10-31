@@ -378,8 +378,12 @@ Add-ReleaseCase -Name 'rollback-recorded-pids-only' -Body {
         ) + $portArgs)
         if ($rolled.Code -ne 0) { throw ('rollback failed: ' + $rolled.Text) }
         foreach ($row in $rows) {
-            if (Test-ProcessAlive -ProcessId ([int]$row.pid)) {
-                throw ('recorded pid survived rollback: ' + $row.pid)
+            $processId = [int]$row.pid
+            if (-not (Test-ProcessAlive -ProcessId $processId)) { continue }
+            $image = Get-LiveImagePath -ProcessId $processId
+            $expected = [IO.Path]::GetFullPath([string]$row.exe)
+            if ([string]::Equals($image, $expected, [StringComparison]::OrdinalIgnoreCase)) {
+                throw ('recorded pid survived rollback: ' + $processId)
             }
         }
         if (-not (Test-ProcessAlive -ProcessId ([int]$decoyProc.Id))) {
