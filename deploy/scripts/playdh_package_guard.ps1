@@ -1,6 +1,7 @@
 # Shared PlayDH package exclusion. Patterns come from
 # modern/config/resource-profiles/playdh-current.json inventory.knownDerivedPaths
-# plus MHClient*.exe. Callers copy through Copy-MxhPlayDhFiltered and then
+# plus MHClient*.exe and *_bak. *.bak* does not match names like
+# attackrate.bin_bak. Callers copy through Copy-MxhPlayDhFiltered and then
 # Invoke-MxhPlayDhPackageScan; a hit exits 1.
 
 function Get-MxhPlayDhRepoRoot {
@@ -14,7 +15,7 @@ function Get-MxhPlayDhExcludePatterns {
     if ($null -eq $raw) { throw 'knownDerivedPaths missing' }
     $patterns = @($raw | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
     if ($patterns.Count -lt 1) { throw 'knownDerivedPaths empty' }
-    return @($patterns + 'MHClient*.exe')
+    return @($patterns + 'MHClient*.exe' + '*_bak')
 }
 
 function Test-MxhPlayDhExcludedRelativePath {
