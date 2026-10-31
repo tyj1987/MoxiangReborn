@@ -1692,7 +1692,14 @@ try {
                 Assert-True ($sw.Elapsed.TotalSeconds -lt 40) "timeout run took $($sw.Elapsed.TotalSeconds)s"
                 Assert-True ($cap.Text.Contains('COMMERCIAL_SMOKE TIMEOUT (owned executable still running after 3s)')) "timeout line missing [$($cap.Text)]"
                 Assert-True ([int]$cap.Result.ExitCode -ne 0) "timeout exit was $($cap.Result.ExitCode)"
-                foreach ($entry in @($cap.Result.Owned)) {
+                # Index the generic list. @() enumeration throws "Argument types do not match".
+                $ownedEntries = $cap.Result.Owned
+                $ownedCount = 0
+                if ($null -ne $ownedEntries) {
+                    try { $ownedCount = [int]$ownedEntries.Count } catch { $ownedCount = 0 }
+                }
+                for ($ownedIndex = 0; $ownedIndex -lt $ownedCount; $ownedIndex++) {
+                    $entry = $ownedEntries[$ownedIndex]
                     if ($null -eq $entry) { continue }
                     $ownedPid = [int]$entry.Id
                     try { $ownedStart = [int64]$entry.StartTicks } catch { $ownedStart = [int64]0 }
@@ -1864,7 +1871,13 @@ class OrphanParent {
                 Assert-True (-not (Test-PidStillRunning -ProcessId $orphanPid)) "orphan $orphanPid still running after job close"
                 Assert-True (Test-PidStillRunning -ProcessId $outside.Id) 'same-named process outside the job was stopped'
                 $inOwned = $false
-                foreach ($entry in @($cap.Result.Owned)) {
+                $ownedEntries = $cap.Result.Owned
+                $ownedCount = 0
+                if ($null -ne $ownedEntries) {
+                    try { $ownedCount = [int]$ownedEntries.Count } catch { $ownedCount = 0 }
+                }
+                for ($ownedIndex = 0; $ownedIndex -lt $ownedCount; $ownedIndex++) {
+                    $entry = $ownedEntries[$ownedIndex]
                     if ($null -eq $entry) { continue }
                     if ([int]$entry.Id -eq $orphanPid) { $inOwned = $true }
                 }
