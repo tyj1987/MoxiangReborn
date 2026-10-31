@@ -18,12 +18,15 @@
 # MapHandlerTest and InGamePlayable behavior tests link mxh_server and
 # mxh_client_lib, so they are not in the compile-only closure. A second
 # directory, build-behavior, is configured with MXH_CLIENT_COMPILE_ONLY=OFF.
-# Extension point: append one ctest name to ci/windows_behavior_tests.txt.
-# That file is the only test list. ctest -R and require_passed both read it.
+# Extension point: append one line to ci/windows_behavior_tests.txt
+# (`Name` or `Name ok=<N>`, default N=1). That file is the only test list.
+# ctest -R and require_passed both read it via ci/windows_behavior_require.ps1.
+# Passed is not enough: the checker also requires N `[       OK ]` lines and
+# rejects `[  PASSED  ] 0 tests`, `0 tests from`, `[  SKIPPED ]`, and DISABLED_.
 # Append a CMake target to $behaviorTargets in the build step when the new
 # test is not already in mxh_server_handler_tests or mxh_client_tests.
-# require_passed fails the job when any listed test is missing, not run,
-# skipped, or failed. Those cases call MapHandler and
+# The raw ctest -V log is uploaded as windows-behavior-ctest-log.
+# Those cases call MapHandler and
 # CInGameState::Init(nullptr) / on_message. They do not call
 # Device::createSwapChain, which is the only D3D11CreateDeviceAndSwapChain
 # site. A device-creation failure is a job failure, not a skip.
@@ -36,6 +39,7 @@ on:
     paths:
       - .github/workflows/windows-client-compile.yml
       - ci/windows_behavior_tests.txt
+      - ci/windows_behavior_require.ps1
       - scripts/protocol_manifest_gate.ps1
       - modern/CMakeLists.txt
       - modern/src/CMakeLists.txt
@@ -90,6 +94,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   mxh_client:
@@ -112,6 +117,7 @@ jobs:
             modern/include
             modern/tools/MoxianClient
             ci/windows_behavior_tests.txt
+            ci/windows_behavior_require.ps1
             scripts/protocol_manifest_gate.ps1
             modern/third_party/sqlite
             modern/third_party/googletest-src
@@ -223,6 +229,17 @@ jobs:
           # The last child pwsh exits 1. pwsh -Command keeps that code unless cleared.
           $global:LASTEXITCODE = 0
           exit 0
+
+      # Canned ctest logs. Same checker as the real require_passed step.
+      - name: Self-test behavior require_passed
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
+          if (-not (Test-Path -LiteralPath $checker -PathType Leaf)) {
+            throw "behavior require checker is missing: $checker"
+          }
+          . $checker
+          Invoke-MxhBehaviorRequireSelfTest
 
       - name: Prove no pak binary was checked out
         run: |
@@ -398,8 +415,7 @@ jobs:
             ForEach-Object { Write-Host $_.Line }
 
       # Extension point: $behaviorTargets is the only target list. Test names
-      # are not listed here. Append one line to ci/windows_behavior_tests.txt
-      # to add a case to ctest -R and require_passed together.
+      # live only in ci/windows_behavior_tests.txt (optional ok=<N>, default 1).
       - name: Build behavior test targets
         run: |
           $ErrorActionPreference = 'Stop'
@@ -420,39 +436,38 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $log = Join-Path (Get-Location) 'behavior-ctest.log'
-          $err = Join-Path (Get-Location) 'behavior-ctest.err'
+          $stdout = Join-Path (Get-Location) 'behavior-ctest.stdout'
+          $stderr = Join-Path (Get-Location) 'behavior-ctest.err'
           $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
           if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
             throw "behavior test list is missing: $list"
           }
-          $names = New-Object System.Collections.Generic.List[string]
-          foreach ($raw in [System.IO.File]::ReadLines($list)) {
-            $line = $raw.Trim()
-            if ($line.Length -eq 0 -or $line.StartsWith('#')) { continue }
-            $hash = $line.IndexOf('#')
-            if ($hash -ge 0) { $line = $line.Substring(0, $hash).Trim() }
-            if ($line.Length -eq 0) { continue }
-            $names.Add($line)
-          }
-          if ($names.Count -lt 1) { throw 'behavior test list has no test names' }
-          $escaped = foreach ($name in $names) { [regex]::Escape($name) }
+          . $checker
+          $entries = @(Get-MxhBehaviorEntries -ListPath $list)
+          if ($entries.Count -lt 1) { throw 'behavior test list has no test names' }
+          $escaped = foreach ($entry in $entries) { [regex]::Escape($entry.Name) }
           $regex = '^(' + ($escaped -join '|') + ')$'
           Write-Host "CTEST_REGEX $regex"
-          foreach ($name in $names) { Write-Host "CTEST_LIST $name" }
+          foreach ($entry in $entries) { Write-Host "CTEST_LIST $($entry.Name) ok=$($entry.ExpectedOk)" }
           $ctestArgs = @(
             '--test-dir', 'build-behavior',
             '-C', 'Debug',
             '--output-on-failure',
+            '-V',
+            '--output-log', $log,
             '--no-tests=error',
             '--timeout', '180',
             '-R', $regex
           )
           $proc = Start-Process -FilePath 'ctest' -ArgumentList $ctestArgs -Wait -PassThru `
-            -RedirectStandardOutput $log -RedirectStandardError $err
-          if (Test-Path -LiteralPath $err) {
-            Get-Content -LiteralPath $err | Add-Content -LiteralPath $log
+            -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          if (-not (Test-Path -LiteralPath $log) -or (Get-Item -LiteralPath $log).Length -eq 0) {
+            if (Test-Path -LiteralPath $stdout) {
+              Copy-Item -LiteralPath $stdout -Destination $log -Force
+            }
           }
-          Get-Content -LiteralPath $log
+          if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
           exit $proc.ExitCode
 
       - name: Require listed behavior tests passed
@@ -461,49 +476,26 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $log = Join-Path (Get-Location) 'behavior-ctest.log'
           $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
-          $names = New-Object System.Collections.Generic.List[string]
+          $checker = Join-Path (Get-Location) 'ci\windows_behavior_require.ps1'
+          . $checker
           if (-not (Test-Path -LiteralPath $list -PathType Leaf)) {
-            Write-Host 'REQUIRED NOT PASSED ci/windows_behavior_tests.txt'
+            Write-Host 'REQUIRED NOT PASSED ci/windows_behavior_tests.txt ok=0/1 reason=missing'
             Write-Host 'REQUIRED SUMMARY passed=0 not_passed=1'
             exit 1
           }
-          foreach ($raw in [System.IO.File]::ReadLines($list)) {
-            $line = $raw.Trim()
-            if ($line.Length -eq 0 -or $line.StartsWith('#')) { continue }
-            $hash = $line.IndexOf('#')
-            if ($hash -ge 0) { $line = $line.Substring(0, $hash).Trim() }
-            if ($line.Length -eq 0) { continue }
-            $names.Add($line)
+          $entries = @(Get-MxhBehaviorEntries -ListPath $list)
+          $logText = ''
+          if (Test-Path -LiteralPath $log) {
+            $logText = [System.IO.File]::ReadAllText($log)
           }
-          $logReady = (Test-Path -LiteralPath $log) -and ((Get-Item -LiteralPath $log).Length -gt 0)
-          if (-not $logReady) {
-            Write-Host 'REQUIRED NOT PASSED behavior-ctest.log'
-          }
-          $passedCount = 0
-          $notPassedCount = 0
-          if ($names.Count -lt 1) {
-            Write-Host 'REQUIRED NOT PASSED (list empty)'
-            $notPassedCount = 1
-          }
-          foreach ($name in $names) {
-            $skipped = $false
-            $passed = $false
-            if ($logReady) {
-              $hits = @(Select-String -LiteralPath $log -SimpleMatch -Pattern $name)
-              foreach ($hit in $hits) {
-                if ($hit.Line -match 'Skipped|Not Run') { $skipped = $true }
-                if ($hit.Line -match '(^|\s)Passed(\s|$)') { $passed = $true }
-              }
-              if ($hits.Count -eq 0) { $skipped = $true }
-            }
-            if ($logReady -and $passed -and -not $skipped) {
-              Write-Host "REQUIRED PASSED $name"
-              $passedCount++
-            } else {
-              Write-Host "REQUIRED NOT PASSED $name"
-              $notPassedCount++
-            }
-          }
-          Write-Host "REQUIRED SUMMARY passed=$passedCount not_passed=$notPassedCount"
-          if ($notPassedCount -ne 0 -or -not $logReady) { exit 1 }
-          exit 0
+          $result = Invoke-MxhBehaviorRequire -LogText $logText -Entries $entries
+          foreach ($line in $result.Lines) { Write-Host $line }
+          exit $result.ExitCode
+
+      - name: Upload behavior ctest log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-behavior-ctest-log
+          path: behavior-ctest.log
+          if-no-files-found: warn

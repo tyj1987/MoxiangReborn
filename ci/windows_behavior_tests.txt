@@ -1,6 +1,10 @@
-# Windows behavior tests. One fully-qualified ctest name per line.
+# Windows behavior tests. One ctest name per line, optional ok=<N> (default 1).
+#   MapHandlerTest.SomeCase
+#   LoginHandlerProtocolGate.Foo ok=2
 # Blank lines and # comments are ignored.
 # Append a line to add the test to both ctest -R and require_passed.
+# require_passed needs ctest Passed and at least N gtest "[       OK ]" lines
+# whose name is the entry or <Prefix>/<entry>/<idx>.
 # If the test lives in a new binary, also append that target to
 # $behaviorTargets in .github/workflows/windows-client-compile.yml.
 
