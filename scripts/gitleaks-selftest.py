@@ -15,6 +15,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+# v8.30.1 uses exit code 1 for a scan error, including a partial scan.
+# --exit-code is only the status for a completed scan that found leaks.
+LEAK_EXIT = 2
+
 
 def _run_gitleaks(binary: str, config: str, target: str, report: Path) -> int:
     proc = subprocess.run(
@@ -33,7 +37,7 @@ def _run_gitleaks(binary: str, config: str, target: str, report: Path) -> int:
             "--report-path",
             str(report),
             "--exit-code",
-            "1",
+            str(LEAK_EXIT),
         ],
         check=False,
         stdout=subprocess.DEVNULL,
@@ -42,13 +46,24 @@ def _run_gitleaks(binary: str, config: str, target: str, report: Path) -> int:
     return proc.returncode
 
 
-def _load_findings(report: Path) -> list[dict]:
-    if not report.exists() or report.stat().st_size == 0:
-        return []
-    data = json.loads(report.read_text(encoding="utf-8"))
+def _load_findings(report: Path) -> list[dict] | None:
+    if not report.is_file() or report.stat().st_size == 0:
+        return None
+    try:
+        data = json.loads(report.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return None
     if not isinstance(data, list):
-        return []
+        return None
     return data
+
+
+def _scan_status_ok(rc: int, findings: list[dict] | None) -> bool:
+    if findings is None or rc not in (0, LEAK_EXIT):
+        return False
+    if rc == 0:
+        return not findings
+    return bool(findings)
 
 
 def _print_hits(findings: list[dict], root: Path) -> int:
@@ -117,7 +132,11 @@ def _selftest(binary: str, config: str) -> int:
 
         report = root / "report.json"
         rc = _run_gitleaks(binary, config, str(root), report)
-        findings = _load_findings(report) if rc in (0, 1) else []
+        findings = _load_findings(report)
+        scanner_ok = _scan_status_ok(rc, findings) and rc == LEAK_EXIT
+        if findings is None:
+            findings = []
+        failed = not scanner_ok
 
         def files_for(rule: str, suffix: str) -> list[str]:
             return [
@@ -125,8 +144,6 @@ def _selftest(binary: str, config: str) -> int:
                 for item in findings
                 if item.get("RuleID") == rule and str(item.get("File") or "").endswith(suffix)
             ]
-
-        failed = rc not in (0, 1)
 
         def report_rule(name: str, ok: bool) -> None:
             nonlocal failed
@@ -161,7 +178,7 @@ def _selftest(binary: str, config: str) -> int:
             if str(item.get("File") or "").endswith("placeholder_password.py")
             or str(item.get("File") or "").endswith("neg_short_array.py")
         ]
-        report_rule("allowlisted-placeholder", not negative_hits and rc in (0, 1))
+        report_rule("allowlisted-placeholder", scanner_ok and not negative_hits)
         return 1 if failed else 0
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -178,10 +195,11 @@ def main(argv: list[str]) -> int:
         report = Path(tempfile.mkdtemp(prefix="gitleaks-report-")) / "report.json"
         try:
             rc = _run_gitleaks(args.gitleaks, args.config, str(scan_root), report)
-            if rc not in (0, 1):
+            findings = _load_findings(report)
+            if not _scan_status_ok(rc, findings):
                 print("gitleaks dir failed", file=sys.stderr)
                 return 1
-            return _print_hits(_load_findings(report), scan_root)
+            return _print_hits(findings or [], scan_root)
         finally:
             shutil.rmtree(report.parent, ignore_errors=True)
     return _selftest(args.gitleaks, args.config)
