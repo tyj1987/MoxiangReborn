@@ -109,12 +109,11 @@ ReplayScenario shop_scenario() {
     ReplayScenario s;
     s.name = "shop";
     s.endpoint = ReplayEndpoint::Map;
-    // Cat 5 MP_ITEM. Proto 22 MP_ITEM_BUY_SYN. (Proto 17 was a copy-paste bug:
-    // 17 is MoveAck, not BuySyn.) Payload: item(u16) + qty(u16) = 4B.
+    // Cat 5 MP_ITEM. Proto 19 BuySyn. Payload: item(u16) + qty(u16) = 4B.
     std::vector<std::uint8_t> p(4, 0);
     put_u16(p.data(), 1);
     put_u16(p.data() + 2, 1);
-    s.client_packets.push_back(mk(5, 22, 0, std::move(p)));
+    s.client_packets.push_back(mk(5, 19, 0, std::move(p)));
     return s;
 }
 

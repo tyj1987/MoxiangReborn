@@ -18,8 +18,10 @@ TEST(OriginalItemProfile, ModernProfileRemainsSeparate) {
     EXPECT_EQ(static_cast<std::uint16_t>(Original::MP_ITEM_BUY_SYN), 19u);
     EXPECT_EQ(static_cast<std::uint16_t>(Original::MP_ITEM_MONSTER_OBTAIN_NOTIFY), 32u);
     EXPECT_EQ(static_cast<std::uint16_t>(Original::MP_ITEM_PROTOCOL_MAX), 256u);
-    EXPECT_EQ(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn), 19u);
-    EXPECT_EQ(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify), 35u);
+    EXPECT_EQ(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn), 19u);
+    EXPECT_EQ(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::MonsterObtainNotify), 32u);
+    EXPECT_NE(static_cast<std::uint8_t>(mxh::proto::ItemProtocol::PickupSyn),
+              static_cast<std::uint8_t>(mxh::proto::ItemProtocol::BuySyn));
 }
 
 TEST(OriginalItemObtainCodec, EmptyArrayIsExactlyThreeBytes) {

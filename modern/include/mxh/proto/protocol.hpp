@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace mxh::proto {
@@ -468,98 +469,98 @@ enum class GuildProtocol : std::uint8_t {
 
 // ============================================================================
 // Item sub-protocols (MP_ITEM_*).
-// Current modern-to-modern Item profile. The separately generated
-// original_item::ItemProtocol records the SHA-pinned C enum; values diverge
-// after MoveNack because modern Pickup occupies original Buy's 19..21.
+// Shared values match original_item::ItemProtocol. Pickup is a modern
+// extension above the last original item number so it does not occupy
+// Buy 19..21. Payload layouts are unchanged.
+// One list feeds the enum and kItemProtocolValues. kItemProtocolCount is
+// that list's length, so the array cannot drift from the enumerators.
 // ============================================================================
+#define MXH_ITEM_PROTOCOL_EACH(X) \
+    X(TotalInfoLocal, 0) \
+    X(PyogukItemInfo, 1) \
+    X(UseSyn, 2) \
+    X(UseAck, 3) \
+    X(UseNack, 4) \
+    X(CombineSyn, 5) \
+    X(CombineAck, 6) \
+    X(CombineNack, 7) \
+    X(DivideSyn, 8) \
+    X(DivideAck, 9) \
+    X(DivideNack, 10) \
+    X(DivideNewItemNotify, 11) \
+    X(DiscardSyn, 12) \
+    X(DiscardAck, 13) \
+    X(DiscardNack, 14) \
+    X(ErrorNack, 15) \
+    X(MoveSyn, 16) \
+    X(MoveAck, 17) \
+    X(MoveNack, 18) \
+    X(BuySyn, 19) \
+    X(BuyAck, 20) \
+    X(BuyNack, 21) \
+    X(SellSyn, 22) \
+    X(SellAck, 23) \
+    X(SellNack, 24) \
+    X(DealerSyn, 25) \
+    X(DealerAck, 26) \
+    X(DealerNack, 27) \
+    X(Money, 28) \
+    X(MoneyError, 29) \
+    X(AppearanceChange, 30) \
+    X(ObtainMoney, 31) \
+    X(MonsterObtainNotify, 32) \
+    X(UpgradeSyn, 33) \
+    X(UpgradeSuccessAck, 34) \
+    X(UpgradeFailedAck, 35) \
+    X(UpgradeNack, 36) \
+    X(MixSyn, 37) \
+    X(MixSuccessAck, 38) \
+    X(MixBigFailedAck, 39) \
+    X(MixFailedAck, 40) \
+    X(MixMsg, 41) \
+    X(ReinforceSyn, 42) \
+    X(ReinforceSuccessAck, 43) \
+    X(ReinforceFailedAck, 44) \
+    X(ReinforceNack, 45) \
+    X(DissolveSyn, 46) \
+    X(DissolveSuccessAck, 47) \
+    X(DissolveFailedAck, 48) \
+    X(DissolveNack, 49) \
+    X(PickupSyn, 251) \
+    X(PickupAck, 252) \
+    X(PickupNack, 253) \
+    X(ShopItemChaseSyn, 154) \
+    X(ShopItemChaseAck, 155) \
+    X(ShopItemChaseNack, 156) \
+    X(ShopItemJobChangeSyn, 175) \
+    X(ShopItemJobChangeAck, 176) \
+    X(ShopItemJobChangeNack, 177)
+
 enum class ItemProtocol : std::uint8_t {
-    TotalInfoLocal       = 0,   // client-local dispatch from GameInAck
-    PyogukItemInfo       = 1,   // warehouse item info
-
-    UseSyn               = 2,   // C -> S: use item
-    UseAck               = 3,   // S -> C: use success
-    UseNack              = 4,   // S -> C: use failed
-
-    CombineSyn           = 5,   // C -> S: combine items
-    CombineAck           = 6,
-    CombineNack          = 7,
-    DivideSyn            = 8,   // C -> S: divide stack
-    DivideAck            = 9,
-    DivideNack           = 10,
-    DivideNewItemNotify  = 11,
-    DiscardSyn           = 12,  // C -> S: discard item
-    DiscardAck           = 13,
-    DiscardNack          = 14,
-
-    ErrorNack            = 15,
-
-    MoveSyn              = 16,  // C -> S: move item within inventory
-    MoveAck              = 17,  // S -> C: move success
-    MoveNack             = 18,
-
-    // Modern-only ground-drop claim. The original YY_MOVE lines are comments,
-    // so these 19..21 values collide with original BuySyn/Ack/Nack.
-    PickupSyn            = 19,  // C -> S: claim ground drop [object_id:u32]
-    PickupAck            = 20,  // S -> C: [object_id:u32][item_id:u16][count:u16]
-    PickupNack           = 21,  // S -> C: claim failed
-
-    BuySyn               = 22,  // C -> S: buy from NPC
-    BuyAck               = 23,  // S -> C: buy success
-    BuyNack              = 24,
-
-    SellSyn              = 25,  // C -> S: sell to NPC
-    SellAck              = 26,  // S -> C: sell success
-    SellNack             = 27,
-
-    DealerSyn            = 28,  // C -> S: open dealer (street stall)
-    DealerAck            = 29,
-    DealerNack           = 30,
-
-    Money                = 31,  // S -> C: update money
-    MoneyError           = 32,
-
-    AppearanceChange     = 33,
-    ObtainMoney          = 34,  // S -> C: obtained money
-    MonsterObtainNotify  = 35,  // S -> C: monster obtained item
-
-    UpgradeSyn           = 36,  // C -> S: upgrade item
-    UpgradeSuccessAck    = 37,
-    UpgradeFailedAck     = 38,
-    UpgradeNack          = 39,
-
-    MixSyn               = 40,
-    MixSuccessAck        = 41,
-    MixBigFailedAck      = 42,
-    MixFailedAck         = 43,
-    MixMsg                = 44,
-
-    ReinforceSyn         = 45,
-    ReinforceSuccessAck  = 46,
-    ReinforceFailedAck   = 47,
-    ReinforceNack        = 48,
-
-    DissolveSyn          = 49,
-    DissolveSuccessAck   = 50,
-    DissolveFailedAck    = 51,
-    DissolveNack         = 52,
-
-    // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_CHASE_*
-    // (positions 154/155/156 in [CC]Header/Protocol.h).
-    ShopItemChaseSyn     = 154,
-    ShopItemChaseAck     = 155,
-    ShopItemChaseNack    = 156,
-
-    // 1:1 wire-byte compatibility with legacy MP_ITEM_SHOPITEM_JOBCHANGE_*
-    // (positions 175/176/177 in [CC]Header/Protocol.h). Modern skips the
-    // intermediate entries 53..174 because the modern client/server does
-    // not implement them yet, but the wire byte for the job-change syn /
-    // ack / nack must remain stable so legacy clients/servers can talk to
-    // the modern server (and vice versa) once Phase A/B wires real network
-    // I/O.
-    ShopItemJobChangeSyn  = 175,
-    ShopItemJobChangeAck  = 176,
-    ShopItemJobChangeNack = 177,
+#define MXH_ITEM_PROTOCOL_ENUMERATOR(name, value) name = value,
+    MXH_ITEM_PROTOCOL_EACH(MXH_ITEM_PROTOCOL_ENUMERATOR)
+#undef MXH_ITEM_PROTOCOL_ENUMERATOR
 };
+
+inline constexpr ItemProtocol kItemProtocolValues[] = {
+#define MXH_ITEM_PROTOCOL_VALUE(name, value) ItemProtocol::name,
+    MXH_ITEM_PROTOCOL_EACH(MXH_ITEM_PROTOCOL_VALUE)
+#undef MXH_ITEM_PROTOCOL_VALUE
+};
+
+#define MXH_ITEM_PROTOCOL_PLUS_ONE(name, value) + 1
+inline constexpr std::size_t kItemProtocolEnumeratorCount =
+    0 MXH_ITEM_PROTOCOL_EACH(MXH_ITEM_PROTOCOL_PLUS_ONE);
+#undef MXH_ITEM_PROTOCOL_PLUS_ONE
+#undef MXH_ITEM_PROTOCOL_EACH
+
+inline constexpr std::size_t kItemProtocolCount =
+    sizeof(kItemProtocolValues) / sizeof(kItemProtocolValues[0]);
+
+static_assert(kItemProtocolCount == kItemProtocolEnumeratorCount,
+              "ItemProtocol value list must name every enumerator");
+static_assert(kItemProtocolCount == 59,
+              "update the ItemProtocol list and this count together");
 
 // ============================================================================
 // Monster sub-protocols (MP_MONSTER_*).

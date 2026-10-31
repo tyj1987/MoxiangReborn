@@ -11,8 +11,9 @@
 //     kModernNotifyVersionAck, kModernNotifyVersionNack)
 //
 // Why these tests matter:
-//   Many modern enum values match the legacy [CC]Header/Protocol.h, but the
-//   Item profile diverges after MoveNack. If a future change accidentally
+//   Many modern enum values match the legacy [CC]Header/Protocol.h.
+//   Item values that have an original counterpart use that number.
+//   If a future change accidentally
 //   re-orders Category or shifts a UserConnProtocol value by one,
 //   every wire packet using that category/protocol stops talking to
 //   legacy clients/servers — silent breakage with no compiler
