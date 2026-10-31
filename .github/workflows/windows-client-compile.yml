@@ -92,6 +92,20 @@ on:
       - modern/src/server/**
       - modern/tests/unit/client/**
       - modern/tests/unit/server/**
+      - modern/tests/unit/cli_playdh_root_test.cpp
+      - modern/include/mxh/tools/**
+      - modern/tools/MoxianSideBySide/**
+      - modern/tools/dialog_children_type_scan/**
+      - modern/tools/audit_minimap.py
+      - scripts/tests/test-playdh-root-remaining.ps1
+      - scripts/gui-client-smoke.ps1
+      - scripts/gui-client-smoke-ephemeral.ps1
+      - scripts/capture-state-frames.ps1
+      - scripts/visual-smoke.ps1
+      - scripts/run-human-acceptance.ps1
+      - scripts/human-acceptance-process.ps1
+      - scripts/test-gpu-smoke.ps1
+      - scripts/rog-gate-build.ps1
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
 
 permissions:
@@ -138,6 +152,16 @@ jobs:
             modern/tools/MoxianProtocolDoc
             modern/tools/MoxianSideBySide
             modern/tools/dialog_children_type_scan
+            modern/tools/audit_minimap.py
+            scripts/tests/test-playdh-root-remaining.ps1
+            scripts/gui-client-smoke.ps1
+            scripts/gui-client-smoke-ephemeral.ps1
+            scripts/capture-state-frames.ps1
+            scripts/visual-smoke.ps1
+            scripts/run-human-acceptance.ps1
+            scripts/human-acceptance-process.ps1
+            scripts/test-gpu-smoke.ps1
+            scripts/rog-gate-build.ps1
             modern/tools/MoxianPortal
             modern/tools/MxDumpInspect
             modern/data/PlayDH/Map.pak
@@ -576,6 +600,14 @@ jobs:
           $code = $LASTEXITCODE
           if (Test-Path -LiteralPath $log) { Get-Content -LiteralPath $log }
           if ($code -ne 0) { exit $code }
+
+      - name: PlayDH root is required for remaining entry points
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          Remove-Item -Path Env:MXH_PLAYDH_ROOT -ErrorAction SilentlyContinue
+          pwsh -NoProfile -File scripts/tests/test-playdh-root-remaining.ps1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload behavior ctest log
         if: always()

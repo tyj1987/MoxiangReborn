@@ -4059,19 +4059,48 @@ function Invoke-RogGateSelfTest {
     try {
         $playdhSource = Join-Path -Path $playdhTemp -ChildPath 'src'
         New-Item -ItemType Directory -Path $playdhSource -Force | Out-Null
-        $expectedPlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        $worktreePlayDh = Get-RogGatePlayDhRootPath -SourceDir $playdhSource
+        $syntheticPlayDh = Join-Path -Path $playdhTemp -ChildPath 'synthetic'
+        New-Item -ItemType Directory -Path $syntheticPlayDh -Force | Out-Null
+        $syntheticPlayDhFull = [System.IO.Path]::GetFullPath($syntheticPlayDh)
+        $missingMessage = 'MXH_PLAYDH_ROOT is not set and no -PlayDhRoot was given'
         Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
-        $autoPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
-        $autoInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (auto)"
-        $autoOk = ($autoPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($autoPlayDh.Info -eq $autoInfo)
-        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT is set to the worktree PlayDH path' -Condition $autoOk
+        $unsetThrew = $false
+        $unsetMessage = ''
+        try {
+            $null = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        } catch {
+            $unsetThrew = $true
+            $unsetMessage = [string]$_.Exception.Message
+        }
+        $unsetEnv = [Environment]::GetEnvironmentVariable('MXH_PLAYDH_ROOT', 'Process')
+        $unsetOk = $unsetThrew -and ($unsetMessage -eq $missingMessage) -and [string]::IsNullOrWhiteSpace($unsetEnv) -and ($unsetMessage -ne $worktreePlayDh) -and ($unsetEnv -ne $worktreePlayDh)
+        Assert-RogGateSelfTest -Name 'unset MXH_PLAYDH_ROOT exits with a message and does not assign the worktree' -Condition $unsetOk
 
-        $presetPlayDh = 'D:\not-the-worktree\PlayDH'
-        $env:MXH_PLAYDH_ROOT = $presetPlayDh
-        $overPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
-        $overInfo = "[INFO] MXH_PLAYDH_ROOT=$expectedPlayDh (overrode '$presetPlayDh')"
-        $overOk = ($overPlayDh.Path -eq $expectedPlayDh) -and ($env:MXH_PLAYDH_ROOT -eq $expectedPlayDh) -and ($overPlayDh.Path -ne $presetPlayDh) -and ($overPlayDh.Info -eq $overInfo)
-        Assert-RogGateSelfTest -Name 'preset MXH_PLAYDH_ROOT is overridden to the SourceDir path' -Condition $overOk
+        $env:MXH_PLAYDH_ROOT = $syntheticPlayDhFull
+        $keptThrew = $false
+        $keptPlayDh = $null
+        try {
+            $keptPlayDh = Set-RogGatePlayDhRootForChildren -SourceDir $playdhSource
+        } catch {
+            $keptThrew = $true
+        }
+        $keptPath = ''
+        if ($null -ne $keptPlayDh) { $keptPath = [string]$keptPlayDh.Path }
+        $keptOk = (-not $keptThrew) -and ($keptPath -eq $syntheticPlayDhFull) -and ($env:MXH_PLAYDH_ROOT -eq $syntheticPlayDhFull) -and ($keptPath -ne $worktreePlayDh)
+        Assert-RogGateSelfTest -Name 'synthetic MXH_PLAYDH_ROOT is kept and is not the worktree path' -Condition $keptOk
+
+        $rogPwsh = (Get-Process -Id $PID).Path
+        Remove-Item -Path 'Env:MXH_PLAYDH_ROOT' -ErrorAction SilentlyContinue
+        $childUnset = & $rogPwsh -NoProfile -File $PSCommandPath -ResolvePlayDhOnly 2>&1 | Out-String
+        $childUnsetCode = $LASTEXITCODE
+        $childUnsetOk = ($childUnsetCode -eq 1) -and ($childUnset.Contains($missingMessage)) -and (-not $childUnset.Contains($worktreePlayDh))
+        Assert-RogGateSelfTest -Name 'ResolvePlayDhOnly with unset MXH_PLAYDH_ROOT exits 1' -Condition $childUnsetOk
+
+        $childSyn = & $rogPwsh -NoProfile -File $PSCommandPath -ResolvePlayDhOnly -PlayDhRoot $syntheticPlayDhFull 2>&1 | Out-String
+        $childSynCode = $LASTEXITCODE
+        $childSynOk = ($childSynCode -eq 0) -and ($childSyn.Contains($syntheticPlayDhFull)) -and (-not $childSyn.Contains($worktreePlayDh))
+        Assert-RogGateSelfTest -Name 'ResolvePlayDhOnly with a synthetic -PlayDhRoot exits 0' -Condition $childSynOk
 
         $missingPlayDh = Join-Path -Path $playdhTemp -ChildPath 'missing'
         $missingCheck = Test-RogGatePlayDhPreflight -PlayDhRoot $missingPlayDh
