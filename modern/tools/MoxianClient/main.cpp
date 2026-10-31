@@ -69,6 +69,7 @@
 #include "GameLoadingCoordinator.hpp"
 #include "GameWorldInputBinding.hpp"
 #include "LogicalViewport.hpp"
+#include "mxh/client/dpi_scale.hpp"
 #include "SpriteRenderGeometry.hpp"
 
 #pragma comment(lib, "user32.lib")
@@ -1627,6 +1628,159 @@ struct DamageFeedback {
 
 std::vector<DamageFeedback> g_damageFeedback;
 
+#ifdef _WIN32
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+#ifndef WM_GETDPISCALEDSIZE
+#define WM_GETDPISCALEDSIZE 0x02E4
+#endif
+
+using AdjustWindowRectExForDpiFn = BOOL (WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
+using GetDpiForWindowFn = UINT (WINAPI*)(HWND);
+
+const char* g_dpiAwarenessFallback = "unknown";
+
+AdjustWindowRectExForDpiFn adjust_window_rect_for_dpi() {
+    static const auto fn = []() -> AdjustWindowRectExForDpiFn {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        return user32 ? reinterpret_cast<AdjustWindowRectExForDpiFn>(
+            GetProcAddress(user32, "AdjustWindowRectExForDpi")) : nullptr;
+    }();
+    return fn;
+}
+
+GetDpiForWindowFn dpi_for_window_fn() {
+    static const auto fn = []() -> GetDpiForWindowFn {
+        HMODULE user32 = GetModuleHandleW(L"user32.dll");
+        return user32 ? reinterpret_cast<GetDpiForWindowFn>(
+            GetProcAddress(user32, "GetDpiForWindow")) : nullptr;
+    }();
+    return fn;
+}
+
+const char* dpi_awareness_name() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    using GetCtxFn = HANDLE (WINAPI*)();
+    using EqualFn = BOOL (WINAPI*)(HANDLE, HANDLE);
+    auto get_ctx = user32 ? reinterpret_cast<GetCtxFn>(
+        GetProcAddress(user32, "GetThreadDpiAwarenessContext")) : nullptr;
+    auto equal = user32 ? reinterpret_cast<EqualFn>(
+        GetProcAddress(user32, "AreDpiAwarenessContextsEqual")) : nullptr;
+    if (get_ctx && equal) {
+        const HANDLE ctx = get_ctx();
+        const HANDLE per_monitor_v2 = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-4));
+        const HANDLE per_monitor = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-3));
+        const HANDLE system = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-2));
+        const HANDLE unaware = reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-1));
+        if (equal(ctx, per_monitor_v2)) return "PerMonitorV2";
+        if (equal(ctx, per_monitor)) return "PerMonitor";
+        if (equal(ctx, system)) return "System";
+        if (equal(ctx, unaware)) return "Unaware";
+    }
+    return g_dpiAwarenessFallback;
+}
+
+void log_dpi_line(UINT dpi, int client_w, int client_h, int outer_w, int outer_h) {
+    MLOG_INFO("DPI dpi=%u awareness=%s client=%dx%d outer=%dx%d",
+              static_cast<unsigned>(dpi), dpi_awareness_name(),
+              client_w, client_h, outer_w, outer_h);
+}
+
+// Manifest sets PerMonitorV2 when the linker embeds it. This runs first
+// in WinMain so a build without that manifest still stops OS bitmap stretch.
+// ERROR_ACCESS_DENIED means awareness is already set; do not downgrade it.
+void enable_per_monitor_dpi_awareness() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    using SetContextFn = BOOL (WINAPI*)(HANDLE);
+    auto set_context = user32 ? reinterpret_cast<SetContextFn>(
+        GetProcAddress(user32, "SetProcessDpiAwarenessContext")) : nullptr;
+    if (set_context) {
+        const HANDLE contexts[] = {
+            reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-4)), // PerMonitorV2
+            reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-3)), // PerMonitor
+            reinterpret_cast<HANDLE>(static_cast<INT_PTR>(-2)), // System
+        };
+        const char* names[] = {"PerMonitorV2", "PerMonitor", "System"};
+        for (int i = 0; i < 3; ++i) {
+            if (set_context(contexts[i])) {
+                g_dpiAwarenessFallback = names[i];
+                return;
+            }
+            if (GetLastError() == ERROR_ACCESS_DENIED) {
+                g_dpiAwarenessFallback = "PerMonitorV2";
+                return;
+            }
+        }
+    }
+    HMODULE shcore = LoadLibraryW(L"shcore.dll");
+    using SetAwarenessFn = HRESULT (WINAPI*)(int);
+    auto set_awareness = shcore ? reinterpret_cast<SetAwarenessFn>(
+        GetProcAddress(shcore, "SetProcessDpiAwareness")) : nullptr;
+    if (set_awareness && SUCCEEDED(set_awareness(2))) {
+        g_dpiAwarenessFallback = "PerMonitor";
+        FreeLibrary(shcore);
+        return;
+    }
+    if (shcore) FreeLibrary(shcore);
+    using SetDpiAwareFn = BOOL (WINAPI*)();
+    auto set_dpi_aware = user32 ? reinterpret_cast<SetDpiAwareFn>(
+        GetProcAddress(user32, "SetProcessDPIAware")) : nullptr;
+    if (set_dpi_aware && set_dpi_aware()) g_dpiAwarenessFallback = "System";
+}
+
+UINT system_dpi() {
+    HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    using GetDpiForSystemFn = UINT (WINAPI*)();
+    auto get_system = user32 ? reinterpret_cast<GetDpiForSystemFn>(
+        GetProcAddress(user32, "GetDpiForSystem")) : nullptr;
+    if (get_system) {
+        const UINT dpi = get_system();
+        if (dpi > 0) return dpi;
+    }
+    HMODULE shcore = LoadLibraryW(L"shcore.dll");
+    using GetDpiForMonitorFn = HRESULT (WINAPI*)(HMONITOR, int, UINT*, UINT*);
+    auto get_monitor = shcore ? reinterpret_cast<GetDpiForMonitorFn>(
+        GetProcAddress(shcore, "GetDpiForMonitor")) : nullptr;
+    UINT dpi = static_cast<UINT>(mxh::client::kDpiBaseline);
+    if (get_monitor) {
+        POINT origin{0, 0};
+        HMONITOR monitor = MonitorFromPoint(origin, MONITOR_DEFAULTTOPRIMARY);
+        UINT x = dpi;
+        UINT y = dpi;
+        if (SUCCEEDED(get_monitor(monitor, 0 /* MDT_EFFECTIVE_DPI */, &x, &y)) && y > 0) {
+            dpi = y;
+        }
+    }
+    if (shcore) FreeLibrary(shcore);
+    return dpi;
+}
+
+UINT window_dpi(HWND hwnd) {
+    if (auto get_dpi = dpi_for_window_fn()) {
+        if (hwnd) {
+            const UINT dpi = get_dpi(hwnd);
+            if (dpi > 0) return dpi;
+        }
+    }
+    return system_dpi();
+}
+
+bool adjust_client_rect(RECT* rect, DWORD style, UINT dpi, DWORD ex_style = 0) {
+    if (auto adjust = adjust_window_rect_for_dpi()) {
+        return adjust(rect, style, FALSE, ex_style, dpi) != FALSE;
+    }
+    return AdjustWindowRectEx(rect, style, FALSE, ex_style) != FALSE;
+}
+
+std::optional<mxh::client::DpiPoint> game_mouse_point(HWND hwnd, int x, int y) {
+    RECT client{};
+    if (!hwnd || !GetClientRect(hwnd, &client)) return std::nullopt;
+    return mxh::client::mouse_to_game_client(
+        x, y, client.right - client.left, client.bottom - client.top);
+}
+#endif
+
 struct DisplayTransitionResult {
     bool committed = false;
     DWORD win32_error = ERROR_SUCCESS;
@@ -1670,19 +1824,16 @@ DisplayTransitionResult applyDisplayTransition(
     // The login/post-login dimensions are client-area dimensions.  On a
     // per-monitor-DPI process the non-client frame is DPI-scaled, so using
     // AdjustWindowRectEx without the current monitor DPI produces a client
-    // area smaller than the requested logical canvas (and shifts hitboxes).
-    // Keep the Win10+ API behind a runtime lookup for older supported hosts.
-    using AdjustWindowRectExForDpiFn = BOOL (WINAPI*)(LPRECT, DWORD, BOOL, DWORD, UINT);
-    static const auto adjust_for_dpi = []() -> AdjustWindowRectExForDpiFn {
-        HMODULE user32 = GetModuleHandleW(L"user32.dll");
-        return user32 ? reinterpret_cast<AdjustWindowRectExForDpiFn>(
-            GetProcAddress(user32, "AdjustWindowRectExForDpi")) : nullptr;
-    }();
-    const UINT dpi = GetDpiForWindow(hwnd);
+    // area smaller than the requested pixel size (and shifts hitboxes).
+    // The back buffer stays at the requested client pixels; DPI scales the frame.
+    const UINT dpi = window_dpi(hwnd);
+    const auto client_pixels = mxh::client::render_client_size(
+        static_cast<int>(requested_width), static_cast<int>(requested_height),
+        static_cast<int>(dpi));
+    desired.right = client_pixels.width;
+    desired.bottom = client_pixels.height;
     const DWORD frame_style = static_cast<DWORD>(new_style);
-    const bool adjusted = adjust_for_dpi
-        ? adjust_for_dpi(&desired, frame_style, FALSE, 0, dpi)
-        : AdjustWindowRectEx(&desired, frame_style, FALSE, 0);
+    const bool adjusted = adjust_client_rect(&desired, frame_style, dpi);
     if (!adjusted) {
         result.win32_error = GetLastError();
         // The style mutation happened before frame calculation.  Restore it
@@ -2787,11 +2938,43 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
             static_cast<std::int32_t>(HIWORD(l)));
         if (g_renderer) g_renderer->UpdateWindowSize();
         return 0;
-    case WM_DPICHANGED:
-        // Per-monitor DPI changes (including moving the window between
-        // displays) alter the non-client frame and client-area mapping.  Use
-        // the system's suggested outer rectangle, then let WM_SIZE refresh
-        // the logical viewport and DX11 swap-chain dimensions.
+    case WM_GETDPISCALEDSIZE: {
+        // PerMonitorV2 asks for the outer size before it moves the window.
+        // Keep the current client pixels and only change the frame. Writing
+        // that size here lets WM_DPICHANGED apply Windows' suggested RECT
+        // without a second resize when the window straddles two monitors.
+        auto* scaled = reinterpret_cast<SIZE*>(l);
+        if (!scaled) return FALSE;
+        const UINT new_dpi = static_cast<UINT>(w);
+        RECT client{};
+        if (!GetClientRect(h, &client)) return FALSE;
+        const auto pixels = mxh::client::render_client_size(
+            client.right - client.left, client.bottom - client.top,
+            static_cast<int>(new_dpi));
+        RECT desired{0, 0, pixels.width, pixels.height};
+        const DWORD style = static_cast<DWORD>(GetWindowLongPtrW(h, GWL_STYLE));
+        const DWORD ex_style = static_cast<DWORD>(GetWindowLongPtrW(h, GWL_EXSTYLE));
+        if (!adjust_client_rect(&desired, style, new_dpi, ex_style)) return FALSE;
+        const int frame_left = desired.left < 0 ? -desired.left : 0;
+        const int frame_top = desired.top < 0 ? -desired.top : 0;
+        const int frame_right = desired.right > pixels.width
+            ? desired.right - pixels.width : 0;
+        const int frame_bottom = desired.bottom > pixels.height
+            ? desired.bottom - pixels.height : 0;
+        const auto outer = mxh::client::outer_size_for_unchanged_client(
+            pixels.width, pixels.height,
+            frame_left, frame_top, frame_right, frame_bottom,
+            static_cast<int>(new_dpi));
+        scaled->cx = outer.width;
+        scaled->cy = outer.height;
+        return TRUE;
+    }
+    case WM_DPICHANGED: {
+        // WndProc parameters are h, m, w, l. The new DPI is HIWORD(w).
+        // The suggested RECT in l already uses the size returned from
+        // WM_GETDPISCALEDSIZE. Apply it as given.
+        const UINT new_dpi = HIWORD(w) != 0
+            ? static_cast<UINT>(HIWORD(w)) : window_dpi(h);
         if (l != 0) {
             const auto* suggested = reinterpret_cast<const RECT*>(l);
             SetWindowPos(h, nullptr,
@@ -2800,8 +2983,25 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
                          suggested->bottom - suggested->top,
                          SWP_NOZORDER | SWP_NOACTIVATE);
         }
+        RECT client{};
+        RECT window{};
+        int client_w = 0;
+        int client_h = 0;
+        int outer_w = 0;
+        int outer_h = 0;
+        if (GetClientRect(h, &client)) {
+            client_w = client.right - client.left;
+            client_h = client.bottom - client.top;
+            g_logicalViewport.update(client_w, client_h);
+        }
+        if (GetWindowRect(h, &window)) {
+            outer_w = window.right - window.left;
+            outer_h = window.bottom - window.top;
+        }
         if (g_renderer) g_renderer->UpdateWindowSize();
+        log_dpi_line(new_dpi, client_w, client_h, outer_w, outer_h);
         return 0;
+    }
     case WM_DISPLAYCHANGE: {
         // Display mode/topology changes can invalidate the current client
         // metrics without a matching resize message (notably during monitor
@@ -2928,9 +3128,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         } else if (GetCapture() == h) {
             ReleaseCapture();
         }
-        const auto logical = g_logicalViewport.to_logical(
-            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        const int mouse_x = static_cast<std::int32_t>(static_cast<short>(LOWORD(l)));
+        const int mouse_y = static_cast<std::int32_t>(static_cast<short>(HIWORD(l)));
+        const auto game_point = game_mouse_point(h, mouse_x, mouse_y);
+        const auto logical = game_point
+            ? g_logicalViewport.to_logical(game_point->x, game_point->y)
+            : std::optional<mxh::client::LogicalPoint>{};
         if (!logical.has_value()) {
             // WM capture keeps delivering the release after the cursor has
             // left the 4:3 content rect.  Do not drop that event merely
@@ -2987,9 +3190,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         } else if (GetCapture() == h) {
             ReleaseCapture();
         }
-        const auto logical = g_logicalViewport.to_logical(
-            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        const int mouse_x = static_cast<std::int32_t>(static_cast<short>(LOWORD(l)));
+        const int mouse_y = static_cast<std::int32_t>(static_cast<short>(HIWORD(l)));
+        const auto game_point = game_mouse_point(h, mouse_x, mouse_y);
+        const auto logical = game_point
+            ? g_logicalViewport.to_logical(game_point->x, game_point->y)
+            : std::optional<mxh::client::LogicalPoint>{};
         if (!logical.has_value()) {
             if (m == WM_RBUTTONUP) {
                 // See the left-button path above: a captured release outside
@@ -3042,9 +3248,12 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         }
     case WM_MOUSEMOVE:
         {
-        const auto logical = g_logicalViewport.to_logical(
-            static_cast<std::int32_t>(static_cast<short>(LOWORD(l))),
-            static_cast<std::int32_t>(static_cast<short>(HIWORD(l))));
+        const int mouse_x = static_cast<std::int32_t>(static_cast<short>(LOWORD(l)));
+        const int mouse_y = static_cast<std::int32_t>(static_cast<short>(HIWORD(l)));
+        const auto game_point = game_mouse_point(h, mouse_x, mouse_y);
+        const auto logical = game_point
+            ? g_logicalViewport.to_logical(game_point->x, game_point->y)
+            : std::optional<mxh::client::LogicalPoint>{};
         if (!logical.has_value()) return 0;
         if (g_mainTitle &&
             g_mainTitle->OnMouseMove(
@@ -3086,8 +3295,10 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
         POINT cursor{
             static_cast<LONG>(static_cast<short>(LOWORD(l))),
             static_cast<LONG>(static_cast<short>(HIWORD(l)))};
-        if (!ScreenToClient(h, &cursor) ||
-            !g_logicalViewport.to_logical(cursor.x, cursor.y).has_value()) {
+        const auto game_point = ScreenToClient(h, &cursor)
+            ? game_mouse_point(h, cursor.x, cursor.y) : std::nullopt;
+        if (!game_point ||
+            !g_logicalViewport.to_logical(game_point->x, game_point->y).has_value()) {
             return 0;
         }
         if ((__g_currentState == static_cast<int>(mxh::client::GameStateId::CharSelect) ||
@@ -3113,6 +3324,11 @@ LRESULT CALLBACK WndProc(HWND h, UINT m, WPARAM w, LPARAM l) {
 // WinMain. 1:1 mirrors MHClient.cpp's WinMain order.
 // ---------------------------------------------------------------------------
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*show*/) {
+#ifdef _WIN32
+    // Before any HWND. The embedded manifest is the normal path; this call
+    // covers a host that launched the image without that manifest.
+    enable_per_monitor_dpi_awareness();
+#endif
     // Phase 0 §6.3: install the controlled unhandled-exception
     // handler first so a crash before the renderer is up still
     // produces a run-id-tagged minidump in the capture tool's
@@ -3202,8 +3418,14 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
         L"MXH_POST_LOGIN_WIDTH", options.post_login_width, 800, 7680);
     const std::uint32_t post_login_h = read_dimension_env(
         L"MXH_POST_LOGIN_HEIGHT", options.post_login_height, 600, 4320);
-    RECT initial_rect{0, 0, static_cast<LONG>(win_w), static_cast<LONG>(win_h)};
-    AdjustWindowRectEx(&initial_rect, WS_OVERLAPPEDWINDOW, FALSE, 0);
+    const UINT initial_dpi = system_dpi();
+    const auto initial_client = mxh::client::render_client_size(
+        static_cast<int>(win_w), static_cast<int>(win_h), static_cast<int>(initial_dpi));
+    RECT initial_rect{0, 0, initial_client.width, initial_client.height};
+    if (!adjust_client_rect(&initial_rect, WS_OVERLAPPEDWINDOW, initial_dpi)) {
+        std::fprintf(stderr, "mxh_client: AdjustWindowRect failed\n");
+        return 1;
+    }
     HWND hwnd = CreateWindowW(
         L"MoxianClientWnd", L"Moxian Client (modern)",
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
@@ -3214,6 +3436,25 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE /*hPrev*/, LPSTR /*cmd*/, int /*sh
     if (!hwnd) {
         std::fprintf(stderr, "mxh_client: CreateWindow failed\n");
         return 1;
+    }
+    {
+        RECT created_client{};
+        RECT created_window{};
+        int client_w = initial_client.width;
+        int client_h = initial_client.height;
+        int outer_w = initial_rect.right - initial_rect.left;
+        int outer_h = initial_rect.bottom - initial_rect.top;
+        if (GetClientRect(hwnd, &created_client)) {
+            client_w = created_client.right - created_client.left;
+            client_h = created_client.bottom - created_client.top;
+        }
+        if (GetWindowRect(hwnd, &created_window)) {
+            outer_w = created_window.right - created_window.left;
+            outer_h = created_window.bottom - created_window.top;
+        }
+        const UINT created_dpi = window_dpi(hwnd);
+        log_dpi_line(created_dpi != 0 ? created_dpi : initial_dpi,
+                     client_w, client_h, outer_w, outer_h);
     }
 
     if (options.resource_root.empty()) options.resource_root = find_playdh_root();
