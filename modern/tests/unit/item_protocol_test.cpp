@@ -8,7 +8,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
 namespace {
 
@@ -28,6 +30,265 @@ void expect_same_number(Modern modern, Original original) {
         << "modern=" << modern_number(modern)
         << " original=" << original_number(original);
 }
+
+
+constexpr Original kOriginalItemProtocols[] = {
+    Original::MP_ITEM_TOTALINFO_LOCAL,
+    Original::MP_ITEM_PYOGUKITEM_INFO,
+    Original::MP_ITEM_USE_SYN,
+    Original::MP_ITEM_USE_ACK,
+    Original::MP_ITEM_USE_NACK,
+    Original::MP_ITEM_COMBINE_SYN,
+    Original::MP_ITEM_COMBINE_ACK,
+    Original::MP_ITEM_COMBINE_NACK,
+    Original::MP_ITEM_DIVIDE_SYN,
+    Original::MP_ITEM_DIVIDE_ACK,
+    Original::MP_ITEM_DIVIDE_NACK,
+    Original::MP_ITEM_DIVIDE_NEWITEM_NOTIFY,
+    Original::MP_ITEM_DISCARD_SYN,
+    Original::MP_ITEM_DISCARD_ACK,
+    Original::MP_ITEM_DISCARD_NACK,
+    Original::MP_ITEM_ERROR_NACK,
+    Original::MP_ITEM_MOVE_SYN,
+    Original::MP_ITEM_MOVE_ACK,
+    Original::MP_ITEM_MOVE_NACK,
+    Original::MP_ITEM_BUY_SYN,
+    Original::MP_ITEM_BUY_ACK,
+    Original::MP_ITEM_BUY_NACK,
+    Original::MP_ITEM_SELL_SYN,
+    Original::MP_ITEM_SELL_ACK,
+    Original::MP_ITEM_SELL_NACK,
+    Original::MP_ITEM_DEALER_SYN,
+    Original::MP_ITEM_DEALER_ACK,
+    Original::MP_ITEM_DEALER_NACK,
+    Original::MP_ITEM_MONEY,
+    Original::MP_ITEM_MONEY_ERROR,
+    Original::MP_ITEM_APPEARANCE_CHANGE,
+    Original::MP_ITEM_OBTAIN_MONEY,
+    Original::MP_ITEM_MONSTER_OBTAIN_NOTIFY,
+    Original::MP_ITEM_UPGRADE_SYN,
+    Original::MP_ITEM_UPGRADE_SUCCESS_ACK,
+    Original::MP_ITEM_UPGRADE_FAILED_ACK,
+    Original::MP_ITEM_UPGRADE_NACK,
+    Original::MP_ITEM_MIX_SYN,
+    Original::MP_ITEM_MIX_SUCCESS_ACK,
+    Original::MP_ITEM_MIX_BIGFAILED_ACK,
+    Original::MP_ITEM_MIX_FAILED_ACK,
+    Original::MP_ITEM_MIX_MSG,
+    Original::MP_ITEM_REINFORCE_SYN,
+    Original::MP_ITEM_REINFORCE_SUCCESS_ACK,
+    Original::MP_ITEM_REINFORCE_FAILED_ACK,
+    Original::MP_ITEM_REINFORCE_NACK,
+    Original::MP_ITEM_DISSOLVE_SYN,
+    Original::MP_ITEM_DISSOLVE_SUCCESS_ACK,
+    Original::MP_ITEM_DISSOLVE_FAILED_ACK,
+    Original::MP_ITEM_DISSOLVE_NACK,
+    Original::MP_ITEM_MUNPA_COMBINE_SYN,
+    Original::MP_ITEM_MUNPA_COMBINE_ACK,
+    Original::MP_ITEM_MUNPA_COMBINE_NACK,
+    Original::MP_ITEM_MUNPA_MOVE_SYN,
+    Original::MP_ITEM_MUNPA_MOVE_ACK,
+    Original::MP_ITEM_MUNPA_MOVE_NACK,
+    Original::MP_ITEM_MUNPA_WAREHOUSE_INFO_SYN,
+    Original::MP_ITEM_MUNPA_WAREHOUSE_INFO_ACK,
+    Original::MP_ITEM_MUNPA_WAREHOUSE_INFO_NACK,
+    Original::MP_ITEM_ADDTO_MUNPAWARE_NOTIFY,
+    Original::MP_ITEM_DELETEFROM_MUNPAWARE_NOTIFY,
+    Original::MP_ITEM_MUNPA_WAREHOUSE_LEAVE,
+    Original::MP_ITEM_PYOGUK_MOVE_SYN,
+    Original::MP_ITEM_PYOGUK_MOVE_ACK,
+    Original::MP_ITEM_PYOGUK_MOVE_NACK,
+    Original::MP_ITEM_PYOGUK_COMBINE_SYN,
+    Original::MP_ITEM_PYOGUK_COMBINE_ACK,
+    Original::MP_ITEM_PYOGUK_COMBINE_NACK,
+    Original::MP_ITEM_PYOGUK_ITEM_INFO_SYN,
+    Original::MP_ITEM_PYOGUK_ITEM_INFO_ACK,
+    Original::MP_ITEM_PYOGUK_ITEM_INFO_NACK,
+    Original::MP_ITEM_MIX_ADDITEM_SYN,
+    Original::MP_ITEM_MIX_ADDITEM_ACK,
+    Original::MP_ITEM_MIX_ADDITEM_NACK,
+    Original::MP_ITEM_MIX_RELEASEITEM,
+    Original::MP_ITEM_USE_FOR_QUESTSTART_SYN,
+    Original::MP_ITEM_USE_FOR_QUESTSTART_ACK,
+    Original::MP_ITEM_USE_FOR_QUESTSTART_NACK,
+    Original::MP_ITEM_DISSOLUTION_SYN,
+    Original::MP_ITEM_DISSOLUTION_ACK,
+    Original::MP_ITEM_DISSOLUTION_NACK,
+    Original::MP_ITEM_DISSOLUTION_GETITEM,
+    Original::MP_ITEM_USE_CHANGEITEM_SYN,
+    Original::MP_ITEM_USE_CHANGEITEM_ACK,
+    Original::MP_ITEM_USE_CHANGEITEM_NACK,
+    Original::MP_ITEM_GUILD_COMBINE_SYN,
+    Original::MP_ITEM_GUILD_COMBINE_ACK,
+    Original::MP_ITEM_GUILD_COMBINE_NACK,
+    Original::MP_ITEM_GUILD_MOVE_SYN,
+    Original::MP_ITEM_GUILD_MOVE_ACK,
+    Original::MP_ITEM_GUILD_MOVE_NACK,
+    Original::MP_ITEM_GUILD_WAREHOUSE_INFO_SYN,
+    Original::MP_ITEM_GUILD_WAREHOUSE_INFO_ACK,
+    Original::MP_ITEM_GUILD_WAREHOUSE_INFO_NACK,
+    Original::MP_ITEM_ADDTO_GUILDWARE_NOTIFY,
+    Original::MP_ITEM_DELETEFROM_GUILDWARE_NOTIFY,
+    Original::MP_ITEM_GUILD_WAREHOUSE_LEAVE,
+    Original::MP_ITEM_SHOPITEM_INFO_SYN,
+    Original::MP_ITEM_SHOPITEM_INFO_ACK,
+    Original::MP_ITEM_SHOPITEM_INFO_NACK,
+    Original::MP_ITEM_SHOPITEM_USEDINFO,
+    Original::MP_ITEM_SHOPITEM_MPINFO,
+    Original::MP_ITEM_SHOPITEM_USE_SYN,
+    Original::MP_ITEM_SHOPITEM_USE_ACK,
+    Original::MP_ITEM_SHOPITEM_USE_NACK,
+    Original::MP_ITEM_SHOPITEM_TIME_UPDATE,
+    Original::MP_ITEM_SHOPITEM_USEEND,
+    Original::MP_ITEM_SHOPITEM_MSG,
+    Original::MP_ITEM_SHOPITEM_ONEMINUTE,
+    Original::MP_ITEM_SHOPITEM_MONEYPROTECT,
+    Original::MP_ITEM_SHOPITEM_EXPPROTECT,
+    Original::MP_ITEM_SHOPITEM_MIXUP,
+    Original::MP_ITEM_SHOPITEM_STATEMINUS,
+    Original::MP_ITEM_SHOPITEM_UNSEAL_SYN,
+    Original::MP_ITEM_SHOPITEM_UNSEAL_ACK,
+    Original::MP_ITEM_SHOPITEM_UNSEAL_NACK,
+    Original::MP_ITEM_SHOPITEM_CHANGEMAP_SYN,
+    Original::MP_ITEM_SHOPITEM_CHANGEMAP_ACK,
+    Original::MP_ITEM_SHOPITEM_CHANGEMAP_NACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_ADD_SYN,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_ADD_ACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_ADD_NACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_UPDATE_SYN,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_UPDATE_ACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_UPDATE_NACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_DEL_SYN,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_DEL_ACK,
+    Original::MP_ITEM_SHOPITEM_SAVEPOINT_DEL_NACK,
+    Original::MP_ITEM_SHOPITEM_REVIVEOTHER_SYN,
+    Original::MP_ITEM_SHOPITEM_REVIVEOTHER_ACK,
+    Original::MP_ITEM_SHOPITEM_REVIVEOTHER_NACK,
+    Original::MP_ITEM_SHOPITEM_AVATAR_USE_SYN,
+    Original::MP_ITEM_SHOPITEM_AVATAR_USE_ACK,
+    Original::MP_ITEM_SHOPITEM_AVATAR_USE_NACK,
+    Original::MP_ITEM_SHOPITEM_AVATAR_PUTON,
+    Original::MP_ITEM_SHOPITEM_AVATAR_TAKEOFF,
+    Original::MP_ITEM_SHOPITEM_AVATAR_CHANGE,
+    Original::MP_ITEM_SHOPITEM_AVATAR_USE,
+    Original::MP_ITEM_SHOPITEM_AVATAR_INFO,
+    Original::MP_ITEM_SHOPITEM_AVATAR_DISCARD,
+    Original::MP_ITEM_SHOPITEM_PET_SUMMON_SYN,
+    Original::MP_ITEM_SHOPITEM_PET_SUMMON_ACK,
+    Original::MP_ITEM_SHOPITEM_PET_SUMMON_NACK,
+    Original::MP_ITEM_SHOPITEM_PET_SEAL_SYN,
+    Original::MP_ITEM_SHOPITEM_PET_SEAL_ACK,
+    Original::MP_ITEM_SHOPITEM_PET_SEAL_NACK,
+    Original::MP_ITEM_SHOPITEM_PET_USE,
+    Original::MP_ITEM_SHOPITEM_EFFECT,
+    Original::MP_ITEM_SHOPITEM_SLOTOVERITEM,
+    Original::MP_ITEM_EVENTITEM_USE,
+    Original::MP_ITEM_SHOPITEM_PROTECTALL,
+    Original::MP_ITEM_SHOPITEM_CHASEUSE_SYN,
+    Original::MP_ITEM_SHOPITEM_CHASEUSE_ACK,
+    Original::MP_ITEM_SHOPITEM_CHASEUSE_NACK,
+    Original::MP_ITEM_SHOPITEM_CHASE_SYN,
+    Original::MP_ITEM_SHOPITEM_CHASE_ACK,
+    Original::MP_ITEM_SHOPITEM_CHASE_NACK,
+    Original::MP_ITEM_SHOPITEM_CHASE_TRACKING,
+    Original::MP_ITEM_SHOPITEM_NCUSE_SYN,
+    Original::MP_ITEM_SHOPITEM_NCUSE_ACK,
+    Original::MP_ITEM_SHOPITEM_NCUSE_NACK,
+    Original::MP_ITEM_SHOPITEM_NCHANGE_SYN,
+    Original::MP_ITEM_SHOPITEM_NCHANGE_ACK,
+    Original::MP_ITEM_SHOPITEM_NCHANGE_NACK,
+    Original::MP_ITEM_REINFORCE_WITHSHOPITEM_SYN,
+    Original::MP_ITEM_REINFORCE_WITHSHOPITEM_ACK,
+    Original::MP_ITEM_REINFORCE_WITHSHOPITEM_NACK,
+    Original::MP_ITEM_SHOPITEM_CHARCHANGE_SYN,
+    Original::MP_ITEM_SHOPITEM_CHARCHANGE_ACK,
+    Original::MP_ITEM_SHOPITEM_CHARCHANGE_NACK,
+    Original::MP_ITEM_SHOPITEM_CHARCHANGE,
+    Original::MP_ITEM_SHOPITEM_SEAL_SYN,
+    Original::MP_ITEM_SHOPITEM_SEAL_ACK,
+    Original::MP_ITEM_SHOPITEM_SEAL_NACK,
+    Original::MP_ITEM_MONSTER_RAREOBTAIN_NOTIFY,
+    Original::MP_ITEM_SHOPITEM_JOBCHANGE_SYN,
+    Original::MP_ITEM_SHOPITEM_JOBCHANGE_ACK,
+    Original::MP_ITEM_SHOPITEM_JOBCHANGE_NACK,
+    Original::MP_ITEM_USE_NOTIFY,
+    Original::MP_ITEM_SHOPITEM_REINFORCERESET_SYN,
+    Original::MP_ITEM_SHOPITEM_REINFORCERESET_ACK,
+    Original::MP_ITEM_SHOPITEM_REINFORCERESET_NACK,
+    Original::MP_ITEM_SHOPITEM_RARECREATE_SYN,
+    Original::MP_ITEM_SHOPITEM_RARECREATE_ACK,
+    Original::MP_ITEM_SHOPITEM_RARECREATE_NACK,
+    Original::MP_ITEM_PETINVEN_INFO_SYN,
+    Original::MP_ITEM_PETINVEN_INFO_ACK,
+    Original::MP_ITEM_PETINVEN_INFO_NACK,
+    Original::MP_ITEM_SHOPITEM_SHOUT_SYN,
+    Original::MP_ITEM_SHOPITEM_SHOUT_ACK,
+    Original::MP_ITEM_SHOPITEM_SHOUT_NACK,
+    Original::MP_ITEM_SHOPITEM_SHOUT_SENDSERVER,
+    Original::MP_ITEM_SHOPITEM_SHOUT_SENDACK,
+    Original::MP_ITEM_CHANGEITEM_NACK,
+    Original::MP_ITEM_SHOPITEM_AVATAR_USE_ACKDB,
+    Original::MP_ITEM_SHOPITEM_EQUIP_USEINFODB,
+    Original::MP_ITEM_FULLINVEN_ALERT,
+    Original::MP_ITEM_TPM_SYN,
+    Original::MP_ITEM_TPM_SUCCESS_ACK,
+    Original::MP_ITEM_TPM_BIGFAILED_ACK,
+    Original::MP_ITEM_TPM_FAILED_ACK,
+    Original::MP_ITEM_TPM_MSG,
+    Original::MP_ITEM_TPM_ADDITEM_SYN,
+    Original::MP_ITEM_TPM_ADDITEM_ACK,
+    Original::MP_ITEM_TPM_ADDITEM_NACK,
+    Original::MP_ITEM_TPM_RELEASEITEM,
+    Original::MP_ITEM_TITANMIX_SYN,
+    Original::MP_ITEM_TITANMIX_ACK,
+    Original::MP_ITEM_TITANMIX_ACK_DELETEPARTS,
+    Original::MP_ITEM_TITANMIX_NACK,
+    Original::MP_ITEM_TITANMIX_ADDITEM_SYN,
+    Original::MP_ITEM_TITANMIX_ADDITEM_ACK,
+    Original::MP_ITEM_TITANMIX_ADDITEM_NACK,
+    Original::MP_ITEM_TITANMIX_RELEASEITEM,
+    Original::MP_ITEM_TITANUPGRADE_SYN,
+    Original::MP_ITEM_TITANUPGRADE_ACK,
+    Original::MP_ITEM_TITANUPGRADE_ACK_DELETEMATERIAL,
+    Original::MP_ITEM_TITANUPGRADE_NACK,
+    Original::MP_ITEM_TITANUPGRADE_ADDITEM_SYN,
+    Original::MP_ITEM_TITANUPGRADE_ADDITEM_ACK,
+    Original::MP_ITEM_TITANUPGRADE_ADDITEM_NACK,
+    Original::MP_ITEM_TITANUPGRADE_RELEASEITEM,
+    Original::MP_ITEM_TITAN_REGISTER_SYN,
+    Original::MP_ITEM_TITAN_REGISTER_ACK,
+    Original::MP_ITEM_TITAN_REGISTER_NACK,
+    Original::MP_ITEM_TITAN_REGISTER_ADDITEM_SYN,
+    Original::MP_ITEM_TITAN_REGISTER_ADDITEM_ACK,
+    Original::MP_ITEM_TITAN_REGISTER_ADDITEM_NACK,
+    Original::MP_ITEM_TITAN_REGISTER_RELEASEITEM,
+    Original::MP_ITEM_TITANBREAK_SYN,
+    Original::MP_ITEM_TITANBREAK_ACK,
+    Original::MP_ITEM_TITANBREAK_ACK_DELETEITEM,
+    Original::MP_ITEM_TITANBREAK_NACK,
+    Original::MP_ITEM_TITANBREAK_ADDITEM_SYN,
+    Original::MP_ITEM_TITANBREAK_ADDITEM_ACK,
+    Original::MP_ITEM_TITANBREAK_ADDITEM_NACK,
+    Original::MP_ITEM_TITANBREAK_RELEASEITEM,
+    Original::MP_ITEM_TITAN_DISSOLUTION_SYN,
+    Original::MP_ITEM_TITAN_DISSOLUTION_ACK,
+    Original::MP_ITEM_TITAN_DISSOLUTION_NACK,
+    Original::MP_ITEM_TITAN_DISSOLUTION_ADDITEM_SYN,
+    Original::MP_ITEM_TITAN_DISSOLUTION_ADDITEM_ACK,
+    Original::MP_ITEM_TITAN_DISSOLUTION_ADDITEM_NACK,
+    Original::MP_ITEM_TITAN_DISSOLUTION_RELEASEITEM,
+    Original::MP_ITEM_TITAN_DISCARD_EQUIPITEM,
+    Original::MP_ITEM_TITAN_EQUIP_REPAIR_SYN,
+    Original::MP_ITEM_TITAN_EQUIP_REPAIR_ACK,
+    Original::MP_ITEM_TITAN_EQUIP_REPAIR_TOTAL_SYN,
+    Original::MP_ITEM_TITAN_EQUIP_REPAIR_TOTAL_ACK,
+    Original::MP_ITEM_TITAN_EQUIP_REPAIR_NACK,
+    Original::MP_ITEM_TITAN_APPEARANCE_CHANGE,
+    Original::MP_ITEM_PROTOCOL_MAX,
+};
+
+constexpr std::size_t kOriginalItemProtocolCount =
+    sizeof(kOriginalItemProtocols) / sizeof(kOriginalItemProtocols[0]);
 
 }  // namespace
 
@@ -119,4 +380,45 @@ TEST(ItemProtocol, DisplacedNumbersMatchOriginal) {
     EXPECT_EQ(modern_number(Modern::DissolveNack), 49u);
     EXPECT_EQ(modern_number(Modern::ShopItemChaseSyn), 154u);
     EXPECT_EQ(modern_number(Modern::ShopItemJobChangeSyn), 175u);
+}
+
+TEST(ItemProtocol, AllEnumeratorsDistinctFitUint8AndPickupAboveOriginalMax) {
+    static_assert(std::is_same_v<std::underlying_type_t<Modern>, std::uint8_t>);
+    static_assert(mxh::proto::kItemProtocolCount ==
+                  mxh::proto::kItemProtocolEnumeratorCount);
+    static_assert(mxh::proto::kItemProtocolCount == 59u);
+    static_assert(kOriginalItemProtocolCount == 252u);
+
+    ASSERT_EQ(mxh::proto::kItemProtocolCount, 59u);
+    for (std::size_t i = 0; i < mxh::proto::kItemProtocolCount; ++i) {
+        const unsigned value = modern_number(mxh::proto::kItemProtocolValues[i]);
+        EXPECT_LE(value, 255u);
+        for (std::size_t j = i + 1; j < mxh::proto::kItemProtocolCount; ++j) {
+            EXPECT_NE(value, modern_number(mxh::proto::kItemProtocolValues[j]))
+                << "index " << i << " and " << j;
+        }
+    }
+    EXPECT_NE(static_cast<unsigned>(mxh::proto::kModernShopList),
+              modern_number(Modern::PickupSyn));
+    EXPECT_NE(static_cast<unsigned>(mxh::proto::kModernShopList),
+              modern_number(Modern::PickupAck));
+    EXPECT_NE(static_cast<unsigned>(mxh::proto::kModernShopList),
+              modern_number(Modern::PickupNack));
+
+    const unsigned original_max =
+        original_number(Original::MP_ITEM_TITAN_APPEARANCE_CHANGE);
+    const unsigned protocol_limit =
+        original_number(Original::MP_ITEM_PROTOCOL_MAX);
+    EXPECT_EQ(original_number(Original::MP_ITEM_TOTALINFO_LOCAL), 0u);
+    EXPECT_EQ(original_max, 250u);
+    EXPECT_EQ(protocol_limit, 256u);
+    for (const Modern pickup : {Modern::PickupSyn, Modern::PickupAck, Modern::PickupNack}) {
+        const unsigned value = modern_number(pickup);
+        EXPECT_GT(value, original_max);
+        EXPECT_LT(value, protocol_limit);
+        EXPECT_LE(value, 255u);
+        for (const Original assigned : kOriginalItemProtocols) {
+            EXPECT_NE(value, original_number(assigned));
+        }
+    }
 }
