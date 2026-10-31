@@ -61,17 +61,22 @@ function Invoke-PlayDhScript {
 }
 
 function Get-PythonCommand {
-    if (Test-Path -LiteralPath '/bin/sh' -PathType Leaf) {
-        $listed = & /bin/sh -c 'command -v python3 || command -v python' 2>$null
-        if (-not [string]::IsNullOrWhiteSpace([string]$listed)) {
-            return (([string]$listed) -split "`n" | Select-Object -First 1).Trim()
-        }
+    # Symlinks are not -PathType Leaf on every host. The Alpine CI image
+    # publishes python3 as a symlink under /usr/local/bin.
+    $known = @(
+        '/usr/local/bin/python3',
+        '/usr/bin/python3',
+        '/usr/local/bin/python',
+        '/usr/bin/python'
+    )
+    foreach ($candidate in $known) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
     foreach ($dir in ($env:PATH -split [IO.Path]::PathSeparator)) {
         if ([string]::IsNullOrWhiteSpace($dir)) { continue }
         foreach ($name in @('python3', 'python')) {
             $candidate = Join-Path $dir $name
-            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+            if (Test-Path -LiteralPath $candidate) { return $candidate }
         }
     }
     return $null
