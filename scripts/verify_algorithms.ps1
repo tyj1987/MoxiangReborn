@@ -6,10 +6,12 @@ param([string]$Root = '')
 
 $ErrorActionPreference = 'Stop'
 
-if ([string]::IsNullOrWhiteSpace($Root)) {
-    $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+# rog: not a required CI check. The resource root is MXH_PLAYDH_ROOT only.
+if ([string]::IsNullOrWhiteSpace($env:MXH_PLAYDH_ROOT) -or -not (Test-Path -LiteralPath $env:MXH_PLAYDH_ROOT -PathType Container)) {
+    Write-Host 'ERROR: MXH_PLAYDH_ROOT is unset or is not a directory; this rog check does not read the repo tree'
+    exit 1
 }
-$Res  = Join-Path $Root 'modern\data\PlayDH\Resource'
+$Res  = Join-Path $env:MXH_PLAYDH_ROOT 'Resource'
 
 Write-Host '=' -NoNewline; Write-Host ('=' * 60)
 Write-Host ' Moxian-Reborn Algorithm Verification'
@@ -133,19 +135,8 @@ foreach ($name in $pakFiles) {
     # .pak files live in PlayDH/ root, not in Resource/
 $pakPath = Join-Path (Split-Path $Res -Parent) $name
     if (-not (Test-Path $pakPath)) {
-        $externalList = Join-Path (Join-Path (Join-Path $PSScriptRoot '..') 'reference') 'manifests\playdh-external-only.txt'
-        $listed = $false
-        if (Test-Path -LiteralPath $externalList) {
-            foreach ($row in [System.IO.File]::ReadAllLines($externalList)) {
-                $trimmed = $row.Trim()
-                if ($trimmed.Length -eq 0 -or $trimmed.StartsWith('#')) { continue }
-                $leaf = $trimmed.Replace('\', '/')
-                $slash = $leaf.LastIndexOf('/')
-                if ($slash -ge 0) { $leaf = $leaf.Substring($slash + 1) }
-                if ($leaf -eq $name) { $listed = $true }
-            }
-        }
-        if ($listed) { Write-Host "  SKIP real $name absent: external-only" }
+        Write-Host "  FAIL: $name is missing under MXH_PLAYDH_ROOT" -ForegroundColor Red
+        $allOk = $false
         continue
     }
     $foundAny = $true
@@ -239,8 +230,9 @@ Write-Host ''
 Write-Host ('=' * 60)
 if ($allOk) {
     Write-Host ' RESULT: PASS' -ForegroundColor Green
-} else {
-    Write-Host ' RESULT: FAIL' -ForegroundColor Red
+    Write-Host ('=' * 60)
+    exit 0
 }
+Write-Host ' RESULT: FAIL' -ForegroundColor Red
 Write-Host ('=' * 60)
-exit 0
+exit 1

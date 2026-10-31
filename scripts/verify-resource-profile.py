@@ -94,7 +94,8 @@ def main() -> int:
         if not isinstance(entries, list):
             raise ValueError("manifest files must be an array")
         external: set[str] = set()
-        if args.profile_id == "playdh-current":
+        repo_mode = playdh_external_only.is_repo_playdh(root)
+        if args.profile_id == "playdh-current" and repo_mode:
             manifest_paths = {
                 entry.get("path")
                 for entry in entries
@@ -104,7 +105,8 @@ def main() -> int:
             for name in sorted(external):
                 if name not in manifest_paths:
                     raise ValueError(f"external-only path is not in the manifest: {name}")
-                if safe_path(root, name).exists():
+                status, _found = playdh_external_only.classify_relative(root, name)
+                if status == "match":
                     raise ValueError(f"external-only path is present in the tree: {name}")
         if args.exact:
             verify_exact_file_set(root, entries, external)
@@ -117,9 +119,17 @@ def main() -> int:
                 continue
             if relative in external:
                 continue
-            file_path = safe_path(root, relative)
-            if not file_path.is_file():
-                raise ValueError(f"missing resource: {relative}")
+            if args.profile_id == "playdh-current" and not repo_mode:
+                status, found = playdh_external_only.classify_relative(root, relative)
+                if status == "case_mismatch":
+                    raise ValueError(f"CASE_MISMATCH: {relative}")
+                if status != "match" or found is None:
+                    raise ValueError(f"missing resource: {relative}")
+                file_path = found
+            else:
+                file_path = safe_path(root, relative)
+                if not file_path.is_file():
+                    raise ValueError(f"missing resource: {relative}")
             expected_size = int(entry["bytes"])
             actual_size = file_path.stat().st_size
             if actual_size != expected_size:

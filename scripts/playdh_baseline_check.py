@@ -129,6 +129,7 @@ def check_playdh(
     *,
     use_repo_list: bool = False,
     require_production_counts: bool = False,
+    repo_tree: Path | None = None,
 ) -> tuple[int, list[str]]:
     document = _load_json(manifest_path)
     expected, lines = _manifest_entries(document)
@@ -145,6 +146,19 @@ def check_playdh(
     for rel in listed:
         if rel not in expected:
             lines.append("PLAYDH_BASELINE EXTERNAL_NOT_IN_MANIFEST %s" % rel)
+    repo_mode = playdh_external_only.is_repo_playdh(root, repo_tree)
+    if listed and not repo_mode:
+        if any(line.startswith("PLAYDH_BASELINE EXTERNAL_") for line in lines):
+            return 1, lines
+        status, cover = playdh_external_only.coverage_lines(root, expected)
+        lines.extend(cover)
+        if status:
+            return 1, lines
+        lines.append(
+            "PLAYDH_BASELINE OK files=%s external_only=%s manifest=%s"
+            % (len(expected), len(listed), len(expected))
+        )
+        return 0, lines
     actual: dict[str, Path] = {}
     if not root.is_dir():
         lines.append("PLAYDH_BASELINE MISSING_ROOT %s" % root.as_posix())
@@ -561,7 +575,7 @@ def self_test() -> int:
             manifest,
             [("keep.bin", keep), ("other.bin", other), ("listed.bin", listed_bytes)],
         )
-        code, lines = check_playdh(playdh, manifest, listed_list)
+        code, lines = check_playdh(playdh, manifest, listed_list, repo_tree=playdh)
         if not _expect(
             "external-absent-ok",
             code,
@@ -576,7 +590,7 @@ def self_test() -> int:
             "modern/data/PlayDH/not-in-manifest.bin\n",
             encoding="utf-8",
         )
-        code, lines = check_playdh(playdh, manifest, missing_list)
+        code, lines = check_playdh(playdh, manifest, missing_list, repo_tree=playdh)
         if not _expect(
             "external-not-in-manifest",
             code,
@@ -587,7 +601,7 @@ def self_test() -> int:
             failed = True
 
         (playdh / "listed.bin").write_bytes(listed_bytes)
-        code, lines = check_playdh(playdh, manifest, listed_list)
+        code, lines = check_playdh(playdh, manifest, listed_list, repo_tree=playdh)
         if not _expect(
             "external-present",
             code,
@@ -599,7 +613,7 @@ def self_test() -> int:
         (playdh / "listed.bin").unlink()
 
         (playdh / "other.bin").unlink()
-        code, lines = check_playdh(playdh, manifest, listed_list)
+        code, lines = check_playdh(playdh, manifest, listed_list, repo_tree=playdh)
         other_hash = hashlib.sha256(other).hexdigest()
         listed_also_missing = any(
             line.startswith("PLAYDH_BASELINE MISSING listed.bin") for line in lines
@@ -646,14 +660,16 @@ def self_test() -> int:
         else:
             print("PLAYDH_BASELINE SELFTEST OK external-root-match")
 
-        (external_root / "listed.bin").write_bytes(b"synthetic-listed-bad")
+        bad_payload = b"synthetic-listed-bad"
+        (external_root / "listed.bin").write_bytes(bad_payload)
         code, lines = check_playdh(external_root, manifest, listed_list)
         if not _expect(
             "external-root-mismatch",
             code,
             lines,
             True,
-            "PLAYDH_BASELINE MISMATCH listed.bin expected=%s" % listed_hash,
+            "PLAYDH_BASELINE MISMATCH listed.bin expected=%s actual=%s"
+            % (listed_hash, hashlib.sha256(bad_payload).hexdigest()),
         ):
             failed = True
 
