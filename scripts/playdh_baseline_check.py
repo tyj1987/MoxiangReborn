@@ -347,6 +347,21 @@ def self_test() -> int:
         if not _expect("empty-registered", code, lines, True, "DECODED_MAP_HITS registered=0"):
             failed = True
 
+        registry81 = [
+            hashlib.sha256(("synthetic-registry-%s" % index).encode("ascii")).hexdigest()
+            for index in range(81)
+        ]
+        _write_references(references, registry81)
+        code, lines = check_decoded(root, references, [])
+        if not _expect(
+            "count-81",
+            code,
+            lines,
+            True,
+            "DECODED_MAP_REGISTRY COUNT_MISMATCH expected=82 actual=81",
+        ):
+            failed = True
+
         pointer = playdh / "pointer.bin"
         pointer.write_bytes(LFS_MARKER + b"\noid sha256:" + b"0" * 64 + b"\nsize 1\n")
         _write_manifest(manifest, [("pointer.bin", pointer.read_bytes()), ("a.bin", file_a)])
