@@ -6196,6 +6196,10 @@ TEST(EquipmentPersistence, FailedOrMalformedItemReadKeepsExistingOwnedEquipment)
     ReplySpy reply;
     MapHandler handler(db, 10, make_reply_spy(reply));
     handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    mxh::game::ItemInfo installed{};
+    ASSERT_GT(handler.item_manager_for_test().size(), 0u);
+    ASSERT_TRUE(handler.item_manager_for_test().try_get(11000u, installed));
+    EXPECT_EQ(installed.ItemIdx, 11000u);
     mxh::net::Message game_in;
     game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -6238,6 +6242,7 @@ TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutat
     ReplySpy reply;
     MapHandler handler(db, 10, make_reply_spy(reply));
     handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    ASSERT_GT(handler.item_manager_for_test().size(), 0u);
     mxh::net::Message game_in;
     game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
