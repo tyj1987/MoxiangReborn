@@ -603,30 +603,105 @@ function Get-SoakMember {
 
 function Convert-SoakStateObject {
     param($Value)
-    if ($null -eq $Value) { return $null }
-    if ($Value -is [string]) {
-        if ([string]::IsNullOrWhiteSpace($Value)) { return $null }
-        return ($Value | ConvertFrom-Json)
+    if ($null -eq $Value) {
+        return [pscustomobject]@{ Ok = $false; Value = $null }
     }
-    return $Value
+    if ($Value -is [string]) {
+        if ([string]::IsNullOrWhiteSpace($Value)) {
+            return [pscustomobject]@{ Ok = $false; Value = $null }
+        }
+        try {
+            $parsed = $Value | ConvertFrom-Json
+        } catch {
+            return [pscustomobject]@{ Ok = $false; Value = $null }
+        }
+        if ($null -eq $parsed -or $parsed -is [System.Array]) {
+            return [pscustomobject]@{ Ok = $false; Value = $null }
+        }
+        return [pscustomobject]@{ Ok = $true; Value = $parsed }
+    }
+    if ($Value -is [System.Array]) {
+        return [pscustomobject]@{ Ok = $false; Value = $null }
+    }
+    return [pscustomobject]@{ Ok = $true; Value = $Value }
 }
 
-function Get-SoakInventoryKeys {
-    param($State)
-    $inventory = Get-SoakMember $State @('inventory')
-    if ($null -eq $inventory) { return $null }
-    $keys = New-Object System.Collections.Generic.List[string]
-    foreach ($item in @($inventory)) {
-        if ($null -eq $item) { continue }
-        $slot = Get-SoakMember $item @('slot')
-        $itemId = Get-SoakMember $item @('item_id', 'itemId', 'item', 'id')
-        $count = Get-SoakMember $item @('count', 'qty', 'quantity')
-        if ($null -eq $slot -or $null -eq $itemId) { return $null }
-        $countValue = [int64]1
-        if ($null -ne $count) { $countValue = [int64]$count }
-        $keys.Add(('{0:D6}|{1}|{2}' -f [int]$slot, [int64]$itemId, $countValue))
+function Test-SoakHasProperty {
+    param($Object, [string]$Name)
+    if ($null -eq $Object) { return $false }
+    if ($Object -is [System.Collections.IDictionary]) {
+        foreach ($key in @($Object.Keys)) {
+            if ([string]$key -ceq $Name) { return $true }
+        }
+        return $false
     }
-    return @($keys.ToArray() | Sort-Object)
+    return $null -ne $Object.PSObject.Properties[$Name]
+}
+
+function Test-SoakField {
+    param($Object, [string]$Name)
+    # A missing property and a JSON null are both absent. Zero is present.
+    # Two absent values are not equal.
+    if (-not (Test-SoakHasProperty $Object $Name)) {
+        return [pscustomobject]@{ Present = $false; Value = $null }
+    }
+    $value = Get-SoakMember $Object @($Name)
+    if ($null -eq $value) {
+        return [pscustomobject]@{ Present = $false; Value = $null }
+    }
+    return [pscustomobject]@{ Present = $true; Value = $value }
+}
+
+function Add-SoakReason {
+    param($List, [string]$Reason)
+    if (-not $List.Contains($Reason)) { [void]$List.Add($Reason) }
+}
+
+function Resolve-SoakSnapshot {
+    param($Document, [string]$Side)
+    # A session dump has entry and exit. Drop-time is exit. The
+    # post-reconnect snapshot is entry. A bare snapshot is used as-is.
+    $wrapped = (Test-SoakHasProperty $Document 'entry') -or (Test-SoakHasProperty $Document 'exit')
+    if (-not $wrapped) {
+        return [pscustomobject]@{ Ok = $true; Snapshot = $Document; Reason = '' }
+    }
+    $field = Test-SoakField $Document $Side
+    if (-not $field.Present) {
+        return [pscustomobject]@{ Ok = $false; Snapshot = $null; Reason = ('missing:' + $Side) }
+    }
+    return [pscustomobject]@{ Ok = $true; Snapshot = $field.Value; Reason = '' }
+}
+
+function Get-SoakInventoryCompare {
+    param($Snapshot)
+    $reasons = New-Object System.Collections.Generic.List[string]
+    $inventory = Test-SoakField $Snapshot 'inventory'
+    if (-not $inventory.Present) {
+        Add-SoakReason $reasons 'missing:inventory'
+        return [pscustomobject]@{ Ok = $false; Keys = @(); Reasons = @($reasons.ToArray()) }
+    }
+    $keys = New-Object System.Collections.Generic.List[string]
+    foreach ($item in @($inventory.Value)) {
+        if ($null -eq $item) {
+            Add-SoakReason $reasons 'missing:inventory'
+            continue
+        }
+        $slot = Test-SoakField $item 'slot'
+        $itemIndex = Test-SoakField $item 'item_index'
+        $count = Test-SoakField $item 'count'
+        if (-not $slot.Present) { Add-SoakReason $reasons 'missing:slot' }
+        if (-not $itemIndex.Present) { Add-SoakReason $reasons 'missing:item_index' }
+        if (-not $count.Present) { Add-SoakReason $reasons 'missing:count' }
+        if ($slot.Present -and $itemIndex.Present -and $count.Present) {
+            $keys.Add(([string]$slot.Value) + '|' + ([string]$itemIndex.Value) + '|' + ([string]$count.Value))
+        }
+    }
+    $sorted = @($keys.ToArray() | Sort-Object)
+    return [pscustomobject]@{
+        Ok = ($reasons.Count -eq 0)
+        Keys = $sorted
+        Reasons = @($reasons.ToArray())
+    }
 }
 
 function Compare-SoakStateDump {
@@ -635,56 +710,81 @@ function Compare-SoakStateDump {
         $After,
         [double]$PositionTolerance = 32
     )
-    # Reconnect compares a full re-login against the pre-disconnect dump.
-    # HP, money, and inventory (sorted by slot) must match. Position may
-    # differ by at most 32 units. There is no auto-resume path.
-    $left = Convert-SoakStateObject $Before
-    $right = Convert-SoakStateObject $After
+    # mxh_client_e2e --state-dump JSON is {entry, exit}. Reconnect is a
+    # full re-login, not a resume: compare the drop-time exit snapshot
+    # with the post-reconnect entry snapshot. Map, hp, money, and
+    # inventory (slot, item_index, count) must match. Position distance
+    # is on x/y, and y is the ground axis, within 32. A missing field
+    # fails, including when both sides omit it.
+    $parsedBefore = Convert-SoakStateObject $Before
+    $parsedAfter = Convert-SoakStateObject $After
+    if (-not $parsedBefore.Ok -or -not $parsedAfter.Ok) {
+        return [pscustomobject]@{ Pass = $false; Reasons = @('malformed') }
+    }
+    $drop = Resolve-SoakSnapshot -Document $parsedBefore.Value -Side 'exit'
+    $reconnect = Resolve-SoakSnapshot -Document $parsedAfter.Value -Side 'entry'
     $reasons = New-Object System.Collections.Generic.List[string]
-    if ($null -eq $left -or $null -eq $right) {
-        return [pscustomobject]@{ Pass = $false; Reasons = @('missing') }
-    }
-    $mapLeft = Get-SoakMember $left @('map', 'map_number')
-    $mapRight = Get-SoakMember $right @('map', 'map_number')
-    if ($null -eq $mapLeft -or $null -eq $mapRight -or ([string]$mapLeft -ne [string]$mapRight)) {
-        $reasons.Add('map')
-    }
-    $hpLeft = Get-SoakMember $left @('hp', 'HP')
-    $hpRight = Get-SoakMember $right @('hp', 'HP')
-    if ($null -eq $hpLeft -or $null -eq $hpRight -or ([int64]$hpLeft -ne [int64]$hpRight)) {
-        $reasons.Add('hp')
-    }
-    $moneyLeft = Get-SoakMember $left @('money')
-    $moneyRight = Get-SoakMember $right @('money')
-    if ($null -eq $moneyLeft -or $null -eq $moneyRight -or ([int64]$moneyLeft -ne [int64]$moneyRight)) {
-        $reasons.Add('money')
-    }
-    $invLeft = Get-SoakInventoryKeys $left
-    $invRight = Get-SoakInventoryKeys $right
-    $invSame = $false
-    if ($null -ne $invLeft -and $null -ne $invRight -and @($invLeft).Count -eq @($invRight).Count) {
-        $invSame = $true
-        for ($i = 0; $i -lt @($invLeft).Count; $i++) {
-            if ([string]($invLeft[$i]) -ne [string]($invRight[$i])) { $invSame = $false }
+    if (-not $drop.Ok) { Add-SoakReason $reasons $drop.Reason }
+    if (-not $reconnect.Ok) { Add-SoakReason $reasons $reconnect.Reason }
+    if ($drop.Ok -and $reconnect.Ok) {
+        $left = $drop.Snapshot
+        $right = $reconnect.Snapshot
+        foreach ($name in @('hp', 'mp', 'shield', 'money', 'inventory', 'position')) {
+            $onLeft = Test-SoakField $left $name
+            $onRight = Test-SoakField $right $name
+            if (-not $onLeft.Present -or -not $onRight.Present) {
+                Add-SoakReason $reasons ('missing:' + $name)
+            }
         }
-    }
-    if (-not $invSame) { $reasons.Add('inventory') }
-    $sum = 0.0
-    $axes = 0
-    foreach ($axis in @('x', 'y', 'z')) {
-        $a = Get-SoakMember $left @($axis)
-        $b = Get-SoakMember $right @($axis)
-        if ($null -eq $a -and $null -eq $b) { continue }
-        if ($null -eq $a -or $null -eq $b) { $axes = -1; break }
-        $delta = [double]$a - [double]$b
-        $sum += ($delta * $delta)
-        $axes++
-    }
-    if ($axes -le 0) {
-        $reasons.Add('position')
-    } else {
-        $distance = [math]::Sqrt($sum)
-        if ($distance -gt $PositionTolerance) { $reasons.Add('position') }
+        $hpLeft = Test-SoakField $left 'hp'
+        $hpRight = Test-SoakField $right 'hp'
+        if ($hpLeft.Present -and $hpRight.Present -and ([int64]$hpLeft.Value -ne [int64]$hpRight.Value)) {
+            Add-SoakReason $reasons 'hp'
+        }
+        $moneyLeft = Test-SoakField $left 'money'
+        $moneyRight = Test-SoakField $right 'money'
+        if ($moneyLeft.Present -and $moneyRight.Present -and ([int64]$moneyLeft.Value -ne [int64]$moneyRight.Value)) {
+            Add-SoakReason $reasons 'money'
+        }
+        $posLeft = Test-SoakField $left 'position'
+        $posRight = Test-SoakField $right 'position'
+        if ($posLeft.Present -and $posRight.Present) {
+            $axesOk = $true
+            foreach ($axis in @('x', 'y', 'map')) {
+                $axisLeft = Test-SoakField $posLeft.Value $axis
+                $axisRight = Test-SoakField $posRight.Value $axis
+                if (-not $axisLeft.Present -or -not $axisRight.Present) {
+                    Add-SoakReason $reasons ('missing:' + $axis)
+                    $axesOk = $false
+                }
+            }
+            if ($axesOk) {
+                $mapLeft = Get-SoakMember $posLeft.Value @('map')
+                $mapRight = Get-SoakMember $posRight.Value @('map')
+                if ([string]$mapLeft -ne [string]$mapRight) { Add-SoakReason $reasons 'map' }
+                $xLeft = [System.Convert]::ToDouble((Get-SoakMember $posLeft.Value @('x')))
+                $xRight = [System.Convert]::ToDouble((Get-SoakMember $posRight.Value @('x')))
+                $yLeft = [System.Convert]::ToDouble((Get-SoakMember $posLeft.Value @('y')))
+                $yRight = [System.Convert]::ToDouble((Get-SoakMember $posRight.Value @('y')))
+                $dx = $xLeft - $xRight
+                $dy = $yLeft - $yRight
+                $distance = [math]::Sqrt(($dx * $dx) + ($dy * $dy))
+                if ($distance -gt $PositionTolerance) { Add-SoakReason $reasons 'position' }
+            }
+        }
+        $invLeft = Get-SoakInventoryCompare $left
+        $invRight = Get-SoakInventoryCompare $right
+        foreach ($reason in @($invLeft.Reasons)) { Add-SoakReason $reasons $reason }
+        foreach ($reason in @($invRight.Reasons)) { Add-SoakReason $reasons $reason }
+        if ($invLeft.Ok -and $invRight.Ok) {
+            $same = @($invLeft.Keys).Count -eq @($invRight.Keys).Count
+            if ($same) {
+                for ($i = 0; $i -lt @($invLeft.Keys).Count; $i++) {
+                    if ([string]($invLeft.Keys[$i]) -ne [string]($invRight.Keys[$i])) { $same = $false }
+                }
+            }
+            if (-not $same) { Add-SoakReason $reasons 'inventory' }
+        }
     }
     return [pscustomobject]@{
         Pass = ($reasons.Count -eq 0)

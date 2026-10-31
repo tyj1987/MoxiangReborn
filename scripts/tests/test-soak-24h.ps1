@@ -189,24 +189,60 @@ Assert-True ($gapBad.Status -eq 'fail') '121s gap must fail'
 $gapSkip = Test-SoakSampleGaps -TimestampsUtc @(([datetime]::new(2026, 1, 1, 0, 0, 0, [DateTimeKind]::Utc))) -MaxGapSeconds 120
 Assert-True ($gapSkip.Status -eq 'skip') 'one sample must skip the gap check'
 
-$same = '{"map":10,"x":100,"z":200,"hp":50,"money":1000,"inventory":[{"slot":1,"item_id":8,"count":2},{"slot":0,"item_id":3,"count":1}]}'
-$reordered = '{"map":10,"x":100,"z":200,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-$sameCmp = Compare-SoakStateDump -Before $same -After $reordered
-Assert-True $sameCmp.Pass 'identical state dump must pass when inventory order differs'
-$moved = '{"map":10,"x":132,"z":200,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (Compare-SoakStateDump -Before $same -After $moved).Pass '32 units on one axis must pass'
-$tooFar = '{"map":10,"x":132.01,"z":200,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (-not (Compare-SoakStateDump -Before $same -After $tooFar).Pass) 'more than 32 units must fail'
-$diagonal = '{"map":10,"x":120,"z":225,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (-not (Compare-SoakStateDump -Before $same -After $diagonal).Pass) 'distance above 32 must fail'
-$hp = '{"map":10,"x":100,"z":200,"hp":49,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (@(Compare-SoakStateDump -Before $same -After $hp).Reasons -contains 'hp') 'hp mismatch must fail'
-$money = '{"map":10,"x":100,"z":200,"hp":50,"money":999,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (@(Compare-SoakStateDump -Before $same -After $money).Reasons -contains 'money') 'money mismatch must fail'
-$count = '{"map":10,"x":100,"z":200,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":2},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (@(Compare-SoakStateDump -Before $same -After $count).Reasons -contains 'inventory') 'inventory count mismatch must fail'
-$mapDiff = '{"map":12,"x":100,"z":200,"hp":50,"money":1000,"inventory":[{"slot":0,"item_id":3,"count":1},{"slot":1,"item_id":8,"count":2}]}'
-Assert-True (@(Compare-SoakStateDump -Before $same -After $mapDiff).Reasons -contains 'map') 'map mismatch must fail'
+function New-Soak77Snapshot {
+    param(
+        [int]$Hp = 100,
+        [int]$Mp = 40,
+        [int]$Money = 50,
+        [int]$Shield = 7,
+        [int]$Map = 10,
+        [int]$X = 25000,
+        [int]$Y = 25001,
+        [string]$Items = '[{"count":2,"item_index":50108,"slot":1}]',
+        [switch]$NoPosition,
+        [switch]$NoMoney,
+        [switch]$NoItemIndex
+    )
+    if ($NoItemIndex) { $Items = '[{"count":2,"slot":1}]' }
+    $moneyText = ''
+    if (-not $NoMoney) { $moneyText = ',"money":' + $Money }
+    $positionText = ''
+    if (-not $NoPosition) {
+        $positionText = ',"position":{"map":' + $Map + ',"x":' + $X + ',"y":' + $Y + '}'
+    }
+    return '{"hp":' + $Hp + ',"inventory":' + $Items + $moneyText + ',"mp":' + $Mp + $positionText + ',"shield":' + $Shield + '}'
+}
+function New-Soak77Dump {
+    param([string]$Entry, [string]$Exit)
+    return '{"entry":' + $Entry + ',"exit":' + $Exit + '}'
+}
+# Drop-time exit versus post-reconnect entry. x moves 32, the sample
+# delta from the mxh_client_e2e state-dump writer, which is within 32.
+$drop = New-Soak77Snapshot -X 25000 -Y 25001
+$back = New-Soak77Snapshot -X 25032 -Y 25001
+$before = New-Soak77Dump -Entry (New-Soak77Snapshot -Hp 1) -Exit $drop
+$after = New-Soak77Dump -Entry $back -Exit (New-Soak77Snapshot -Hp 2)
+$statePass = Compare-SoakStateDump -Before $before -After $after
+Assert-True $statePass.Pass ('#77 state dump within 32 must pass: ' + ($statePass.Reasons -join ','))
+$tooFar = Compare-SoakStateDump -Before $before -After (New-Soak77Dump -Entry (New-Soak77Snapshot -X 25033 -Y 25001) -Exit (New-Soak77Snapshot -Hp 2))
+Assert-True (-not $tooFar.Pass) 'position over 32 must fail'
+Assert-True (@($tooFar.Reasons) -contains 'position') 'position over 32 must report position'
+$badItems = '[{"count":9,"item_index":50108,"slot":1}]'
+$badInventory = Compare-SoakStateDump -Before $before -After (New-Soak77Dump -Entry (New-Soak77Snapshot -Items $badItems) -Exit (New-Soak77Snapshot -Hp 2))
+Assert-True (-not $badInventory.Pass) 'inventory mismatch must fail'
+Assert-True (@($badInventory.Reasons) -contains 'inventory') 'inventory mismatch must report inventory'
+$missingPosition = Compare-SoakStateDump -Before $before -After (New-Soak77Dump -Entry (New-Soak77Snapshot -NoPosition) -Exit (New-Soak77Snapshot -Hp 2))
+Assert-True (-not $missingPosition.Pass) 'missing position must fail'
+Assert-True (@($missingPosition.Reasons) -contains 'missing:position') 'missing position must report missing:position'
+$missingIndex = Compare-SoakStateDump -Before $before -After (New-Soak77Dump -Entry (New-Soak77Snapshot -NoItemIndex) -Exit (New-Soak77Snapshot -Hp 2))
+Assert-True (-not $missingIndex.Pass) 'missing item_index must fail'
+Assert-True (@($missingIndex.Reasons) -contains 'missing:item_index') 'missing item_index must report missing:item_index'
+$missingMoney = Compare-SoakStateDump -Before $before -After (New-Soak77Dump -Entry (New-Soak77Snapshot -NoMoney) -Exit (New-Soak77Snapshot -Hp 2))
+Assert-True (-not $missingMoney.Pass) 'missing money must fail'
+Assert-True (@($missingMoney.Reasons) -contains 'missing:money') 'missing money must report missing:money'
+$malformed = Compare-SoakStateDump -Before '{' -After $after
+Assert-True (-not $malformed.Pass) 'malformed JSON must fail'
+Assert-True (@($malformed.Reasons) -contains 'malformed') 'malformed JSON must report malformed'
 
 $cRefused = Test-SoakRunDirPolicy -Path 'C:\soak\run' -ForWindows $true -IsDefault $false
 Assert-True (-not $cRefused.Allowed) 'RunDir under C:\ must be refused on Windows'
