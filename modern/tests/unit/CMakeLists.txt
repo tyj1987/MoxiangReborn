@@ -130,7 +130,15 @@ gtest_add_tests(TARGET mxh_audio_contract_tests)
 # chx / chr tests picked up automatically.
 gtest_add_tests(TARGET mxh_compat_tests
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/tests/unit)
+# Real PlayDH cases. gtest_add_tests is the only registration. There is no
+# whole-binary add_test for mxh_compat_tests, so these names are not listed twice.
 set_tests_properties(
+    HflHeightField.ParsesRealMap12Terrain
+    HflHeightField.ParsesRecoveredMap17LooseTerrain
+    StmStaticModel.ParsesRealMap12Scene
+    StmStaticModel.ParsesRealMap12SkyModel
+    StmStaticModel.RealL001BonesAndPhysique
+    StmStaticModel.ParsesEveryDefaultMaleCharacterPart
     SoundList.LoadsRealPlayDhSoundListWhenAvailable
     BgmPlayer.ResolvesOriginalLoginMusic
     BgmPlayer.PlaybackLoopReportsCurrentId
