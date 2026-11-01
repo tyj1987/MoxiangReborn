@@ -108,7 +108,7 @@ TEST(StmStaticModel, ParsesRealMap12SkyModel) {
 
 // Hand-written chx plus one skinned .mod. The real monster pack is
 // RealL001BonesAndPhysique.
-TEST(StmStaticModel, ParsesRealL001BonesAndPhysique) {
+TEST(StmStaticModel, ParsesSyntheticL001BonesAndPhysique) {
     mxh::test::HandwrittenMaterial material;
     material.index = 4;
     material.texture_name = "syn_limb";
