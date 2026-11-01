@@ -18,7 +18,7 @@
 #include "mxh/ui/cImage.hpp"
 #include "mxh/ui/interface_script.hpp"
 #include "mxh/compat/mh_file_ex.hpp"
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 namespace fs = std::filesystem;
 
@@ -113,18 +113,7 @@ bool testDrawFn(void* ctx, void* /*sprite*/,
 }
 
 fs::path locate_playdh() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    std::error_code ec;
-    auto current = fs::absolute(fs::current_path(ec), ec);
-    for (int depth = 0; !ec && depth < 10 && !current.empty(); ++depth) {
-        const auto candidate = current / "modern" / "data" / "PlayDH";
-        std::error_code candidate_ec;
-        if (fs::is_directory(candidate / "Image" / "InterfaceScript", candidate_ec)) return candidate;
-        const auto parent = current.parent_path();
-        if (parent == current) break;
-        current = parent;
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 
 }  // namespace
@@ -137,9 +126,6 @@ TEST(InterfaceScriptRender, MainDlgRendersAtLegacyPixelPosition) {
     // 5. Assert the legacy pixel rectangle is filled — proving the
     //    dialog is drawn at the exact legacy coordinates.
     fs::path playdh = locate_playdh();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping render test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "15.bin");
     ASSERT_TRUE(read.ok());
@@ -226,9 +212,6 @@ TEST(InterfaceScriptRender, DialogRenderDrawsChromeAndChildTree) {
 TEST(InterfaceScriptRender, QuickDialogRendersAtLegacyPixelPosition) {
     // Same as above for QuickDialog (14.bin, QI_QUICKDLG).
     fs::path playdh = locate_playdh();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping render test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "14.bin");
     ASSERT_TRUE(read.ok());
@@ -266,9 +249,6 @@ TEST(InterfaceScriptRender, QuickDialogRendersAtLegacyPixelPosition) {
 TEST(InterfaceScriptRender, ExitDialogRendersAtLegacyPixelPosition) {
     // Same as above for ExitDialog (25.bin, EXT_DIALOG).
     fs::path playdh = locate_playdh();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping render test.";
-    }
     auto read = mxh::compat::read_mh_bin(
         playdh / "Image" / "InterfaceScript" / "25.bin");
     ASSERT_TRUE(read.ok());
@@ -311,9 +291,6 @@ TEST(InterfaceScriptRender, MultipleDialogsRenderAtDistinctLegacyPositions) {
     // displayed at the correct position" for the three primary
     // on-screen dialogs.
     fs::path playdh = locate_playdh();
-    if (playdh.empty()) {
-        GTEST_SKIP() << "PlayDH not available; skipping render test.";
-    }
     auto read_bin = [&](const char* name) {
         return mxh::compat::read_mh_bin(
             playdh / "Image" / "InterfaceScript" / name);

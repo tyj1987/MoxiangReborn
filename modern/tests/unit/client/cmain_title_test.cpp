@@ -20,22 +20,14 @@
 #include <windows.h>
 #include <cstdio>
 #include <fstream>
-#include "../../support/playdh_env.hpp"
+#include "../../support/rog_playdh.hpp"
 
 using mxh::client::CMainTitle;
 
 namespace {
 
 std::filesystem::path find_playdh_root() {
-    if (const auto playdh_override = mxh::test::playdh_dir_override()) return *playdh_override;
-    auto root = std::filesystem::current_path();
-    for (int level = 0; level < 8; ++level) {
-        const auto candidate = root / "modern" / "data" / "PlayDH";
-        if (std::filesystem::exists(candidate / "Image" / "InterfaceScript")) return candidate;
-        if (!root.has_parent_path() || root.parent_path() == root) break;
-        root = root.parent_path();
-    }
-    return {};
+    return mxh::test::require_rog_playdh_root();
 }
 
 // Write a synthetic MHVerInfo.ver to a known location and remember

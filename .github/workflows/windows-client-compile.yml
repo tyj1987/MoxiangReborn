@@ -506,7 +506,10 @@ jobs:
             'mxh_client_tests',
             'mxh_login_e2e_tests',
             'mxh_login_wire_sha256_tests',
-            'mxh_agent_wire_first_packet_tests'
+            'mxh_agent_wire_first_packet_tests',
+            'mxh_compat_tests',
+            'mxh_dialog_atlas_tests',
+            'mxh_render_tests'
             # append targets here
           )
           if ($behaviorTargets.Count -lt 1) { throw 'behavior target list is empty' }

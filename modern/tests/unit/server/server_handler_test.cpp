@@ -2643,10 +2643,19 @@ TEST(MapHandlerTest, GameInClaimsValidPendingGmGrantExactlyOnce) {
     ASSERT_TRUE(seed_fixture_base_attributes(*db, 123u));
     ASSERT_TRUE(seed_fixture_runtime_state(*db, 123u));
     ASSERT_TRUE(db->execute("CREATE TABLE modern_item_grant (grant_id INTEGER PRIMARY KEY,idempotency_key TEXT UNIQUE,character_id INTEGER,item_id INTEGER,item_count INTEGER,status TEXT,inventory_slot INTEGER,created_by TEXT,reason TEXT,created_at TEXT,claimed_at TEXT)").ok());
-    ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,8000,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
+    ASSERT_TRUE(db->execute("INSERT INTO modern_item_grant VALUES (1,'once',123,48001,3,'pending',NULL,'gm','test',CURRENT_TIMESTAMP,NULL)").ok());
     ReplySpy reply; mxh::server::MapHandler handler(*db, 7, make_reply_spy(reply));
-    const std::string item_path = std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/ItemList.bin";
-    handler.load_item_list(item_path);
+    // Invented grant row. ItemIdx is 16-bit; 48001 is not taken from ItemList.
+    mxh::game::ItemInfo grant{};
+    grant.ItemIdx = 48001;
+    std::memcpy(grant.ItemName, "SynthGrant", 10);
+    grant.ItemKind = 0;
+    grant.LifeRecover = 7777;
+    handler.add_item_info_for_test(grant);
+    mxh::game::ItemInfo installed{};
+    ASSERT_TRUE(handler.item_manager_for_test().try_get(48001u, installed));
+    EXPECT_EQ(installed.ItemIdx, 48001u);
+    EXPECT_EQ(installed.LifeRecover, 7777u);
     mxh::net::Message game_in; game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
     game_in.header.protocol = static_cast<std::uint8_t>(mxh::proto::UserConnProtocol::GameInSyn);
@@ -2756,8 +2765,8 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
         "quick_position INTEGER NOT NULL,item_param INTEGER NOT NULL,PRIMARY KEY(player_id,container,slot),"
         "UNIQUE(player_id,db_idx));"
         "INSERT INTO character_info VALUES(123,'ItemHero',0,1,1,1.0,1.0,1,7);"
-        "INSERT INTO modern_player_item VALUES(123,0,4,9001,555,87,3,65535,8);"
-        "INSERT INTO modern_player_item VALUES(123,1,1,9002,11000,100,0,65535,1);").ok());
+        "INSERT INTO modern_player_item VALUES(123,0,4,9001,48002,87,3,65535,8);"
+        "INSERT INTO modern_player_item VALUES(123,1,1,9002,48003,100,0,65535,1);").ok());
     ASSERT_TRUE(seed_fixture_base_attributes(db, 123u));
     ASSERT_TRUE(seed_fixture_runtime_state(db, 123u));
 
@@ -2765,7 +2774,29 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
     {
         ReplySpy reply;
         mxh::server::MapHandler handler(db, 7, make_reply_spy(reply));
-        handler.load_item_list(std::string(MXH_SOURCE_DIR) + "/data/PlayDH/Resource/ItemList.bin");
+        // Invented bag and blade. 48003 is ordinary equipment in the weapon slot.
+        mxh::game::ItemInfo bag{};
+        bag.ItemIdx = 48002;
+        std::memcpy(bag.ItemName, "SynthBag", 8);
+        bag.ItemKind = 0;
+        bag.LifeRecover = 3333;
+        mxh::game::ItemInfo blade{};
+        blade.ItemIdx = 48003;
+        std::memcpy(blade.ItemName, "SynthBlade", 10);
+        blade.ItemKind = 2048;
+        blade.EquipKind = mxh::game::WEARED_WEAPON;
+        blade.WeaponType = 1;
+        blade.MeleeAttackMin = 11;
+        blade.MeleeAttackMax = 19;
+        handler.add_item_info_for_test(bag);
+        handler.add_item_info_for_test(blade);
+        mxh::game::ItemInfo installed{};
+        ASSERT_TRUE(handler.item_manager_for_test().try_get(48002u, installed));
+        EXPECT_EQ(installed.LifeRecover, 3333u);
+        ASSERT_TRUE(handler.item_manager_for_test().try_get(48003u, installed));
+        EXPECT_EQ(installed.ItemIdx, 48003u);
+        EXPECT_EQ(installed.ItemKind, 2048u);
+        EXPECT_EQ(installed.EquipKind, mxh::game::WEARED_WEAPON);
         mxh::net::Message game_in;
         game_in.header.object_id = 123u;
         game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -2778,9 +2809,9 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
         mxh::game::ItemTotalInfo items{};
         std::memcpy(&items, reply.messages.front().payload.data() + mxh::game::HERO_TOTAL_ITEM_OFFSET, sizeof(items));
         EXPECT_EQ(items.Inventory[4].dwDBIdx, 9001u);
-        EXPECT_EQ(items.Inventory[4].wIconIdx, 555u);
+        EXPECT_EQ(items.Inventory[4].wIconIdx, 48002u);
         EXPECT_EQ(items.WearedItem[1].dwDBIdx, 9002u);
-        EXPECT_EQ(items.WearedItem[1].wIconIdx, 11000u);
+        EXPECT_EQ(items.WearedItem[1].wIconIdx, 48003u);
         handler.on_disconnect(connection, mxh::net::NetError::Disconnected);
     }
     mxh::db::ResultSet rows;
@@ -2789,9 +2820,9 @@ TEST(MapHandlerTest, InventoryAndEquipmentSurviveDisconnectAndRelogin) {
                          "WHERE player_id=123 ORDER BY container,slot", no_args, rows).ok());
     ASSERT_EQ(rows.rows.size(), 2u);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 4);
-    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 555);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][2]), 48002);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][1]), 1);
-    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 11000);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[1][2]), 48003);
 }
 
 TEST(MapHandlerTest, LoadedGrantIdDoesNotAdvanceOrdinaryItemAllocatorPastBoundary) {
@@ -6269,10 +6300,24 @@ TEST(EquipmentPersistence, FailedOrMalformedItemReadKeepsExistingOwnedEquipment)
                            "VALUES(123,'1','OwnedHero',1,12,12,12,12)", {}).ok());
     ASSERT_TRUE(db.execute("INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,"
                            "durability,rare_idx,quick_position,item_param) "
-                           "VALUES(123,1,1,700001,11000,100,0,65535,1)", {}).ok());
+                           "VALUES(123,1,1,700001,48004,100,0,65535,1)", {}).ok());
     ReplySpy reply;
     MapHandler handler(db, 10, make_reply_spy(reply));
-    handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    // Invented owned weapon. The fault path nacks before stats, but the row
+    // must still be a catalog entry so a missing load cannot pass.
+    mxh::game::ItemInfo owned{};
+    owned.ItemIdx = 48004;
+    std::memcpy(owned.ItemName, "SynthOwned", 10);
+    owned.ItemKind = 2048;
+    owned.EquipKind = mxh::game::WEARED_WEAPON;
+    owned.WeaponType = 1;
+    owned.MeleeAttackMin = 7;
+    owned.MeleeAttackMax = 13;
+    handler.add_item_info_for_test(owned);
+    mxh::game::ItemInfo installed{};
+    ASSERT_TRUE(handler.item_manager_for_test().try_get(48004u, installed));
+    EXPECT_EQ(installed.ItemIdx, 48004u);
+    EXPECT_EQ(installed.MeleeAttackMin, 7u);
     mxh::net::Message game_in;
     game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -6295,7 +6340,7 @@ TEST(EquipmentPersistence, FailedOrMalformedItemReadKeepsExistingOwnedEquipment)
         EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][0]), 1);
         EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][1]), 1);
         EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][2]), 700001);
-        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][3]), 11000);
+        EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][3]), 48004);
         EXPECT_EQ(std::get<std::int64_t>(persisted.rows[0][4]), 100);
     }
 }
@@ -6311,10 +6356,22 @@ TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutat
                            "VALUES(123,'1','UnsupportedHero',1,12,12,12,12)", {}).ok());
     ASSERT_TRUE(db.execute("INSERT INTO modern_player_item(player_id,container,slot,db_idx,item_idx,"
                            "durability,rare_idx,quick_position,item_param) "
-                           "VALUES(123,1,1,700001,555,100,0,65535,1)", {}).ok());
+                           "VALUES(123,1,1,700001,48005,100,0,65535,1)", {}).ok());
     ReplySpy reply;
     MapHandler handler(db, 10, make_reply_spy(reply));
-    handler.load_item_list((std::filesystem::path(MXH_SOURCE_DIR) / "data/PlayDH/Resource/ItemList.bin").string());
+    // Invented non-equipment row. ItemKind 7 has no equip bit, so wearing it
+    // in the weapon slot is unsupported even though the catalog contains it.
+    mxh::game::ItemInfo junk{};
+    junk.ItemIdx = 48005;
+    std::memcpy(junk.ItemName, "SynthJunk", 9);
+    junk.ItemKind = 7;
+    junk.LifeRecover = 1212;
+    handler.add_item_info_for_test(junk);
+    mxh::game::ItemInfo installed{};
+    ASSERT_TRUE(handler.item_manager_for_test().try_get(48005u, installed));
+    EXPECT_EQ(installed.ItemIdx, 48005u);
+    EXPECT_EQ(installed.ItemKind, 7u);
+    EXPECT_EQ(installed.LifeRecover, 1212u);
     mxh::net::Message game_in;
     game_in.header.object_id = 123;
     game_in.header.category = static_cast<std::uint8_t>(mxh::proto::Category::UserConn);
@@ -6328,7 +6385,7 @@ TEST(EquipmentPersistence, UnsupportedOwnedEquipmentRejectsAdmissionWithoutMutat
     ASSERT_TRUE(db.query("SELECT db_idx,item_idx FROM modern_player_item WHERE player_id=123", {}, rows).ok());
     ASSERT_EQ(rows.rows.size(), 1u);
     EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][0]), 700001);
-    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 555);
+    EXPECT_EQ(std::get<std::int64_t>(rows.rows[0][1]), 48005);
 }
 
 TEST(EquipmentPersistence, ProtocolCreateEquipUnequipRepeatAndRelogin) {
