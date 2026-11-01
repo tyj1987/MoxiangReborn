@@ -38,6 +38,7 @@ workflow:
         - scripts/tests/test-forbidden-rog-ports.ps1
         - scripts/tests/test-deploy-default-map.ps1
         - scripts/tests/test-deploy-client-playdh-root.ps1
+        - scripts/tests/test-deploy-client-serverport.ps1
         - deploy/scripts/start_modern.ps1
         - deploy/scripts/deploy_client.ps1
         - deploy/scripts/deploy_server.ps1
@@ -142,6 +143,7 @@ rog_gate_self_test:
       pwsh -NoProfile -File deploy/scripts/deploy_client.ps1 -SelfTest
       pwsh -NoProfile -File deploy/scripts/deploy_server.ps1 -SelfTest
       pwsh -NoProfile -File scripts/tests/test-deploy-client-playdh-root.ps1
+      pwsh -NoProfile -File scripts/tests/test-deploy-client-serverport.ps1
 
 # cxx_resource_reference_linux
 # Kept in sync with the GitHub job of the same name. Same image digest as

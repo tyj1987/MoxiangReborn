@@ -102,6 +102,8 @@ on:
       - reference/manifests/playdh-external-only.txt
       - modern/data/PlayDH/Resource/CharacterExpPoint.bin
       - scripts/check-client-warnings.py
+      - deploy/scripts/deploy_client.ps1
+      - scripts/tests/test-deploy-client-serverport.ps1
   push:
     branches: [codex/reorg-original-20261009]
     # Existing pull_request paths skip a push that only touches deploy/,
