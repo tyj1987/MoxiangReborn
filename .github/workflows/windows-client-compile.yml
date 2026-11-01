@@ -601,6 +601,29 @@ jobs:
           foreach ($line in $result.Lines) { Write-Host $line }
           exit $result.ExitCode
 
+      # CanonicalMonster10BinSpawnsAllGroups is labeled rog. Listing it and
+      # rerunning the required names with -LE rog must keep that case out
+      # even when the regex names it. MXH_PLAYDH_ROOT stays unset.
+      - name: Show rog label and rerun required tests without it
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path Env:MXH_PLAYDH_ROOT) { Remove-Item Env:MXH_PLAYDH_ROOT }
+          $listed = & ctest --test-dir build-behavior -C Debug -N -L rog | Out-String
+          Write-Host $listed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($listed -notmatch 'MapHandlerTest\.CanonicalMonster10BinSpawnsAllGroups') {
+            throw 'rog label did not register CanonicalMonster10BinSpawnsAllGroups'
+          }
+          $list = Join-Path (Get-Location) 'ci\windows_behavior_tests.txt'
+          . (Join-Path (Get-Location) 'ci\windows_behavior_require.ps1')
+          $entries = @(Get-MxhBehaviorEntries -ListPath $list)
+          $escaped = foreach ($entry in $entries) { [regex]::Escape($entry.Name) }
+          $escaped += [regex]::Escape('MapHandlerTest.CanonicalMonster10BinSpawnsAllGroups')
+          $regex = '^(' + ($escaped -join '|') + ')$'
+          & ctest --test-dir build-behavior -C Debug --output-on-failure -LE rog `
+            --no-tests=error --timeout 180 -R "$regex"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: PlayDH root is required for deploy_client
         if: always()
         run: |
