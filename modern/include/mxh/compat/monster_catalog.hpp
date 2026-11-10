@@ -47,6 +47,8 @@ public:
         std::span<const std::uint8_t> file_bytes);
     [[nodiscard]] const MonsterVisual* find(std::uint16_t kind) const noexcept;
     [[nodiscard]] const std::vector<MonsterVisual>& entries() const noexcept { return entries_; }
+    // Test-only. Keeps entries sorted by kind so find() stays valid.
+    void add_for_test(MonsterVisual visual);
 
 private:
     std::vector<MonsterVisual> entries_;

@@ -9,6 +9,8 @@ param(
     [string]$DeployDir = "",
     [string]$ResourceDir = "",
     [string]$ServerIP = "127.0.0.1",
+    [ValidateRange(1, 65535)]
+    [int]$LoginPort = 16001,
     [ValidateSet('playdh-current', 'sworking-2008-reference')]
     [string]$ResourceProfileId = 'playdh-current',
     [switch]$Help,
@@ -135,7 +137,7 @@ if ($SelfTest) {
 }
 
 if ($Help) {
-    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-DryRun]'
+    Write-Host '用法: .\deploy_client.ps1 [-SourceDir <dir>] [-DeployDir <dir>] [-ResourceDir <dir>] [-ServerIP <ip>] [-LoginPort <port>] [-ResourceProfileId playdh-current|sworking-2008-reference] [-DryRun]'
     Write-Host '说明: 默认执行完整客户端部署；-Help 只显示帮助，-DryRun 只校验资源，不创建或修改任何文件。'
     exit 0
 }
@@ -359,7 +361,7 @@ Write-Host "  生成: MHVerInfo.ver" -ForegroundColor Gray
 $serverList = @"
 [MoxianClient]
 IP=$ServerIP
-Port=9000
+Port=$LoginPort
 "@
 $serverList | Out-File -FilePath "$DeployDir\MHVerInfo.bin" -Encoding UTF8
 Write-Host "  生成: MHVerInfo.bin" -ForegroundColor Gray
@@ -370,7 +372,7 @@ $serverListBin = @"
 Count=1
 Server1_Name=墨香Reborn
 Server1_IP=$ServerIP
-Server1_Port=9000
+Server1_Port=$LoginPort
 Server1_Online=0
 Server1_Max=1000
 Server1_Status=0
@@ -407,7 +409,7 @@ Write-Host "  生成: Ini\GameOption.opt" -ForegroundColor Gray
 $wonuke = @"
 [Network]
 ServerIP=$ServerIP
-ServerPort=9000
+ServerPort=$LoginPort
 "@
 $wonuke | Out-File -FilePath "$DeployDir\Ini\wonuke.ini" -Encoding UTF8
 Write-Host "  生成: Ini\wonuke.ini" -ForegroundColor Gray
@@ -466,7 +468,7 @@ Write-Host "  Sound\              - 音效资源" -ForegroundColor White
 Write-Host "  Data\               - 游戏数据" -ForegroundColor White
 Write-Host "  Ini\                - 配置文件" -ForegroundColor White
 Write-Host ""
-Write-Host "服务器地址: $ServerIP:9000" -ForegroundColor Cyan
+Write-Host "服务器地址: ${ServerIP}:$LoginPort" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "下一步：" -ForegroundColor Yellow
 Write-Host "  1. 确保服务器已启动" -ForegroundColor White
