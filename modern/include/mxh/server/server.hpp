@@ -359,8 +359,20 @@ public:
     void load_monster_list(const std::string& path);
     void load_map_kind_info(const std::string& path);
     bool ordinary_map_verified() const noexcept { return ordinary_map_verified_; }
+    // Test-only. Does not read a resource file. Empty text leaves the map unverified.
+    void install_map_kind_text_for_test(std::string_view text);
+    const std::string& installed_map_kind_text_for_test() const noexcept {
+        return installed_map_kind_text_for_test_;
+    }
     bool has_loaded_monster_list() const noexcept { return monster_catalog_.has_value(); }
     bool has_ai_group_monster_templates(const AiGroupList& groups) const noexcept;
+    void add_monster_visual_for_test(mxh::compat::MonsterVisual visual) {
+        if (!monster_catalog_) monster_catalog_.emplace();
+        monster_catalog_->add_for_test(std::move(visual));
+    }
+    const mxh::compat::MonsterVisual* monster_visual_for_test(std::uint16_t kind) const noexcept {
+        return monster_catalog_ ? monster_catalog_->find(kind) : nullptr;
+    }
     void load_drop_item_list(const std::string& path,
                              std::string_view resource_profile_id);
     void load_experience_curve(const std::string& path);
@@ -455,6 +467,7 @@ public:
 
     // Test-only read-only accessor for skill_manager_.
     const mxh::game::SkillManager& skill_manager_for_test() const noexcept { return skill_manager_; }
+    void add_skill_info_for_test(const mxh::game::SkillInfo& info) { skill_manager_.add(info); }
     const mxh::game::SkillInfo* find_skill(std::uint32_t skill_idx) const;
 
     bool set_player_vitals_for_test(std::uint32_t player_id, std::uint32_t hp, std::uint32_t mp);
@@ -695,6 +708,7 @@ private:
     mxh::db::IDbAdapter& db_;
     std::uint16_t map_num_;
     bool ordinary_map_verified_ = false;
+    std::string installed_map_kind_text_for_test_;
     ReplyFn reply_;
     bool use_legacy_framing_;
 
