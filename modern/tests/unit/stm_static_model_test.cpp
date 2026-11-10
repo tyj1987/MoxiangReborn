@@ -3,6 +3,7 @@
 #include "mxh/compat/stm_static_model.hpp"
 
 #include "../support/handwritten_fixture.hpp"
+#include "../support/rog_playdh.hpp"
 
 #include <gtest/gtest.h>
 
@@ -47,7 +48,7 @@ mxh::test::HandwrittenMesh triangle_mesh(std::string name, std::uint32_t index,
 // Real map 12 static scene. Counts, the byte size, and the collision
 // offset are properties of that file.
 TEST(StmStaticModel, ParsesRealMap12Scene) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "Map.pak";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but Map.pak is missing";
@@ -91,7 +92,7 @@ TEST(StmStaticModel, RejectsTruncatedData) {
 
 // Real sky model stored beside the map scene.
 TEST(StmStaticModel, ParsesRealMap12SkyModel) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "Map.pak";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but Map.pak is missing";
@@ -170,7 +171,7 @@ TEST(StmStaticModel, ParsesSyntheticL001BonesAndPhysique) {
 
 // Real L001 character. Bones and physique must be present in that pack.
 TEST(StmStaticModel, RealL001BonesAndPhysique) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "monster.pak";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but monster.pak is missing";
@@ -200,7 +201,7 @@ TEST(StmStaticModel, RealL001BonesAndPhysique) {
 // Real default male character: the manifest lists five parts and each part
 // has a mesh.
 TEST(StmStaticModel, ParsesEveryDefaultMaleCharacterPart) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "Character.pak";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but Character.pak is missing";

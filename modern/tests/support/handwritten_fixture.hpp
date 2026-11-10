@@ -5,8 +5,6 @@
 // archive. Paks are built in memory and written only under a temp directory
 // created here. This header never opens the repository tree.
 
-#include "playdh_env.hpp"
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -15,18 +13,12 @@
 #include <fstream>
 #include <random>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 namespace mxh::test {
-
-inline std::filesystem::path require_playdh_root() {
-    if (const auto root = playdh_dir_override()) return *root;
-    throw std::runtime_error(std::string(kPlayDhRootEnv) + " is unset");
-}
 
 // Deletes only paths this object created. Never calls remove_all.
 class HandwrittenFixtureDir {

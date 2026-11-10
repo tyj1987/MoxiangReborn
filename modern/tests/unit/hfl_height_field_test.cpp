@@ -2,6 +2,7 @@
 #include "mxh/compat/pack_file.hpp"
 
 #include "../support/handwritten_fixture.hpp"
+#include "../support/rog_playdh.hpp"
 
 #include <gtest/gtest.h>
 
@@ -62,7 +63,7 @@ void expect_hfl(const mxh::compat::HflHeightField& terrain,
 // Real map 12 terrain. Counts and the height span are properties of that
 // file. MXH_PLAYDH_ROOT is the only location.
 TEST(HflHeightField, ParsesRealMap12Terrain) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "Map.pak";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but Map.pak is missing";
@@ -90,7 +91,7 @@ TEST(HflHeightField, ParsesRealMap12Terrain) {
 
 // Recovered loose map 17 terrain. Same rule: the env root or a failure.
 TEST(HflHeightField, ParsesRecoveredMap17LooseTerrain) {
-    const auto root = mxh::test::require_playdh_root();
+    const auto root = mxh::test::require_rog_playdh_root();
     const auto path = root / "Resource" / "Map" / "17.hfl";
     ASSERT_TRUE(std::filesystem::is_regular_file(path))
         << mxh::test::kPlayDhRootEnv << " is set but Resource/Map/17.hfl is missing";
